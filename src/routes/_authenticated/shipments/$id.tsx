@@ -425,6 +425,11 @@ type Item = {
   unit_price_usd: number | null;
   price_currency: string | null;
   fx_rate_used: number | null;
+  customs_match_id: string | null;
+  customs_cost_indicative: number | null;
+  customs_cost_invoice: number | null;
+  final_cost_indicative: number | null;
+  final_cost_invoice: number | null;
 };
 
 function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null }) {
@@ -489,6 +494,21 @@ function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item
           <span>частка {fmtPct(alloc.weightShare)}</span>
         </div>
       )}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        {item.customs_match_id ? (
+          <>
+            <span className="text-muted-foreground">Митниця інд: <b className="text-foreground">{fmtUSD(Number(item.customs_cost_indicative ?? 0))}</b></span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">інв: <b className="text-foreground">{fmtUSD(Number(item.customs_cost_invoice ?? 0))}</b></span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">Інд. собівартість: <b className="text-brand">{fmtUSD(Number(item.final_cost_indicative ?? 0))}/кг</b></span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">Інв. собівартість: <b className="text-brand">{fmtUSD(Number(item.final_cost_invoice ?? 0))}/кг</b></span>
+          </>
+        ) : (
+          <span className="rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-600">Немає в митному довіднику</span>
+        )}
+      </div>
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="col-span-2 space-y-1">
