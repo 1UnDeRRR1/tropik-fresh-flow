@@ -34,6 +34,7 @@ import { Route as AuthenticatedAdminSuppliersRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminQaRouteImport } from './routes/_authenticated/admin/qa'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin/products'
 import { Route as AuthenticatedAdminManagersRouteImport } from './routes/_authenticated/admin/managers'
+import { Route as AuthenticatedAdminLoadingPlanRouteImport } from './routes/_authenticated/admin/loading-plan'
 import { Route as AuthenticatedAdminCustomsRouteImport } from './routes/_authenticated/admin/customs'
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
@@ -177,6 +178,12 @@ const AuthenticatedAdminManagersRoute =
     path: '/managers',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminLoadingPlanRoute =
+  AuthenticatedAdminLoadingPlanRouteImport.update({
+    id: '/loading-plan',
+    path: '/loading-plan',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCustomsRoute =
   AuthenticatedAdminCustomsRouteImport.update({
     id: '/customs',
@@ -216,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
+  '/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
@@ -245,6 +253,7 @@ export interface FileRoutesByTo {
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
+  '/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
@@ -277,6 +286,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/_authenticated/admin/customs': typeof AuthenticatedAdminCustomsRoute
+  '/_authenticated/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/_authenticated/admin/managers': typeof AuthenticatedAdminManagersRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/qa': typeof AuthenticatedAdminQaRoute
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/admin/branches'
     | '/admin/countries'
     | '/admin/customs'
+    | '/admin/loading-plan'
     | '/admin/managers'
     | '/admin/products'
     | '/admin/qa'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/admin/branches'
     | '/admin/countries'
     | '/admin/customs'
+    | '/admin/loading-plan'
     | '/admin/managers'
     | '/admin/products'
     | '/admin/qa'
@@ -369,6 +381,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/countries'
     | '/_authenticated/admin/customs'
+    | '/_authenticated/admin/loading-plan'
     | '/_authenticated/admin/managers'
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/qa'
@@ -568,6 +581,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminManagersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/loading-plan': {
+      id: '/_authenticated/admin/loading-plan'
+      path: '/loading-plan'
+      fullPath: '/admin/loading-plan'
+      preLoaderRoute: typeof AuthenticatedAdminLoadingPlanRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/customs': {
       id: '/_authenticated/admin/customs'
       path: '/customs'
@@ -603,6 +623,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminCountriesRoute: typeof AuthenticatedAdminCountriesRoute
   AuthenticatedAdminCustomsRoute: typeof AuthenticatedAdminCustomsRoute
+  AuthenticatedAdminLoadingPlanRoute: typeof AuthenticatedAdminLoadingPlanRoute
   AuthenticatedAdminManagersRoute: typeof AuthenticatedAdminManagersRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminQaRoute: typeof AuthenticatedAdminQaRoute
@@ -614,6 +635,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminCountriesRoute: AuthenticatedAdminCountriesRoute,
   AuthenticatedAdminCustomsRoute: AuthenticatedAdminCustomsRoute,
+  AuthenticatedAdminLoadingPlanRoute: AuthenticatedAdminLoadingPlanRoute,
   AuthenticatedAdminManagersRoute: AuthenticatedAdminManagersRoute,
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminQaRoute: AuthenticatedAdminQaRoute,

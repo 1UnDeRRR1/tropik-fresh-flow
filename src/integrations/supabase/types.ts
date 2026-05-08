@@ -346,6 +346,45 @@ export type Database = {
         }
         Relationships: []
       }
+      loading_plan: {
+        Row: {
+          caliber: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          planned_pallets: number
+          product_name: string
+          updated_at: string
+        }
+        Insert: {
+          caliber?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          planned_pallets?: number
+          product_name: string
+          updated_at?: string
+        }
+        Update: {
+          caliber?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          planned_pallets?: number
+          product_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null

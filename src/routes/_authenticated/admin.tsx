@@ -11,6 +11,7 @@ const TABS = [
   { to: "/admin/managers", label: "Менеджери" },
   { to: "/admin/suppliers", label: "Постачальники" },
   { to: "/admin/products", label: "Товари" },
+  { to: "/admin/loading-plan", label: "План" },
   { to: "/admin/countries", label: "Логістика" },
   { to: "/admin/customs", label: "Митниця" },
   { to: "/admin/qa", label: "QA" },
