@@ -163,7 +163,7 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
       if (error) toast.error(error.message);
       else {
         dirty.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products", shipment.id] });
+        qc.invalidateQueries({ queryKey: ["shipment-products"] });
       }
     }, 600);
     return () => clearTimeout(t);
