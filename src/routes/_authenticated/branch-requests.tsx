@@ -32,9 +32,9 @@ function BranchRequests() {
             {data.map((r) => (
               <li key={r.id} className="flex items-center justify-between py-3 text-sm">
                 <div>
-                  <div className="font-medium">{r.branch?.name ?? "—"}</div>
+                  <div className="font-medium">Філія · {r.branch_id.slice(0, 8)}</div>
                   <div className="text-xs text-muted-foreground">
-                    {r.shipment?.code ? `Поставка ${r.shipment.code}` : "Без прив'язки"} ·{" "}
+                    {r.shipment_id ? `Поставка · ${r.shipment_id.slice(0, 8)}` : "Без прив'язки"} ·{" "}
                     {new Date(r.created_at).toLocaleDateString("uk-UA")}
                   </div>
                 </div>
