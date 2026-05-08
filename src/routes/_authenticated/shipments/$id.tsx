@@ -123,8 +123,10 @@ type ShipmentRow = {
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const qc = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
   const alloc = allocateTransport(items, totalTransportUsd);
+  const originCountry = toUaCountry(shipment.country) || "—";
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
@@ -134,29 +136,77 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
+  const fmt = (v: number) => (Number(v) || 0).toFixed(2);
   return (
     <SectionCard
-      title="Товари поставки"
+      title="Товари"
       action={
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={addItem}>+ Позиція</Button>
+          <Button size="sm" variant="secondary" onClick={addItem}>+</Button>
           <Link to="/distribution/$shipmentId" params={{ shipmentId }}>
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Розподіл</Button>
           </Link>
         </div>
       }
     >
+      <div className="mb-2 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wide">
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-success" />ІНДИКАТИВ</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-destructive" />ІНВОЙС</span>
+      </div>
       {!items.length ? <EmptyState title="Позицій ще немає" /> : (
-        <div className="space-y-2">
-          {items.map((it) => (
-            <ShipmentItemRow
-              key={it.id}
-              item={it as Item}
-              shipmentId={shipmentId}
-              alloc={alloc.rows[it.id]}
-              shipmentRate={shipment.eur_usd_rate}
-            />
-          ))}
+        <div className="-mx-4 overflow-x-auto px-4">
+          <table className="w-full min-w-[640px] text-[11px] tabular-nums">
+            <thead className="text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="py-1.5 px-1 text-left font-medium">Товар</th>
+                <th className="py-1.5 px-1 text-left font-medium">Сорт</th>
+                <th className="py-1.5 px-1 text-left font-medium">Країна</th>
+                <th className="py-1.5 px-1 text-left font-medium">Калібр</th>
+                <th className="py-1.5 px-1 text-left font-medium">Спец.</th>
+                <th className="py-1.5 px-1 text-right font-medium">Пал.</th>
+                <th className="py-1.5 px-1 text-right font-medium">Собів.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => {
+                const isEd = editingId === it.id;
+                return (
+                  <>
+                    <tr
+                      key={it.id}
+                      onClick={() => setEditingId(isEd ? null : it.id)}
+                      className={cn("cursor-pointer border-b border-border/40 hover:bg-muted/40", isEd && "bg-muted/40")}
+                    >
+                      <td className="py-1.5 px-1 font-medium">{it.product_name}</td>
+                      <td className="py-1.5 px-1 text-muted-foreground">—</td>
+                      <td className="py-1.5 px-1 text-muted-foreground">{originCountry}</td>
+                      <td className="py-1.5 px-1">{it.caliber || "—"}</td>
+                      <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
+                      <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
+                      <td className="py-1.5 px-1 text-right whitespace-nowrap">
+                        <span className="font-semibold text-success">{fmt(Number(it.final_cost_indicative ?? 0))}</span>
+                        <span className="mx-0.5 text-muted-foreground">-</span>
+                        <span className="font-semibold text-destructive">{fmt(Number(it.final_cost_invoice ?? 0))}</span>
+                      </td>
+                    </tr>
+                    {isEd && (
+                      <tr key={it.id + "-ed"}>
+                        <td colSpan={7} className="bg-muted/20 p-2">
+                          <ShipmentItemEditor
+                            item={it}
+                            shipmentId={shipmentId}
+                            alloc={alloc.rows[it.id]}
+                            shipmentRate={shipment.eur_usd_rate}
+                            onClose={() => setEditingId(null)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </SectionCard>
