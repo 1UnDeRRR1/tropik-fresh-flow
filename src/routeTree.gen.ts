@@ -22,6 +22,7 @@ import { Route as AuthenticatedBranchRequestsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedShipmentsIndexRouteImport } from './routes/_authenticated/shipments/index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
 import { Route as AuthenticatedDistributionShipmentIdRouteImport } from './routes/_authenticated/distribution/$shipmentId'
@@ -98,6 +99,11 @@ const AuthenticatedShipmentsIndexRoute =
     path: '/shipments/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedShipmentsNewRoute =
   AuthenticatedShipmentsNewRouteImport.update({
     id: '/shipments/new',
@@ -144,7 +150,7 @@ const AuthenticatedDashboardAdminRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/costs': typeof AuthenticatedCostsRoute
@@ -160,11 +166,11 @@ export interface FileRoutesByFullPath {
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRoute
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/costs': typeof AuthenticatedCostsRoute
@@ -181,13 +187,14 @@ export interface FileRoutesByTo {
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRoute
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/_authenticated/costs': typeof AuthenticatedCostsRoute
@@ -204,6 +211,7 @@ export interface FileRoutesById {
   '/_authenticated/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRoute
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -227,11 +235,11 @@ export interface FileRouteTypes {
     | '/distribution/$shipmentId'
     | '/shipments/$id'
     | '/shipments/new'
+    | '/admin/'
     | '/shipments/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
-    | '/admin'
     | '/analytics'
     | '/branch-requests'
     | '/costs'
@@ -248,6 +256,7 @@ export interface FileRouteTypes {
     | '/distribution/$shipmentId'
     | '/shipments/$id'
     | '/shipments/new'
+    | '/admin'
     | '/shipments'
   id:
     | '__root__'
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/_authenticated/distribution/$shipmentId'
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
+    | '/_authenticated/admin/'
     | '/_authenticated/shipments/'
   fileRoutesById: FileRoutesById
 }
@@ -371,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShipmentsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/shipments/new': {
       id: '/_authenticated/shipments/new'
       path: '/shipments/new'
@@ -423,6 +440,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedDistributionRouteChildren {
   AuthenticatedDistributionShipmentIdRoute: typeof AuthenticatedDistributionShipmentIdRoute
 }
@@ -439,7 +467,7 @@ const AuthenticatedDistributionRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBranchRequestsRoute: typeof AuthenticatedBranchRequestsRoute
   AuthenticatedCostsRoute: typeof AuthenticatedCostsRoute
@@ -459,7 +487,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBranchRequestsRoute: AuthenticatedBranchRequestsRoute,
   AuthenticatedCostsRoute: AuthenticatedCostsRoute,
