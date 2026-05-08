@@ -589,6 +589,7 @@ export type Database = {
           supplier_id: string | null
           total_weight_kg: number | null
           updated_at: string
+          vehicle_id: string | null
         }
         Insert: {
           arrived_at?: string | null
@@ -615,6 +616,7 @@ export type Database = {
           supplier_id?: string | null
           total_weight_kg?: number | null
           updated_at?: string
+          vehicle_id?: string | null
         }
         Update: {
           arrived_at?: string | null
@@ -641,6 +643,7 @@ export type Database = {
           supplier_id?: string | null
           total_weight_kg?: number | null
           updated_at?: string
+          vehicle_id?: string | null
         }
         Relationships: [
           {
@@ -648,6 +651,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
@@ -830,6 +840,63 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicles: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          code: string
+          country: string
+          country_code: string
+          created_at: string
+          created_by: string | null
+          eta: string | null
+          id: string
+          loading_date: string | null
+          logistics_days: number | null
+          sequence_no: number
+          status: Database["public"]["Enums"]["vehicle_status"]
+          total_pallets: number
+          total_weight_kg: number
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          code: string
+          country: string
+          country_code: string
+          created_at?: string
+          created_by?: string | null
+          eta?: string | null
+          id?: string
+          loading_date?: string | null
+          logistics_days?: number | null
+          sequence_no: number
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          total_pallets?: number
+          total_weight_kg?: number
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          code?: string
+          country?: string
+          country_code?: string
+          created_at?: string
+          created_by?: string | null
+          eta?: string | null
+          id?: string
+          loading_date?: string | null
+          logistics_days?: number | null
+          sequence_no?: number
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          total_pallets?: number
+          total_weight_kg?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -848,6 +915,14 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      next_vehicle_sequence: {
+        Args: { p_country_code: string }
+        Returns: number
+      }
+      recompute_vehicle_totals_for: {
+        Args: { _vehicle_id: string }
+        Returns: undefined
+      }
       user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
@@ -875,6 +950,7 @@ export type Database = {
         | "in_transit"
         | "received"
         | "cancelled"
+      vehicle_status: "open" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1029,6 +1105,7 @@ export const Constants = {
         "received",
         "cancelled",
       ],
+      vehicle_status: ["open", "closed"],
     },
   },
 } as const
