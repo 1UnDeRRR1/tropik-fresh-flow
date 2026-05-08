@@ -13,6 +13,7 @@ const TABS = [
   { to: "/admin/products", label: "Товари" },
   { to: "/admin/countries", label: "Логістика" },
   { to: "/admin/customs", label: "Митниця" },
+  { to: "/admin/qa", label: "QA" },
 ] as const;
 
 function AdminLayout() {
