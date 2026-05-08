@@ -97,11 +97,11 @@ function ShipmentDetail() {
         </div>
       </div>
 
-      {tab === "products" && <ProductsTab items={data!.items} shipmentId={id} />}
+      {tab === "products" && <ProductsTab items={data!.items} shipmentId={id} shipment={sh} />}
       {tab === "distribution" && <DistributionTab distributions={data!.distributions} shipmentId={id} />}
       {tab === "requests" && <RequestsTab requests={data!.requests} qc={qc} />}
       {tab === "history" && <HistoryTab changes={data!.changes} />}
-      {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} />}
+      {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} items={data!.items} />}
     </div>
   );
 }
