@@ -106,8 +106,10 @@ function ShipmentDetail() {
   );
 }
 
-function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string }) {
+function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: { logistics_cost: number | null; currency: string | null } }) {
   const qc = useQueryClient();
+  const totalTransport = Number(shipment.logistics_cost ?? 0);
+  const alloc = allocateTransport(items, totalTransport);
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
@@ -130,7 +132,15 @@ function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string 
     >
       {!items.length ? <EmptyState title="Позицій ще немає" /> : (
         <div className="space-y-2">
-          {items.map((it) => <ShipmentItemRow key={it.id} item={it as Item} shipmentId={shipmentId} />)}
+          {items.map((it) => (
+            <ShipmentItemRow
+              key={it.id}
+              item={it as Item}
+              shipmentId={shipmentId}
+              alloc={alloc.rows[it.id]}
+              currency={shipment.currency ?? "EUR"}
+            />
+          ))}
         </div>
       )}
     </SectionCard>
