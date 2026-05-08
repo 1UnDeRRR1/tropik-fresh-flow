@@ -105,7 +105,7 @@ function ShipmentDetail() {
   );
 }
 
-function ProductsTab({ data, shipmentId }: { data: NonNullable<ReturnType<typeof useShipmentData>>; shipmentId: string }) {
+function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string }) {
   const qc = useQueryClient();
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
