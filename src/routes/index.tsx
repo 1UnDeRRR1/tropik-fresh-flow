@@ -18,3 +18,4 @@ function Index() {
   if (!user) return <Navigate to="/login" />;
   return <Navigate to={defaultRoutePerRole(primaryRole)} />;
 }
+// trigger
