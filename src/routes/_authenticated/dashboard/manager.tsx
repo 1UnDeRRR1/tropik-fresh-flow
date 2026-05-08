@@ -1,166 +1,198 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Package, Truck, AlertTriangle, MailQuestion, History, CalendarClock } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
-import { StatusChip } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
-import { toUaCountry } from "@/lib/countries";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
   component: ManagerDashboard,
 });
 
-const ACTIVE = ["draft", "loading", "in_transit", "customs", "arrived", "distributing", "delayed"];
+interface ShipRow {
+  id: string;
+  code: string;
+  eta: string | null;
+  status: string;
+  country: string | null;
+  created_by: string | null;
+  shipment_items: { id: string; product_name: string; caliber: string | null; pallet_count: number | null }[];
+  distributions: { distribution_items: { pallets: number | null }[] | null }[];
+}
+
+interface PlanRow {
+  id: string;
+  product_name: string;
+  caliber: string | null;
+  country: string | null;
+  planned_pallets: number;
+}
 
 function ManagerDashboard() {
-  const { data } = useQuery({
-    queryKey: ["dash-manager"],
-    queryFn: async () => {
-      const now = new Date();
-      const today = now;
-      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const weekEnd = new Date();
-      weekEnd.setDate(today.getDate() + 7);
-      const isoToday = today.toISOString().slice(0, 10);
-      const iso24h = in24h.toISOString().slice(0, 10);
-      const isoWeek = weekEnd.toISOString().slice(0, 10);
+  const { user, profile } = useAuth();
 
-      const [shipments, requests, changes] = await Promise.all([
+  const { data } = useQuery({
+    enabled: !!user?.id,
+    queryKey: ["dash-manager", user?.id],
+    queryFn: async () => {
+      const isoToday = new Date().toISOString().slice(0, 10);
+      const iso24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+      const [shipsRes, requestsRes, planRes, allLoadedRes] = await Promise.all([
         supabase
           .from("shipments")
-          .select("id,code,status,eta,country,suppliers(name,country),shipment_items(pallet_count),distributions(distribution_items(pallets))")
+          .select("id,code,eta,status,country,created_by,shipment_items(id,product_name,caliber,pallet_count),distributions(distribution_items(pallets))")
+          .eq("created_by", user!.id)
           .order("created_at", { ascending: false })
-          .limit(80),
+          .limit(200),
+        supabase.from("branch_requests").select("id").eq("status", "pending"),
         supabase
-          .from("branch_requests")
-          .select("id,status")
-          .eq("status", "pending"),
-        supabase
-          .from("shipment_item_changes")
-          .select("id,field,old_value,new_value,created_at,shipment_id")
-          .order("created_at", { ascending: false })
-          .limit(8),
+          .from("loading_plan")
+          .select("id,product_name,caliber,country,planned_pallets")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+        supabase.from("shipment_items").select("product_name,caliber,pallet_count,shipments(country)"),
       ]);
 
-      const ships = shipments.data ?? [];
-      const active = ships.filter((s) => ACTIVE.includes(s.status));
-      const isIncomplete = (s: typeof ships[number]) => {
-        const fact = (s.shipment_items ?? []).reduce((a: number, it: { pallet_count: number | null }) => a + Number(it.pallet_count ?? 0), 0);
-        const dist = (s.distributions ?? []).reduce(
-          (a: number, d: { distribution_items: { pallets: number | null }[] | null }) =>
-            a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
+      const ships = (shipsRes.data ?? []) as ShipRow[];
+      const plan = (planRes.data ?? []) as PlanRow[];
+      const allLoaded = (allLoadedRes.data ?? []) as Array<{
+        product_name: string;
+        caliber: string | null;
+        pallet_count: number | null;
+        shipments: { country: string | null } | null;
+      }>;
+
+      const stats = ships.map((s) => {
+        const planned = (s.shipment_items ?? []).reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
+        const distributed = (s.distributions ?? []).reduce(
+          (a, d) => a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
           0,
         );
-        return fact === 0 || dist < fact;
-      };
-      const urgent24h = ships.filter(
-        (s) =>
-          s.eta &&
-          s.eta >= isoToday &&
-          s.eta <= iso24h &&
-          !["completed", "cancelled"].includes(s.status) &&
-          isIncomplete(s),
+        return { s, planned, distributed, undistributed: Math.max(0, planned - distributed) };
+      });
+
+      const urgent = stats.filter(
+        (x) => x.s.eta && x.s.eta >= isoToday && x.s.eta <= iso24h && x.undistributed > 0 && !["cancelled"].includes(x.s.status),
       );
-      const delayed = ships.filter((s) => s.status === "delayed" || (s.eta && s.eta < isoToday && !["completed", "cancelled", "distributing"].includes(s.status)));
-      const notDistributed = ships.filter((s) => isIncomplete(s) && !["completed", "cancelled"].includes(s.status) && (s.shipment_items ?? []).length > 0);
+      const distributed = stats.filter((x) => x.distributed > 0);
+      const notDist = stats.filter(
+        (x) => x.undistributed > 0 && (!x.s.eta || x.s.eta > iso24h) && !["cancelled"].includes(x.s.status),
+      );
+
+      const planWithRemaining = plan.map((p) => {
+        const done = allLoaded
+          .filter((it) => {
+            if ((it.product_name ?? "").trim().toLowerCase() !== p.product_name.trim().toLowerCase()) return false;
+            if (p.caliber && (it.caliber ?? "").trim().toLowerCase() !== p.caliber.trim().toLowerCase()) return false;
+            if (p.country && (it.shipments?.country ?? "").trim().toLowerCase() !== p.country.trim().toLowerCase()) return false;
+            return true;
+          })
+          .reduce((a, x) => a + Number(x.pallet_count ?? 0), 0);
+        return { ...p, loaded: done, remaining: Number(p.planned_pallets) - done };
+      });
 
       return {
-        active: active.length,
-        urgent24h: urgent24h.length,
-        notDistributed: notDistributed.length,
-        delayed: delayed.length,
-        requests: requests.data?.length ?? 0,
-        changes: changes.data ?? [],
-        recent: ships.slice(0, 6),
+        urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0) },
+        distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0) },
+        notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0) },
+        requests: requestsRes.data?.length ?? 0,
+        plan: planWithRemaining,
       };
     },
   });
 
+  const fullName = profile?.full_name ?? "Менеджер";
+
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Менеджер імпорту"
-        subtitle="Операційний центр"
+        title={fullName}
+        subtitle="Імпорт-менеджер"
         action={
           <Link to="/shipments/new">
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Поставка
+              <Plus className="mr-1 h-4 w-4" /> Нова поставка
             </Button>
           </Link>
         }
       />
 
       <div className="grid grid-cols-2 gap-3">
-        {(data?.urgent24h ?? 0) > 0 ? (
-          <div className="col-span-2">
-            <StatCard
-              label="24Г ДО ПРИБУТТЯ — НЕ РОЗПОДІЛЕНО"
-              value={data?.urgent24h ?? 0}
-              hint="Терміново розподілити по філіях"
-              icon={<AlertTriangle className="h-5 w-5" />}
-              tone="danger"
-              pulse
-              to="/distribution"
-            />
-          </div>
-        ) : (
+        <div className="col-span-2">
           <StatCard
-            label="24Г до прибуття"
-            value={0}
-            icon={<CalendarClock className="h-4 w-4" />}
-            tone="brand"
+            label="24Г не розподілено"
+            value={`${data?.urgent.ships ?? 0}(${data?.urgent.pallets ?? 0}п)`}
+            hint={(data?.urgent.ships ?? 0) > 0 ? "Терміново розподілити по філіях" : "Все під контролем"}
+            icon={<AlertTriangle className="h-5 w-5" />}
+            tone={(data?.urgent.ships ?? 0) > 0 ? "danger" : "default"}
+            pulse={(data?.urgent.ships ?? 0) > 0}
+            to="/distribution?filter=urgent"
           />
-        )}
-        <StatCard label="Активні" value={data?.active ?? 0} icon={<Package className="h-4 w-4" />} tone="primary" to="/shipments" />
-        <StatCard label="Не розподілено" value={data?.notDistributed ?? 0} icon={<Truck className="h-4 w-4" />} to="/distribution" />
-        <StatCard label="Затримки" value={data?.delayed ?? 0} icon={<AlertTriangle className="h-4 w-4" />} />
-        <StatCard label="Заявки філій" value={data?.requests ?? 0} icon={<MailQuestion className="h-4 w-4" />} to="/branch-requests" />
-        <StatCard label="Зміни" value={data?.changes.length ?? 0} icon={<History className="h-4 w-4" />} />
+        </div>
+
+        <Link to="/distribution" search={{ filter: "distributed" } as never}>
+          <div className="rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div className="mt-2 text-2xl font-black tracking-tight">
+              {data?.distributed.ships ?? 0}
+              <span className="text-base">({data?.distributed.pallets ?? 0}п)</span>
+            </div>
+          </div>
+        </Link>
+
+        <StatCard
+          label="Не розподілено"
+          value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
+          icon={<Package className="h-4 w-4" />}
+          to="/distribution?filter=pending"
+        />
+
+        <div className="col-span-2">
+          <StatCard
+            label="Заявки філій"
+            value={data?.requests ?? 0}
+            icon={<MailQuestion className="h-4 w-4" />}
+            tone="primary"
+            to="/branch-requests"
+          />
+        </div>
       </div>
 
-      <SectionCard
-        title="Останні поставки"
-        action={<Link to="/shipments" className="text-xs font-medium text-brand">Усі</Link>}
-      >
-        {!data?.recent.length ? (
-          <EmptyState title="Поставок ще немає" hint="Натисніть «Поставка», щоб створити першу" />
+      <SectionCard title="План завантажень">
+        {!data?.plan?.length ? (
+          <EmptyState title="План порожній" hint="Адміністратор ще не додав позиції плану" />
         ) : (
           <ul className="divide-y divide-border">
-            {data.recent.map((s) => (
-              <li key={s.id}>
-                <Link to="/shipments/$id" params={{ id: s.id }} className="flex items-center justify-between gap-3 py-3">
+            {data.plan.map((p) => {
+              const done = p.remaining <= 0;
+              return (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{s.code}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {s.suppliers?.name ?? "—"} · {toUaCountry(s.country ?? s.suppliers?.country ?? "")}
+                    <div className="truncate text-sm font-semibold">
+                      {p.product_name}
+                      {p.caliber ? ` ${p.caliber}` : ""}
+                      {p.country ? ` · ${p.country}` : ""}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      план {Number(p.planned_pallets)}п · завантажено {p.loaded}п
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <StatusChip status={s.status} />
-                    <span className="text-[10px] text-muted-foreground">ETA {s.eta ?? "—"}</span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </SectionCard>
-
-      <SectionCard title="Останні зміни">
-        {!data?.changes.length ? (
-          <EmptyState title="Змін немає" />
-        ) : (
-          <ul className="divide-y divide-border text-xs">
-            {data.changes.map((c) => (
-              <li key={c.id} className="flex items-center justify-between py-2">
-                <span className="font-medium">{c.field}</span>
-                <span className="text-muted-foreground">
-                  {c.old_value ?? "—"} → <span className="text-brand font-semibold">{c.new_value ?? "—"}</span>
-                </span>
-              </li>
-            ))}
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                      done ? "bg-emerald-500/15 text-emerald-600" : "bg-brand/15 text-brand"
+                    }`}
+                  >
+                    {done ? "0п" : `${p.remaining}п`}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </SectionCard>
