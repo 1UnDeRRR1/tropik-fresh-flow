@@ -116,6 +116,14 @@ function NewShipment() {
     return toDateInputValue(calcArrivalDate(loadingDate, days));
   }, [mode, selectedVehicle, loadingDate, country, days]);
 
+  // Preview next sequence per country
+  const previewCc = mode === "new" && country ? getCountryCode(country) : "";
+  const { data: previewSeq } = useQuery({
+    queryKey: ["next-vehicle-seq", previewCc],
+    queryFn: () => fetchNextVehicleSequence(previewCc),
+    enabled: !!previewCc,
+  });
+
   // Auto-generate code preview
   useEffect(() => {
     if (codeOverride) return;
@@ -124,12 +132,12 @@ function NewShipment() {
       setCode(formatShipmentCode(selectedVehicle.code, supplierCode));
     } else if (mode === "new" && country && supplierCode) {
       const cc = getCountryCode(country);
-      // Preview uses placeholder ?? — actual sequence resolved at submit
-      setCode(formatShipmentCode(`${cc}··`, supplierCode));
+      const seqStr = previewSeq ? String(previewSeq).padStart(2, "0") : "··";
+      setCode(formatShipmentCode(`${cc}${seqStr}`, supplierCode));
     } else {
       setCode("");
     }
-  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride]);
+  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
