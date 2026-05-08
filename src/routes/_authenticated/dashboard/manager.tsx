@@ -120,21 +120,19 @@ function ManagerDashboard() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
-          <StatCard
-            label="24Г не розподілено"
-            value={`${data?.urgent.ships ?? 0}(${data?.urgent.pallets ?? 0}п)`}
-            hint={(data?.urgent.ships ?? 0) > 0 ? "Терміново розподілити по філіях" : "Все під контролем"}
-            icon={<AlertTriangle className="h-5 w-5" />}
-            tone={(data?.urgent.ships ?? 0) > 0 ? "danger" : "default"}
-            pulse={(data?.urgent.ships ?? 0) > 0}
-            to="/distribution"
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-3 [&>a]:block [&>a>div]:h-full [&>div]:h-full">
+        <StatCard
+          label="24Г не розподілено"
+          value={`${data?.urgent.ships ?? 0}(${data?.urgent.pallets ?? 0}п)`}
+          hint={(data?.urgent.ships ?? 0) > 0 ? "Терміново розподілити" : "Все під контролем"}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone={(data?.urgent.ships ?? 0) > 0 ? "danger" : "default"}
+          pulse={(data?.urgent.ships ?? 0) > 0}
+          to="/distribution"
+        />
 
         <Link to="/distribution">
-          <div className="rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
+          <div className="h-full rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
               <CheckCircle2 className="h-5 w-5" />
@@ -143,25 +141,26 @@ function ManagerDashboard() {
               {data?.distributed.ships ?? 0}
               <span className="text-base">({data?.distributed.pallets ?? 0}п)</span>
             </div>
+            <div className="mt-1 text-xs opacity-80">Розподілені палети</div>
           </div>
         </Link>
 
         <StatCard
           label="Не розподілено"
           value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
+          hint="Очікують розподілу"
           icon={<Package className="h-4 w-4" />}
           to="/distribution"
         />
 
-        <div className="col-span-2">
-          <StatCard
-            label="Заявки філій"
-            value={data?.requests ?? 0}
-            icon={<MailQuestion className="h-4 w-4" />}
-            tone="primary"
-            to="/branch-requests"
-          />
-        </div>
+        <StatCard
+          label="Заявки філій"
+          value={data?.requests ?? 0}
+          hint="Запити від філій"
+          icon={<MailQuestion className="h-4 w-4" />}
+          tone="primary"
+          to="/branch-requests"
+        />
       </div>
 
       <SectionCard title="План завантажень">
