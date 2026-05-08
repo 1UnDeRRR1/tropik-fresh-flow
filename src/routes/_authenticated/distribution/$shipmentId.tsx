@@ -298,12 +298,9 @@ function DistributionMatrix() {
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <input
-                          type="number"
-                          min={0}
-                          inputMode="numeric"
+                        <CellInput
                           value={v}
-                          onChange={(e) => setCell(it.id, b.id, Number(e.target.value) || 0)}
+                          onChange={(n) => setCell(it.id, b.id, n)}
                           className="h-8 w-14 rounded-md border border-input bg-background px-1 text-center text-sm tabular-nums focus:border-brand focus:outline-none"
                         />
                         <button
