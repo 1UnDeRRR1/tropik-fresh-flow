@@ -253,7 +253,7 @@ function LogisticsTab({ shipment, shipmentId, qc }: { shipment: { status: string
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
   const setStatus = async (status: string) => {
-    const { error } = await supabase.from("shipments").update({ status }).eq("id", shipmentId);
+    const { error } = await supabase.from("shipments").update({ status: status as "arrived" }).eq("id", shipmentId);
     if (error) return toast.error(error.message);
     toast.success("Статус оновлено");
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
