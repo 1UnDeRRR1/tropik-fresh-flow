@@ -93,9 +93,28 @@ function ManagerDashboard() {
       />
 
       <div className="grid grid-cols-2 gap-3">
+        {(data?.urgent24h ?? 0) > 0 ? (
+          <div className="col-span-2">
+            <StatCard
+              label="24Г ДО ПРИБУТТЯ — НЕ РОЗПОДІЛЕНО"
+              value={data?.urgent24h ?? 0}
+              hint="Терміново розподілити по філіях"
+              icon={<AlertTriangle className="h-5 w-5" />}
+              tone="danger"
+              pulse
+              to="/distribution"
+            />
+          </div>
+        ) : (
+          <StatCard
+            label="24Г до прибуття"
+            value={0}
+            icon={<CalendarClock className="h-4 w-4" />}
+            tone="brand"
+          />
+        )}
         <StatCard label="Активні" value={data?.active ?? 0} icon={<Package className="h-4 w-4" />} tone="primary" to="/shipments" />
-        <StatCard label="Прибуває за тиждень" value={data?.arrivingWeek ?? 0} icon={<CalendarClock className="h-4 w-4" />} tone="brand" />
-        <StatCard label="Не розподілено" value={data?.notDistributed ?? 0} icon={<Truck className="h-4 w-4" />} />
+        <StatCard label="Не розподілено" value={data?.notDistributed ?? 0} icon={<Truck className="h-4 w-4" />} to="/distribution" />
         <StatCard label="Затримки" value={data?.delayed ?? 0} icon={<AlertTriangle className="h-4 w-4" />} />
         <StatCard label="Заявки філій" value={data?.requests ?? 0} icon={<MailQuestion className="h-4 w-4" />} to="/branch-requests" />
         <StatCard label="Зміни" value={data?.changes.length ?? 0} icon={<History className="h-4 w-4" />} />
