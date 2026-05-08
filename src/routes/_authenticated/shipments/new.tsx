@@ -67,16 +67,18 @@ function NewShipment() {
   const [vehicleOpen, setVehicleOpen] = useState(false);
 
   const { data: suppliers } = useQuery({
-    queryKey: ["suppliers-select"],
+    queryKey: ["suppliers-select", user?.id],
+    enabled: !loading && !!user && isStaff,
     queryFn: async () => {
-      const { data } = await supabase.from("suppliers").select("id,name,country").order("name");
+      const { data, error } = await supabase.from("suppliers").select("id,name,country").order("name");
+      if (error) throw error;
       return data ?? [];
     },
   });
 
   const { data: openVehicles } = useQuery({
-    queryKey: ["open-vehicles", country],
-    enabled: isStaff,
+    queryKey: ["open-vehicles", user?.id, country],
+    enabled: !loading && !!user && isStaff,
     queryFn: async () => {
       let q = supabase
         .from("vehicles" as never)
@@ -119,9 +121,9 @@ function NewShipment() {
   // Preview next sequence per country
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
   const { data: previewSeq } = useQuery({
-    queryKey: ["next-vehicle-seq", previewCc],
+    queryKey: ["next-vehicle-seq", user?.id, previewCc],
     queryFn: () => fetchNextVehicleSequence(previewCc),
-    enabled: !!previewCc,
+    enabled: !loading && !!user && isStaff && !!previewCc,
   });
 
   // Auto-generate code preview
