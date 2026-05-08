@@ -486,7 +486,6 @@ type Item = {
 
 function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null; onClose: () => void }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
   const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
   const [form, setForm] = useState({
     product_name: item.product_name,
@@ -499,6 +498,7 @@ function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: 
   });
   const totalKg = Number(form.pallet_count) * Number(form.pallet_weight);
   const previewUsd = convertToUsd(Number(form.unit_price), form.price_currency, shipmentRate);
+  void alloc;
   const save = async () => {
     const { error } = await supabase.from("shipment_items").update({
       product_name: form.product_name, caliber: form.caliber || null,
@@ -510,7 +510,7 @@ function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: 
     if (error) return toast.error(error.message);
     toast.success("Збережено");
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-    setOpen(false);
+    onClose();
   };
   const remove = async () => {
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
@@ -518,113 +518,47 @@ function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: 
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
-  const savedCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
-  const [showDetails, setShowDetails] = useState(false);
   return (
-    <div className="rounded-xl border border-border bg-background/50 p-3">
-      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold truncate">
-            {item.product_name}
-            {item.caliber && <span className="ml-1 text-muted-foreground">·{item.caliber}</span>}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {Number(item.pallet_count ?? 0)} пал. × {Number(item.pallet_weight ?? 0)} кг
-          </div>
+    <div className="grid grid-cols-2 gap-2 text-sm">
+      <div className="col-span-2 space-y-1">
+        <Label className="text-xs">Назва товару</Label>
+        <Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
+      </div>
+      <div className="space-y-1"><Label className="text-xs">Калібр</Label>
+        <Input value={form.caliber} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
+      <div className="space-y-1"><Label className="text-xs">Палет</Label>
+        <Input type="number" value={form.pallet_count} onChange={(e) => setForm({ ...form, pallet_count: Number(e.target.value) })} /></div>
+      <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
+        <Input type="number" value={form.pallet_weight} onChange={(e) => setForm({ ...form, pallet_weight: Number(e.target.value) })} /></div>
+      <div className="col-span-2 space-y-1">
+        <Label className="text-xs">Ціна постачальника</Label>
+        <div className="flex gap-2">
+          <Input type="number" step="0.01" className="flex-1" value={form.unit_price}
+            onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })} />
+          <select
+            value={form.price_currency}
+            onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
-        <span className="text-xs font-medium text-brand shrink-0">{open ? "Згорнути" : "Редагувати"}</span>
-      </button>
-
-      {/* Compact operational summary — what import manager needs at a glance */}
-      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-        <div className="rounded-md bg-secondary/50 px-2 py-1.5">
-          <div className="text-muted-foreground">Інд. собівартість</div>
-          <div className="font-semibold text-brand">{fmtUSD(Number(item.final_cost_indicative ?? 0))}/кг</div>
-        </div>
-        <div className="rounded-md bg-secondary/50 px-2 py-1.5">
-          <div className="text-muted-foreground">Інв. собівартість</div>
-          <div className="font-semibold text-brand">{fmtUSD(Number(item.final_cost_invoice ?? 0))}/кг</div>
+        <p className="text-[11px] text-muted-foreground">
+          {form.price_currency === "EUR"
+            ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ {fmtRate(shipmentRate)}</>
+            : <>USD</>}
+        </p>
+      </div>
+      <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна</Label>
+        <Input type="number" step="0.01" value={form.indicative_price} onChange={(e) => setForm({ ...form, indicative_price: Number(e.target.value) })} /></div>
+      <div className="col-span-2 flex items-center justify-between pt-1">
+        <span className="text-xs text-muted-foreground">{totalKg} кг</span>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={remove} className="text-destructive">Видалити</Button>
+          <Button size="sm" variant="secondary" onClick={onClose}>Закрити</Button>
+          <Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
         </div>
       </div>
-
-      {!item.customs_match_id && (
-        <div className="mt-2 inline-block rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600">
-          Немає в митному довіднику
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => setShowDetails((s) => !s)}
-        className="mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-      >
-        {showDetails ? "Сховати деталі розрахунку" : "Деталі розрахунку"}
-      </button>
-      {showDetails && (
-        <div className="mt-2 space-y-1 rounded-md bg-secondary/30 p-2 text-[11px] text-muted-foreground">
-          <div>
-            Ціна: <b className="text-foreground">{fmtMoneyByCurrency(Number(item.unit_price ?? 0), savedCurrency)}</b>
-            {savedCurrency === "EUR" && (
-              <> · ≈ <b className="text-foreground">{fmtUSD(Number(item.unit_price_usd ?? 0))}</b> @ {fmtRate(item.fx_rate_used)}</>
-            )}
-          </div>
-          {alloc && (
-            <div>
-              Транспорт: <b className="text-foreground">{fmtUSD(alloc.allocatedTransportCost)}</b>
-              {" · "}{fmtUSD(alloc.transportCostPerKg)}/кг
-              {" · "}частка {fmtPct(alloc.weightShare)}
-            </div>
-          )}
-          {item.customs_match_id && (
-            <div>
-              Митниця: інд <b className="text-foreground">{fmtUSD(Number(item.customs_cost_indicative ?? 0))}</b>
-              {" · "}інв <b className="text-foreground">{fmtUSD(Number(item.customs_cost_invoice ?? 0))}</b>
-            </div>
-          )}
-        </div>
-      )}
-      {open && (
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs">Назва товару</Label>
-            <Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
-          </div>
-          <div className="space-y-1"><Label className="text-xs">Калібр</Label>
-            <Input value={form.caliber} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
-          <div className="space-y-1"><Label className="text-xs">Палет</Label>
-            <Input type="number" value={form.pallet_count} onChange={(e) => setForm({ ...form, pallet_count: Number(e.target.value) })} /></div>
-          <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
-            <Input type="number" value={form.pallet_weight} onChange={(e) => setForm({ ...form, pallet_weight: Number(e.target.value) })} /></div>
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs">Ціна постачальника</Label>
-            <div className="flex gap-2">
-              <Input type="number" step="0.01" className="flex-1" value={form.unit_price}
-                onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })} />
-              <select
-                value={form.price_currency}
-                onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {form.price_currency === "EUR"
-                ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ курс {fmtRate(shipmentRate)}</>
-                : <>USD — конверсія не потрібна</>}
-            </p>
-          </div>
-          <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна (для філій)</Label>
-            <Input type="number" step="0.01" value={form.indicative_price} onChange={(e) => setForm({ ...form, indicative_price: Number(e.target.value) })} /></div>
-          <div className="col-span-2 flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">Загальна вага: {totalKg} кг</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={remove} className="text-destructive">Видалити</Button>
-              <Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
