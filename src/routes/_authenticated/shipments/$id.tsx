@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
+import { allocateTransport, fmtMoney, fmtKg, fmtPct } from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: ShipmentDetail,
@@ -96,17 +97,19 @@ function ShipmentDetail() {
         </div>
       </div>
 
-      {tab === "products" && <ProductsTab items={data!.items} shipmentId={id} />}
+      {tab === "products" && <ProductsTab items={data!.items} shipmentId={id} shipment={sh} />}
       {tab === "distribution" && <DistributionTab distributions={data!.distributions} shipmentId={id} />}
       {tab === "requests" && <RequestsTab requests={data!.requests} qc={qc} />}
       {tab === "history" && <HistoryTab changes={data!.changes} />}
-      {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} />}
+      {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} items={data!.items} />}
     </div>
   );
 }
 
-function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string }) {
+function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: { logistics_cost: number | null; currency: string | null } }) {
   const qc = useQueryClient();
+  const totalTransport = Number(shipment.logistics_cost ?? 0);
+  const alloc = allocateTransport(items, totalTransport);
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
@@ -129,7 +132,15 @@ function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string 
     >
       {!items.length ? <EmptyState title="Позицій ще немає" /> : (
         <div className="space-y-2">
-          {items.map((it) => <ShipmentItemRow key={it.id} item={it as Item} shipmentId={shipmentId} />)}
+          {items.map((it) => (
+            <ShipmentItemRow
+              key={it.id}
+              item={it as Item}
+              shipmentId={shipmentId}
+              alloc={alloc.rows[it.id]}
+              currency={shipment.currency ?? "EUR"}
+            />
+          ))}
         </div>
       )}
     </SectionCard>
@@ -236,7 +247,7 @@ function HistoryTab({ changes }: { changes: { id: string; field: string; old_val
   );
 }
 
-function LogisticsTab({ shipment, shipmentId, qc }: { shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null }; shipmentId: string; qc: ReturnType<typeof useQueryClient> }) {
+function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null; logistics_cost: number | null; currency: string | null }; shipmentId: string; qc: ReturnType<typeof useQueryClient>; items: Item[] }) {
   const [eta, setEta] = useState<string>("");
   const etaLocked = DISTRIBUTION_LOCKED_STATUSES.has(shipment.status);
   const currentEta = eta || shipment.eta || "";
@@ -259,6 +270,18 @@ function LogisticsTab({ shipment, shipmentId, qc }: { shipment: { status: string
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
+  const currency = shipment.currency ?? "EUR";
+  const [transport, setTransport] = useState<string>("");
+  const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport);
+  const alloc = allocateTransport(items, totalTransport);
+  const saveTransport = async () => {
+    const { error } = await supabase.from("shipments").update({ logistics_cost: totalTransport }).eq("id", shipmentId);
+    if (error) return toast.error(error.message);
+    toast.success("Транспортні витрати збережено");
+    setTransport("");
+    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+  };
+
   return (
     <div className="space-y-4">
       <SectionCard title="Дата прибуття">
@@ -272,6 +295,58 @@ function LogisticsTab({ shipment, shipmentId, qc }: { shipment: { status: string
           <p className="text-xs text-muted-foreground">
             Завантаження: {shipment.loading_date ?? "—"} · Країна: {shipment.country ?? "—"} · Дні: {shipment.logistics_days ?? "—"}
           </p>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Транспортні витрати — розподіл по товарах">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту ({currency})</Label>
+            <div className="flex gap-2">
+              <Input id="transport" type="number" step="0.01" inputMode="decimal"
+                value={transport === "" ? String(shipment.logistics_cost ?? 0) : transport}
+                onChange={(e) => setTransport(e.target.value)} />
+              <Button type="button" onClick={saveTransport} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Розподіл пропорційно до фактичної ваги товару. Митні витрати рахуються окремим модулем.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <StatCard label="Загальна вага" value={fmtKg(alloc.shipmentTotalWeight)} />
+            <StatCard label="Транспорт всього" value={fmtMoney(totalTransport, currency)} tone="brand" />
+          </div>
+
+          {!items.length ? <EmptyState title="Додайте позиції щоб побачити розподіл" /> : (
+            <div className="-mx-4 overflow-x-auto px-4">
+              <table className="w-full min-w-[520px] text-xs">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b border-border">
+                    <th className="py-2 text-left font-medium">Товар</th>
+                    <th className="py-2 text-right font-medium">Вага</th>
+                    <th className="py-2 text-right font-medium">Частка</th>
+                    <th className="py-2 text-right font-medium">Транспорт</th>
+                    <th className="py-2 text-right font-medium">€/кг</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it) => {
+                    const r = alloc.rows[it.id];
+                    return (
+                      <tr key={it.id} className="border-b border-border/50">
+                        <td className="py-2 pr-2 font-medium">{it.product_name}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtKg(r.productTotalWeight)}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtPct(r.weightShare)}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtMoney(r.allocatedTransportCost, currency)}</td>
+                        <td className="py-2 text-right tabular-nums text-brand">{fmtMoney(r.transportCostPerKg, currency)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </SectionCard>
 
@@ -318,7 +393,7 @@ type Item = {
   qty: number;
 };
 
-function ShipmentItemRow({ item, shipmentId }: { item: Item; shipmentId: string }) {
+function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; currency: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -360,6 +435,15 @@ function ShipmentItemRow({ item, shipmentId }: { item: Item; shipmentId: string 
         </div>
         <span className="text-xs font-medium text-brand">{open ? "Згорнути" : "Редагувати"}</span>
       </button>
+      {alloc && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <span>Транспорт: <b className="text-foreground">{fmtMoney(alloc.allocatedTransportCost, currency)}</b></span>
+          <span>·</span>
+          <span>{fmtMoney(alloc.transportCostPerKg, currency)}/кг</span>
+          <span>·</span>
+          <span>частка {fmtPct(alloc.weightShare)}</span>
+        </div>
+      )}
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="col-span-2 space-y-1">
