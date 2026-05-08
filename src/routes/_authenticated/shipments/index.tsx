@@ -75,6 +75,8 @@ function ShipmentsList() {
         }
       />
 
+      {isStaff && <OpenVehiclesBlock />}
+
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="flex gap-2 pb-1">
           <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>Усі</FilterPill>
