@@ -126,7 +126,7 @@ function ManagerDashboard() {
           value={`${data?.urgent.ships ?? 0}(${data?.urgent.pallets ?? 0}п)`}
           hint={(data?.urgent.ships ?? 0) > 0 ? "Терміново розподілити" : "Все під контролем"}
           icon={<AlertTriangle className="h-5 w-5" />}
-          tone={(data?.urgent.ships ?? 0) > 0 ? "danger" : "default"}
+          tone="danger"
           pulse={(data?.urgent.ships ?? 0) > 0}
           to="/distribution"
         />
