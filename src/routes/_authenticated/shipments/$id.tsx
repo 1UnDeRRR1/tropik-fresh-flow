@@ -247,7 +247,7 @@ function HistoryTab({ changes }: { changes: { id: string; field: string; old_val
   );
 }
 
-function LogisticsTab({ shipment, shipmentId, qc }: { shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null }; shipmentId: string; qc: ReturnType<typeof useQueryClient> }) {
+function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null; logistics_cost: number | null; currency: string | null }; shipmentId: string; qc: ReturnType<typeof useQueryClient>; items: Item[] }) {
   const [eta, setEta] = useState<string>("");
   const etaLocked = DISTRIBUTION_LOCKED_STATUSES.has(shipment.status);
   const currentEta = eta || shipment.eta || "";
