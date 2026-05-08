@@ -78,10 +78,9 @@ function ProductsFullscreen() {
       price_currency: "EUR",
       pallet_count: 0,
       pallet_weight: 0,
-      cost_price_usd: 0,
     });
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", id] });
+    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
   };
 
   return (
