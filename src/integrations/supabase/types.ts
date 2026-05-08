@@ -83,8 +83,10 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          code: string | null
           created_at: string
           id: string
+          is_active: boolean
           manager_name: string | null
           name: string
           phone: string | null
@@ -93,8 +95,10 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          code?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           manager_name?: string | null
           name: string
           phone?: string | null
@@ -103,12 +107,41 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          code?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           manager_name?: string | null
           name?: string
           phone?: string | null
           sort_order?: number | null
+        }
+        Relationships: []
+      }
+      country_logistics: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          logistics_days: number
+          updated_at: string
+          weekend_adjustment: boolean
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          id?: string
+          logistics_days?: number
+          updated_at?: string
+          weekend_adjustment?: boolean
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          logistics_days?: number
+          updated_at?: string
+          weekend_adjustment?: boolean
         }
         Relationships: []
       }
@@ -202,6 +235,36 @@ export type Database = {
           },
         ]
       }
+      import_managers: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -232,6 +295,36 @@ export type Database = {
           title?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category: string | null
+          created_at: string
+          default_pallet_weight: number | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          default_pallet_weight?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          default_pallet_weight?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -449,6 +542,8 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          import_manager_id: string | null
+          is_active: boolean
           name: string
           notes: string | null
           phone: string | null
@@ -460,6 +555,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          import_manager_id?: string | null
+          is_active?: boolean
           name: string
           notes?: string | null
           phone?: string | null
@@ -471,12 +568,22 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          import_manager_id?: string | null
+          is_active?: boolean
           name?: string
           notes?: string | null
           phone?: string | null
           rating?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_import_manager_id_fkey"
+            columns: ["import_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transfer_request_items: {
         Row: {
@@ -618,6 +725,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
