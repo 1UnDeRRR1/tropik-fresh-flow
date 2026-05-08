@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
-import { allocateTransport, fmtMoney, fmtKg, fmtPct } from "@/lib/transport";
+import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
+import { CURRENCIES, type Currency, fmtUSD, fmtMoneyByCurrency, fmtRate, convertToUsd } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: ShipmentDetail,
@@ -106,14 +107,28 @@ function ShipmentDetail() {
   );
 }
 
-function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: { logistics_cost: number | null; currency: string | null } }) {
+type ShipmentRow = {
+  status: string;
+  eta: string | null;
+  loading_date: string | null;
+  logistics_days: number | null;
+  country: string | null;
+  logistics_cost: number | null;
+  logistics_cost_usd: number | null;
+  logistics_cost_currency: string | null;
+  eur_usd_rate: number | null;
+  eur_usd_rate_date: string | null;
+};
+
+function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const qc = useQueryClient();
-  const totalTransport = Number(shipment.logistics_cost ?? 0);
-  const alloc = allocateTransport(items, totalTransport);
+  const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
+  const alloc = allocateTransport(items, totalTransportUsd);
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
-      unit_price: 0, pallet_count: 0, pallet_weight: 0, invoice_price: 0, indicative_price: 0,
+      unit_price: 0, price_currency: "EUR",
+      pallet_count: 0, pallet_weight: 0, invoice_price: 0, indicative_price: 0,
     });
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
@@ -138,7 +153,7 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
               item={it as Item}
               shipmentId={shipmentId}
               alloc={alloc.rows[it.id]}
-              currency={shipment.currency ?? "EUR"}
+              shipmentRate={shipment.eur_usd_rate}
             />
           ))}
         </div>
@@ -247,7 +262,7 @@ function HistoryTab({ changes }: { changes: { id: string; field: string; old_val
   );
 }
 
-function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null; logistics_cost: number | null; currency: string | null }; shipmentId: string; qc: ReturnType<typeof useQueryClient>; items: Item[] }) {
+function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentRow; shipmentId: string; qc: ReturnType<typeof useQueryClient>; items: Item[] }) {
   const [eta, setEta] = useState<string>("");
   const etaLocked = DISTRIBUTION_LOCKED_STATUSES.has(shipment.status);
   const currentEta = eta || shipment.eta || "";
@@ -270,12 +285,17 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status:
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
-  const currency = shipment.currency ?? "EUR";
+  const savedCurrency = (shipment.logistics_cost_currency as Currency) ?? "EUR";
+  const [transportCurrency, setTransportCurrency] = useState<Currency>(savedCurrency);
   const [transport, setTransport] = useState<string>("");
   const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport);
-  const alloc = allocateTransport(items, totalTransport);
+  const totalTransportUsd = convertToUsd(totalTransport, transportCurrency, shipment.eur_usd_rate);
+  const alloc = allocateTransport(items, totalTransportUsd);
   const saveTransport = async () => {
-    const { error } = await supabase.from("shipments").update({ logistics_cost: totalTransport }).eq("id", shipmentId);
+    const { error } = await supabase.from("shipments").update({
+      logistics_cost: totalTransport,
+      logistics_cost_currency: transportCurrency,
+    }).eq("id", shipmentId);
     if (error) return toast.error(error.message);
     toast.success("Транспортні витрати збережено");
     setTransport("");
@@ -301,21 +321,31 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status:
       <SectionCard title="Транспортні витрати — розподіл по товарах">
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту ({currency})</Label>
+            <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту</Label>
             <div className="flex gap-2">
-              <Input id="transport" type="number" step="0.01" inputMode="decimal"
+              <Input id="transport" type="number" step="0.01" inputMode="decimal" className="flex-1"
                 value={transport === "" ? String(shipment.logistics_cost ?? 0) : transport}
                 onChange={(e) => setTransport(e.target.value)} />
+              <select
+                value={transportCurrency}
+                onChange={(e) => setTransportCurrency(e.target.value as Currency)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
               <Button type="button" onClick={saveTransport} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Розподіл пропорційно до фактичної ваги товару. Митні витрати рахуються окремим модулем.
+              {transportCurrency === "EUR"
+                ? <>Курс EUR/USD: <b>{fmtRate(shipment.eur_usd_rate)}</b>{shipment.eur_usd_rate_date ? ` (${shipment.eur_usd_rate_date})` : ""} · конверт.: <b className="text-foreground">{fmtUSD(totalTransportUsd)}</b></>
+                : <>Базова валоюта обліку — USD</>}
+              {" "}· Розподіл пропорційно до фактичної ваги товару. Митні витрати — окремий модуль.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <StatCard label="Загальна вага" value={fmtKg(alloc.shipmentTotalWeight)} />
-            <StatCard label="Транспорт всього" value={fmtMoney(totalTransport, currency)} tone="brand" />
+            <StatCard label="Транспорт всього" value={fmtUSD(totalTransportUsd)} tone="brand" />
           </div>
 
           {!items.length ? <EmptyState title="Додайте позиції щоб побачити розподіл" /> : (
@@ -327,7 +357,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status:
                     <th className="py-2 text-right font-medium">Вага</th>
                     <th className="py-2 text-right font-medium">Частка</th>
                     <th className="py-2 text-right font-medium">Транспорт</th>
-                    <th className="py-2 text-right font-medium">€/кг</th>
+                    <th className="py-2 text-right font-medium">$/кг</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -338,8 +368,8 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status:
                         <td className="py-2 pr-2 font-medium">{it.product_name}</td>
                         <td className="py-2 text-right tabular-nums">{fmtKg(r.productTotalWeight)}</td>
                         <td className="py-2 text-right tabular-nums">{fmtPct(r.weightShare)}</td>
-                        <td className="py-2 text-right tabular-nums">{fmtMoney(r.allocatedTransportCost, currency)}</td>
-                        <td className="py-2 text-right tabular-nums text-brand">{fmtMoney(r.transportCostPerKg, currency)}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtUSD(r.allocatedTransportCost)}</td>
+                        <td className="py-2 text-right tabular-nums text-brand">{fmtUSD(r.transportCostPerKg)}</td>
                       </tr>
                     );
                   })}
@@ -391,26 +421,34 @@ type Item = {
   invoice_price: number | null;
   indicative_price: number | null;
   qty: number;
+  unit_price: number | null;
+  unit_price_usd: number | null;
+  price_currency: string | null;
+  fx_rate_used: number | null;
 };
 
-function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; currency: string }) {
+function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
   const [form, setForm] = useState({
     product_name: item.product_name,
     caliber: item.caliber ?? "",
     pallet_count: item.pallet_count ?? 0,
     pallet_weight: item.pallet_weight ?? 0,
-    invoice_price: item.invoice_price ?? 0,
+    unit_price: item.unit_price ?? item.invoice_price ?? 0,
     indicative_price: item.indicative_price ?? 0,
+    price_currency: initialCurrency,
   });
   const totalKg = Number(form.pallet_count) * Number(form.pallet_weight);
+  const previewUsd = convertToUsd(Number(form.unit_price), form.price_currency, shipmentRate);
   const save = async () => {
     const { error } = await supabase.from("shipment_items").update({
       product_name: form.product_name, caliber: form.caliber || null,
       pallet_count: Number(form.pallet_count), pallet_weight: Number(form.pallet_weight),
-      invoice_price: Number(form.invoice_price), indicative_price: Number(form.indicative_price),
-      qty: totalKg, unit_price: Number(form.invoice_price),
+      invoice_price: Number(form.unit_price), indicative_price: Number(form.indicative_price),
+      qty: totalKg, unit_price: Number(form.unit_price),
+      price_currency: form.price_currency,
     }).eq("id", item.id);
     if (error) return toast.error(error.message);
     toast.success("Збережено");
@@ -423,6 +461,7 @@ function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; sh
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
+  const savedCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
   return (
     <div className="rounded-xl border border-border bg-background/50 p-3">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
@@ -432,14 +471,20 @@ function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; sh
             {item.caliber ? `Калібр ${item.caliber} · ` : ""}
             {Number(item.pallet_count ?? 0)} пал. × {Number(item.pallet_weight ?? 0)} кг
           </div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            Ціна: <b className="text-foreground">{fmtMoneyByCurrency(Number(item.unit_price ?? 0), savedCurrency)}</b>
+            {savedCurrency === "EUR" && (
+              <> · ≈ <b className="text-foreground">{fmtUSD(Number(item.unit_price_usd ?? 0))}</b> @ {fmtRate(item.fx_rate_used)}</>
+            )}
+          </div>
         </div>
         <span className="text-xs font-medium text-brand">{open ? "Згорнути" : "Редагувати"}</span>
       </button>
       {alloc && (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          <span>Транспорт: <b className="text-foreground">{fmtMoney(alloc.allocatedTransportCost, currency)}</b></span>
+          <span>Транспорт: <b className="text-foreground">{fmtUSD(alloc.allocatedTransportCost)}</b></span>
           <span>·</span>
-          <span>{fmtMoney(alloc.transportCostPerKg, currency)}/кг</span>
+          <span>{fmtUSD(alloc.transportCostPerKg)}/кг</span>
           <span>·</span>
           <span>частка {fmtPct(alloc.weightShare)}</span>
         </div>
@@ -456,9 +501,26 @@ function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; sh
             <Input type="number" value={form.pallet_count} onChange={(e) => setForm({ ...form, pallet_count: Number(e.target.value) })} /></div>
           <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
             <Input type="number" value={form.pallet_weight} onChange={(e) => setForm({ ...form, pallet_weight: Number(e.target.value) })} /></div>
-          <div className="space-y-1"><Label className="text-xs">Інвойсна ціна</Label>
-            <Input type="number" step="0.01" value={form.invoice_price} onChange={(e) => setForm({ ...form, invoice_price: Number(e.target.value) })} /></div>
-          <div className="space-y-1"><Label className="text-xs">Орієнтовна ціна</Label>
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs">Ціна постачальника</Label>
+            <div className="flex gap-2">
+              <Input type="number" step="0.01" className="flex-1" value={form.unit_price}
+                onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })} />
+              <select
+                value={form.price_currency}
+                onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {form.price_currency === "EUR"
+                ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ курс {fmtRate(shipmentRate)}</>
+                : <>USD — конверсія не потрібна</>}
+            </p>
+          </div>
+          <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна (для філій)</Label>
             <Input type="number" step="0.01" value={form.indicative_price} onChange={(e) => setForm({ ...form, indicative_price: Number(e.target.value) })} /></div>
           <div className="col-span-2 flex items-center justify-between pt-1">
             <span className="text-xs text-muted-foreground">Загальна вага: {totalKg} кг</span>

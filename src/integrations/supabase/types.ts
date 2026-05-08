@@ -250,6 +250,36 @@ export type Database = {
           },
         ]
       }
+      exchange_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          target_currency: string
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          id?: string
+          rate: number
+          rate_date?: string
+          source?: string
+          target_currency?: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          id?: string
+          rate?: number
+          rate_date?: string
+          source?: string
+          target_currency?: string
+        }
+        Relationships: []
+      }
       import_managers: {
         Row: {
           created_at: string
@@ -418,49 +448,58 @@ export type Database = {
         Row: {
           caliber: string | null
           created_at: string
+          fx_rate_used: number | null
           id: string
           indicative_price: number | null
           invoice_price: number | null
           pallet_count: number | null
           pallet_weight: number | null
+          price_currency: string
           product_name: string
           qty: number
           shipment_id: string
           sku: string | null
           unit: string
           unit_price: number
+          unit_price_usd: number | null
           weight_kg: number | null
         }
         Insert: {
           caliber?: string | null
           created_at?: string
+          fx_rate_used?: number | null
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
           pallet_count?: number | null
           pallet_weight?: number | null
+          price_currency?: string
           product_name: string
           qty?: number
           shipment_id: string
           sku?: string | null
           unit?: string
           unit_price?: number
+          unit_price_usd?: number | null
           weight_kg?: number | null
         }
         Update: {
           caliber?: string | null
           created_at?: string
+          fx_rate_used?: number | null
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
           pallet_count?: number | null
           pallet_weight?: number | null
+          price_currency?: string
           product_name?: string
           qty?: number
           shipment_id?: string
           sku?: string | null
           unit?: string
           unit_price?: number
+          unit_price_usd?: number | null
           weight_kg?: number | null
         }
         Relationships: [
@@ -483,11 +522,15 @@ export type Database = {
           currency: string | null
           customs_cost: number | null
           eta: string | null
+          eur_usd_rate: number | null
+          eur_usd_rate_date: string | null
           fx_rate: number | null
           id: string
           import_manager_id: string | null
           loading_date: string | null
           logistics_cost: number | null
+          logistics_cost_currency: string
+          logistics_cost_usd: number | null
           logistics_days: number | null
           notes: string | null
           other_costs: number | null
@@ -505,11 +548,15 @@ export type Database = {
           currency?: string | null
           customs_cost?: number | null
           eta?: string | null
+          eur_usd_rate?: number | null
+          eur_usd_rate_date?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
           loading_date?: string | null
           logistics_cost?: number | null
+          logistics_cost_currency?: string
+          logistics_cost_usd?: number | null
           logistics_days?: number | null
           notes?: string | null
           other_costs?: number | null
@@ -527,11 +574,15 @@ export type Database = {
           currency?: string | null
           customs_cost?: number | null
           eta?: string | null
+          eur_usd_rate?: number | null
+          eur_usd_rate_date?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
           loading_date?: string | null
           logistics_cost?: number | null
+          logistics_cost_currency?: string
+          logistics_cost_usd?: number | null
           logistics_days?: number | null
           notes?: string | null
           other_costs?: number | null
@@ -733,6 +784,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ensure_shipment_fx_snapshot: {
+        Args: { _shipment_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

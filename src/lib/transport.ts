@@ -1,4 +1,5 @@
-// Transport cost allocation (only transport — no customs / no final cost).
+// Transport cost allocation by product weight (USD-based).
+// Customs / final cost handled separately.
 
 export type TransportItemInput = {
   id: string;
@@ -46,7 +47,8 @@ export function allocateTransport(
   return { shipmentTotalWeight: total, totalTransportCost: shipmentTotalTransportCost, rows };
 }
 
-export const fmtMoney = (v: number, currency = "EUR") =>
+// Generic money formatter (kept for backwards compat). Prefer fmtUSD from "@/lib/currency".
+export const fmtMoney = (v: number, currency = "USD") =>
   new Intl.NumberFormat("uk-UA", { style: "currency", currency, maximumFractionDigits: 2 }).format(v || 0);
 
 export const fmtKg = (v: number) =>

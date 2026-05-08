@@ -35,6 +35,7 @@ import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminManagersRouteImport } from './routes/_authenticated/admin/managers'
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
+import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -181,6 +182,11 @@ const AuthenticatedAdminBranchesRoute =
     path: '/branches',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const ApiPublicHooksRefreshFxRoute = ApiPublicHooksRefreshFxRouteImport.update({
+  id: '/api/public/hooks/refresh-fx',
+  path: '/api/public/hooks/refresh-fx',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
+  '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByTo {
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
+  '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
+  '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -292,6 +301,7 @@ export interface FileRouteTypes {
     | '/shipments/new'
     | '/admin/'
     | '/shipments/'
+    | '/api/public/hooks/refresh-fx'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/shipments/new'
     | '/admin'
     | '/shipments'
+    | '/api/public/hooks/refresh-fx'
   id:
     | '__root__'
     | '/_authenticated'
@@ -346,11 +357,13 @@ export interface FileRouteTypes {
     | '/_authenticated/shipments/new'
     | '/_authenticated/admin/'
     | '/_authenticated/shipments/'
+    | '/api/public/hooks/refresh-fx'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -537,6 +550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBranchesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/api/public/hooks/refresh-fx': {
+      id: '/api/public/hooks/refresh-fx'
+      path: '/api/public/hooks/refresh-fx'
+      fullPath: '/api/public/hooks/refresh-fx'
+      preLoaderRoute: typeof ApiPublicHooksRefreshFxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -623,6 +643,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
