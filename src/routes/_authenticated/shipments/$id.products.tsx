@@ -286,8 +286,8 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-0.5 py-0.5">
-        <NumCell value={form.cost_price_usd} onChange={(v) => set("cost_price_usd", v)} step="0.01" />
+      <td className="px-1.5 py-0.5 text-right text-[12px] tabular-nums font-medium">
+        {Number(item.final_cost_indicative ?? 0).toFixed(2)}
       </td>
       <td className="px-0.5 py-0.5">
         <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">
