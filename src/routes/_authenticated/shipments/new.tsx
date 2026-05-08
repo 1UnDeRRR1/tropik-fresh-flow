@@ -213,7 +213,7 @@ function NewShipment() {
       }
 
       toast.success("Поставку створено. Додайте позиції товарів.");
-      navigate({ to: "/shipments/$id", params: { id: data.id } });
+      navigate({ to: "/shipments/$id/products", params: { id: data.id } });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,6 +104,7 @@ function ShipmentDetail() {
       {tab === "requests" && <RequestsTab requests={data!.requests} qc={qc} />}
       {tab === "history" && <HistoryTab changes={data!.changes} />}
       {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} items={data!.items} />}
+      <Outlet />
     </div>
   );
 }
@@ -122,27 +123,19 @@ type ShipmentRow = {
 };
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
-  const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
   const alloc = allocateTransport(items, totalTransportUsd);
   const originCountry = toUaCountry(shipment.country) || "—";
-  const addItem = async () => {
-    const { error } = await supabase.from("shipment_items").insert({
-      shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
-      unit_price: 0, price_currency: "EUR",
-      pallet_count: 0, pallet_weight: 0, invoice_price: 0, indicative_price: 0,
-    });
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-  };
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
   return (
     <SectionCard
       title="Товари"
       action={
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={addItem}>+</Button>
+          <Link to="/shipments/$id/products" params={{ id: shipmentId }}>
+            <Button size="sm" variant="secondary">Редагувати</Button>
+          </Link>
           <Link to="/distribution/$shipmentId" params={{ shipmentId }}>
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Розподіл</Button>
           </Link>

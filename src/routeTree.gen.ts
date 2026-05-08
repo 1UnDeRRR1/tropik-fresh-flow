@@ -39,6 +39,7 @@ import { Route as AuthenticatedAdminCustomsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
+import { Route as AuthenticatedShipmentsIdProductsRouteImport } from './routes/_authenticated/shipments/$id.products'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -207,6 +208,12 @@ const ApiPublicHooksRefreshFxRoute = ApiPublicHooksRefreshFxRouteImport.update({
   path: '/api/public/hooks/refresh-fx',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedShipmentsIdProductsRoute =
+  AuthenticatedShipmentsIdProductsRouteImport.update({
+    id: '/products',
+    path: '/products',
+    getParentRoute: () => AuthenticatedShipmentsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -233,10 +240,11 @@ export interface FileRoutesByFullPath {
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
-  '/shipments/$id': typeof AuthenticatedShipmentsIdRoute
+  '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
+  '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesByTo {
@@ -263,10 +271,11 @@ export interface FileRoutesByTo {
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
-  '/shipments/$id': typeof AuthenticatedShipmentsIdRoute
+  '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
+  '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesById {
@@ -296,10 +305,11 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
   '/_authenticated/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
-  '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRoute
+  '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
+  '/_authenticated/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRouteTypes {
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/shipments/new'
     | '/admin/'
     | '/shipments/'
+    | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/shipments/new'
     | '/admin'
     | '/shipments'
+    | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   id:
     | '__root__'
@@ -395,6 +407,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shipments/new'
     | '/_authenticated/admin/'
     | '/_authenticated/shipments/'
+    | '/_authenticated/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   fileRoutesById: FileRoutesById
 }
@@ -616,6 +629,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRefreshFxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/shipments/$id/products': {
+      id: '/_authenticated/shipments/$id/products'
+      path: '/products'
+      fullPath: '/shipments/$id/products'
+      preLoaderRoute: typeof AuthenticatedShipmentsIdProductsRouteImport
+      parentRoute: typeof AuthenticatedShipmentsIdRoute
+    }
   }
 }
 
@@ -661,6 +681,21 @@ const AuthenticatedDistributionRouteWithChildren =
     AuthenticatedDistributionRouteChildren,
   )
 
+interface AuthenticatedShipmentsIdRouteChildren {
+  AuthenticatedShipmentsIdProductsRoute: typeof AuthenticatedShipmentsIdProductsRoute
+}
+
+const AuthenticatedShipmentsIdRouteChildren: AuthenticatedShipmentsIdRouteChildren =
+  {
+    AuthenticatedShipmentsIdProductsRoute:
+      AuthenticatedShipmentsIdProductsRoute,
+  }
+
+const AuthenticatedShipmentsIdRouteWithChildren =
+  AuthenticatedShipmentsIdRoute._addFileChildren(
+    AuthenticatedShipmentsIdRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
@@ -676,7 +711,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardBranchRoute: typeof AuthenticatedDashboardBranchRoute
   AuthenticatedDashboardManagerRoute: typeof AuthenticatedDashboardManagerRoute
   AuthenticatedDashboardSuperAdminRoute: typeof AuthenticatedDashboardSuperAdminRoute
-  AuthenticatedShipmentsIdRoute: typeof AuthenticatedShipmentsIdRoute
+  AuthenticatedShipmentsIdRoute: typeof AuthenticatedShipmentsIdRouteWithChildren
   AuthenticatedShipmentsNewRoute: typeof AuthenticatedShipmentsNewRoute
   AuthenticatedShipmentsIndexRoute: typeof AuthenticatedShipmentsIndexRoute
 }
@@ -696,7 +731,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardBranchRoute: AuthenticatedDashboardBranchRoute,
   AuthenticatedDashboardManagerRoute: AuthenticatedDashboardManagerRoute,
   AuthenticatedDashboardSuperAdminRoute: AuthenticatedDashboardSuperAdminRoute,
-  AuthenticatedShipmentsIdRoute: AuthenticatedShipmentsIdRoute,
+  AuthenticatedShipmentsIdRoute: AuthenticatedShipmentsIdRouteWithChildren,
   AuthenticatedShipmentsNewRoute: AuthenticatedShipmentsNewRoute,
   AuthenticatedShipmentsIndexRoute: AuthenticatedShipmentsIndexRoute,
 }
