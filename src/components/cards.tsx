@@ -9,6 +9,7 @@ export function StatCard({
   icon,
   tone = "default",
   to,
+  hash,
   pulse = false,
 }: {
   label: string;
@@ -17,6 +18,7 @@ export function StatCard({
   icon?: ReactNode;
   tone?: "default" | "brand" | "primary" | "danger";
   to?: string;
+  hash?: string;
   pulse?: boolean;
 }) {
   const body = (
