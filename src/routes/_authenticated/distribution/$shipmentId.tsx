@@ -51,14 +51,23 @@ function DistributionMatrix() {
       const [shRes, itemsRes, branchesRes, distRes] = await Promise.all([
         supabase.from("shipments").select("id,code,status").eq("id", shipmentId).single(),
         supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
-        supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order"),
+        supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase
           .from("distributions")
           .select("id,branch_id, distribution_items(shipment_item_id,pallets,qty)")
           .eq("shipment_id", shipmentId),
       ]);
       const items = (itemsRes.data ?? []) as Item[];
-      const branches = (branchesRes.data ?? []) as Branch[];
+      // Defensive dedupe by id and by name (defense in depth)
+      const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
+      const branches = ((branchesRes.data ?? []) as Branch[]).filter((b) => {
+        const key = (b.name ?? "").trim().toLowerCase();
+        if (seenIds.has(b.id) || seenNames.has(key)) return false;
+        seenIds.add(b.id);
+        seenNames.add(key);
+        return true;
+      });
       const init: Grid = {};
       items.forEach((it) => {
         init[it.id] = {};
@@ -66,17 +75,25 @@ function DistributionMatrix() {
       });
       (distRes.data ?? []).forEach((d) => {
         d.distribution_items?.forEach((di) => {
-          if (init[di.shipment_item_id] && d.branch_id) {
+          if (init[di.shipment_item_id] && d.branch_id && init[di.shipment_item_id][d.branch_id] !== undefined) {
             init[di.shipment_item_id][d.branch_id] = Number(di.pallets ?? 0);
           }
         });
       });
-      // deep clone for both states
-      setInitial(JSON.parse(JSON.stringify(init)));
-      setGrid(JSON.parse(JSON.stringify(init)));
-      return { shipment: shRes.data, items, branches };
+      return { shipment: shRes.data, items, branches, init };
     },
   });
+
+  // Initialize grid/initial ONLY on first data load (or when shipment changes).
+  // Refetches must NOT overwrite in-progress edits.
+  const initializedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    if (initializedRef.current === shipmentId) return;
+    initializedRef.current = shipmentId;
+    setInitial(JSON.parse(JSON.stringify(data.init)));
+    setGrid(JSON.parse(JSON.stringify(data.init)));
+  }, [data, shipmentId]);
 
   const totals = useMemo(() => {
     const map: Record<string, { distributed: number; remaining: number; total: number }> = {};
