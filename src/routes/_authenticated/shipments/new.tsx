@@ -217,9 +217,198 @@ function NewShipment() {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
   }
 
+  const supplierField = (
+    <div className="space-y-1.5">
+      <Label>Постачальник</Label>
+      <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <span className={cn(!selectedSupplier && "text-muted-foreground")}>
+              {selectedSupplier ? selectedSupplier.name : "Оберіть постачальника…"}
+            </span>
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Пошук постачальника…" />
+            <CommandList>
+              <CommandEmpty>Не знайдено</CommandEmpty>
+              <CommandGroup>
+                {(suppliers ?? []).map((s) => (
+                  <CommandItem
+                    key={s.id}
+                    value={`${s.name} ${toUaCountry(s.country ?? "")}`}
+                    onSelect={() => {
+                      setSupplierId(s.id);
+                      setSupplierOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", supplierId === s.id ? "opacity-100" : "opacity-0")} />
+                    <div className="flex flex-col">
+                      <span>{s.name}</span>
+                      {s.country && (
+                        <span className="text-[11px] text-muted-foreground">{toUaCountry(s.country)}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
+  const countryField = (
+    <div className="space-y-1.5">
+      <Label>Країна завантаження</Label>
+      <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <span className={cn(!country && "text-muted-foreground")}>
+              {country || "Оберіть країну…"}
+            </span>
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Пошук країни…" />
+            <CommandList>
+              <CommandEmpty>Не знайдено</CommandEmpty>
+              <CommandGroup>
+                {COUNTRIES.map((c) => (
+                  <CommandItem
+                    key={c}
+                    value={c}
+                    onSelect={() => {
+                      setCountry(c);
+                      setCountryTouched(true);
+                      setVehicleId("");
+                      setCountryOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", country === c ? "opacity-100" : "opacity-0")} />
+                    {c}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
+  const codeField = (
+    <div className="space-y-1.5">
+      <Label htmlFor="code">Номер поставки</Label>
+      <div className="flex gap-2">
+        <Input
+          id="code"
+          value={code}
+          onChange={(e) => { setCode(e.target.value); setCodeOverride(true); }}
+          readOnly={!codeOverride}
+          placeholder="GR29-OLI"
+          className={cn(!codeOverride && "bg-secondary/40 font-mono")}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setCodeOverride((v) => !v)}
+        >
+          {codeOverride ? "Авто" : "✎"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const loadingDateField = (
+    <div className="space-y-1.5">
+      <Label htmlFor="ld">Дата завантаження</Label>
+      <Input id="ld" type="date" required value={loadingDate} onChange={(e) => setLoadingDate(e.target.value)} />
+    </div>
+  );
+
+  const etaField = (
+    <div className="rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-sm">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">Розрахункова дата прибуття</div>
+      <div className="mt-1 text-base font-semibold text-foreground">
+        {computedEta
+          ? new Date(computedEta).toLocaleDateString("uk-UA", { weekday: "short", day: "2-digit", month: "long", year: "numeric" })
+          : "Заповніть країну та дату завантаження"}
+      </div>
+    </div>
+  );
+
+  const vehicleField = (
+    <div className="space-y-1.5">
+      <Label>Відкрите авто</Label>
+      <Popover open={vehicleOpen} onOpenChange={setVehicleOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <span className={cn(!selectedVehicle && "text-muted-foreground")}>
+              {selectedVehicle ? `${selectedVehicle.code} · ${selectedVehicle.country}` : "Оберіть авто…"}
+            </span>
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Пошук авто…" />
+            <CommandList>
+              <CommandEmpty>Немає відкритих авто</CommandEmpty>
+              <CommandGroup>
+                {(openVehicles ?? []).map((v) => {
+                  const sups = (v.shipments ?? [])
+                    .map((s) => s.suppliers?.name)
+                    .filter(Boolean)
+                    .join(", ");
+                  return (
+                    <CommandItem
+                      key={v.id}
+                      value={`${v.code} ${v.country} ${sups}`}
+                      onSelect={() => {
+                        setVehicleId(v.id);
+                        setCountry(v.country);
+                        setCountryTouched(true);
+                        setVehicleOpen(false);
+                      }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", vehicleId === v.id ? "opacity-100" : "opacity-0")} />
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{v.code} · {v.country}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {Number(v.total_pallets ?? 0)}/26 пал · {Math.round(Number(v.total_weight_kg ?? 0))}/21500 кг
+                          {sups ? ` · ${sups}` : ""}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Нова поставка" subtitle="Авто = країна завантаження. Один вантаж — одна країна." />
+      <PageHeader title="Нова поставка" />
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-4">
         {/* Mode toggle */}
@@ -232,205 +421,23 @@ function NewShipment() {
           </ModeButton>
         </div>
 
-        {/* Country (always visible; in existing mode used to filter vehicles) */}
-        <div className="space-y-1.5">
-          <Label>Країна завантаження</Label>
-          <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <span className={cn(!country && "text-muted-foreground")}>
-                  {country || "Оберіть країну…"}
-                </span>
-                <ChevronsUpDown className="h-4 w-4 opacity-50" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Пошук країни…" />
-                <CommandList>
-                  <CommandEmpty>Не знайдено</CommandEmpty>
-                  <CommandGroup>
-                    {COUNTRIES.map((c) => (
-                      <CommandItem
-                        key={c}
-                        value={c}
-                        onSelect={() => {
-                          setCountry(c);
-                          setCountryTouched(true);
-                          setVehicleId("");
-                          setCountryOpen(false);
-                        }}
-                      >
-                        <Check className={cn("mr-2 h-4 w-4", country === c ? "opacity-100" : "opacity-0")} />
-                        {c}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          {mode === "new" && (
-            <p className="text-[11px] text-muted-foreground">
-              Дефолт із постачальника, але редагується вручну.
-            </p>
-          )}
-        </div>
-
-        {/* Vehicle picker (existing mode) */}
-        {mode === "existing" && (
-          <div className="space-y-1.5">
-            <Label>Відкрите авто</Label>
-            <Popover open={vehicleOpen} onOpenChange={setVehicleOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <span className={cn(!selectedVehicle && "text-muted-foreground")}>
-                    {selectedVehicle ? `${selectedVehicle.code} · ${selectedVehicle.country}` : "Оберіть авто…"}
-                  </span>
-                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Пошук авто…" />
-                  <CommandList>
-                    <CommandEmpty>Немає відкритих авто</CommandEmpty>
-                    <CommandGroup>
-                      {(openVehicles ?? []).map((v) => {
-                        const sups = (v.shipments ?? [])
-                          .map((s) => s.suppliers?.name)
-                          .filter(Boolean)
-                          .join(", ");
-                        return (
-                          <CommandItem
-                            key={v.id}
-                            value={`${v.code} ${v.country} ${sups}`}
-                            onSelect={() => {
-                              setVehicleId(v.id);
-                              setCountry(v.country);
-                              setCountryTouched(true);
-                              setVehicleOpen(false);
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", vehicleId === v.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex flex-col">
-                              <span className="font-semibold">{v.code} · {v.country}</span>
-                              <span className="text-[11px] text-muted-foreground">
-                                {Number(v.total_pallets ?? 0)}/26 пал · {Math.round(Number(v.total_weight_kg ?? 0))}/21500 кг
-                                {sups ? ` · ${sups}` : ""}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {!country && (
-              <p className="text-[11px] text-muted-foreground">Оберіть країну, щоб відфільтрувати авто.</p>
-            )}
-          </div>
+        {mode === "new" ? (
+          <>
+            {supplierField}
+            {countryField}
+            {codeField}
+            {loadingDateField}
+            {etaField}
+          </>
+        ) : (
+          <>
+            {supplierField}
+            {countryField}
+            {vehicleField}
+            {codeField}
+            {etaField}
+          </>
         )}
-
-        {/* Loading date (only for new vehicle) */}
-        {mode === "new" && (
-          <div className="space-y-1.5">
-            <Label htmlFor="ld">Дата завантаження</Label>
-            <Input id="ld" type="date" required value={loadingDate} onChange={(e) => setLoadingDate(e.target.value)} />
-          </div>
-        )}
-
-        {/* Supplier combobox */}
-        <div className="space-y-1.5">
-          <Label>Постачальник</Label>
-          <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <span className={cn(!selectedSupplier && "text-muted-foreground")}>
-                  {selectedSupplier ? selectedSupplier.name : "Оберіть постачальника…"}
-                </span>
-                <ChevronsUpDown className="h-4 w-4 opacity-50" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Пошук постачальника…" />
-                <CommandList>
-                  <CommandEmpty>Не знайдено</CommandEmpty>
-                  <CommandGroup>
-                    {(suppliers ?? []).map((s) => (
-                      <CommandItem
-                        key={s.id}
-                        value={`${s.name} ${toUaCountry(s.country ?? "")}`}
-                        onSelect={() => {
-                          setSupplierId(s.id);
-                          setSupplierOpen(false);
-                        }}
-                      >
-                        <Check className={cn("mr-2 h-4 w-4", supplierId === s.id ? "opacity-100" : "opacity-0")} />
-                        <div className="flex flex-col">
-                          <span>{s.name}</span>
-                          {s.country && (
-                            <span className="text-[11px] text-muted-foreground">{toUaCountry(s.country)}</span>
-                          )}
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* ETA preview */}
-        <div className="rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-sm">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Розрахункова дата прибуття</div>
-          <div className="mt-1 text-base font-semibold text-foreground">
-            {computedEta
-              ? new Date(computedEta).toLocaleDateString("uk-UA", { weekday: "short", day: "2-digit", month: "long", year: "numeric" })
-              : "Заповніть країну та дату завантаження"}
-          </div>
-        </div>
-
-        {/* Code preview */}
-        <div className="space-y-1.5">
-          <Label htmlFor="code">Номер поставки</Label>
-          <div className="flex gap-2">
-            <Input
-              id="code"
-              value={code}
-              onChange={(e) => { setCode(e.target.value); setCodeOverride(true); }}
-              readOnly={!codeOverride}
-              placeholder="GR29-OLI"
-              className={cn(!codeOverride && "bg-secondary/40 font-mono")}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setCodeOverride((v) => !v)}
-            >
-              {codeOverride ? "Авто" : "✎"}
-            </Button>
-          </div>
-          {!codeOverride && mode === "new" && (
-            <p className="text-[11px] text-muted-foreground">
-              Номер авто (·· буде замінено на наступний номер для країни) + код постачальника.
-            </p>
-          )}
-        </div>
 
         <Button type="submit" disabled={submitting} className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
           {submitting ? "Створення…" : "Створити та перейти до товарів"}
