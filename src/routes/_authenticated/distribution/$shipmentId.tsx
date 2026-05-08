@@ -106,13 +106,10 @@ function DistributionMatrix() {
   useBlocker({
     shouldBlockFn: ({ next }) => {
       if (!dirty || saving) return false;
+      const target = (next as { pathname?: string; href?: string }).pathname ?? (next as { href?: string }).href ?? "/";
       pendingNavRef.current = () => {
-        // Reset baseline so the next attempt is allowed.
         setInitial(JSON.parse(JSON.stringify(grid)));
-        // Then navigate
-        window.setTimeout(() => {
-          window.location.href = next.href;
-        }, 0);
+        window.setTimeout(() => { window.location.href = target; }, 0);
       };
       setConfirmOpen("leave");
       return true;
