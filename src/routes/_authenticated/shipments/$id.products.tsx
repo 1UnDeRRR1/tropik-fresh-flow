@@ -80,7 +80,7 @@ function ProductsFullscreen() {
       pallet_weight: 0,
     });
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
   };
 
   return (
@@ -163,7 +163,7 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
       if (error) toast.error(error.message);
       else {
         dirty.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products"] });
+        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
       }
     }, 600);
     return () => clearTimeout(t);
@@ -242,7 +242,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
       if (error) toast.error(error.message);
       else {
         dirtyRef.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products"] });
+        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
       }
     }, 600);
     return () => clearTimeout(t);
@@ -252,7 +252,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
     if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products"] });
+    qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
   };
 
   return (
