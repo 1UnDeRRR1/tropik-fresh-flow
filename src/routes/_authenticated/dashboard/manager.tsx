@@ -129,9 +129,10 @@ function ManagerDashboard() {
           tone="danger"
           pulse={(data?.urgent.ships ?? 0) > 0}
           to="/distribution"
+          hash="urgent"
         />
 
-        <Link to="/distribution">
+        <Link to="/distribution" hash="done">
           <div className="h-full rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
