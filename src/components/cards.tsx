@@ -9,6 +9,7 @@ export function StatCard({
   icon,
   tone = "default",
   to,
+  hash,
   pulse = false,
 }: {
   label: string;
@@ -17,6 +18,7 @@ export function StatCard({
   icon?: ReactNode;
   tone?: "default" | "brand" | "primary" | "danger";
   to?: string;
+  hash?: string;
   pulse?: boolean;
 }) {
   const body = (
@@ -48,7 +50,7 @@ export function StatCard({
       )}
     </div>
   );
-  return to ? <Link to={to}>{body}</Link> : body;
+  return to ? <Link to={to} hash={hash}>{body}</Link> : body;
 }
 
 export function SectionCard({

@@ -27,7 +27,7 @@ type ItemRow = {
   pallet_weight: number | null;
   unit_price: number | null;
   price_currency: string | null;
-  cost_price_usd: number | null;
+  final_cost_indicative: number | null;
 };
 
 type ShipmentRow = {
@@ -52,7 +52,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,cost_price_usd").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
       return {
@@ -78,10 +78,9 @@ function ProductsFullscreen() {
       price_currency: "EUR",
       pallet_count: 0,
       pallet_weight: 0,
-      cost_price_usd: 0,
     });
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", id] });
+    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
   };
 
   return (
@@ -164,7 +163,7 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
       if (error) toast.error(error.message);
       else {
         dirty.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products", shipment.id] });
+        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipment.id] });
       }
     }, 600);
     return () => clearTimeout(t);
@@ -207,7 +206,6 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
     pallet_count: item.pallet_count ?? 0,
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
-    cost_price_usd: item.cost_price_usd ?? 0,
   });
   const dirtyRef = useRef(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
@@ -221,7 +219,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
     return Number(match?.default_pallet_weight ?? item.pallet_weight ?? 0);
   })();
 
-  // Debounced autosave
+  // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
   useEffect(() => {
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
@@ -238,21 +236,23 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           pallet_weight: palletWeight,
           unit_price: Number(form.unit_price),
           price_currency: form.price_currency,
-          cost_price_usd: Number(form.cost_price_usd),
           qty: totalKg,
         })
         .eq("id", item.id);
       if (error) toast.error(error.message);
-      else dirtyRef.current = false;
+      else {
+        dirtyRef.current = false;
+        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+      }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id]);
+  }, [form, palletWeight, item.id, qc]);
 
   const remove = async () => {
     if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", shipmentId] });
+    qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
   return (
@@ -286,8 +286,8 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-0.5 py-0.5">
-        <NumCell value={form.cost_price_usd} onChange={(v) => set("cost_price_usd", v)} step="0.01" />
+      <td className="px-1.5 py-0.5 text-right text-[12px] tabular-nums font-medium">
+        {Number(item.final_cost_indicative ?? 0).toFixed(2)}
       </td>
       <td className="px-0.5 py-0.5">
         <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">
