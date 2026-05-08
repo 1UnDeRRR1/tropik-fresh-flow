@@ -11,34 +11,34 @@ export const COUNTRY_DAYS: Record<string, number> = {
   Македонія: 3,
 };
 
+// Country (Ukrainian) → 2-letter code for shipment numbering
+export const COUNTRY_CODE: Record<string, string> = {
+  Греція: "GR",
+  Італія: "IT",
+  Іспанія: "ES",
+  Нідерланди: "NL",
+  Бельгія: "BE",
+  Польща: "PL",
+  Молдова: "MD",
+  Албанія: "AL",
+  Македонія: "MK",
+};
+
 export const COUNTRIES = Object.keys(COUNTRY_DAYS);
 
 // Ukrainian public holidays (fixed dates, recurring annually)
-// Format: MM-DD
 const UA_HOLIDAYS_MMDD = new Set<string>([
-  "01-01", // Новий рік
-  "01-07", // Різдво (юліан.)
-  "03-08", // Міжнародний жіночий день
-  "05-01", // День праці
-  "05-09", // День Перемоги
-  "06-28", // День Конституції
-  "07-15", // День Української Державності
-  "08-24", // День Незалежності
-  "10-01", // День захисників і захисниць
-  "12-25", // Різдво (григор.)
+  "01-01", "01-07", "03-08", "05-01", "05-09",
+  "06-28", "07-15", "08-24", "10-01", "12-25",
 ]);
 
 const isHolidayOrSunday = (d: Date) => {
-  if (d.getDay() === 0) return true; // Sunday
+  if (d.getDay() === 0) return true;
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return UA_HOLIDAYS_MMDD.has(`${mm}-${dd}`);
 };
 
-/**
- * Calculate arrival date by adding logistics days to loading date,
- * then shifting forward to skip Sundays and Ukrainian public holidays.
- */
 export function calcArrivalDate(loadingDate: string | Date, days: number): Date {
   const base = typeof loadingDate === "string" ? new Date(loadingDate) : new Date(loadingDate);
   base.setHours(12, 0, 0, 0);

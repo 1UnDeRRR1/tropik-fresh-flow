@@ -13,7 +13,7 @@ const EN_TO_UK: Record<string, string> = {
   albania: "Албанія",
   macedonia: "Македонія",
   "north macedonia": "Македонія",
-  // common variants / abbreviations
+  // ISO codes
   gr: "Греція",
   it: "Італія",
   es: "Іспанія",
@@ -23,12 +23,18 @@ const EN_TO_UK: Record<string, string> = {
   md: "Молдова",
   al: "Албанія",
   mk: "Македонія",
+  // Already Ukrainian (idempotent)
+  греція: "Греція",
+  італія: "Італія",
+  іспанія: "Іспанія",
+  нідерланди: "Нідерланди",
+  бельгія: "Бельгія",
+  польща: "Польща",
+  молдова: "Молдова",
+  албанія: "Албанія",
+  македонія: "Македонія",
 };
 
-/**
- * Translate any country label to Ukrainian. If already Ukrainian or unknown,
- * returns the original value unchanged.
- */
 export function toUaCountry(value?: string | null): string {
   if (!value) return "";
   const key = value.trim().toLowerCase();
