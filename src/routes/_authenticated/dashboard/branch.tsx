@@ -57,21 +57,24 @@ function BranchDashboard() {
     },
   });
 
+  type Dist = NonNullable<typeof data>["dists"][number];
+  type Change = NonNullable<typeof data>["changes"][number];
+
   // Group by arrival date
-  const groups = new Map<string, typeof data extends { dists: infer T } ? T : never>();
+  const groups = new Map<string, Dist[]>();
   data?.dists.forEach((d) => {
     const eta = d.shipments?.eta ?? "Без дати";
-    const arr = (groups.get(eta) as typeof data["dists"]) ?? [];
+    const arr = groups.get(eta) ?? [];
     arr.push(d);
-    groups.set(eta, arr as never);
+    groups.set(eta, arr);
   });
   const sortedGroups = Array.from(groups.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
 
-  const changesByItem = new Map<string, typeof data extends { changes: infer T } ? T : never>();
+  const changesByItem = new Map<string, Change[]>();
   data?.changes.forEach((c) => {
-    const arr = (changesByItem.get(c.shipment_item_id) as typeof data["changes"]) ?? [];
+    const arr = changesByItem.get(c.shipment_item_id) ?? [];
     arr.push(c);
-    changesByItem.set(c.shipment_item_id, arr as never);
+    changesByItem.set(c.shipment_item_id, arr);
   });
 
   return (
