@@ -18,10 +18,13 @@ function ManagerDashboard() {
   const { data } = useQuery({
     queryKey: ["dash-manager"],
     queryFn: async () => {
-      const today = new Date();
+      const now = new Date();
+      const today = now;
+      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       const weekEnd = new Date();
       weekEnd.setDate(today.getDate() + 7);
       const isoToday = today.toISOString().slice(0, 10);
+      const iso24h = in24h.toISOString().slice(0, 10);
       const isoWeek = weekEnd.toISOString().slice(0, 10);
 
       const [shipments, requests, changes] = await Promise.all([
@@ -43,23 +46,29 @@ function ManagerDashboard() {
 
       const ships = shipments.data ?? [];
       const active = ships.filter((s) => ACTIVE.includes(s.status));
-      const arrivingWeek = ships.filter(
-        (s) => s.eta && s.eta >= isoToday && s.eta <= isoWeek && !["completed", "cancelled"].includes(s.status),
-      );
-      const delayed = ships.filter((s) => s.status === "delayed" || (s.eta && s.eta < isoToday && !["completed", "cancelled", "distributing"].includes(s.status)));
-      const notDistributed = ships.filter((s) => {
+      const isIncomplete = (s: typeof ships[number]) => {
         const fact = (s.shipment_items ?? []).reduce((a: number, it: { pallet_count: number | null }) => a + Number(it.pallet_count ?? 0), 0);
         const dist = (s.distributions ?? []).reduce(
           (a: number, d: { distribution_items: { pallets: number | null }[] | null }) =>
             a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
           0,
         );
-        return fact > 0 && dist < fact && !["completed", "cancelled"].includes(s.status);
-      });
+        return fact === 0 || dist < fact;
+      };
+      const urgent24h = ships.filter(
+        (s) =>
+          s.eta &&
+          s.eta >= isoToday &&
+          s.eta <= iso24h &&
+          !["completed", "cancelled"].includes(s.status) &&
+          isIncomplete(s),
+      );
+      const delayed = ships.filter((s) => s.status === "delayed" || (s.eta && s.eta < isoToday && !["completed", "cancelled", "distributing"].includes(s.status)));
+      const notDistributed = ships.filter((s) => isIncomplete(s) && !["completed", "cancelled"].includes(s.status) && (s.shipment_items ?? []).length > 0);
 
       return {
         active: active.length,
-        arrivingWeek: arrivingWeek.length,
+        urgent24h: urgent24h.length,
         notDistributed: notDistributed.length,
         delayed: delayed.length,
         requests: requests.data?.length ?? 0,
