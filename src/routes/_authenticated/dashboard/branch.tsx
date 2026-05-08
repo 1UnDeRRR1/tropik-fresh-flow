@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip } from "@/components/StatusChip";
+import { toUaCountry } from "@/lib/countries";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -102,7 +103,7 @@ function BranchDashboard() {
                     <div>
                       <div className="text-sm font-semibold">{d.shipments?.code}</div>
                       <div className="text-xs text-muted-foreground">
-                        {d.shipments?.suppliers?.name ?? "—"} · {d.shipments?.country ?? ""}
+                        {d.shipments?.suppliers?.name ?? "—"} · {toUaCountry(d.shipments?.country ?? "")}
                       </div>
                     </div>
                     <StatusChip status={d.status} kind="distribution" />

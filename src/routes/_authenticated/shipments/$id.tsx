@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
+import { toUaCountry } from "@/lib/countries";
 import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
 import { CURRENCIES, type Currency, fmtUSD, fmtMoneyByCurrency, fmtRate, convertToUsd } from "@/lib/currency";
 
@@ -68,7 +69,7 @@ function ShipmentDetail() {
     <div className="space-y-4">
       <PageHeader
         title={sh.code}
-        subtitle={sh.suppliers?.name ?? sh.country ?? ""}
+        subtitle={sh.suppliers?.name ?? toUaCountry(sh.country) ?? ""}
         action={<StatusChip status={sh.status} />}
       />
 
@@ -269,7 +270,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
 
   const recompute = () => {
     if (!shipment.loading_date) return;
-    const days = shipment.logistics_days ?? (shipment.country ? COUNTRY_DAYS[shipment.country] ?? 0 : 0);
+    const days = shipment.logistics_days ?? (shipment.country ? COUNTRY_DAYS[toUaCountry(shipment.country)] ?? 0 : 0);
     setEta(toDateInputValue(calcArrivalDate(shipment.loading_date, days)));
   };
   const saveEta = async () => {
@@ -313,7 +314,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
             <Button type="button" onClick={saveEta} disabled={etaLocked} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Завантаження: {shipment.loading_date ?? "—"} · Країна: {shipment.country ?? "—"} · Дні: {shipment.logistics_days ?? "—"}
+            Завантаження: {shipment.loading_date ?? "—"} · Країна: {toUaCountry(shipment.country) || "—"} · Дні: {shipment.logistics_days ?? "—"}
           </p>
         </div>
       </SectionCard>

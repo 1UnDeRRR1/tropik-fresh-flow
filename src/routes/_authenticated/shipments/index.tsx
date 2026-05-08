@@ -8,6 +8,7 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip, SHIPMENT_LABEL } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toUaCountry } from "@/lib/countries";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: ShipmentsList,
@@ -115,7 +116,7 @@ function ShipmentsList() {
                         </Link>
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{s.country ?? s.suppliers?.country ?? "—"}</td>
+                      <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
                       <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
                         {s.eta ?? "—"}
                       </td>

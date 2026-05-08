@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
+import { toUaCountry } from "@/lib/countries";
 
 export const Route = createFileRoute("/_authenticated/suppliers")({
   component: Suppliers,
@@ -28,7 +29,7 @@ function Suppliers() {
               <li key={s.id} className="flex items-center justify-between py-3">
                 <div>
                   <div className="text-sm font-semibold">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">{s.country ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">{toUaCountry(s.country) || "—"}</div>
                 </div>
                 <span className="text-xs text-muted-foreground">★ {s.rating ?? 0}</span>
               </li>
