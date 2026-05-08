@@ -50,7 +50,7 @@ export function StatCard({
       )}
     </div>
   );
-  return to ? <Link to={to}>{body}</Link> : body;
+  return to ? <Link to={to} hash={hash}>{body}</Link> : body;
 }
 
 export function SectionCard({
