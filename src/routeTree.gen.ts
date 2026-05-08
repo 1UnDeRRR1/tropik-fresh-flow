@@ -20,6 +20,7 @@ import { Route as AuthenticatedDistributionRouteImport } from './routes/_authent
 import { Route as AuthenticatedCostsRouteImport } from './routes/_authenticated/costs'
 import { Route as AuthenticatedBranchRequestsRouteImport } from './routes/_authenticated/branch-requests'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedShipmentsIndexRouteImport } from './routes/_authenticated/shipments/index'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
@@ -86,6 +87,11 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedShipmentsIndexRoute =
   AuthenticatedShipmentsIndexRouteImport.update({
     id: '/shipments/',
@@ -138,6 +144,7 @@ const AuthenticatedDashboardAdminRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/costs': typeof AuthenticatedCostsRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/costs': typeof AuthenticatedCostsRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/_authenticated/costs': typeof AuthenticatedCostsRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/admin'
     | '/analytics'
     | '/branch-requests'
     | '/costs'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/admin'
     | '/analytics'
     | '/branch-requests'
     | '/costs'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/admin'
     | '/_authenticated/analytics'
     | '/_authenticated/branch-requests'
     | '/_authenticated/costs'
@@ -345,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/shipments/': {
       id: '/_authenticated/shipments/'
       path: '/shipments'
@@ -420,6 +439,7 @@ const AuthenticatedDistributionRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBranchRequestsRoute: typeof AuthenticatedBranchRequestsRoute
   AuthenticatedCostsRoute: typeof AuthenticatedCostsRoute
@@ -439,6 +459,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBranchRequestsRoute: AuthenticatedBranchRequestsRoute,
   AuthenticatedCostsRoute: AuthenticatedCostsRoute,
@@ -468,3 +489,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
