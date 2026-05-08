@@ -51,14 +51,23 @@ function DistributionMatrix() {
       const [shRes, itemsRes, branchesRes, distRes] = await Promise.all([
         supabase.from("shipments").select("id,code,status").eq("id", shipmentId).single(),
         supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
-        supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order"),
+        supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase
           .from("distributions")
           .select("id,branch_id, distribution_items(shipment_item_id,pallets,qty)")
           .eq("shipment_id", shipmentId),
       ]);
       const items = (itemsRes.data ?? []) as Item[];
-      const branches = (branchesRes.data ?? []) as Branch[];
+      // Defensive dedupe by id and by name (defense in depth)
+      const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
+      const branches = ((branchesRes.data ?? []) as Branch[]).filter((b) => {
+        const key = (b.name ?? "").trim().toLowerCase();
+        if (seenIds.has(b.id) || seenNames.has(key)) return false;
+        seenIds.add(b.id);
+        seenNames.add(key);
+        return true;
+      });
       const init: Grid = {};
       items.forEach((it) => {
         init[it.id] = {};
@@ -66,17 +75,25 @@ function DistributionMatrix() {
       });
       (distRes.data ?? []).forEach((d) => {
         d.distribution_items?.forEach((di) => {
-          if (init[di.shipment_item_id] && d.branch_id) {
+          if (init[di.shipment_item_id] && d.branch_id && init[di.shipment_item_id][d.branch_id] !== undefined) {
             init[di.shipment_item_id][d.branch_id] = Number(di.pallets ?? 0);
           }
         });
       });
-      // deep clone for both states
-      setInitial(JSON.parse(JSON.stringify(init)));
-      setGrid(JSON.parse(JSON.stringify(init)));
-      return { shipment: shRes.data, items, branches };
+      return { shipment: shRes.data, items, branches, init };
     },
   });
+
+  // Initialize grid/initial ONLY on first data load (or when shipment changes).
+  // Refetches must NOT overwrite in-progress edits.
+  const initializedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    if (initializedRef.current === shipmentId) return;
+    initializedRef.current = shipmentId;
+    setInitial(JSON.parse(JSON.stringify(data.init)));
+    setGrid(JSON.parse(JSON.stringify(data.init)));
+  }, [data, shipmentId]);
 
   const totals = useMemo(() => {
     const map: Record<string, { distributed: number; remaining: number; total: number }> = {};
@@ -108,7 +125,8 @@ function DistributionMatrix() {
       if (!dirty || saving) return false;
       const target = (next as { pathname?: string; href?: string }).pathname ?? (next as { href?: string }).href ?? "/";
       pendingNavRef.current = () => {
-        setInitial(JSON.parse(JSON.stringify(grid)));
+        // Restore original snapshot before leaving — discard unsaved changes
+        setGrid(JSON.parse(JSON.stringify(initial)));
         window.setTimeout(() => { window.location.href = target; }, 0);
       };
       setConfirmOpen("leave");
@@ -117,8 +135,10 @@ function DistributionMatrix() {
   });
 
   const setCell = (itemId: string, branchId: string, val: number) => {
-    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, val) } }));
+    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Math.floor(val) || 0) } }));
   };
+  // (Integer-only sanitization happens inside CellInput; setCell stays as the
+  // canonical numeric setter.)
   const bump = (itemId: string, branchId: string, delta: number) => {
     setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Number(g[itemId]?.[branchId] ?? 0) + delta) } }));
   };
@@ -273,12 +293,9 @@ function DistributionMatrix() {
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <input
-                          type="number"
-                          min={0}
-                          inputMode="numeric"
+                        <CellInput
                           value={v}
-                          onChange={(e) => setCell(it.id, b.id, Number(e.target.value) || 0)}
+                          onChange={(n) => setCell(it.id, b.id, n)}
                           className="h-8 w-14 rounded-md border border-input bg-background px-1 text-center text-sm tabular-nums focus:border-brand focus:outline-none"
                         />
                         <button
@@ -347,12 +364,9 @@ function DistributionMatrix() {
                     </td>
                     {data.branches.map((b) => (
                       <td key={b.id} className="px-0.5 py-1">
-                        <input
-                          type="number"
-                          min={0}
-                          inputMode="decimal"
-                          value={grid[it.id]?.[b.id] ?? 0}
-                          onChange={(e) => setCell(it.id, b.id, Number(e.target.value) || 0)}
+                        <CellInput
+                          value={Number(grid[it.id]?.[b.id] ?? 0)}
+                          onChange={(n) => setCell(it.id, b.id, n)}
                           className="h-9 w-14 rounded-md border border-input bg-background px-1 text-center text-xs tabular-nums focus:border-brand focus:outline-none"
                         />
                       </td>
@@ -458,5 +472,51 @@ function DistributionMatrix() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/**
+ * Integer pallet input with editable empty buffer.
+ * - Shows "" while focused/empty so the user can clear the "0".
+ * - Strips non-digits and leading zeros.
+ */
+function CellInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  className?: string;
+}) {
+  const [text, setText] = useState<string>(value > 0 ? String(value) : "");
+  const focusedRef = useRef(false);
+  // Sync external value -> text when not actively editing
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setText(value > 0 ? String(value) : "");
+    }
+  }, [value]);
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={text}
+      onFocus={(e) => {
+        focusedRef.current = true;
+        e.currentTarget.select();
+      }}
+      onBlur={() => {
+        focusedRef.current = false;
+        if (text === "") setText(value > 0 ? String(value) : "");
+      }}
+      onChange={(e) => {
+        const cleaned = e.target.value.replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
+        setText(cleaned);
+        onChange(cleaned === "" ? 0 : parseInt(cleaned, 10));
+      }}
+      className={className}
+    />
   );
 }

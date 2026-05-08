@@ -467,48 +467,70 @@ function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item
   };
 
   const savedCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
+  const [showDetails, setShowDetails] = useState(false);
   return (
     <div className="rounded-xl border border-border bg-background/50 p-3">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
-        <div>
-          <div className="text-sm font-semibold">{item.product_name}</div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate">
+            {item.product_name}
+            {item.caliber && <span className="ml-1 text-muted-foreground">·{item.caliber}</span>}
+          </div>
           <div className="text-xs text-muted-foreground">
-            {item.caliber ? `Калібр ${item.caliber} · ` : ""}
             {Number(item.pallet_count ?? 0)} пал. × {Number(item.pallet_weight ?? 0)} кг
           </div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
+        </div>
+        <span className="text-xs font-medium text-brand shrink-0">{open ? "Згорнути" : "Редагувати"}</span>
+      </button>
+
+      {/* Compact operational summary — what import manager needs at a glance */}
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+        <div className="rounded-md bg-secondary/50 px-2 py-1.5">
+          <div className="text-muted-foreground">Інд. собівартість</div>
+          <div className="font-semibold text-brand">{fmtUSD(Number(item.final_cost_indicative ?? 0))}/кг</div>
+        </div>
+        <div className="rounded-md bg-secondary/50 px-2 py-1.5">
+          <div className="text-muted-foreground">Інв. собівартість</div>
+          <div className="font-semibold text-brand">{fmtUSD(Number(item.final_cost_invoice ?? 0))}/кг</div>
+        </div>
+      </div>
+
+      {!item.customs_match_id && (
+        <div className="mt-2 inline-block rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600">
+          Немає в митному довіднику
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShowDetails((s) => !s)}
+        className="mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        {showDetails ? "Сховати деталі розрахунку" : "Деталі розрахунку"}
+      </button>
+      {showDetails && (
+        <div className="mt-2 space-y-1 rounded-md bg-secondary/30 p-2 text-[11px] text-muted-foreground">
+          <div>
             Ціна: <b className="text-foreground">{fmtMoneyByCurrency(Number(item.unit_price ?? 0), savedCurrency)}</b>
             {savedCurrency === "EUR" && (
               <> · ≈ <b className="text-foreground">{fmtUSD(Number(item.unit_price_usd ?? 0))}</b> @ {fmtRate(item.fx_rate_used)}</>
             )}
           </div>
-        </div>
-        <span className="text-xs font-medium text-brand">{open ? "Згорнути" : "Редагувати"}</span>
-      </button>
-      {alloc && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          <span>Транспорт: <b className="text-foreground">{fmtUSD(alloc.allocatedTransportCost)}</b></span>
-          <span>·</span>
-          <span>{fmtUSD(alloc.transportCostPerKg)}/кг</span>
-          <span>·</span>
-          <span>частка {fmtPct(alloc.weightShare)}</span>
+          {alloc && (
+            <div>
+              Транспорт: <b className="text-foreground">{fmtUSD(alloc.allocatedTransportCost)}</b>
+              {" · "}{fmtUSD(alloc.transportCostPerKg)}/кг
+              {" · "}частка {fmtPct(alloc.weightShare)}
+            </div>
+          )}
+          {item.customs_match_id && (
+            <div>
+              Митниця: інд <b className="text-foreground">{fmtUSD(Number(item.customs_cost_indicative ?? 0))}</b>
+              {" · "}інв <b className="text-foreground">{fmtUSD(Number(item.customs_cost_invoice ?? 0))}</b>
+            </div>
+          )}
         </div>
       )}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-        {item.customs_match_id ? (
-          <>
-            <span className="text-muted-foreground">Митниця інд: <b className="text-foreground">{fmtUSD(Number(item.customs_cost_indicative ?? 0))}</b></span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">інв: <b className="text-foreground">{fmtUSD(Number(item.customs_cost_invoice ?? 0))}</b></span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">Інд. собівартість: <b className="text-brand">{fmtUSD(Number(item.final_cost_indicative ?? 0))}/кг</b></span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">Інв. собівартість: <b className="text-brand">{fmtUSD(Number(item.final_cost_invoice ?? 0))}/кг</b></span>
-          </>
-        ) : (
-          <span className="rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-amber-600">Немає в митному довіднику</span>
-        )}
-      </div>
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="col-span-2 space-y-1">
