@@ -137,13 +137,8 @@ function DistributionMatrix() {
   const setCell = (itemId: string, branchId: string, val: number) => {
     setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Math.floor(val) || 0) } }));
   };
-  // Sanitize raw text input: integers only, allow empty buffer (treated as 0)
-  const setCellRaw = (itemId: string, branchId: string, raw: string) => {
-    // Strip non-digits, drop leading zeros
-    const cleaned = raw.replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
-    const val = cleaned === "" ? 0 : parseInt(cleaned, 10);
-    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, val) } }));
-  };
+  // (Integer-only sanitization happens inside CellInput; setCell stays as the
+  // canonical numeric setter.)
   const bump = (itemId: string, branchId: string, delta: number) => {
     setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Number(g[itemId]?.[branchId] ?? 0) + delta) } }));
   };
