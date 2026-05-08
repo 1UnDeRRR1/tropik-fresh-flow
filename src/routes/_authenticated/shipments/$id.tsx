@@ -123,10 +123,7 @@ type ShipmentRow = {
 };
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
-  const alloc = allocateTransport(items, totalTransportUsd);
-  const originCountry = toUaCountry(shipment.country) || "—";
+  const fallbackCountry = toUaCountry(shipment.country) || "—";
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
   return (
     <SectionCard
@@ -134,19 +131,19 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
       action={
         <div className="flex gap-2">
           <Link to="/shipments/$id/products" params={{ id: shipmentId }}>
-            <Button size="sm" variant="secondary">Редагувати</Button>
+            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Відкрити</Button>
           </Link>
           <Link to="/distribution/$shipmentId" params={{ shipmentId }}>
-            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Розподіл</Button>
+            <Button size="sm" variant="secondary">Розподіл</Button>
           </Link>
         </div>
       }
     >
-      <div className="mb-2 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wide">
-        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-success" />ІНДИКАТИВ</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-destructive" />ІНВОЙС</span>
-      </div>
-      {!items.length ? <EmptyState title="Позицій ще немає" /> : (
+      {!items.length ? (
+        <Link to="/shipments/$id/products" params={{ id: shipmentId }} className="block">
+          <EmptyState title="Позицій ще немає — натисніть, щоб додати" />
+        </Link>
+      ) : (
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="w-full min-w-[640px] text-[11px] tabular-nums">
             <thead className="text-muted-foreground">
@@ -157,47 +154,21 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
                 <th className="py-1.5 px-1 text-left font-medium">Калібр</th>
                 <th className="py-1.5 px-1 text-left font-medium">Спец.</th>
                 <th className="py-1.5 px-1 text-right font-medium">Пал.</th>
-                <th className="py-1.5 px-1 text-right font-medium">Собів.</th>
+                <th className="py-1.5 px-1 text-right font-medium">Собів. $</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => {
-                const isEd = editingId === it.id;
-                return (
-                  <>
-                    <tr
-                      key={it.id}
-                      onClick={() => setEditingId(isEd ? null : it.id)}
-                      className={cn("cursor-pointer border-b border-border/40 hover:bg-muted/40", isEd && "bg-muted/40")}
-                    >
-                      <td className="py-1.5 px-1 font-medium">{it.product_name}</td>
-                      <td className="py-1.5 px-1 text-muted-foreground">—</td>
-                      <td className="py-1.5 px-1 text-muted-foreground">{originCountry}</td>
-                      <td className="py-1.5 px-1">{it.caliber || "—"}</td>
-                      <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
-                      <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
-                      <td className="py-1.5 px-1 text-right whitespace-nowrap">
-                        <span className="font-semibold text-success">{fmt(Number(it.final_cost_indicative ?? 0))}</span>
-                        <span className="mx-0.5 text-muted-foreground">-</span>
-                        <span className="font-semibold text-destructive">{fmt(Number(it.final_cost_invoice ?? 0))}</span>
-                      </td>
-                    </tr>
-                    {isEd && (
-                      <tr key={it.id + "-ed"}>
-                        <td colSpan={7} className="bg-muted/20 p-2">
-                          <ShipmentItemEditor
-                            item={it}
-                            shipmentId={shipmentId}
-                            alloc={alloc.rows[it.id]}
-                            shipmentRate={shipment.eur_usd_rate}
-                            onClose={() => setEditingId(null)}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                );
-              })}
+              {items.map((it) => (
+                <tr key={it.id} className="border-b border-border/40">
+                  <td className="py-1.5 px-1 font-medium">{it.product_name || "—"}</td>
+                  <td className="py-1.5 px-1 text-muted-foreground">{it.variety || "—"}</td>
+                  <td className="py-1.5 px-1 text-muted-foreground">{it.origin_country || fallbackCountry}</td>
+                  <td className="py-1.5 px-1">{it.caliber || "—"}</td>
+                  <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
+                  <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
+                  <td className="py-1.5 px-1 text-right">{fmt(Number(it.cost_price_usd ?? 0))}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -445,26 +416,18 @@ const REQ_TYPE_LABEL: Record<string, string> = {
   reserve: "Резервування",
 };
 
-// Helper type
-function useShipmentData() {
-  return null as unknown as {
-    shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null; code: string; suppliers: { name: string | null; country: string | null } | null };
-    items: Array<{ id: string; product_name: string; caliber: string | null; pallet_count: number | null; pallet_weight: number | null; invoice_price: number | null; indicative_price: number | null; qty: number }>;
-    distributions: Array<{ id: string; branch_id: string; status: string; branches: { name: string | null; sort_order: number | null } | null; distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string }> | null }>;
-    requests: Array<{ id: string; status: string; request_type: string | null; qty: number | null; approved_qty: number | null; notes: string | null; branch_id: string; created_at: string }>;
-    changes: Array<{ id: string; field: string; old_value: string | null; new_value: string | null; created_at: string }>;
-  };
-}
-
 type Item = {
   id: string;
   product_name: string;
+  variety: string | null;
+  origin_country: string | null;
   caliber: string | null;
   sku: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
   invoice_price: number | null;
   indicative_price: number | null;
+  cost_price_usd: number | null;
   qty: number;
   unit_price: number | null;
   unit_price_usd: number | null;
@@ -476,83 +439,3 @@ type Item = {
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
-
-function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null; onClose: () => void }) {
-  const qc = useQueryClient();
-  const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
-  const normalizedProductName = item.product_name === "Новий товар" ? "" : item.product_name;
-  const [form, setForm] = useState({
-    product_name: normalizedProductName,
-    caliber: item.caliber ?? "",
-    pallet_count: item.pallet_count ?? 0,
-    pallet_weight: item.pallet_weight ?? 0,
-    unit_price: item.unit_price ?? item.invoice_price ?? 0,
-    indicative_price: item.indicative_price ?? 0,
-    price_currency: initialCurrency,
-  });
-  const totalKg = Number(form.pallet_count) * Number(form.pallet_weight);
-  const previewUsd = convertToUsd(Number(form.unit_price), form.price_currency, shipmentRate);
-  void alloc;
-  const save = async () => {
-    const { error } = await supabase.from("shipment_items").update({
-      product_name: form.product_name, caliber: form.caliber || null,
-      pallet_count: Number(form.pallet_count), pallet_weight: Number(form.pallet_weight),
-      invoice_price: Number(form.unit_price), indicative_price: Number(form.indicative_price),
-      qty: totalKg, unit_price: Number(form.unit_price),
-      price_currency: form.price_currency,
-    }).eq("id", item.id);
-    if (error) return toast.error(error.message);
-    toast.success("Збережено");
-    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-    onClose();
-  };
-  const remove = async () => {
-    const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-  };
-
-  return (
-    <div className="grid grid-cols-2 gap-2 text-sm">
-      <div className="col-span-2 space-y-1">
-        <Label className="text-xs">Назва товару</Label>
-        <Input placeholder="Товар" value={form.product_name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
-      </div>
-      <div className="space-y-1"><Label className="text-xs">Калібр</Label>
-        <Input placeholder="—" value={form.caliber} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
-      <div className="space-y-1"><Label className="text-xs">Палет</Label>
-        <Input type="number" placeholder="0" value={form.pallet_count === 0 ? "" : String(form.pallet_count)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, pallet_count: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
-      <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
-        <Input type="number" placeholder="0" value={form.pallet_weight === 0 ? "" : String(form.pallet_weight)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, pallet_weight: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
-      <div className="col-span-2 space-y-1">
-        <Label className="text-xs">Ціна постачальника</Label>
-        <div className="flex gap-2">
-          <Input type="number" step="0.01" placeholder="0" className="flex-1" value={form.unit_price === 0 ? "" : String(form.unit_price)} onFocus={(e) => e.currentTarget.select()}
-            onChange={(e) => setForm({ ...form, unit_price: e.target.value === "" ? 0 : Number(e.target.value) })} />
-          <select
-            value={form.price_currency}
-            onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          >
-            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          {form.price_currency === "EUR"
-            ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ {fmtRate(shipmentRate)}</>
-            : <>USD</>}
-        </p>
-      </div>
-      <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна</Label>
-        <Input type="number" step="0.01" placeholder="0" value={form.indicative_price === 0 ? "" : String(form.indicative_price)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, indicative_price: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
-      <div className="col-span-2 flex items-center justify-between pt-1">
-        <span className="text-xs text-muted-foreground">{totalKg} кг</span>
-        <div className="flex gap-2">
-          <Button size="sm" variant="ghost" onClick={remove} className="text-destructive">Видалити</Button>
-          <Button size="sm" variant="secondary" onClick={onClose}>Закрити</Button>
-          <Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
-        </div>
-      </div>
-    </div>
-  );
-}

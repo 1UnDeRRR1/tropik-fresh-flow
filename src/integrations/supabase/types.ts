@@ -522,6 +522,7 @@ export type Database = {
       shipment_items: {
         Row: {
           caliber: string | null
+          cost_price_usd: number | null
           created_at: string
           customs_cost_indicative: number | null
           customs_cost_invoice: number | null
@@ -532,6 +533,7 @@ export type Database = {
           id: string
           indicative_price: number | null
           invoice_price: number | null
+          origin_country: string | null
           pallet_count: number | null
           pallet_weight: number | null
           price_currency: string
@@ -542,10 +544,12 @@ export type Database = {
           unit: string
           unit_price: number
           unit_price_usd: number | null
+          variety: string | null
           weight_kg: number | null
         }
         Insert: {
           caliber?: string | null
+          cost_price_usd?: number | null
           created_at?: string
           customs_cost_indicative?: number | null
           customs_cost_invoice?: number | null
@@ -556,6 +560,7 @@ export type Database = {
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
+          origin_country?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
           price_currency?: string
@@ -566,10 +571,12 @@ export type Database = {
           unit?: string
           unit_price?: number
           unit_price_usd?: number | null
+          variety?: string | null
           weight_kg?: number | null
         }
         Update: {
           caliber?: string | null
+          cost_price_usd?: number | null
           created_at?: string
           customs_cost_indicative?: number | null
           customs_cost_invoice?: number | null
@@ -580,6 +587,7 @@ export type Database = {
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
+          origin_country?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
           price_currency?: string
@@ -590,6 +598,7 @@ export type Database = {
           unit?: string
           unit_price?: number
           unit_price_usd?: number | null
+          variety?: string | null
           weight_kg?: number | null
         }
         Relationships: [
