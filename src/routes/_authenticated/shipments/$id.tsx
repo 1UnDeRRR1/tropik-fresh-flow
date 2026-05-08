@@ -136,8 +136,9 @@ function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string 
   );
 }
 
-function DistributionTab({ data, shipmentId }: { data: NonNullable<ReturnType<typeof useShipmentData>>; shipmentId: string }) {
-  const branches = (data.distributions ?? [])
+type DistRow = { id: string; branch_id: string; status: string; branches: { name: string | null; sort_order: number | null } | null; distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string }> | null };
+function DistributionTab({ distributions, shipmentId }: { distributions: DistRow[]; shipmentId: string }) {
+  const branches = (distributions ?? [])
     .map((d) => ({
       id: d.id,
       branch_id: d.branch_id,
