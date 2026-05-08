@@ -1,86 +1,136 @@
-## Goal
+## Поставки / авто — фінальна логіка (із розмежуванням ролей)
 
-Add a customs reference database and a cost-price calculation module that combines supplier price (USD), transport cost per kg (USD), and customs cost into two final cost prices per shipment item: **індикативна** and **інвойсна собівартість**. All math is USD-based, mobile-first, Ukrainian UI.
+### Доступ до workflow авто
+**Лише ролі `import_manager`, `admin`, `super_admin` (= `is_staff`)** можуть:
+- бачити список відкритих авто;
+- створювати нове авто;
+- додавати постачальника до відкритого авто;
+- продовжувати часткове завантаження;
+- закривати/редагувати авто.
 
-## Database (one migration)
+**Філіали (`branch`)** НЕ бачать:
+- сторінку «Відкриті авто»;
+- workflow завантаження авто;
+- форму створення/додавання постачальника.
 
-1. **New table `customs_reference`**
-   - `id uuid pk`
-   - `product_name text not null`
-   - `country text not null`
-   - `threshold_price_usd numeric not null default 0`
-   - `customs_fee_percent numeric not null default 0`
-   - `euro1_markup_usd numeric not null default 0`
-   - `active boolean not null default true`
-   - `created_at`, `updated_at` + touch trigger
-   - Unique partial index on `(lower(product_name), lower(country))` where `active = true`
-   - RLS: read for authenticated; write for admin/super_admin (`is_admin`)
+Філіал бачить тільки:
+- свої розподіли (`distributions` де `branch_id = user_branch_id`);
+- свої запити (`branch_requests`);
+- трансфери (`transfer_requests`);
+- ETA по своїх поставках;
+- операційні дані філії.
 
-2. **Computed columns on `shipment_items`** (kept in DB so matrix/branch/admin queries are cheap)
-   - `customs_cost_indicative numeric` (per kg, USD)
-   - `customs_cost_invoice numeric` (per kg, USD)
-   - `final_cost_indicative numeric` (per kg, USD)
-   - `final_cost_invoice numeric` (per kg, USD)
-   - `customs_match_id uuid` (nullable; resolved customs_reference row)
+---
 
-3. **Trigger `calc_shipment_item_costs`** on `shipment_items` insert/update of `unit_price_usd`, `product_name`, plus a recompute on shipment country change:
-   - Find best `customs_reference` row by `lower(product_name)=lower(NEW.product_name)` + shipment.country, `active=true`.
-   - If `unit_price_usd <= threshold_price_usd` → `customs_cost_indicative = euro1_markup_usd`, `customs_cost_invoice = euro1_markup_usd` (indicative path applies).
-   - Else compute invoice path:
-     - `vat_part = unit_price_usd * 0.20`
-     - `result2 = unit_price_usd + vat_part`
-     - `customs_fee = result2 * customs_fee_percent / 100`
-     - `customs_cost_invoice = vat_part + customs_fee + 0.015`
-     - `customs_cost_indicative = euro1_markup_usd` (still kept as reference)
-   - Final costs use **transport_cost_per_kg** computed live in app (transport allocation already exists in `src/lib/transport.ts`); for DB-stored `final_cost_*` we approximate using snapshot transport from `shipments.logistics_cost_usd` and total weight at trigger time. Final authoritative numbers come from the front-end formula in `src/lib/cost.ts`.
+### A. Модель даних
 
-4. **Recompute trigger** on `shipments` update of `country` or `logistics_cost_usd` → recompute all child shipment_items costs.
+**Міграція БД:**
 
-## Frontend
+Нова таблиця `vehicles`:
+- `id uuid pk`
+- `code text unique` — `GR29`
+- `country text` (українська), `country_code text` (`GR/IT/NL/...`)
+- `sequence_no int`
+- `loading_date date`, `eta date`, `logistics_days int`
+- `status` enum `open | closed`
+- `closed_at`, `closed_by uuid`, `created_by uuid`, `created_at`, `updated_at`
 
-1. **New `src/lib/cost.ts`**
-   - `computeCustoms({ unitPriceUsd, ref }) → { indicative, invoice, base }`
-   - `computeFinalCost({ unitPriceUsd, transportPerKgUsd, customsUsd }) → number`
-   - Formatters reuse `fmtUSD` from `src/lib/currency.ts`.
+`shipments`:
+- `+ vehicle_id uuid references vehicles(id)`
+- `code` = `vehicle.code + '-' + supplier_code` (напр. `GR29-OLI`)
 
-2. **Admin page `src/routes/_authenticated/admin/customs.tsx`** (new)
-   - CRUD list + form for `customs_reference`. Columns: товар, країна, поріг $, мито %, Euro1 $, активність.
-   - Mobile-first card list + edit dialog.
-   - Linked from `admin/index.tsx` tile "Митний довідник".
+**RLS на `vehicles`:**
+- `SELECT`: `is_staff(auth.uid())` — тільки staff (НЕ філіали).
+- `INSERT/UPDATE`: `is_staff(auth.uid())`.
+- Філіали взагалі не отримують доступу.
 
-3. **Shipment item details (`shipments/$id.tsx` → `ShipmentItemRow` + Products tab)**
-   - Show: Митна база (база = `unit_price_usd`), Націнка Euro1, Митний збір %, Митна вартість (індикативна / інвойсна), Транспорт $/кг, Індикативна собівартість, Інвойсна собівартість.
-   - Badge if no customs_reference match found ("Немає в митному довіднику").
+**RLS на `shipments` (оновлення):**
+- `UPDATE/DELETE shipments`/`shipment_items` — лише `created_by = auth.uid()` АБО `is_admin(auth.uid())`. Інший import-manager може лише `INSERT` нового shipment у відкрите авто, не правлячи чужі блоки.
+- Філіали — як зараз: `SELECT` тільки через свої distributions.
 
-4. **Logistics tab** — add summary row per item: "Індикативна / Інвойсна" using live transport allocation × customs.
+**Функції/тригери:**
+- `next_vehicle_sequence(p_country text) returns int` — `max(sequence_no)+1` для країни.
+- `recompute_vehicle_totals()` — тригер на `shipment_items` INSERT/UPDATE/DELETE: рахує палети/вагу авто, при `pallets >= 26 OR weight >= 21500 OR (26 - pallets) <= 1` → `status='closed'`, `closed_at=now()`.
+- Backfill: для існуючих shipments створити `vehicles` (по країні+`created_at`), проставити `vehicle_id`, зберегти поточні `code`.
 
-5. **Distribution matrix (`distribution/$shipmentId.tsx`)**
-   - Add per-item subtitle line: `Інд. собівартість $X.XX/кг • Інв. собівартість $Y.YY/кг`.
+---
 
-6. **Branch view (`dashboard/branch.tsx`)**
-   - Show per-item `Собівартість (інд / інв) $/кг`. No EUR shown.
+### B. Логіка нумерації
+- `COUNTRY_CODE`: `Греція→GR, Італія→IT, Іспанія→ES, Нідерланди→NL, Бельгія→BE, Польща→PL, Молдова→MD, Албанія→AL, Македонія→MK`.
+- `SUPPLIER_CODE`: 3 латинські літери з назви постачальника (UPPER, транслітерація кирилиці).
+- `vehicle.code = COUNTRY_CODE + LPAD(sequence_no, 2)` → `GR29`.
+- `shipment.code = vehicle.code + '-' + SUPPLIER_CODE` → `GR29-OLI`.
+- Відображення multi-supplier авто: `GR29-OLI-APO` — обчислюється з агрегації shipments для перегляду.
 
-7. **Admin / analytics (`analytics.tsx`)**
-   - Add aggregate column: середня індикативна / інвойсна $/кг за поставку.
+---
 
-8. **`costs.tsx` page** — replace placeholder with real explanation + last 20 calculated items table.
+### C. UI: створення поставки (`/shipments/new`) — staff-only
 
-All labels Ukrainian: «Індикативна собівартість», «Інвойсна собівартість», «Митна база», «Націнка Euro1», «Митний збір %», «Поріг ціни», «Митний довідник».
+Форма (mobile-first, одна колонка):
 
-## Out of scope
+**Крок 1 — Авто:**
+- Toggle: `[Нове авто]` / `[Додати до відкритого]`.
+- «Додати до відкритого» → searchable combobox (`Command` + `Popover`) зі списком `vehicles where status='open'`, фільтр за обраною країною. Кожна картка: код, країна, постачальники, палети `X/26`, вага `Y / 21 500 кг`, залишок, ETA.
+- «Нове авто»:
+  - Combobox країни (тільки українські назви з `COUNTRY_DAYS`).
+  - Дата завантаження → ETA через `calcArrivalDate`.
+  - `sequence_no` → виклик `next_vehicle_sequence(country)` при сабміті.
 
-- Editing customs_reference from non-admin roles.
-- Recomputing historical shipments retroactively when reference changes (only re-saves trigger recompute).
-- Currencies other than USD for final cost.
+**Крок 2 — Постачальник:**
+- Searchable combobox постачальника.
+- Автозаповнює країну (тільки якщо «Нове авто» і користувач не змінив вручну). Країна редагована — зміна перерахує `country_code`, `sequence_no`, `logistics_days`, ETA, `code`.
+- Видно лише: дату завантаження + ETA. Поле «Днів логістики» приховане в operational UI (залишається в БД і admin-розділі).
+- Поле `code` — read-only автоген з кнопкою «✎ Редагувати вручну».
 
-## Files
+**Submit:**
+- «Нове авто» → `insert vehicles` + `insert shipments` з `vehicle_id`.
+- «Додати до відкритого» → `insert shipments` з обраним `vehicle_id` (country/loading_date/eta з vehicle, read-only).
+- Після створення → редірект на `/shipments/$id`.
 
-- migration `supabase/migrations/<ts>_customs_costs.sql` (table + columns + triggers + RLS)
-- create `src/lib/cost.ts`
-- create `src/routes/_authenticated/admin/customs.tsx`
-- edit `src/routes/_authenticated/admin/index.tsx` (add tile)
-- edit `src/routes/_authenticated/shipments/$id.tsx` (item row + logistics tab)
-- edit `src/routes/_authenticated/distribution/$shipmentId.tsx`
-- edit `src/routes/_authenticated/dashboard/branch.tsx`
-- edit `src/routes/_authenticated/analytics.tsx`
-- edit `src/routes/_authenticated/costs.tsx`
+---
+
+### D. UI: список відкритих авто — staff-only
+
+На `/shipments` зверху блок «Відкриті авто» (рендериться лише якщо `is_staff`):
+- Картки: код, країна (UA), постачальники (badges), палети `X/26`, вага `Y / 21 500 кг`, залишок місткості, ETA, кнопки `[Додати постачальника]` `[Закрити авто]`.
+- Філіали цей блок не бачать (умова в компоненті + RLS блокує запит).
+
+---
+
+### E. Дозволи в UI (cross-manager)
+- На `/shipments/$id`: кнопки edit/delete на блоці постачальника видні лише `created_by` або admin. Чужі блоки — read-only.
+- Закриття авто — будь-який staff. Переоткриття — лише admin.
+
+---
+
+### F. Локалізація
+- Розширити `src/lib/countries.ts` (EN→UA + ISO + варіанти). Жодних англійських назв в operational UI.
+- Перевірити сторінки де показується `country` (більшість уже через `toUaCountry`).
+
+---
+
+### G. Поза scope
+- Авто-розподіл, аналітика маржі, AI-логістика, sales/accounting.
+- Адмінська CRUD-сторінка для `vehicles` (за потреби — окрема задача).
+
+---
+
+## Зачеплені файли
+
+**БД:**
+- Нова таблиця `vehicles` + enum + RLS + функції/тригери.
+- ALTER `shipments ADD vehicle_id`.
+- Backfill існуючих shipments.
+
+**Frontend:**
+- `src/lib/countries.ts` — розширення.
+- `src/lib/arrival.ts` — додати `COUNTRY_CODE`.
+- `src/lib/shipment-code.ts` *(новий)* — `buildSupplierCode`, `formatVehicleCode`.
+- `src/routes/_authenticated/shipments/new.tsx` — vehicle toggle, comboboxes, авторозрахунки. Доступ через перевірку ролі (редірект non-staff).
+- `src/routes/_authenticated/shipments/index.tsx` — блок «Відкриті авто» лише для staff.
+- `src/routes/_authenticated/shipments/$id.tsx` — приховати «Днів логістики», обмежити edit для не-власників, показати належність до vehicle.
+- `src/routes/_authenticated/dashboard/branch.tsx` — без vehicle workflow (як є).
+
+## Ризики
+- Backfill порядок sequence — за `created_at` в межах країни.
+- Поточні `code` зберігаються; нові генеруються за новою логікою.
