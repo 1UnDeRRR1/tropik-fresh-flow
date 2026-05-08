@@ -27,7 +27,7 @@ type ItemRow = {
   pallet_weight: number | null;
   unit_price: number | null;
   price_currency: string | null;
-  cost_price_usd: number | null;
+  final_cost_indicative: number | null;
 };
 
 type ShipmentRow = {
