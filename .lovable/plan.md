@@ -1,52 +1,77 @@
+## Goal
 
-## Мета
+Make USD the system's base accounting currency. Suppliers' product prices and shipment transport/freight cost can be entered in EUR or USD. EUR values are auto-converted via Frankfurter API and a per-shipment exchange rate snapshot. All calculations, analytics and branch views switch to USD.
 
-Привести бекенд Lovable Cloud у відповідність до вашого списку сутностей:
-`users, roles, branches, suppliers, shipments, shipment_items, distributions, branch_requests, transfer_requests, notifications, trigger_logs` — без втрати поточних даних і RLS. UI лишається українською.
+## Database changes (one migration)
 
-## Що змінюється у БД (одна міграція)
+1. **New table `exchange_rates`**
+   - `id`, `base_currency` (default 'EUR'), `target_currency` (default 'USD'), `rate numeric`, `source text` (default 'frankfurter'), `rate_date date`, `created_at`
+   - Unique on `(base_currency, target_currency, rate_date)`
+   - RLS: read for authenticated; insert for staff (filled by edge function with service role)
 
-1. **Перейменування таблиць**
-   - `transfers` → `transfer_requests`
-   - `transfer_items` → `transfer_request_items` (для узгодженості з новою назвою)
-   - `audit_logs` → `trigger_logs`
+2. **`shipment_items`**
+   - Add `price_currency text not null default 'EUR'` (currency for `unit_price`)
+   - Add `unit_price_usd numeric` (snapshot converted price in USD)
+   - Add `fx_rate_used numeric` (rate snapshot used for this row, EUR→USD; 1 when USD)
 
-2. **Нова таблиця `branch_requests`** — заявки філії на товар із поставки:
-   - `branch_id` (→ branches), `shipment_id` (→ shipments, nullable — заявка може бути без прив'язки)
-   - `status` enum: `pending | approved | rejected | fulfilled | cancelled`
-   - `requested_by` (auth user), `notes`, `created_at`, `updated_at`
-   - Дочірня `branch_request_items`: `product_name`, `qty`, `unit`
+3. **`shipments`**
+   - Add `logistics_cost_currency text not null default 'EUR'`
+   - Add `logistics_cost_usd numeric`
+   - Add `eur_usd_rate numeric` (shipment's exchange-rate snapshot, set when first EUR value is saved)
+   - Add `eur_usd_rate_date date`
+   - Repurpose existing `currency`/`fx_rate` already on shipments to keep transport snapshot consistent (we'll write the new explicit columns and leave legacy columns untouched).
 
-3. **RLS** для нових/перейменованих таблиць — за тією ж моделлю:
-   - філія бачить/створює тільки власні `branch_requests`;
-   - персонал (`is_staff`) має повний доступ;
-   - `trigger_logs` — читає лише `super_admin`, пише будь‑який автентифікований staff.
+4. **Trigger** on `shipment_items` insert/update: if `price_currency='USD'` then `unit_price_usd = unit_price`, `fx_rate_used = 1`; if `EUR` and shipment has `eur_usd_rate`, compute `unit_price_usd = unit_price * eur_usd_rate`.
 
-4. **Сумісність назв**: `users` і `roles` зі списку = існуючі `profiles` + `user_roles` (стандарт Supabase, перейменовувати не варто, бо `auth.users` зарезервовано). У UI підписуємо їх як «Користувачі» та «Ролі».
+## Exchange rate fetcher
 
-## Що змінюється у коді
+- New server route `src/routes/api/public/hooks/refresh-fx.ts` (POST):
+  - Calls `https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD`
+  - Upserts row into `exchange_rates` for today (`source='frankfurter'`)
+- Schedule via `pg_cron` daily at 06:00 UTC (insert tool, not migration).
+- Helper `getLatestEurUsdRate()` server fn reads the most recent row from `exchange_rates`.
 
-- Оновити запити Supabase, що використовують `transfers` / `transfer_items` / `audit_logs`, на нові імена (типи `src/integrations/supabase/types.ts` згенеруються автоматично після міграції).
-- Сторінка `/transfers` — лишається тією ж URL, але працює з `transfer_requests`.
-- Додати маршрут `/_authenticated/branch-requests` (список + форма створення для філії, апрув/відхилення для staff).
-- Додати пункт «Заявки» (branch_requests) у нижню навігацію для ролі `branch` і у меню staff.
-- Сторінка `/_authenticated/dashboard/super-admin` — підключити перегляд `trigger_logs`.
+## Shipment-level snapshot logic
 
-## UI (українською)
+- When a shipment is created or first time an EUR value is saved, fetch latest rate from `exchange_rates` and store `eur_usd_rate` + `eur_usd_rate_date` on the shipment. Never overwrite afterwards (historical immutability).
+- When transport cost is saved with currency=EUR: `logistics_cost_usd = logistics_cost * eur_usd_rate`. With USD: copy as-is, rate stays 1 for that field.
 
-Назви розділів: «Користувачі», «Ролі», «Філії», «Постачальники», «Поставки», «Позиції поставки», «Розподіл», «Заявки філій», «Міжфілійні переміщення», «Сповіщення», «Журнал подій».
+## Frontend changes
 
-## Технічні деталі
+1. **New util `src/lib/currency.ts`**
+   - `CURRENCIES = ['EUR','USD']`, `fmtUSD`, `fmtEUR`, `convertToUsd(amount, currency, rate)`, `usdPerKg(...)`.
 
-```
-БД:
-  ALTER TABLE transfers       RENAME TO transfer_requests;
-  ALTER TABLE transfer_items  RENAME TO transfer_request_items;
-  ALTER TABLE audit_logs      RENAME TO trigger_logs;
-  CREATE TYPE branch_request_status AS ENUM (...);
-  CREATE TABLE branch_requests (...);
-  CREATE TABLE branch_request_items (...);
-  + RLS policies + updated_at trigger
-```
+2. **Shipment item form (Products tab in `shipments/$id.tsx`)**
+   - Add small currency `<Select>` (EUR default) next to `unit_price`
+   - Show original entered value + currency, then under it: rate used and converted USD value (e.g. "≈ 12.45 USD @ 1.085")
 
-Поза скоупом цього кроку: realtime, експорт, завантаження документів — лишаємо на наступні ітерації.
+3. **Logistics tab (transport cost block)**
+   - Currency selector next to total transport cost (EUR default)
+   - Show `eur_usd_rate` snapshot, converted USD total, and per-row `$/кг`
+   - Update `allocateTransport` consumer to compute USD-based allocation and `$/кг`
+
+4. **`src/lib/transport.ts`**
+   - Keep weight allocation logic; add `fmtUsd` helper. Pass USD total cost into `allocateTransport` from caller. No EUR in displayed analytics.
+
+5. **Analytics (`analytics.tsx`)**
+   - Replace €/kg with $/kg using `logistics_cost_usd` and total weight.
+
+6. **Branch views, dashboards** that show price/cost — switch to `unit_price_usd` and `$/кг`.
+
+7. **Admin / shipments/new** — default currency selectors to EUR; persist chosen currency on save.
+
+All UI labels in Ukrainian (e.g. "Валюта", "Курс EUR/USD", "Сума у USD", "$/кг"). Mobile-first cards consistent with existing patterns.
+
+## Out of scope
+
+- Customs cost calculation (separate later module).
+- Final product cost computation.
+- Rates other than EUR/USD.
+
+## Files to create / edit
+
+- create `supabase/migrations/<ts>_currency_usd.sql`
+- create `src/lib/currency.ts`
+- create `src/routes/api/public/hooks/refresh-fx.ts`
+- edit `src/lib/transport.ts`, `src/routes/_authenticated/shipments/$id.tsx`, `src/routes/_authenticated/shipments/new.tsx`, `src/routes/_authenticated/analytics.tsx`, `src/routes/_authenticated/dashboard/branch.tsx`, `src/routes/_authenticated/distribution/$shipmentId.tsx` (where prices/cost shown)
+- insert tool: schedule pg_cron job + seed today's rate
