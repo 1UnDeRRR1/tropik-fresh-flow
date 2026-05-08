@@ -18,10 +18,13 @@ function ManagerDashboard() {
   const { data } = useQuery({
     queryKey: ["dash-manager"],
     queryFn: async () => {
-      const today = new Date();
+      const now = new Date();
+      const today = now;
+      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       const weekEnd = new Date();
       weekEnd.setDate(today.getDate() + 7);
       const isoToday = today.toISOString().slice(0, 10);
+      const iso24h = in24h.toISOString().slice(0, 10);
       const isoWeek = weekEnd.toISOString().slice(0, 10);
 
       const [shipments, requests, changes] = await Promise.all([
@@ -43,23 +46,29 @@ function ManagerDashboard() {
 
       const ships = shipments.data ?? [];
       const active = ships.filter((s) => ACTIVE.includes(s.status));
-      const arrivingWeek = ships.filter(
-        (s) => s.eta && s.eta >= isoToday && s.eta <= isoWeek && !["completed", "cancelled"].includes(s.status),
-      );
-      const delayed = ships.filter((s) => s.status === "delayed" || (s.eta && s.eta < isoToday && !["completed", "cancelled", "distributing"].includes(s.status)));
-      const notDistributed = ships.filter((s) => {
+      const isIncomplete = (s: typeof ships[number]) => {
         const fact = (s.shipment_items ?? []).reduce((a: number, it: { pallet_count: number | null }) => a + Number(it.pallet_count ?? 0), 0);
         const dist = (s.distributions ?? []).reduce(
           (a: number, d: { distribution_items: { pallets: number | null }[] | null }) =>
             a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
           0,
         );
-        return fact > 0 && dist < fact && !["completed", "cancelled"].includes(s.status);
-      });
+        return fact === 0 || dist < fact;
+      };
+      const urgent24h = ships.filter(
+        (s) =>
+          s.eta &&
+          s.eta >= isoToday &&
+          s.eta <= iso24h &&
+          !["completed", "cancelled"].includes(s.status) &&
+          isIncomplete(s),
+      );
+      const delayed = ships.filter((s) => s.status === "delayed" || (s.eta && s.eta < isoToday && !["completed", "cancelled", "distributing"].includes(s.status)));
+      const notDistributed = ships.filter((s) => isIncomplete(s) && !["completed", "cancelled"].includes(s.status) && (s.shipment_items ?? []).length > 0);
 
       return {
         active: active.length,
-        arrivingWeek: arrivingWeek.length,
+        urgent24h: urgent24h.length,
         notDistributed: notDistributed.length,
         delayed: delayed.length,
         requests: requests.data?.length ?? 0,
@@ -84,9 +93,28 @@ function ManagerDashboard() {
       />
 
       <div className="grid grid-cols-2 gap-3">
+        {(data?.urgent24h ?? 0) > 0 ? (
+          <div className="col-span-2">
+            <StatCard
+              label="24Г ДО ПРИБУТТЯ — НЕ РОЗПОДІЛЕНО"
+              value={data?.urgent24h ?? 0}
+              hint="Терміново розподілити по філіях"
+              icon={<AlertTriangle className="h-5 w-5" />}
+              tone="danger"
+              pulse
+              to="/distribution"
+            />
+          </div>
+        ) : (
+          <StatCard
+            label="24Г до прибуття"
+            value={0}
+            icon={<CalendarClock className="h-4 w-4" />}
+            tone="brand"
+          />
+        )}
         <StatCard label="Активні" value={data?.active ?? 0} icon={<Package className="h-4 w-4" />} tone="primary" to="/shipments" />
-        <StatCard label="Прибуває за тиждень" value={data?.arrivingWeek ?? 0} icon={<CalendarClock className="h-4 w-4" />} tone="brand" />
-        <StatCard label="Не розподілено" value={data?.notDistributed ?? 0} icon={<Truck className="h-4 w-4" />} />
+        <StatCard label="Не розподілено" value={data?.notDistributed ?? 0} icon={<Truck className="h-4 w-4" />} to="/distribution" />
         <StatCard label="Затримки" value={data?.delayed ?? 0} icon={<AlertTriangle className="h-4 w-4" />} />
         <StatCard label="Заявки філій" value={data?.requests ?? 0} icon={<MailQuestion className="h-4 w-4" />} to="/branch-requests" />
         <StatCard label="Зміни" value={data?.changes.length ?? 0} icon={<History className="h-4 w-4" />} />
