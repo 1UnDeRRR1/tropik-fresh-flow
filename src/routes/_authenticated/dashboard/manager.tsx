@@ -151,6 +151,7 @@ function ManagerDashboard() {
           hint="Очікують розподілу"
           icon={<Package className="h-4 w-4" />}
           to="/distribution"
+          hash="not"
         />
 
         <StatCard
