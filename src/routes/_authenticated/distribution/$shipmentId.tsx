@@ -369,12 +369,9 @@ function DistributionMatrix() {
                     </td>
                     {data.branches.map((b) => (
                       <td key={b.id} className="px-0.5 py-1">
-                        <input
-                          type="number"
-                          min={0}
-                          inputMode="decimal"
-                          value={grid[it.id]?.[b.id] ?? 0}
-                          onChange={(e) => setCell(it.id, b.id, Number(e.target.value) || 0)}
+                        <CellInput
+                          value={Number(grid[it.id]?.[b.id] ?? 0)}
+                          onChange={(n) => setCell(it.id, b.id, n)}
                           className="h-9 w-14 rounded-md border border-input bg-background px-1 text-center text-xs tabular-nums focus:border-brand focus:outline-none"
                         />
                       </td>
