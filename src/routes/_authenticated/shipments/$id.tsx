@@ -480,8 +480,9 @@ type Item = {
 function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null; onClose: () => void }) {
   const qc = useQueryClient();
   const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
+  const normalizedProductName = item.product_name === "Новий товар" ? "" : item.product_name;
   const [form, setForm] = useState({
-    product_name: item.product_name,
+    product_name: normalizedProductName,
     caliber: item.caliber ?? "",
     pallet_count: item.pallet_count ?? 0,
     pallet_weight: item.pallet_weight ?? 0,
@@ -515,19 +516,19 @@ function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: 
     <div className="grid grid-cols-2 gap-2 text-sm">
       <div className="col-span-2 space-y-1">
         <Label className="text-xs">Назва товару</Label>
-        <Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
+        <Input placeholder="Товар" value={form.product_name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
       </div>
       <div className="space-y-1"><Label className="text-xs">Калібр</Label>
-        <Input value={form.caliber} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
+        <Input placeholder="—" value={form.caliber} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
       <div className="space-y-1"><Label className="text-xs">Палет</Label>
-        <Input type="number" value={form.pallet_count} onChange={(e) => setForm({ ...form, pallet_count: Number(e.target.value) })} /></div>
+        <Input type="number" placeholder="0" value={form.pallet_count === 0 ? "" : String(form.pallet_count)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, pallet_count: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
       <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
-        <Input type="number" value={form.pallet_weight} onChange={(e) => setForm({ ...form, pallet_weight: Number(e.target.value) })} /></div>
+        <Input type="number" placeholder="0" value={form.pallet_weight === 0 ? "" : String(form.pallet_weight)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, pallet_weight: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
       <div className="col-span-2 space-y-1">
         <Label className="text-xs">Ціна постачальника</Label>
         <div className="flex gap-2">
-          <Input type="number" step="0.01" className="flex-1" value={form.unit_price}
-            onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })} />
+          <Input type="number" step="0.01" placeholder="0" className="flex-1" value={form.unit_price === 0 ? "" : String(form.unit_price)} onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setForm({ ...form, unit_price: e.target.value === "" ? 0 : Number(e.target.value) })} />
           <select
             value={form.price_currency}
             onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
@@ -543,7 +544,7 @@ function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: 
         </p>
       </div>
       <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна</Label>
-        <Input type="number" step="0.01" value={form.indicative_price} onChange={(e) => setForm({ ...form, indicative_price: Number(e.target.value) })} /></div>
+        <Input type="number" step="0.01" placeholder="0" value={form.indicative_price === 0 ? "" : String(form.indicative_price)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, indicative_price: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
       <div className="col-span-2 flex items-center justify-between pt-1">
         <span className="text-xs text-muted-foreground">{totalKg} кг</span>
         <div className="flex gap-2">
