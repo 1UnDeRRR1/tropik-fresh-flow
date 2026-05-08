@@ -127,9 +127,9 @@ function ProductsTab({ items, shipmentId }: { items: Item[]; shipmentId: string 
         </div>
       }
     >
-      {!data.items.length ? <EmptyState title="Позицій ще немає" /> : (
+      {!items.length ? <EmptyState title="Позицій ще немає" /> : (
         <div className="space-y-2">
-          {data.items.map((it) => <ShipmentItemRow key={it.id} item={it} shipmentId={shipmentId} />)}
+          {items.map((it) => <ShipmentItemRow key={it.id} item={it as Item} shipmentId={shipmentId} />)}
         </div>
       )}
     </SectionCard>
