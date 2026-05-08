@@ -270,6 +270,18 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status:
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
+  const currency = shipment.currency ?? "EUR";
+  const [transport, setTransport] = useState<string>("");
+  const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport);
+  const alloc = allocateTransport(items, totalTransport);
+  const saveTransport = async () => {
+    const { error } = await supabase.from("shipments").update({ logistics_cost: totalTransport }).eq("id", shipmentId);
+    if (error) return toast.error(error.message);
+    toast.success("Транспортні витрати збережено");
+    setTransport("");
+    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+  };
+
   return (
     <div className="space-y-4">
       <SectionCard title="Дата прибуття">
@@ -283,6 +295,58 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: { status:
           <p className="text-xs text-muted-foreground">
             Завантаження: {shipment.loading_date ?? "—"} · Країна: {shipment.country ?? "—"} · Дні: {shipment.logistics_days ?? "—"}
           </p>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Транспортні витрати — розподіл по товарах">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту ({currency})</Label>
+            <div className="flex gap-2">
+              <Input id="transport" type="number" step="0.01" inputMode="decimal"
+                value={transport === "" ? String(shipment.logistics_cost ?? 0) : transport}
+                onChange={(e) => setTransport(e.target.value)} />
+              <Button type="button" onClick={saveTransport} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Розподіл пропорційно до фактичної ваги товару. Митні витрати рахуються окремим модулем.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <StatCard label="Загальна вага" value={fmtKg(alloc.shipmentTotalWeight)} />
+            <StatCard label="Транспорт всього" value={fmtMoney(totalTransport, currency)} tone="brand" />
+          </div>
+
+          {!items.length ? <EmptyState title="Додайте позиції щоб побачити розподіл" /> : (
+            <div className="-mx-4 overflow-x-auto px-4">
+              <table className="w-full min-w-[520px] text-xs">
+                <thead className="text-muted-foreground">
+                  <tr className="border-b border-border">
+                    <th className="py-2 text-left font-medium">Товар</th>
+                    <th className="py-2 text-right font-medium">Вага</th>
+                    <th className="py-2 text-right font-medium">Частка</th>
+                    <th className="py-2 text-right font-medium">Транспорт</th>
+                    <th className="py-2 text-right font-medium">€/кг</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it) => {
+                    const r = alloc.rows[it.id];
+                    return (
+                      <tr key={it.id} className="border-b border-border/50">
+                        <td className="py-2 pr-2 font-medium">{it.product_name}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtKg(r.productTotalWeight)}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtPct(r.weightShare)}</td>
+                        <td className="py-2 text-right tabular-nums">{fmtMoney(r.allocatedTransportCost, currency)}</td>
+                        <td className="py-2 text-right tabular-nums text-brand">{fmtMoney(r.transportCostPerKg, currency)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </SectionCard>
 
