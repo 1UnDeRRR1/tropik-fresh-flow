@@ -204,13 +204,7 @@ function OpenVehiclesBlock() {
   if (!data?.length) return null;
 
   return (
-    <SectionCard
-      title={
-        <span className="flex items-center gap-2">
-          <Truck className="h-4 w-4 text-brand" /> Відкриті авто ({data.length})
-        </span>
-      }
-    >
+    <SectionCard title={`🚛 Відкриті авто (${data.length})`}>
       <div className="grid gap-2 sm:grid-cols-2">
         {data.map((v) => {
           const sups = (v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[];
