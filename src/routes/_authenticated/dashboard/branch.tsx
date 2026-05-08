@@ -103,7 +103,7 @@ function BranchDashboard() {
                     <div>
                       <div className="text-sm font-semibold">{d.shipments?.code}</div>
                       <div className="text-xs text-muted-foreground">
-                        {d.shipments?.suppliers?.name ?? "—"} · {d.shipments?.country ?? ""}
+                        {d.shipments?.suppliers?.name ?? "—"} · {toUaCountry(d.shipments?.country ?? "")}
                       </div>
                     </div>
                     <StatusChip status={d.status} kind="distribution" />
