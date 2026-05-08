@@ -105,7 +105,7 @@ function ManagerDashboard() {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{s.code}</div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {s.suppliers?.name ?? "—"} · {s.country ?? s.suppliers?.country ?? ""}
+                      {s.suppliers?.name ?? "—"} · {toUaCountry(s.country ?? s.suppliers?.country ?? "")}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
