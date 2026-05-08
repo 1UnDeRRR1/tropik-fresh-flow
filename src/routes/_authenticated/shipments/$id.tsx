@@ -314,7 +314,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
             <Button type="button" onClick={saveEta} disabled={etaLocked} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Завантаження: {shipment.loading_date ?? "—"} · Країна: {shipment.country ?? "—"} · Дні: {shipment.logistics_days ?? "—"}
+            Завантаження: {shipment.loading_date ?? "—"} · Країна: {toUaCountry(shipment.country) || "—"} · Дні: {shipment.logistics_days ?? "—"}
           </p>
         </div>
       </SectionCard>
