@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useMatches } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -10,6 +10,13 @@ export const Route = createFileRoute("/_authenticated/distribution")({
 });
 
 function Distribution() {
+  const matches = useMatches();
+  const isChild = matches.some((m) => m.routeId === "/_authenticated/distribution/$shipmentId");
+  if (isChild) return <Outlet />;
+  return <DistributionList />;
+}
+
+function DistributionList() {
   const { data } = useQuery({
     queryKey: ["distributions"],
     queryFn: async () => {
