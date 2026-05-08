@@ -393,7 +393,7 @@ type Item = {
   qty: number;
 };
 
-function ShipmentItemRow({ item, shipmentId }: { item: Item; shipmentId: string }) {
+function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; currency: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
