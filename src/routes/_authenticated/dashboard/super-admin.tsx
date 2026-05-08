@@ -16,7 +16,7 @@ function SuperAdminDashboard() {
       const [users, logs, roles] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase
-          .from("audit_logs")
+          .from("trigger_logs")
           .select("id,action,entity,created_at,actor_id")
           .order("created_at", { ascending: false })
           .limit(10),
