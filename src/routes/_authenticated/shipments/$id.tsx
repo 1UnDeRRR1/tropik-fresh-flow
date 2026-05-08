@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
 import { toUaCountry } from "@/lib/countries";
 import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
-import { CURRENCIES, type Currency, fmtUSD, fmtMoneyByCurrency, fmtRate, convertToUsd } from "@/lib/currency";
+import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: ShipmentDetail,
