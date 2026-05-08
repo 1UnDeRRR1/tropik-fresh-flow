@@ -14,8 +14,9 @@ export function StatCard({
   value: ReactNode;
   hint?: string;
   icon?: ReactNode;
-  tone?: "default" | "brand" | "primary";
+  tone?: "default" | "brand" | "primary" | "danger";
   to?: string;
+  pulse?: boolean;
 }) {
   const body = (
     <div
@@ -23,6 +24,8 @@ export function StatCard({
         "rounded-2xl border border-border bg-card p-4 shadow-card transition active:scale-[0.98]",
         tone === "brand" && "border-transparent bg-brand text-brand-foreground",
         tone === "primary" && "border-transparent bg-primary text-primary-foreground",
+        tone === "danger" && "border-transparent bg-destructive text-destructive-foreground shadow-lg",
+        pulse && "animate-pulse",
       )}
     >
       <div className="flex items-center justify-between">
