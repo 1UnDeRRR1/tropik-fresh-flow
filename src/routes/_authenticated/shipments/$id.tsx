@@ -96,8 +96,8 @@ function ShipmentDetail() {
         </div>
       </div>
 
-      {tab === "products" && <ProductsTab data={data!} shipmentId={id} />}
-      {tab === "distribution" && <DistributionTab data={data!} shipmentId={id} />}
+      {tab === "products" && <ProductsTab items={data!.items} shipmentId={id} />}
+      {tab === "distribution" && <DistributionTab distributions={data!.distributions} shipmentId={id} />}
       {tab === "requests" && <RequestsTab requests={data!.requests} qc={qc} />}
       {tab === "history" && <HistoryTab changes={data!.changes} />}
       {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} />}
