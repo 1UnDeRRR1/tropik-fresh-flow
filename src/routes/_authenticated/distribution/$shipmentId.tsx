@@ -479,3 +479,49 @@ function DistributionMatrix() {
     </div>
   );
 }
+
+/**
+ * Integer pallet input with editable empty buffer.
+ * - Shows "" while focused/empty so the user can clear the "0".
+ * - Strips non-digits and leading zeros.
+ */
+function CellInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  className?: string;
+}) {
+  const [text, setText] = useState<string>(value > 0 ? String(value) : "");
+  const focusedRef = useRef(false);
+  // Sync external value -> text when not actively editing
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setText(value > 0 ? String(value) : "");
+    }
+  }, [value]);
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={text}
+      onFocus={(e) => {
+        focusedRef.current = true;
+        e.currentTarget.select();
+      }}
+      onBlur={() => {
+        focusedRef.current = false;
+        if (text === "") setText(value > 0 ? String(value) : "");
+      }}
+      onChange={(e) => {
+        const cleaned = e.target.value.replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
+        setText(cleaned);
+        onChange(cleaned === "" ? 0 : parseInt(cleaned, 10));
+      }}
+      className={className}
+    />
+  );
+}
