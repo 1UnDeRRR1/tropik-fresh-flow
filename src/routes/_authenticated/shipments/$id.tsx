@@ -177,7 +177,7 @@ function DistributionTab({ distributions, shipmentId }: { distributions: DistRow
 
 function RequestsTab({ requests, qc }: { requests: { id: string; status: string; request_type: string | null; qty: number | null; approved_qty: number | null; notes: string | null; created_at: string }[]; qc: ReturnType<typeof useQueryClient> }) {
   const update = async (rid: string, patch: Record<string, unknown>) => {
-    const { error } = await supabase.from("branch_requests").update(patch).eq("id", rid);
+    const { error } = await supabase.from("branch_requests").update(patch as never).eq("id", rid);
     if (error) return toast.error(error.message);
     toast.success("Оновлено");
     qc.invalidateQueries();
