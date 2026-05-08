@@ -43,7 +43,14 @@ export function formatShipmentCode(vehicleCode: string, supplierCode: string): s
 
 /** Reads next sequence_no for a country code via DB. */
 export async function fetchNextVehicleSequence(countryCode: string): Promise<number> {
-  const { data, error } = await supabase.rpc("next_vehicle_sequence", { p_country_code: countryCode });
-  if (error) throw error;
+  // RPC not yet in generated types
+  const { data, error } = await (supabase.rpc as unknown as (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: number | null; error: { message: string } | null }>)(
+    "next_vehicle_sequence",
+    { p_country_code: countryCode },
+  );
+  if (error) throw new Error(error.message);
   return Number(data ?? 1);
 }
