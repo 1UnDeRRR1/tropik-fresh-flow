@@ -123,10 +123,7 @@ type ShipmentRow = {
 };
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
-  const alloc = allocateTransport(items, totalTransportUsd);
-  const originCountry = toUaCountry(shipment.country) || "—";
+  const fallbackCountry = toUaCountry(shipment.country) || "—";
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
   return (
     <SectionCard
@@ -134,19 +131,19 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
       action={
         <div className="flex gap-2">
           <Link to="/shipments/$id/products" params={{ id: shipmentId }}>
-            <Button size="sm" variant="secondary">Редагувати</Button>
+            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Відкрити</Button>
           </Link>
           <Link to="/distribution/$shipmentId" params={{ shipmentId }}>
-            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Розподіл</Button>
+            <Button size="sm" variant="secondary">Розподіл</Button>
           </Link>
         </div>
       }
     >
-      <div className="mb-2 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wide">
-        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-success" />ІНДИКАТИВ</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-destructive" />ІНВОЙС</span>
-      </div>
-      {!items.length ? <EmptyState title="Позицій ще немає" /> : (
+      {!items.length ? (
+        <Link to="/shipments/$id/products" params={{ id: shipmentId }} className="block">
+          <EmptyState title="Позицій ще немає — натисніть, щоб додати" />
+        </Link>
+      ) : (
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="w-full min-w-[640px] text-[11px] tabular-nums">
             <thead className="text-muted-foreground">
@@ -157,47 +154,21 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
                 <th className="py-1.5 px-1 text-left font-medium">Калібр</th>
                 <th className="py-1.5 px-1 text-left font-medium">Спец.</th>
                 <th className="py-1.5 px-1 text-right font-medium">Пал.</th>
-                <th className="py-1.5 px-1 text-right font-medium">Собів.</th>
+                <th className="py-1.5 px-1 text-right font-medium">Собів. $</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => {
-                const isEd = editingId === it.id;
-                return (
-                  <>
-                    <tr
-                      key={it.id}
-                      onClick={() => setEditingId(isEd ? null : it.id)}
-                      className={cn("cursor-pointer border-b border-border/40 hover:bg-muted/40", isEd && "bg-muted/40")}
-                    >
-                      <td className="py-1.5 px-1 font-medium">{it.product_name}</td>
-                      <td className="py-1.5 px-1 text-muted-foreground">—</td>
-                      <td className="py-1.5 px-1 text-muted-foreground">{originCountry}</td>
-                      <td className="py-1.5 px-1">{it.caliber || "—"}</td>
-                      <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
-                      <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
-                      <td className="py-1.5 px-1 text-right whitespace-nowrap">
-                        <span className="font-semibold text-success">{fmt(Number(it.final_cost_indicative ?? 0))}</span>
-                        <span className="mx-0.5 text-muted-foreground">-</span>
-                        <span className="font-semibold text-destructive">{fmt(Number(it.final_cost_invoice ?? 0))}</span>
-                      </td>
-                    </tr>
-                    {isEd && (
-                      <tr key={it.id + "-ed"}>
-                        <td colSpan={7} className="bg-muted/20 p-2">
-                          <ShipmentItemEditor
-                            item={it}
-                            shipmentId={shipmentId}
-                            alloc={alloc.rows[it.id]}
-                            shipmentRate={shipment.eur_usd_rate}
-                            onClose={() => setEditingId(null)}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                );
-              })}
+              {items.map((it) => (
+                <tr key={it.id} className="border-b border-border/40">
+                  <td className="py-1.5 px-1 font-medium">{it.product_name || "—"}</td>
+                  <td className="py-1.5 px-1 text-muted-foreground">{it.variety || "—"}</td>
+                  <td className="py-1.5 px-1 text-muted-foreground">{it.origin_country || fallbackCountry}</td>
+                  <td className="py-1.5 px-1">{it.caliber || "—"}</td>
+                  <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
+                  <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
+                  <td className="py-1.5 px-1 text-right">{fmt(Number(it.cost_price_usd ?? 0))}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
