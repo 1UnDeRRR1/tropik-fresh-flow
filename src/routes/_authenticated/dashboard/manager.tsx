@@ -129,11 +129,11 @@ function ManagerDashboard() {
             icon={<AlertTriangle className="h-5 w-5" />}
             tone={(data?.urgent.ships ?? 0) > 0 ? "danger" : "default"}
             pulse={(data?.urgent.ships ?? 0) > 0}
-            to="/distribution?filter=urgent"
+            to="/distribution"
           />
         </div>
 
-        <Link to="/distribution" search={{ filter: "distributed" } as never}>
+        <Link to="/distribution">
           <div className="rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
@@ -150,7 +150,7 @@ function ManagerDashboard() {
           label="Не розподілено"
           value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
           icon={<Package className="h-4 w-4" />}
-          to="/distribution?filter=pending"
+          to="/distribution"
         />
 
         <div className="col-span-2">
