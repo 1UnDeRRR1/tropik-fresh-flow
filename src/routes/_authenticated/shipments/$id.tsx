@@ -435,6 +435,15 @@ function ShipmentItemRow({ item, shipmentId, alloc, currency }: { item: Item; sh
         </div>
         <span className="text-xs font-medium text-brand">{open ? "Згорнути" : "Редагувати"}</span>
       </button>
+      {alloc && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <span>Транспорт: <b className="text-foreground">{fmtMoney(alloc.allocatedTransportCost, currency)}</b></span>
+          <span>·</span>
+          <span>{fmtMoney(alloc.transportCostPerKg, currency)}/кг</span>
+          <span>·</span>
+          <span>частка {fmtPct(alloc.weightShare)}</span>
+        </div>
+      )}
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="col-span-2 space-y-1">
