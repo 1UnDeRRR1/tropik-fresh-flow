@@ -1,77 +1,86 @@
 ## Goal
 
-Make USD the system's base accounting currency. Suppliers' product prices and shipment transport/freight cost can be entered in EUR or USD. EUR values are auto-converted via Frankfurter API and a per-shipment exchange rate snapshot. All calculations, analytics and branch views switch to USD.
+Add a customs reference database and a cost-price calculation module that combines supplier price (USD), transport cost per kg (USD), and customs cost into two final cost prices per shipment item: **індикативна** and **інвойсна собівартість**. All math is USD-based, mobile-first, Ukrainian UI.
 
-## Database changes (one migration)
+## Database (one migration)
 
-1. **New table `exchange_rates`**
-   - `id`, `base_currency` (default 'EUR'), `target_currency` (default 'USD'), `rate numeric`, `source text` (default 'frankfurter'), `rate_date date`, `created_at`
-   - Unique on `(base_currency, target_currency, rate_date)`
-   - RLS: read for authenticated; insert for staff (filled by edge function with service role)
+1. **New table `customs_reference`**
+   - `id uuid pk`
+   - `product_name text not null`
+   - `country text not null`
+   - `threshold_price_usd numeric not null default 0`
+   - `customs_fee_percent numeric not null default 0`
+   - `euro1_markup_usd numeric not null default 0`
+   - `active boolean not null default true`
+   - `created_at`, `updated_at` + touch trigger
+   - Unique partial index on `(lower(product_name), lower(country))` where `active = true`
+   - RLS: read for authenticated; write for admin/super_admin (`is_admin`)
 
-2. **`shipment_items`**
-   - Add `price_currency text not null default 'EUR'` (currency for `unit_price`)
-   - Add `unit_price_usd numeric` (snapshot converted price in USD)
-   - Add `fx_rate_used numeric` (rate snapshot used for this row, EUR→USD; 1 when USD)
+2. **Computed columns on `shipment_items`** (kept in DB so matrix/branch/admin queries are cheap)
+   - `customs_cost_indicative numeric` (per kg, USD)
+   - `customs_cost_invoice numeric` (per kg, USD)
+   - `final_cost_indicative numeric` (per kg, USD)
+   - `final_cost_invoice numeric` (per kg, USD)
+   - `customs_match_id uuid` (nullable; resolved customs_reference row)
 
-3. **`shipments`**
-   - Add `logistics_cost_currency text not null default 'EUR'`
-   - Add `logistics_cost_usd numeric`
-   - Add `eur_usd_rate numeric` (shipment's exchange-rate snapshot, set when first EUR value is saved)
-   - Add `eur_usd_rate_date date`
-   - Repurpose existing `currency`/`fx_rate` already on shipments to keep transport snapshot consistent (we'll write the new explicit columns and leave legacy columns untouched).
+3. **Trigger `calc_shipment_item_costs`** on `shipment_items` insert/update of `unit_price_usd`, `product_name`, plus a recompute on shipment country change:
+   - Find best `customs_reference` row by `lower(product_name)=lower(NEW.product_name)` + shipment.country, `active=true`.
+   - If `unit_price_usd <= threshold_price_usd` → `customs_cost_indicative = euro1_markup_usd`, `customs_cost_invoice = euro1_markup_usd` (indicative path applies).
+   - Else compute invoice path:
+     - `vat_part = unit_price_usd * 0.20`
+     - `result2 = unit_price_usd + vat_part`
+     - `customs_fee = result2 * customs_fee_percent / 100`
+     - `customs_cost_invoice = vat_part + customs_fee + 0.015`
+     - `customs_cost_indicative = euro1_markup_usd` (still kept as reference)
+   - Final costs use **transport_cost_per_kg** computed live in app (transport allocation already exists in `src/lib/transport.ts`); for DB-stored `final_cost_*` we approximate using snapshot transport from `shipments.logistics_cost_usd` and total weight at trigger time. Final authoritative numbers come from the front-end formula in `src/lib/cost.ts`.
 
-4. **Trigger** on `shipment_items` insert/update: if `price_currency='USD'` then `unit_price_usd = unit_price`, `fx_rate_used = 1`; if `EUR` and shipment has `eur_usd_rate`, compute `unit_price_usd = unit_price * eur_usd_rate`.
+4. **Recompute trigger** on `shipments` update of `country` or `logistics_cost_usd` → recompute all child shipment_items costs.
 
-## Exchange rate fetcher
+## Frontend
 
-- New server route `src/routes/api/public/hooks/refresh-fx.ts` (POST):
-  - Calls `https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD`
-  - Upserts row into `exchange_rates` for today (`source='frankfurter'`)
-- Schedule via `pg_cron` daily at 06:00 UTC (insert tool, not migration).
-- Helper `getLatestEurUsdRate()` server fn reads the most recent row from `exchange_rates`.
+1. **New `src/lib/cost.ts`**
+   - `computeCustoms({ unitPriceUsd, ref }) → { indicative, invoice, base }`
+   - `computeFinalCost({ unitPriceUsd, transportPerKgUsd, customsUsd }) → number`
+   - Formatters reuse `fmtUSD` from `src/lib/currency.ts`.
 
-## Shipment-level snapshot logic
+2. **Admin page `src/routes/_authenticated/admin/customs.tsx`** (new)
+   - CRUD list + form for `customs_reference`. Columns: товар, країна, поріг $, мито %, Euro1 $, активність.
+   - Mobile-first card list + edit dialog.
+   - Linked from `admin/index.tsx` tile "Митний довідник".
 
-- When a shipment is created or first time an EUR value is saved, fetch latest rate from `exchange_rates` and store `eur_usd_rate` + `eur_usd_rate_date` on the shipment. Never overwrite afterwards (historical immutability).
-- When transport cost is saved with currency=EUR: `logistics_cost_usd = logistics_cost * eur_usd_rate`. With USD: copy as-is, rate stays 1 for that field.
+3. **Shipment item details (`shipments/$id.tsx` → `ShipmentItemRow` + Products tab)**
+   - Show: Митна база (база = `unit_price_usd`), Націнка Euro1, Митний збір %, Митна вартість (індикативна / інвойсна), Транспорт $/кг, Індикативна собівартість, Інвойсна собівартість.
+   - Badge if no customs_reference match found ("Немає в митному довіднику").
 
-## Frontend changes
+4. **Logistics tab** — add summary row per item: "Індикативна / Інвойсна" using live transport allocation × customs.
 
-1. **New util `src/lib/currency.ts`**
-   - `CURRENCIES = ['EUR','USD']`, `fmtUSD`, `fmtEUR`, `convertToUsd(amount, currency, rate)`, `usdPerKg(...)`.
+5. **Distribution matrix (`distribution/$shipmentId.tsx`)**
+   - Add per-item subtitle line: `Інд. собівартість $X.XX/кг • Інв. собівартість $Y.YY/кг`.
 
-2. **Shipment item form (Products tab in `shipments/$id.tsx`)**
-   - Add small currency `<Select>` (EUR default) next to `unit_price`
-   - Show original entered value + currency, then under it: rate used and converted USD value (e.g. "≈ 12.45 USD @ 1.085")
+6. **Branch view (`dashboard/branch.tsx`)**
+   - Show per-item `Собівартість (інд / інв) $/кг`. No EUR shown.
 
-3. **Logistics tab (transport cost block)**
-   - Currency selector next to total transport cost (EUR default)
-   - Show `eur_usd_rate` snapshot, converted USD total, and per-row `$/кг`
-   - Update `allocateTransport` consumer to compute USD-based allocation and `$/кг`
+7. **Admin / analytics (`analytics.tsx`)**
+   - Add aggregate column: середня індикативна / інвойсна $/кг за поставку.
 
-4. **`src/lib/transport.ts`**
-   - Keep weight allocation logic; add `fmtUsd` helper. Pass USD total cost into `allocateTransport` from caller. No EUR in displayed analytics.
+8. **`costs.tsx` page** — replace placeholder with real explanation + last 20 calculated items table.
 
-5. **Analytics (`analytics.tsx`)**
-   - Replace €/kg with $/kg using `logistics_cost_usd` and total weight.
-
-6. **Branch views, dashboards** that show price/cost — switch to `unit_price_usd` and `$/кг`.
-
-7. **Admin / shipments/new** — default currency selectors to EUR; persist chosen currency on save.
-
-All UI labels in Ukrainian (e.g. "Валюта", "Курс EUR/USD", "Сума у USD", "$/кг"). Mobile-first cards consistent with existing patterns.
+All labels Ukrainian: «Індикативна собівартість», «Інвойсна собівартість», «Митна база», «Націнка Euro1», «Митний збір %», «Поріг ціни», «Митний довідник».
 
 ## Out of scope
 
-- Customs cost calculation (separate later module).
-- Final product cost computation.
-- Rates other than EUR/USD.
+- Editing customs_reference from non-admin roles.
+- Recomputing historical shipments retroactively when reference changes (only re-saves trigger recompute).
+- Currencies other than USD for final cost.
 
-## Files to create / edit
+## Files
 
-- create `supabase/migrations/<ts>_currency_usd.sql`
-- create `src/lib/currency.ts`
-- create `src/routes/api/public/hooks/refresh-fx.ts`
-- edit `src/lib/transport.ts`, `src/routes/_authenticated/shipments/$id.tsx`, `src/routes/_authenticated/shipments/new.tsx`, `src/routes/_authenticated/analytics.tsx`, `src/routes/_authenticated/dashboard/branch.tsx`, `src/routes/_authenticated/distribution/$shipmentId.tsx` (where prices/cost shown)
-- insert tool: schedule pg_cron job + seed today's rate
+- migration `supabase/migrations/<ts>_customs_costs.sql` (table + columns + triggers + RLS)
+- create `src/lib/cost.ts`
+- create `src/routes/_authenticated/admin/customs.tsx`
+- edit `src/routes/_authenticated/admin/index.tsx` (add tile)
+- edit `src/routes/_authenticated/shipments/$id.tsx` (item row + logistics tab)
+- edit `src/routes/_authenticated/distribution/$shipmentId.tsx`
+- edit `src/routes/_authenticated/dashboard/branch.tsx`
+- edit `src/routes/_authenticated/analytics.tsx`
+- edit `src/routes/_authenticated/costs.tsx`
