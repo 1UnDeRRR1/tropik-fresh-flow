@@ -142,7 +142,9 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
       title="Товари"
       action={
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={addItem}>+</Button>
+          <Link to="/shipments/$id/products" params={{ id: shipmentId }}>
+            <Button size="sm" variant="secondary">Редагувати</Button>
+          </Link>
           <Link to="/distribution/$shipmentId" params={{ shipmentId }}>
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Розподіл</Button>
           </Link>
