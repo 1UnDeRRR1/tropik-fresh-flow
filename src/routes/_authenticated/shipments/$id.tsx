@@ -69,7 +69,7 @@ function ShipmentDetail() {
     <div className="space-y-4">
       <PageHeader
         title={sh.code}
-        subtitle={sh.suppliers?.name ?? sh.country ?? ""}
+        subtitle={sh.suppliers?.name ?? toUaCountry(sh.country) ?? ""}
         action={<StatusChip status={sh.status} />}
       />
 
