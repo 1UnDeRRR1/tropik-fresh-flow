@@ -15,7 +15,7 @@ function BranchRequests() {
     queryFn: async () => {
       const { data } = await supabase
         .from("branch_requests")
-        .select("id,status,notes,created_at,branch:branches(name),shipment:shipments(code)")
+        .select("id,status,notes,created_at,branch_id,shipment_id")
         .order("created_at", { ascending: false });
       return data ?? [];
     },
