@@ -16,13 +16,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const dashHref = defaultRoutePerRole(primaryRole);
 
-  const items: NavItem[] = [
-    { to: dashHref, label: "Головна", icon: Home },
-    { to: "/shipments", label: "Поставки", icon: Package },
-    { to: "/distribution", label: "Розподіл", icon: Truck },
-    { to: "/analytics", label: "Аналітика", icon: BarChart3 },
-    { to: "/settings", label: "Профіль", icon: Settings },
-  ];
+  const isBranch = primaryRole === "branch";
+  const items: NavItem[] = isBranch
+    ? [
+        { to: dashHref, label: "Головна", icon: Home },
+        { to: "/distribution", label: "Розподіл", icon: Truck },
+        { to: "/branch-requests", label: "Заявки", icon: Package },
+        { to: "/transfers", label: "Трансфери", icon: BarChart3 },
+        { to: "/settings", label: "Профіль", icon: Settings },
+      ]
+    : [
+        { to: dashHref, label: "Головна", icon: Home },
+        { to: "/shipments", label: "Поставки", icon: Package },
+        { to: "/distribution", label: "Розподіл", icon: Truck },
+        { to: "/analytics", label: "Аналітика", icon: BarChart3 },
+        { to: "/settings", label: "Профіль", icon: Settings },
+      ];
 
   return (
     <div className="min-h-dvh bg-background">
