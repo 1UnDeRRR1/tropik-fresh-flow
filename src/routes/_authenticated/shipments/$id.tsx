@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
 import { toUaCountry } from "@/lib/countries";
 import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
-import { CURRENCIES, type Currency, fmtUSD, fmtMoneyByCurrency, fmtRate, convertToUsd } from "@/lib/currency";
+import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: ShipmentDetail,
@@ -123,8 +123,10 @@ type ShipmentRow = {
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const qc = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
   const alloc = allocateTransport(items, totalTransportUsd);
+  const originCountry = toUaCountry(shipment.country) || "—";
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
@@ -134,29 +136,77 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
+  const fmt = (v: number) => (Number(v) || 0).toFixed(2);
   return (
     <SectionCard
-      title="Товари поставки"
+      title="Товари"
       action={
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={addItem}>+ Позиція</Button>
+          <Button size="sm" variant="secondary" onClick={addItem}>+</Button>
           <Link to="/distribution/$shipmentId" params={{ shipmentId }}>
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">Розподіл</Button>
           </Link>
         </div>
       }
     >
+      <div className="mb-2 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wide">
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-success" />ІНДИКАТИВ</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-destructive" />ІНВОЙС</span>
+      </div>
       {!items.length ? <EmptyState title="Позицій ще немає" /> : (
-        <div className="space-y-2">
-          {items.map((it) => (
-            <ShipmentItemRow
-              key={it.id}
-              item={it as Item}
-              shipmentId={shipmentId}
-              alloc={alloc.rows[it.id]}
-              shipmentRate={shipment.eur_usd_rate}
-            />
-          ))}
+        <div className="-mx-4 overflow-x-auto px-4">
+          <table className="w-full min-w-[640px] text-[11px] tabular-nums">
+            <thead className="text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="py-1.5 px-1 text-left font-medium">Товар</th>
+                <th className="py-1.5 px-1 text-left font-medium">Сорт</th>
+                <th className="py-1.5 px-1 text-left font-medium">Країна</th>
+                <th className="py-1.5 px-1 text-left font-medium">Калібр</th>
+                <th className="py-1.5 px-1 text-left font-medium">Спец.</th>
+                <th className="py-1.5 px-1 text-right font-medium">Пал.</th>
+                <th className="py-1.5 px-1 text-right font-medium">Собів.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => {
+                const isEd = editingId === it.id;
+                return (
+                  <>
+                    <tr
+                      key={it.id}
+                      onClick={() => setEditingId(isEd ? null : it.id)}
+                      className={cn("cursor-pointer border-b border-border/40 hover:bg-muted/40", isEd && "bg-muted/40")}
+                    >
+                      <td className="py-1.5 px-1 font-medium">{it.product_name}</td>
+                      <td className="py-1.5 px-1 text-muted-foreground">—</td>
+                      <td className="py-1.5 px-1 text-muted-foreground">{originCountry}</td>
+                      <td className="py-1.5 px-1">{it.caliber || "—"}</td>
+                      <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
+                      <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
+                      <td className="py-1.5 px-1 text-right whitespace-nowrap">
+                        <span className="font-semibold text-success">{fmt(Number(it.final_cost_indicative ?? 0))}</span>
+                        <span className="mx-0.5 text-muted-foreground">-</span>
+                        <span className="font-semibold text-destructive">{fmt(Number(it.final_cost_invoice ?? 0))}</span>
+                      </td>
+                    </tr>
+                    {isEd && (
+                      <tr key={it.id + "-ed"}>
+                        <td colSpan={7} className="bg-muted/20 p-2">
+                          <ShipmentItemEditor
+                            item={it}
+                            shipmentId={shipmentId}
+                            alloc={alloc.rows[it.id]}
+                            shipmentRate={shipment.eur_usd_rate}
+                            onClose={() => setEditingId(null)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </SectionCard>
@@ -417,6 +467,7 @@ type Item = {
   id: string;
   product_name: string;
   caliber: string | null;
+  sku: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
   invoice_price: number | null;
@@ -433,9 +484,8 @@ type Item = {
   final_cost_invoice: number | null;
 };
 
-function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null }) {
+function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null; onClose: () => void }) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
   const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
   const [form, setForm] = useState({
     product_name: item.product_name,
@@ -448,6 +498,7 @@ function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item
   });
   const totalKg = Number(form.pallet_count) * Number(form.pallet_weight);
   const previewUsd = convertToUsd(Number(form.unit_price), form.price_currency, shipmentRate);
+  void alloc;
   const save = async () => {
     const { error } = await supabase.from("shipment_items").update({
       product_name: form.product_name, caliber: form.caliber || null,
@@ -459,7 +510,7 @@ function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item
     if (error) return toast.error(error.message);
     toast.success("Збережено");
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-    setOpen(false);
+    onClose();
   };
   const remove = async () => {
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
@@ -467,113 +518,47 @@ function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
-  const savedCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
-  const [showDetails, setShowDetails] = useState(false);
   return (
-    <div className="rounded-xl border border-border bg-background/50 p-3">
-      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold truncate">
-            {item.product_name}
-            {item.caliber && <span className="ml-1 text-muted-foreground">·{item.caliber}</span>}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {Number(item.pallet_count ?? 0)} пал. × {Number(item.pallet_weight ?? 0)} кг
-          </div>
+    <div className="grid grid-cols-2 gap-2 text-sm">
+      <div className="col-span-2 space-y-1">
+        <Label className="text-xs">Назва товару</Label>
+        <Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
+      </div>
+      <div className="space-y-1"><Label className="text-xs">Калібр</Label>
+        <Input value={form.caliber} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
+      <div className="space-y-1"><Label className="text-xs">Палет</Label>
+        <Input type="number" value={form.pallet_count} onChange={(e) => setForm({ ...form, pallet_count: Number(e.target.value) })} /></div>
+      <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
+        <Input type="number" value={form.pallet_weight} onChange={(e) => setForm({ ...form, pallet_weight: Number(e.target.value) })} /></div>
+      <div className="col-span-2 space-y-1">
+        <Label className="text-xs">Ціна постачальника</Label>
+        <div className="flex gap-2">
+          <Input type="number" step="0.01" className="flex-1" value={form.unit_price}
+            onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })} />
+          <select
+            value={form.price_currency}
+            onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
-        <span className="text-xs font-medium text-brand shrink-0">{open ? "Згорнути" : "Редагувати"}</span>
-      </button>
-
-      {/* Compact operational summary — what import manager needs at a glance */}
-      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-        <div className="rounded-md bg-secondary/50 px-2 py-1.5">
-          <div className="text-muted-foreground">Інд. собівартість</div>
-          <div className="font-semibold text-brand">{fmtUSD(Number(item.final_cost_indicative ?? 0))}/кг</div>
-        </div>
-        <div className="rounded-md bg-secondary/50 px-2 py-1.5">
-          <div className="text-muted-foreground">Інв. собівартість</div>
-          <div className="font-semibold text-brand">{fmtUSD(Number(item.final_cost_invoice ?? 0))}/кг</div>
+        <p className="text-[11px] text-muted-foreground">
+          {form.price_currency === "EUR"
+            ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ {fmtRate(shipmentRate)}</>
+            : <>USD</>}
+        </p>
+      </div>
+      <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна</Label>
+        <Input type="number" step="0.01" value={form.indicative_price} onChange={(e) => setForm({ ...form, indicative_price: Number(e.target.value) })} /></div>
+      <div className="col-span-2 flex items-center justify-between pt-1">
+        <span className="text-xs text-muted-foreground">{totalKg} кг</span>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={remove} className="text-destructive">Видалити</Button>
+          <Button size="sm" variant="secondary" onClick={onClose}>Закрити</Button>
+          <Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
         </div>
       </div>
-
-      {!item.customs_match_id && (
-        <div className="mt-2 inline-block rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600">
-          Немає в митному довіднику
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => setShowDetails((s) => !s)}
-        className="mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-      >
-        {showDetails ? "Сховати деталі розрахунку" : "Деталі розрахунку"}
-      </button>
-      {showDetails && (
-        <div className="mt-2 space-y-1 rounded-md bg-secondary/30 p-2 text-[11px] text-muted-foreground">
-          <div>
-            Ціна: <b className="text-foreground">{fmtMoneyByCurrency(Number(item.unit_price ?? 0), savedCurrency)}</b>
-            {savedCurrency === "EUR" && (
-              <> · ≈ <b className="text-foreground">{fmtUSD(Number(item.unit_price_usd ?? 0))}</b> @ {fmtRate(item.fx_rate_used)}</>
-            )}
-          </div>
-          {alloc && (
-            <div>
-              Транспорт: <b className="text-foreground">{fmtUSD(alloc.allocatedTransportCost)}</b>
-              {" · "}{fmtUSD(alloc.transportCostPerKg)}/кг
-              {" · "}частка {fmtPct(alloc.weightShare)}
-            </div>
-          )}
-          {item.customs_match_id && (
-            <div>
-              Митниця: інд <b className="text-foreground">{fmtUSD(Number(item.customs_cost_indicative ?? 0))}</b>
-              {" · "}інв <b className="text-foreground">{fmtUSD(Number(item.customs_cost_invoice ?? 0))}</b>
-            </div>
-          )}
-        </div>
-      )}
-      {open && (
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs">Назва товару</Label>
-            <Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
-          </div>
-          <div className="space-y-1"><Label className="text-xs">Калібр</Label>
-            <Input value={form.caliber} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
-          <div className="space-y-1"><Label className="text-xs">Палет</Label>
-            <Input type="number" value={form.pallet_count} onChange={(e) => setForm({ ...form, pallet_count: Number(e.target.value) })} /></div>
-          <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
-            <Input type="number" value={form.pallet_weight} onChange={(e) => setForm({ ...form, pallet_weight: Number(e.target.value) })} /></div>
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs">Ціна постачальника</Label>
-            <div className="flex gap-2">
-              <Input type="number" step="0.01" className="flex-1" value={form.unit_price}
-                onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })} />
-              <select
-                value={form.price_currency}
-                onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {form.price_currency === "EUR"
-                ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ курс {fmtRate(shipmentRate)}</>
-                : <>USD — конверсія не потрібна</>}
-            </p>
-          </div>
-          <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна (для філій)</Label>
-            <Input type="number" step="0.01" value={form.indicative_price} onChange={(e) => setForm({ ...form, indicative_price: Number(e.target.value) })} /></div>
-          <div className="col-span-2 flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">Загальна вага: {totalKg} кг</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={remove} className="text-destructive">Видалити</Button>
-              <Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
