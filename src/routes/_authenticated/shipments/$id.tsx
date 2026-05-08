@@ -467,6 +467,7 @@ type Item = {
   id: string;
   product_name: string;
   caliber: string | null;
+  sku: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
   invoice_price: number | null;
@@ -483,7 +484,7 @@ type Item = {
   final_cost_invoice: number | null;
 };
 
-function ShipmentItemRow({ item, shipmentId, alloc, shipmentRate }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null }) {
+function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
