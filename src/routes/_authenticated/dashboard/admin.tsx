@@ -41,12 +41,14 @@ function AdminDashboard() {
         <StatCard label="Постачальників" value={data?.supplierCount ?? 0} icon={<Users className="h-4 w-4" />} />
       </div>
 
-      <SectionCard title="Швидкі дії">
-        <div className="grid grid-cols-2 gap-3">
-          <Link to="/suppliers" className="rounded-xl bg-secondary p-3 text-sm font-medium">
-            Постачальники
-          </Link>
-          <Link to="/analytics" className="rounded-xl bg-secondary p-3 text-sm font-medium">
+      <SectionCard title="Master-data">
+        <div className="grid grid-cols-2 gap-2 text-sm font-medium">
+          <Link to="/admin/branches" className="rounded-xl bg-secondary p-3">Філії</Link>
+          <Link to="/admin/managers" className="rounded-xl bg-secondary p-3">Менеджери</Link>
+          <Link to="/admin/suppliers" className="rounded-xl bg-secondary p-3">Постачальники</Link>
+          <Link to="/admin/products" className="rounded-xl bg-secondary p-3">Товари</Link>
+          <Link to="/admin/countries" className="rounded-xl bg-secondary p-3">Логістика</Link>
+          <Link to="/analytics" className="rounded-xl bg-secondary p-3">
             <BarChart3 className="mb-1 h-4 w-4" /> Аналітика
           </Link>
         </div>
