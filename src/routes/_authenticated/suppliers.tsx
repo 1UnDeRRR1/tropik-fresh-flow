@@ -29,7 +29,7 @@ function Suppliers() {
               <li key={s.id} className="flex items-center justify-between py-3">
                 <div>
                   <div className="text-sm font-semibold">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">{s.country ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">{toUaCountry(s.country) || "—"}</div>
                 </div>
                 <span className="text-xs text-muted-foreground">★ {s.rating ?? 0}</span>
               </li>
