@@ -122,7 +122,6 @@ type ShipmentRow = {
 };
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
-  const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
   const alloc = allocateTransport(items, totalTransportUsd);
