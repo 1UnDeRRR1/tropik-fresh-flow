@@ -165,3 +165,101 @@ function FilterPill({ active, children, onClick }: { active: boolean; children: 
     </button>
   );
 }
+
+type OpenVehicleRow = {
+  id: string;
+  code: string;
+  country: string;
+  loading_date: string | null;
+  eta: string | null;
+  total_pallets: number;
+  total_weight_kg: number;
+  shipments: { suppliers: { name: string | null } | null }[] | null;
+};
+
+function OpenVehiclesBlock() {
+  const { data, refetch } = useQuery({
+    queryKey: ["open-vehicles-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicles" as never)
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(suppliers(name))")
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+      if (error) return [] as OpenVehicleRow[];
+      return (data ?? []) as unknown as OpenVehicleRow[];
+    },
+  });
+
+  const closeVehicle = async (id: string) => {
+    const { error } = await supabase
+      .from("vehicles" as never)
+      .update({ status: "closed", closed_at: new Date().toISOString() } as never)
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Авто закрите");
+    refetch();
+  };
+
+  if (!data?.length) return null;
+
+  return (
+    <SectionCard
+      title={
+        <span className="flex items-center gap-2">
+          <Truck className="h-4 w-4 text-brand" /> Відкриті авто ({data.length})
+        </span>
+      }
+    >
+      <div className="grid gap-2 sm:grid-cols-2">
+        {data.map((v) => {
+          const sups = (v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[];
+          const pallets = Number(v.total_pallets ?? 0);
+          const weight = Number(v.total_weight_kg ?? 0);
+          const palletsPct = Math.min(100, (pallets / 26) * 100);
+          const weightPct = Math.min(100, (weight / 21500) * 100);
+          return (
+            <div key={v.id} className="rounded-xl border border-border bg-card p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-brand">{v.code}</div>
+                  <div className="text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
+                </div>
+                <div className="flex gap-1">
+                  <Link to="/shipments/new">
+                    <Button size="sm" variant="secondary">+ Постач.</Button>
+                  </Link>
+                  <Button size="sm" variant="ghost" onClick={() => closeVehicle(v.id)}>Закрити</Button>
+                </div>
+              </div>
+              {sups.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {sups.map((s, i) => (
+                    <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-2 space-y-1.5 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span>Палети {pallets}/26</span>
+                  <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Вага {Math.round(weight)}/21500 кг</span>
+                  <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </SectionCard>
+  );
+}
+
