@@ -242,7 +242,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
       if (error) toast.error(error.message);
       else {
         dirtyRef.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
+        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       }
     }, 600);
     return () => clearTimeout(t);
@@ -252,7 +252,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
     if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
+    qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
   return (
