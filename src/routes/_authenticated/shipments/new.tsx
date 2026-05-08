@@ -124,12 +124,12 @@ function NewShipment() {
                   onClick={() => {
                     setSupplierId(s.id);
                     setSupplierQuery("");
-                    if (!country && s.country) setCountry(s.country);
+                    if (!country && s.country) setCountry(toUaCountry(s.country));
                   }}
                   className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-secondary"
                 >
                   {s.name}
-                  {s.country && <span className="ml-2 text-xs text-muted-foreground">{s.country}</span>}
+                  {s.country && <span className="ml-2 text-xs text-muted-foreground">{toUaCountry(s.country)}</span>}
                 </button>
               ))}
             </div>
