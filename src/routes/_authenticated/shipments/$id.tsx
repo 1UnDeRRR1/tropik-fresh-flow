@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
-import { allocateTransport, fmtMoney, fmtKg, fmtPct } from "@/lib/transport";
+import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
+import { CURRENCIES, type Currency, fmtUSD, fmtMoneyByCurrency, fmtRate, convertToUsd } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: ShipmentDetail,
