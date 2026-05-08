@@ -270,7 +270,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
 
   const recompute = () => {
     if (!shipment.loading_date) return;
-    const days = shipment.logistics_days ?? (shipment.country ? COUNTRY_DAYS[shipment.country] ?? 0 : 0);
+    const days = shipment.logistics_days ?? (shipment.country ? COUNTRY_DAYS[toUaCountry(shipment.country)] ?? 0 : 0);
     setEta(toDateInputValue(calcArrivalDate(shipment.loading_date, days)));
   };
   const saveEta = async () => {
