@@ -125,7 +125,8 @@ function DistributionMatrix() {
       if (!dirty || saving) return false;
       const target = (next as { pathname?: string; href?: string }).pathname ?? (next as { href?: string }).href ?? "/";
       pendingNavRef.current = () => {
-        setInitial(JSON.parse(JSON.stringify(grid)));
+        // Restore original snapshot before leaving — discard unsaved changes
+        setGrid(JSON.parse(JSON.stringify(initial)));
         window.setTimeout(() => { window.location.href = target; }, 0);
       };
       setConfirmOpen("leave");
