@@ -14,8 +14,8 @@ function Transfers() {
     queryKey: ["transfers"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("transfers")
-        .select("id,status, fb:branches!transfers_from_branch_id_fkey(name), tb:branches!transfers_to_branch_id_fkey(name)")
+        .from("transfer_requests")
+        .select("id,status,from_branch_id,to_branch_id, fb:branches!from_branch_id(name), tb:branches!to_branch_id(name)")
         .order("created_at", { ascending: false });
       return data ?? [];
     },

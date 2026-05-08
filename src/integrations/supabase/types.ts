@@ -14,33 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
-      audit_logs: {
+      branch_request_items: {
         Row: {
-          action: string
-          actor_id: string | null
-          created_at: string
-          entity: string
-          entity_id: string | null
+          branch_request_id: string
           id: string
-          payload: Json | null
+          product_name: string
+          qty: number
+          unit: string
         }
         Insert: {
-          action: string
-          actor_id?: string | null
-          created_at?: string
-          entity: string
-          entity_id?: string | null
+          branch_request_id: string
           id?: string
-          payload?: Json | null
+          product_name: string
+          qty?: number
+          unit?: string
         }
         Update: {
-          action?: string
-          actor_id?: string | null
-          created_at?: string
-          entity?: string
-          entity_id?: string | null
+          branch_request_id?: string
           id?: string
-          payload?: Json | null
+          product_name?: string
+          qty?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_request_items_branch_request_id_fkey"
+            columns: ["branch_request_id"]
+            isOneToOne: false
+            referencedRelation: "branch_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      branch_requests: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          requested_by: string | null
+          shipment_id: string | null
+          status: Database["public"]["Enums"]["branch_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          requested_by?: string | null
+          shipment_id?: string | null
+          status?: Database["public"]["Enums"]["branch_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          requested_by?: string | null
+          shipment_id?: string | null
+          status?: Database["public"]["Enums"]["branch_request_status"]
+          updated_at?: string
         }
         Relationships: []
       }
@@ -377,39 +412,39 @@ export type Database = {
         }
         Relationships: []
       }
-      transfer_items: {
+      transfer_request_items: {
         Row: {
           id: string
           product_name: string
           qty: number
-          transfer_id: string
+          transfer_request_id: string
           unit: string
         }
         Insert: {
           id?: string
           product_name: string
           qty?: number
-          transfer_id: string
+          transfer_request_id: string
           unit?: string
         }
         Update: {
           id?: string
           product_name?: string
           qty?: number
-          transfer_id?: string
+          transfer_request_id?: string
           unit?: string
         }
         Relationships: [
           {
             foreignKeyName: "transfer_items_transfer_id_fkey"
-            columns: ["transfer_id"]
+            columns: ["transfer_request_id"]
             isOneToOne: false
-            referencedRelation: "transfers"
+            referencedRelation: "transfer_requests"
             referencedColumns: ["id"]
           },
         ]
       }
-      transfers: {
+      transfer_requests: {
         Row: {
           created_at: string
           created_by: string | null
@@ -454,6 +489,36 @@ export type Database = {
           },
         ]
       }
+      trigger_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          payload: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          payload?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          payload?: Json | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -492,6 +557,12 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "import_manager" | "branch"
+      branch_request_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "fulfilled"
+        | "cancelled"
       distribution_status: "planned" | "dispatched" | "received" | "cancelled"
       shipment_status:
         | "draft"
@@ -635,6 +706,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "import_manager", "branch"],
+      branch_request_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "fulfilled",
+        "cancelled",
+      ],
       distribution_status: ["planned", "dispatched", "received", "cancelled"],
       shipment_status: [
         "draft",
