@@ -430,12 +430,15 @@ function useShipmentData() {
 type Item = {
   id: string;
   product_name: string;
+  variety: string | null;
+  origin_country: string | null;
   caliber: string | null;
   sku: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
   invoice_price: number | null;
   indicative_price: number | null;
+  cost_price_usd: number | null;
   qty: number;
   unit_price: number | null;
   unit_price_usd: number | null;
