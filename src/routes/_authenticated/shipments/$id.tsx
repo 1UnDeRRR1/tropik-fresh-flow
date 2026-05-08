@@ -127,15 +127,6 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
   const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
   const alloc = allocateTransport(items, totalTransportUsd);
   const originCountry = toUaCountry(shipment.country) || "—";
-  const addItem = async () => {
-    const { error } = await supabase.from("shipment_items").insert({
-      shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
-      unit_price: 0, price_currency: "EUR",
-      pallet_count: 0, pallet_weight: 0, invoice_price: 0, indicative_price: 0,
-    });
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-  };
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
   return (
     <SectionCard
