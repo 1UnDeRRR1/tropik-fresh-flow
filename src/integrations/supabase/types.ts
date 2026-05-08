@@ -14,16 +14,499 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          payload: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          payload?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          payload?: Json | null
+        }
+        Relationships: []
+      }
+      branches: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          id: string
+          manager_name: string | null
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          manager_name?: string | null
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          manager_name?: string | null
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      distribution_items: {
+        Row: {
+          distribution_id: string
+          id: string
+          qty: number
+          shipment_item_id: string
+          unit_cost: number | null
+        }
+        Insert: {
+          distribution_id: string
+          id?: string
+          qty?: number
+          shipment_item_id: string
+          unit_cost?: number | null
+        }
+        Update: {
+          distribution_id?: string
+          id?: string
+          qty?: number
+          shipment_item_id?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_items_distribution_id_fkey"
+            columns: ["distribution_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_items_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributions: {
+        Row: {
+          branch_id: string
+          created_at: string
+          dispatched_at: string | null
+          id: string
+          notes: string | null
+          received_at: string | null
+          shipment_id: string
+          status: Database["public"]["Enums"]["distribution_status"]
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          dispatched_at?: string | null
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          shipment_id: string
+          status?: Database["public"]["Enums"]["distribution_status"]
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          dispatched_at?: string | null
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          shipment_id?: string
+          status?: Database["public"]["Enums"]["distribution_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributions_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributions_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          link: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          branch_id: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          branch_id?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_name: string
+          qty: number
+          shipment_id: string
+          sku: string | null
+          unit: string
+          unit_price: number
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_name: string
+          qty?: number
+          shipment_id: string
+          sku?: string | null
+          unit?: string
+          unit_price?: number
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_name?: string
+          qty?: number
+          shipment_id?: string
+          sku?: string | null
+          unit?: string
+          unit_price?: number
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          arrived_at: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          customs_cost: number | null
+          eta: string | null
+          fx_rate: number | null
+          id: string
+          logistics_cost: number | null
+          notes: string | null
+          other_costs: number | null
+          status: Database["public"]["Enums"]["shipment_status"]
+          supplier_id: string | null
+          total_weight_kg: number | null
+          updated_at: string
+        }
+        Insert: {
+          arrived_at?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          customs_cost?: number | null
+          eta?: string | null
+          fx_rate?: number | null
+          id?: string
+          logistics_cost?: number | null
+          notes?: string | null
+          other_costs?: number | null
+          status?: Database["public"]["Enums"]["shipment_status"]
+          supplier_id?: string | null
+          total_weight_kg?: number | null
+          updated_at?: string
+        }
+        Update: {
+          arrived_at?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          customs_cost?: number | null
+          eta?: string | null
+          fx_rate?: number | null
+          id?: string
+          logistics_cost?: number | null
+          notes?: string | null
+          other_costs?: number | null
+          status?: Database["public"]["Enums"]["shipment_status"]
+          supplier_id?: string | null
+          total_weight_kg?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          contact: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          rating: number | null
+        }
+        Insert: {
+          contact?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+        }
+        Update: {
+          contact?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          rating?: number | null
+        }
+        Relationships: []
+      }
+      transfer_items: {
+        Row: {
+          id: string
+          product_name: string
+          qty: number
+          transfer_id: string
+          unit: string
+        }
+        Insert: {
+          id?: string
+          product_name: string
+          qty?: number
+          transfer_id: string
+          unit?: string
+        }
+        Update: {
+          id?: string
+          product_name?: string
+          qty?: number
+          transfer_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_branch_id: string
+          id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["transfer_status"]
+          to_branch_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_branch_id: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["transfer_status"]
+          to_branch_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_branch_id?: string
+          id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["transfer_status"]
+          to_branch_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_from_branch_id_fkey"
+            columns: ["from_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_to_branch_id_fkey"
+            columns: ["to_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
+      user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "admin" | "import_manager" | "branch"
+      distribution_status: "planned" | "dispatched" | "received" | "cancelled"
+      shipment_status:
+        | "draft"
+        | "in_transit"
+        | "customs"
+        | "arrived"
+        | "distributing"
+        | "completed"
+        | "cancelled"
+      transfer_status:
+        | "requested"
+        | "approved"
+        | "in_transit"
+        | "received"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +633,25 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "admin", "import_manager", "branch"],
+      distribution_status: ["planned", "dispatched", "received", "cancelled"],
+      shipment_status: [
+        "draft",
+        "in_transit",
+        "customs",
+        "arrived",
+        "distributing",
+        "completed",
+        "cancelled",
+      ],
+      transfer_status: [
+        "requested",
+        "approved",
+        "in_transit",
+        "received",
+        "cancelled",
+      ],
+    },
   },
 } as const
