@@ -104,6 +104,7 @@ function ShipmentDetail() {
       {tab === "requests" && <RequestsTab requests={data!.requests} qc={qc} />}
       {tab === "history" && <HistoryTab changes={data!.changes} />}
       {tab === "logistics" && <LogisticsTab shipment={sh} shipmentId={id} qc={qc} items={data!.items} />}
+      <Outlet />
     </div>
   );
 }
