@@ -107,14 +107,28 @@ function ShipmentDetail() {
   );
 }
 
-function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: { logistics_cost: number | null; currency: string | null } }) {
+type ShipmentRow = {
+  status: string;
+  eta: string | null;
+  loading_date: string | null;
+  logistics_days: number | null;
+  country: string | null;
+  logistics_cost: number | null;
+  logistics_cost_usd: number | null;
+  logistics_cost_currency: string | null;
+  eur_usd_rate: number | null;
+  eur_usd_rate_date: string | null;
+};
+
+function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const qc = useQueryClient();
-  const totalTransport = Number(shipment.logistics_cost ?? 0);
-  const alloc = allocateTransport(items, totalTransport);
+  const totalTransportUsd = Number(shipment.logistics_cost_usd ?? 0);
+  const alloc = allocateTransport(items, totalTransportUsd);
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: shipmentId, product_name: "Новий товар", qty: 0, unit: "kg",
-      unit_price: 0, pallet_count: 0, pallet_weight: 0, invoice_price: 0, indicative_price: 0,
+      unit_price: 0, price_currency: "EUR",
+      pallet_count: 0, pallet_weight: 0, invoice_price: 0, indicative_price: 0,
     });
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
@@ -139,7 +153,7 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
               item={it as Item}
               shipmentId={shipmentId}
               alloc={alloc.rows[it.id]}
-              currency={shipment.currency ?? "EUR"}
+              shipmentRate={shipment.eur_usd_rate}
             />
           ))}
         </div>
