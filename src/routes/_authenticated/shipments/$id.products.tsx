@@ -206,7 +206,6 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
     pallet_count: item.pallet_count ?? 0,
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
-    cost_price_usd: item.cost_price_usd ?? 0,
   });
   const dirtyRef = useRef(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
@@ -220,7 +219,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
     return Number(match?.default_pallet_weight ?? item.pallet_weight ?? 0);
   })();
 
-  // Debounced autosave
+  // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
   useEffect(() => {
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
@@ -237,21 +236,23 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           pallet_weight: palletWeight,
           unit_price: Number(form.unit_price),
           price_currency: form.price_currency,
-          cost_price_usd: Number(form.cost_price_usd),
           qty: totalKg,
         })
         .eq("id", item.id);
       if (error) toast.error(error.message);
-      else dirtyRef.current = false;
+      else {
+        dirtyRef.current = false;
+        qc.invalidateQueries({ queryKey: ["shipment-products"] });
+      }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id]);
+  }, [form, palletWeight, item.id, qc]);
 
   const remove = async () => {
     if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", shipmentId] });
+    qc.invalidateQueries({ queryKey: ["shipment-products"] });
   };
 
   return (
