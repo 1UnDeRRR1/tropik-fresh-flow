@@ -88,6 +88,7 @@ export type Database = {
           manager_name: string | null
           name: string
           phone: string | null
+          sort_order: number | null
         }
         Insert: {
           address?: string | null
@@ -97,6 +98,7 @@ export type Database = {
           manager_name?: string | null
           name: string
           phone?: string | null
+          sort_order?: number | null
         }
         Update: {
           address?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           manager_name?: string | null
           name?: string
           phone?: string | null
+          sort_order?: number | null
         }
         Relationships: []
       }
@@ -113,6 +116,7 @@ export type Database = {
         Row: {
           distribution_id: string
           id: string
+          pallets: number | null
           qty: number
           shipment_item_id: string
           unit_cost: number | null
@@ -120,6 +124,7 @@ export type Database = {
         Insert: {
           distribution_id: string
           id?: string
+          pallets?: number | null
           qty?: number
           shipment_item_id: string
           unit_cost?: number | null
@@ -127,6 +132,7 @@ export type Database = {
         Update: {
           distribution_id?: string
           id?: string
+          pallets?: number | null
           qty?: number
           shipment_item_id?: string
           unit_cost?: number | null
@@ -267,10 +273,48 @@ export type Database = {
           },
         ]
       }
+      shipment_item_changes: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          shipment_id: string
+          shipment_item_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          shipment_id: string
+          shipment_item_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          shipment_id?: string
+          shipment_item_id?: string
+        }
+        Relationships: []
+      }
       shipment_items: {
         Row: {
+          caliber: string | null
           created_at: string
           id: string
+          indicative_price: number | null
+          invoice_price: number | null
+          pallet_count: number | null
+          pallet_weight: number | null
           product_name: string
           qty: number
           shipment_id: string
@@ -280,8 +324,13 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          caliber?: string | null
           created_at?: string
           id?: string
+          indicative_price?: number | null
+          invoice_price?: number | null
+          pallet_count?: number | null
+          pallet_weight?: number | null
           product_name: string
           qty?: number
           shipment_id: string
@@ -291,8 +340,13 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          caliber?: string | null
           created_at?: string
           id?: string
+          indicative_price?: number | null
+          invoice_price?: number | null
+          pallet_count?: number | null
+          pallet_weight?: number | null
           product_name?: string
           qty?: number
           shipment_id?: string
@@ -315,6 +369,7 @@ export type Database = {
         Row: {
           arrived_at: string | null
           code: string
+          country: string | null
           created_at: string
           created_by: string | null
           currency: string | null
@@ -322,7 +377,10 @@ export type Database = {
           eta: string | null
           fx_rate: number | null
           id: string
+          import_manager_id: string | null
+          loading_date: string | null
           logistics_cost: number | null
+          logistics_days: number | null
           notes: string | null
           other_costs: number | null
           status: Database["public"]["Enums"]["shipment_status"]
@@ -333,6 +391,7 @@ export type Database = {
         Insert: {
           arrived_at?: string | null
           code: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string | null
@@ -340,7 +399,10 @@ export type Database = {
           eta?: string | null
           fx_rate?: number | null
           id?: string
+          import_manager_id?: string | null
+          loading_date?: string | null
           logistics_cost?: number | null
+          logistics_days?: number | null
           notes?: string | null
           other_costs?: number | null
           status?: Database["public"]["Enums"]["shipment_status"]
@@ -351,6 +413,7 @@ export type Database = {
         Update: {
           arrived_at?: string | null
           code?: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string | null
@@ -358,7 +421,10 @@ export type Database = {
           eta?: string | null
           fx_rate?: number | null
           id?: string
+          import_manager_id?: string | null
+          loading_date?: string | null
           logistics_cost?: number | null
+          logistics_days?: number | null
           notes?: string | null
           other_costs?: number | null
           status?: Database["public"]["Enums"]["shipment_status"]

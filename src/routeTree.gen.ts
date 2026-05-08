@@ -23,6 +23,7 @@ import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedShipmentsIndexRouteImport } from './routes/_authenticated/shipments/index'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
+import { Route as AuthenticatedDistributionShipmentIdRouteImport } from './routes/_authenticated/distribution/$shipmentId'
 import { Route as AuthenticatedDashboardSuperAdminRouteImport } from './routes/_authenticated/dashboard/super-admin'
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard/manager'
 import { Route as AuthenticatedDashboardBranchRouteImport } from './routes/_authenticated/dashboard/branch'
@@ -103,6 +104,12 @@ const AuthenticatedShipmentsIdRoute =
     path: '/shipments/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedDistributionShipmentIdRoute =
+  AuthenticatedDistributionShipmentIdRouteImport.update({
+    id: '/$shipmentId',
+    path: '/$shipmentId',
+    getParentRoute: () => AuthenticatedDistributionRoute,
+  } as any)
 const AuthenticatedDashboardSuperAdminRoute =
   AuthenticatedDashboardSuperAdminRouteImport.update({
     id: '/dashboard/super-admin',
@@ -134,7 +141,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/costs': typeof AuthenticatedCostsRoute
-  '/distribution': typeof AuthenticatedDistributionRoute
+  '/distribution': typeof AuthenticatedDistributionRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
+  '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRoute
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
@@ -152,7 +160,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/costs': typeof AuthenticatedCostsRoute
-  '/distribution': typeof AuthenticatedDistributionRoute
+  '/distribution': typeof AuthenticatedDistributionRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
@@ -162,6 +170,7 @@ export interface FileRoutesByTo {
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
+  '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRoute
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
@@ -173,7 +182,7 @@ export interface FileRoutesById {
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/_authenticated/costs': typeof AuthenticatedCostsRoute
-  '/_authenticated/distribution': typeof AuthenticatedDistributionRoute
+  '/_authenticated/distribution': typeof AuthenticatedDistributionRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
@@ -183,6 +192,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
+  '/_authenticated/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRoute
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/dashboard/branch'
     | '/dashboard/manager'
     | '/dashboard/super-admin'
+    | '/distribution/$shipmentId'
     | '/shipments/$id'
     | '/shipments/new'
     | '/shipments/'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/dashboard/branch'
     | '/dashboard/manager'
     | '/dashboard/super-admin'
+    | '/distribution/$shipmentId'
     | '/shipments/$id'
     | '/shipments/new'
     | '/shipments'
@@ -243,6 +255,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/branch'
     | '/_authenticated/dashboard/manager'
     | '/_authenticated/dashboard/super-admin'
+    | '/_authenticated/distribution/$shipmentId'
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
     | '/_authenticated/shipments/'
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShipmentsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/distribution/$shipmentId': {
+      id: '/_authenticated/distribution/$shipmentId'
+      path: '/$shipmentId'
+      fullPath: '/distribution/$shipmentId'
+      preLoaderRoute: typeof AuthenticatedDistributionShipmentIdRouteImport
+      parentRoute: typeof AuthenticatedDistributionRoute
+    }
     '/_authenticated/dashboard/super-admin': {
       id: '/_authenticated/dashboard/super-admin'
       path: '/dashboard/super-admin'
@@ -384,11 +404,26 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedDistributionRouteChildren {
+  AuthenticatedDistributionShipmentIdRoute: typeof AuthenticatedDistributionShipmentIdRoute
+}
+
+const AuthenticatedDistributionRouteChildren: AuthenticatedDistributionRouteChildren =
+  {
+    AuthenticatedDistributionShipmentIdRoute:
+      AuthenticatedDistributionShipmentIdRoute,
+  }
+
+const AuthenticatedDistributionRouteWithChildren =
+  AuthenticatedDistributionRoute._addFileChildren(
+    AuthenticatedDistributionRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBranchRequestsRoute: typeof AuthenticatedBranchRequestsRoute
   AuthenticatedCostsRoute: typeof AuthenticatedCostsRoute
-  AuthenticatedDistributionRoute: typeof AuthenticatedDistributionRoute
+  AuthenticatedDistributionRoute: typeof AuthenticatedDistributionRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
@@ -407,7 +442,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBranchRequestsRoute: AuthenticatedBranchRequestsRoute,
   AuthenticatedCostsRoute: AuthenticatedCostsRoute,
-  AuthenticatedDistributionRoute: AuthenticatedDistributionRoute,
+  AuthenticatedDistributionRoute: AuthenticatedDistributionRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
