@@ -30,6 +30,7 @@ import { Route as AuthenticatedDashboardSuperAdminRouteImport } from './routes/_
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard/manager'
 import { Route as AuthenticatedDashboardBranchRouteImport } from './routes/_authenticated/dashboard/branch'
 import { Route as AuthenticatedDashboardAdminRouteImport } from './routes/_authenticated/dashboard/admin'
+import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -146,6 +147,12 @@ const AuthenticatedDashboardAdminRoute =
     path: '/dashboard/admin',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminBranchesRoute =
+  AuthenticatedAdminBranchesRouteImport.update({
+    id: '/branches',
+    path: '/branches',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
+  '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -180,6 +188,7 @@ export interface FileRoutesByTo {
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -204,6 +213,7 @@ export interface FileRoutesById {
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/_authenticated/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/transfers'
+    | '/admin/branches'
     | '/dashboard/admin'
     | '/dashboard/branch'
     | '/dashboard/manager'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/transfers'
     | '/'
+    | '/admin/branches'
     | '/dashboard/admin'
     | '/dashboard/branch'
     | '/dashboard/manager'
@@ -272,6 +284,7 @@ export interface FileRouteTypes {
     | '/_authenticated/suppliers'
     | '/_authenticated/transfers'
     | '/_authenticated/'
+    | '/_authenticated/admin/branches'
     | '/_authenticated/dashboard/admin'
     | '/_authenticated/dashboard/branch'
     | '/_authenticated/dashboard/manager'
@@ -437,14 +450,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/branches': {
+      id: '/_authenticated/admin/branches'
+      path: '/branches'
+      fullPath: '/admin/branches'
+      preLoaderRoute: typeof AuthenticatedAdminBranchesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
