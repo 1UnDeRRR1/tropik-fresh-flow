@@ -416,17 +416,6 @@ const REQ_TYPE_LABEL: Record<string, string> = {
   reserve: "Резервування",
 };
 
-// Helper type
-function useShipmentData() {
-  return null as unknown as {
-    shipment: { status: string; eta: string | null; loading_date: string | null; logistics_days: number | null; country: string | null; code: string; suppliers: { name: string | null; country: string | null } | null };
-    items: Array<{ id: string; product_name: string; caliber: string | null; pallet_count: number | null; pallet_weight: number | null; invoice_price: number | null; indicative_price: number | null; qty: number }>;
-    distributions: Array<{ id: string; branch_id: string; status: string; branches: { name: string | null; sort_order: number | null } | null; distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string }> | null }>;
-    requests: Array<{ id: string; status: string; request_type: string | null; qty: number | null; approved_qty: number | null; notes: string | null; branch_id: string; created_at: string }>;
-    changes: Array<{ id: string; field: string; old_value: string | null; new_value: string | null; created_at: string }>;
-  };
-}
-
 type Item = {
   id: string;
   product_name: string;
@@ -450,83 +439,3 @@ type Item = {
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
-
-function ShipmentItemEditor({ item, shipmentId, alloc, shipmentRate, onClose }: { item: Item; shipmentId: string; alloc?: { allocatedTransportCost: number; transportCostPerKg: number; weightShare: number; productTotalWeight: number }; shipmentRate: number | null; onClose: () => void }) {
-  const qc = useQueryClient();
-  const initialCurrency = ((item.price_currency as Currency) ?? "EUR") as Currency;
-  const normalizedProductName = item.product_name === "Новий товар" ? "" : item.product_name;
-  const [form, setForm] = useState({
-    product_name: normalizedProductName,
-    caliber: item.caliber ?? "",
-    pallet_count: item.pallet_count ?? 0,
-    pallet_weight: item.pallet_weight ?? 0,
-    unit_price: item.unit_price ?? item.invoice_price ?? 0,
-    indicative_price: item.indicative_price ?? 0,
-    price_currency: initialCurrency,
-  });
-  const totalKg = Number(form.pallet_count) * Number(form.pallet_weight);
-  const previewUsd = convertToUsd(Number(form.unit_price), form.price_currency, shipmentRate);
-  void alloc;
-  const save = async () => {
-    const { error } = await supabase.from("shipment_items").update({
-      product_name: form.product_name, caliber: form.caliber || null,
-      pallet_count: Number(form.pallet_count), pallet_weight: Number(form.pallet_weight),
-      invoice_price: Number(form.unit_price), indicative_price: Number(form.indicative_price),
-      qty: totalKg, unit_price: Number(form.unit_price),
-      price_currency: form.price_currency,
-    }).eq("id", item.id);
-    if (error) return toast.error(error.message);
-    toast.success("Збережено");
-    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-    onClose();
-  };
-  const remove = async () => {
-    const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-  };
-
-  return (
-    <div className="grid grid-cols-2 gap-2 text-sm">
-      <div className="col-span-2 space-y-1">
-        <Label className="text-xs">Назва товару</Label>
-        <Input placeholder="Товар" value={form.product_name} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, product_name: e.target.value })} />
-      </div>
-      <div className="space-y-1"><Label className="text-xs">Калібр</Label>
-        <Input placeholder="—" value={form.caliber} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, caliber: e.target.value })} /></div>
-      <div className="space-y-1"><Label className="text-xs">Палет</Label>
-        <Input type="number" placeholder="0" value={form.pallet_count === 0 ? "" : String(form.pallet_count)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, pallet_count: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
-      <div className="space-y-1"><Label className="text-xs">Вага палети, кг</Label>
-        <Input type="number" placeholder="0" value={form.pallet_weight === 0 ? "" : String(form.pallet_weight)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, pallet_weight: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
-      <div className="col-span-2 space-y-1">
-        <Label className="text-xs">Ціна постачальника</Label>
-        <div className="flex gap-2">
-          <Input type="number" step="0.01" placeholder="0" className="flex-1" value={form.unit_price === 0 ? "" : String(form.unit_price)} onFocus={(e) => e.currentTarget.select()}
-            onChange={(e) => setForm({ ...form, unit_price: e.target.value === "" ? 0 : Number(e.target.value) })} />
-          <select
-            value={form.price_currency}
-            onChange={(e) => setForm({ ...form, price_currency: e.target.value as Currency })}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          >
-            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          {form.price_currency === "EUR"
-            ? <>≈ <b className="text-foreground">{fmtUSD(previewUsd)}</b> @ {fmtRate(shipmentRate)}</>
-            : <>USD</>}
-        </p>
-      </div>
-      <div className="col-span-2 space-y-1"><Label className="text-xs">Орієнтовна ціна</Label>
-        <Input type="number" step="0.01" placeholder="0" value={form.indicative_price === 0 ? "" : String(form.indicative_price)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm({ ...form, indicative_price: e.target.value === "" ? 0 : Number(e.target.value) })} /></div>
-      <div className="col-span-2 flex items-center justify-between pt-1">
-        <span className="text-xs text-muted-foreground">{totalKg} кг</span>
-        <div className="flex gap-2">
-          <Button size="sm" variant="ghost" onClick={remove} className="text-destructive">Видалити</Button>
-          <Button size="sm" variant="secondary" onClick={onClose}>Закрити</Button>
-          <Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
