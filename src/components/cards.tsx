@@ -9,6 +9,7 @@ export function StatCard({
   icon,
   tone = "default",
   to,
+  pulse = false,
 }: {
   label: string;
   value: ReactNode;
