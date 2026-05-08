@@ -133,8 +133,9 @@ function ProductsFullscreen() {
 
 function ProductRowEditor({ item, shipmentId }: { item: ItemRow; shipmentId: string }) {
   const qc = useQueryClient();
+  const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
-    product_name: item.product_name ?? "",
+    product_name: normalizedProductName,
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
@@ -213,12 +214,17 @@ function ProductRowEditor({ item, shipmentId }: { item: ItemRow; shipmentId: str
 }
 
 function CellInput({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
+  const [focused, setFocused] = useState(false);
   return (
     <Input
       value={value}
-      placeholder={placeholder}
+      placeholder={focused ? "" : placeholder}
       onChange={(e) => onChange(e.target.value)}
-      onFocus={(e) => e.currentTarget.select()}
+      onFocus={(e) => {
+        setFocused(true);
+        e.currentTarget.select();
+      }}
+      onBlur={() => setFocused(false)}
       className={cn("h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background", className)}
     />
   );
@@ -227,6 +233,7 @@ function CellInput({ value, onChange, placeholder, className }: { value: string;
 function NumCell({ value, onChange, step, tone }: { value: number; onChange: (v: number) => void; step?: string; tone?: "success" | "destructive" }) {
   // Show empty when 0 to avoid leading-zero typing issues
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
+  const [focused, setFocused] = useState(false);
   useEffect(() => {
     setText(value === 0 ? "" : String(value));
   }, [value]);
@@ -236,8 +243,12 @@ function NumCell({ value, onChange, step, tone }: { value: number; onChange: (v:
       inputMode="decimal"
       step={step ?? "1"}
       value={text}
-      placeholder="0"
-      onFocus={(e) => e.currentTarget.select()}
+      placeholder={focused ? "" : "0"}
+      onFocus={(e) => {
+        setFocused(true);
+        e.currentTarget.select();
+      }}
+      onBlur={() => setFocused(false)}
       onChange={(e) => {
         const v = e.target.value;
         setText(v);
