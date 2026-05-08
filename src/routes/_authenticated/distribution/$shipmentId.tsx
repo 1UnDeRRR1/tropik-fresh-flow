@@ -309,7 +309,8 @@ function DistributionMatrix() {
       </div>
 
       {/* DESKTOP/TABLET: table */}
-      <SectionCard title="Матриця розподілу" action={SaveButton} className="hidden md:block">
+      <div className="hidden md:block">
+      <SectionCard title="Матриця розподілу" action={SaveButton}>
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="min-w-full border-separate border-spacing-0 text-xs">
             <thead>
