@@ -12,6 +12,7 @@ const TABS = [
   { to: "/admin/suppliers", label: "Постачальники" },
   { to: "/admin/products", label: "Товари" },
   { to: "/admin/countries", label: "Логістика" },
+  { to: "/admin/customs", label: "Митниця" },
 ] as const;
 
 function AdminLayout() {

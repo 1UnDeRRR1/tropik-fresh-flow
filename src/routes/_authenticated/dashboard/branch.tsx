@@ -32,7 +32,7 @@ function BranchDashboard() {
         .select(`
           id,status,
           shipments(id,code,eta,country, suppliers(name)),
-          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,pallet_count,pallet_weight,invoice_price,indicative_price))
+          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,pallet_count,pallet_weight,invoice_price,indicative_price,final_cost_indicative,final_cost_invoice))
         `)
         .eq("branch_id", branchId!)
         .order("created_at", { ascending: false });
@@ -123,8 +123,9 @@ function BranchDashboard() {
                               </div>
                             </div>
                             <div className="text-right text-xs">
-                              <div className="font-semibold tabular-nums">{Number(it.indicative_price ?? 0).toFixed(2)}</div>
-                              <div className="text-muted-foreground">орієнт. ціна</div>
+                              <div className="font-semibold tabular-nums text-brand">${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг</div>
+                              <div className="text-[10px] text-muted-foreground">інв ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг</div>
+                              <div className="text-[10px] text-muted-foreground">собівартість</div>
                             </div>
                           </div>
                           {itemChanges.length > 0 && (

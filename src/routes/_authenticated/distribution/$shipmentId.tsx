@@ -18,6 +18,8 @@ type Item = {
   caliber: string | null;
   pallet_count: number;
   pallet_weight: number;
+  final_cost_indicative: number | null;
+  final_cost_invoice: number | null;
 };
 
 type Branch = { id: string; name: string; sort_order: number };
@@ -33,7 +35,7 @@ function DistributionMatrix() {
     queryFn: async () => {
       const [shRes, itemsRes, branchesRes, distRes] = await Promise.all([
         supabase.from("shipments").select("id,code,status").eq("id", shipmentId).single(),
-        supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight").eq("shipment_id", shipmentId).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
         supabase.from("branches").select("id,name,sort_order").order("sort_order"),
         supabase
           .from("distributions")
@@ -167,8 +169,13 @@ function DistributionMatrix() {
                 return (
                   <tr key={it.id} className="border-t border-border">
                     <td className="sticky left-0 z-10 bg-background px-2 py-2 font-medium whitespace-nowrap">
-                      {it.product_name}
-                      {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
+                      <div>
+                        {it.product_name}
+                        {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
+                      </div>
+                      <div className="text-[10px] font-normal text-muted-foreground">
+                        інд ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг · інв ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг
+                      </div>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{t.total}</td>
                     <td className="px-2 py-2 text-right tabular-nums font-semibold text-brand">{t.distributed}</td>

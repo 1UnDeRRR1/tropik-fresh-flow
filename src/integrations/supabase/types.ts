@@ -160,6 +160,42 @@ export type Database = {
         }
         Relationships: []
       }
+      customs_reference: {
+        Row: {
+          active: boolean
+          country: string
+          created_at: string
+          customs_fee_percent: number
+          euro1_markup_usd: number
+          id: string
+          product_name: string
+          threshold_price_usd: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          country: string
+          created_at?: string
+          customs_fee_percent?: number
+          euro1_markup_usd?: number
+          id?: string
+          product_name: string
+          threshold_price_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          country?: string
+          created_at?: string
+          customs_fee_percent?: number
+          euro1_markup_usd?: number
+          id?: string
+          product_name?: string
+          threshold_price_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       distribution_items: {
         Row: {
           distribution_id: string
@@ -448,6 +484,11 @@ export type Database = {
         Row: {
           caliber: string | null
           created_at: string
+          customs_cost_indicative: number | null
+          customs_cost_invoice: number | null
+          customs_match_id: string | null
+          final_cost_indicative: number | null
+          final_cost_invoice: number | null
           fx_rate_used: number | null
           id: string
           indicative_price: number | null
@@ -467,6 +508,11 @@ export type Database = {
         Insert: {
           caliber?: string | null
           created_at?: string
+          customs_cost_indicative?: number | null
+          customs_cost_invoice?: number | null
+          customs_match_id?: string | null
+          final_cost_indicative?: number | null
+          final_cost_invoice?: number | null
           fx_rate_used?: number | null
           id?: string
           indicative_price?: number | null
@@ -486,6 +532,11 @@ export type Database = {
         Update: {
           caliber?: string | null
           created_at?: string
+          customs_cost_indicative?: number | null
+          customs_cost_invoice?: number | null
+          customs_match_id?: string | null
+          final_cost_indicative?: number | null
+          final_cost_invoice?: number | null
           fx_rate_used?: number | null
           id?: string
           indicative_price?: number | null
