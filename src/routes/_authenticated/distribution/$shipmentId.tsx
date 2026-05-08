@@ -139,6 +139,12 @@ function DistributionMatrix() {
         }
       />
 
+      {Object.values(totals).some((t) => t.remaining < 0) && (
+        <div className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+          ⚠️ Розподілено більше, ніж FACT. Перевірте кількість палет.
+        </div>
+      )}
+
       <SectionCard title="Матриця розподілу" action={<Button size="sm" onClick={save} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>}>
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="min-w-full border-separate border-spacing-0 text-xs">

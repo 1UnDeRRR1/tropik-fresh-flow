@@ -48,33 +48,48 @@ export type Database = {
       }
       branch_requests: {
         Row: {
+          approved_qty: number | null
           branch_id: string
           created_at: string
+          decision_notes: string | null
           id: string
           notes: string | null
+          qty: number | null
+          request_type: string
           requested_by: string | null
           shipment_id: string | null
           status: Database["public"]["Enums"]["branch_request_status"]
+          to_branch_id: string | null
           updated_at: string
         }
         Insert: {
+          approved_qty?: number | null
           branch_id: string
           created_at?: string
+          decision_notes?: string | null
           id?: string
           notes?: string | null
+          qty?: number | null
+          request_type?: string
           requested_by?: string | null
           shipment_id?: string | null
           status?: Database["public"]["Enums"]["branch_request_status"]
+          to_branch_id?: string | null
           updated_at?: string
         }
         Update: {
+          approved_qty?: number | null
           branch_id?: string
           created_at?: string
+          decision_notes?: string | null
           id?: string
           notes?: string | null
+          qty?: number | null
+          request_type?: string
           requested_by?: string | null
           shipment_id?: string | null
           status?: Database["public"]["Enums"]["branch_request_status"]
+          to_branch_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -740,12 +755,14 @@ export type Database = {
       distribution_status: "planned" | "dispatched" | "received" | "cancelled"
       shipment_status:
         | "draft"
+        | "loading"
         | "in_transit"
         | "customs"
         | "arrived"
         | "distributing"
         | "completed"
         | "cancelled"
+        | "delayed"
       transfer_status:
         | "requested"
         | "approved"
@@ -890,12 +907,14 @@ export const Constants = {
       distribution_status: ["planned", "dispatched", "received", "cancelled"],
       shipment_status: [
         "draft",
+        "loading",
         "in_transit",
         "customs",
         "arrived",
         "distributing",
         "completed",
         "cancelled",
+        "delayed",
       ],
       transfer_status: [
         "requested",
