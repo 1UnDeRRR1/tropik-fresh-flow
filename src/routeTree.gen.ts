@@ -30,6 +30,7 @@ import { Route as AuthenticatedDashboardSuperAdminRouteImport } from './routes/_
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard/manager'
 import { Route as AuthenticatedDashboardBranchRouteImport } from './routes/_authenticated/dashboard/branch'
 import { Route as AuthenticatedDashboardAdminRouteImport } from './routes/_authenticated/dashboard/admin'
+import { Route as AuthenticatedAdminSuppliersRouteImport } from './routes/_authenticated/admin/suppliers'
 import { Route as AuthenticatedAdminManagersRouteImport } from './routes/_authenticated/admin/managers'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 
@@ -148,6 +149,12 @@ const AuthenticatedDashboardAdminRoute =
     path: '/dashboard/admin',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminSuppliersRoute =
+  AuthenticatedAdminSuppliersRouteImport.update({
+    id: '/suppliers',
+    path: '/suppliers',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminManagersRoute =
   AuthenticatedAdminManagersRouteImport.update({
     id: '/managers',
@@ -175,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/transfers': typeof AuthenticatedTransfersRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
+  '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -198,6 +206,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
+  '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -224,6 +233,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/managers': typeof AuthenticatedAdminManagersRoute
+  '/_authenticated/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/_authenticated/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/_authenticated/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/transfers'
     | '/admin/branches'
     | '/admin/managers'
+    | '/admin/suppliers'
     | '/dashboard/admin'
     | '/dashboard/branch'
     | '/dashboard/manager'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/branches'
     | '/admin/managers'
+    | '/admin/suppliers'
     | '/dashboard/admin'
     | '/dashboard/branch'
     | '/dashboard/manager'
@@ -298,6 +310,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/managers'
+    | '/_authenticated/admin/suppliers'
     | '/_authenticated/dashboard/admin'
     | '/_authenticated/dashboard/branch'
     | '/_authenticated/dashboard/manager'
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/suppliers': {
+      id: '/_authenticated/admin/suppliers'
+      path: '/suppliers'
+      fullPath: '/admin/suppliers'
+      preLoaderRoute: typeof AuthenticatedAdminSuppliersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/managers': {
       id: '/_authenticated/admin/managers'
       path: '/managers'
@@ -483,12 +503,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminManagersRoute: typeof AuthenticatedAdminManagersRoute
+  AuthenticatedAdminSuppliersRoute: typeof AuthenticatedAdminSuppliersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminManagersRoute: AuthenticatedAdminManagersRoute,
+  AuthenticatedAdminSuppliersRoute: AuthenticatedAdminSuppliersRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
