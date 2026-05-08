@@ -138,8 +138,7 @@ function ManagerDashboard() {
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="mt-2 text-2xl font-black tracking-tight">
-              {data?.distributed.ships ?? 0}
-              <span className="text-base">({data?.distributed.pallets ?? 0}п)</span>
+              {`${data?.distributed.ships ?? 0}(${data?.distributed.pallets ?? 0}п)`}
             </div>
             <div className="mt-1 text-xs opacity-80">Розподілені палети</div>
           </div>
