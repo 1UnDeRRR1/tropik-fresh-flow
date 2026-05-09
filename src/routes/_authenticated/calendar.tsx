@@ -22,6 +22,7 @@ type ShipmentRow = {
     origin_country: string | null;
     unit_price: number | null;
     price_currency: string | null;
+    pallet_count: number | null;
   }>;
 };
 
@@ -32,9 +33,11 @@ const MONTHS_UK = [
 ];
 
 function isoDate(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.toISOString().slice(0, 10);
+  // Local YYYY-MM-DD (avoid UTC shift in toISOString)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fmtPrice(v: number | null | undefined, cur: string | null | undefined) {
@@ -62,7 +65,7 @@ function CalendarPage() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency)",
+          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count)",
         );
       if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
       const { data, error } = await q;
@@ -121,6 +124,7 @@ function CalendarPage() {
                           {(it.origin_country || sh.country) ? (
                             <span> · {it.origin_country || sh.country}</span>
                           ) : null}
+                          <span> · <span className="font-bold tabular-nums text-brand">{Number(it.pallet_count ?? 0)}п</span></span>
                         </div>
                       </li>
                     )),
