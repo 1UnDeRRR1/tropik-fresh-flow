@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/distribution/$shipmentId")({
   component: DistributionMatrix,
