@@ -126,18 +126,33 @@ function Analytics() {
   }, [data, today]);
 
   // Level 1: grouped by product+country
-  type Group = { key: string; product: string; country: string; pallets: number; flats: Flat[] };
+  type Group = {
+    key: string;
+    product: string;
+    country: string;
+    pallets: number;
+    positions: number;
+    shipments: number;
+    flats: Flat[];
+  };
   const groups = useMemo<Group[]>(() => {
     const m = new Map<string, Group>();
+    const shipSets = new Map<string, Set<string>>();
     for (const f of activeFlat) {
       const country = (f.item.origin_country || f.shipment.country || "").trim();
       const product = f.item.product_name.trim();
       const key = `${product}__${country}`;
-      const g = m.get(key) ?? { key, product, country, pallets: 0, flats: [] };
+      const g =
+        m.get(key) ?? { key, product, country, pallets: 0, positions: 0, shipments: 0, flats: [] };
       g.pallets += Number(f.item.pallet_count ?? 0);
+      g.positions += 1;
       g.flats.push(f);
       m.set(key, g);
+      const s = shipSets.get(key) ?? new Set<string>();
+      s.add(f.shipment.id);
+      shipSets.set(key, s);
     }
+    for (const [k, g] of m) g.shipments = shipSets.get(k)?.size ?? 0;
     return Array.from(m.values()).sort(
       (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
     );
@@ -148,15 +163,27 @@ function Analytics() {
   const [view, setView] = useState<"product" | "manager" | "supplier">("product");
 
   // Grouping by manager / supplier (admins only)
+  type ProdSub = {
+    product: string;
+    country: string;
+    pallets: number;
+    positions: number;
+    shipments: number;
+    flats: Flat[];
+  };
   type OwnerGroup = {
     key: string;
     name: string;
     pallets: number;
-    products: { product: string; country: string; pallets: number; flats: Flat[] }[];
+    positions: number;
+    shipments: number;
+    products: ProdSub[];
   };
   const ownerGroups = useMemo<OwnerGroup[]>(() => {
     if (view === "product") return [];
     const map = new Map<string, OwnerGroup>();
+    const ownerShipSets = new Map<string, Set<string>>();
+    const prodShipSets = new Map<string, Set<string>>();
     for (const f of activeFlat) {
       const ownerId =
         view === "manager" ? f.shipment.import_manager_id ?? "" : f.shipment.supplier_id ?? "";
@@ -165,25 +192,39 @@ function Analytics() {
           ? mgrMap.get(ownerId) ?? "— Без менеджера"
           : supMap.get(ownerId) ?? "— Без постачальника";
       const key = ownerId || `__none_${view}`;
-      const og = map.get(key) ?? { key, name: ownerName, pallets: 0, products: [] };
+      const og =
+        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, shipments: 0, products: [] };
       const product = f.item.product_name.trim();
       const country = (f.item.origin_country || f.shipment.country || "").trim();
       const pallets = Number(f.item.pallet_count ?? 0);
       let pg = og.products.find((p) => p.product === product && p.country === country);
       if (!pg) {
-        pg = { product, country, pallets: 0, flats: [] };
+        pg = { product, country, pallets: 0, positions: 0, shipments: 0, flats: [] };
         og.products.push(pg);
       }
       pg.pallets += pallets;
+      pg.positions += 1;
       pg.flats.push(f);
       og.pallets += pallets;
+      og.positions += 1;
       map.set(key, og);
+      const oset = ownerShipSets.get(key) ?? new Set<string>();
+      oset.add(f.shipment.id);
+      ownerShipSets.set(key, oset);
+      const pkey = `${key}__${product}__${country}`;
+      const pset = prodShipSets.get(pkey) ?? new Set<string>();
+      pset.add(f.shipment.id);
+      prodShipSets.set(pkey, pset);
     }
     const arr = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "uk"));
     for (const g of arr) {
+      g.shipments = ownerShipSets.get(g.key)?.size ?? 0;
       g.products.sort(
         (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
       );
+      for (const p of g.products) {
+        p.shipments = prodShipSets.get(`${g.key}__${p.product}__${p.country}`)?.size ?? 0;
+      }
     }
     return arr;
   }, [activeFlat, view, mgrMap, supMap]);
@@ -194,6 +235,12 @@ function Analytics() {
     () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
     [activeFlat],
   );
+  const totalPositions = activeFlat.length;
+  const totalShipments = useMemo(() => {
+    const s = new Set<string>();
+    for (const f of activeFlat) s.add(f.shipment.id);
+    return s.size;
+  }, [activeFlat]);
 
   return (
     <div className="space-y-4">
@@ -221,7 +268,11 @@ function Analytics() {
               </button>
             ))}
           </div>
-          <span className="text-xs text-muted-foreground">Всього: <span className="font-bold tabular-nums text-brand">{totalPallets}п</span></span>
+          <span className="text-xs text-muted-foreground">
+            <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
+            <span className="font-bold tabular-nums text-foreground">{totalPositions}</span> поз. ·{" "}
+            <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
+          </span>
         </div>
       )}
 
@@ -240,9 +291,14 @@ function Analytics() {
                   onClick={() => setOpenGroup(g)}
                   className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
                 >
-                  <div className="min-w-0 text-sm">
-                    <span className="font-medium">{g.product}</span>
-                    {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
+                  <div className="min-w-0 flex-1 text-sm">
+                    <div>
+                      <span className="font-medium">{g.product}</span>
+                      {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {g.shipments} пост. · {g.positions} поз.
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <span className="text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
@@ -271,9 +327,11 @@ function Analytics() {
                     onClick={() => setOpenOwner(og)}
                     className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
                   >
-                    <div className="min-w-0 text-sm">
-                      <span className="font-medium">{og.name}</span>
-                      <span className="text-muted-foreground"> · {og.products.length} поз.</span>
+                    <div className="min-w-0 flex-1 text-sm">
+                      <div className="font-medium">{og.name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {og.shipments} пост. · {og.positions} поз.
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <span className="text-sm font-bold tabular-nums text-brand">{og.pallets}п</span>
@@ -294,7 +352,7 @@ function Analytics() {
             <DialogTitle className="text-base">
               {openOwner?.name}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                Всього: {openOwner?.pallets}п
+                {openOwner?.shipments} пост. · {openOwner?.positions} поз. · {openOwner?.pallets}п
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -310,14 +368,21 @@ function Analytics() {
                         product: p.product,
                         country: p.country,
                         pallets: p.pallets,
+                        positions: p.positions,
+                        shipments: p.shipments,
                         flats: p.flats,
                       })
                     }
                     className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
                   >
-                    <div className="min-w-0 text-sm">
-                      <span className="font-medium">{p.product}</span>
-                      {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
+                    <div className="min-w-0 flex-1 text-sm">
+                      <div>
+                        <span className="font-medium">{p.product}</span>
+                        {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {p.shipments} пост. · {p.positions} поз.
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <span className="text-sm font-bold tabular-nums text-brand">{p.pallets}п</span>
