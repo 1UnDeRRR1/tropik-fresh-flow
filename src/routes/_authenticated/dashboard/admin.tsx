@@ -127,14 +127,38 @@ function AdminDashboard() {
         transit: {
           count: transit.length,
           pallets: transit.reduce((a, x) => a + x.pallets, 0),
-          list: transit.map((x) => ({
-            code: x.s.code,
-            eta: x.s.eta,
-            pallets: x.pallets,
-            products: x.products,
-            country: toUaCountry(x.s.country),
-            manager: profileName(x.s.created_by),
-          })),
+          list: transit
+            .flatMap((x) => {
+              const byProd = new Map<string, number>();
+              for (const it of x.s.shipment_items) {
+                const p = Number(it.pallet_count ?? 0);
+                byProd.set(it.product_name, (byProd.get(it.product_name) ?? 0) + p);
+              }
+              const country = toUaCountry(x.s.country);
+              const manager = profileName(x.s.created_by);
+              const entries = Array.from(byProd.entries());
+              if (entries.length === 0) {
+                return [{
+                  key: x.s.code,
+                  product: "—",
+                  country,
+                  code: x.s.code,
+                  eta: x.s.eta,
+                  pallets: 0,
+                  manager,
+                }];
+              }
+              return entries.map(([product, pallets]) => ({
+                key: `${x.s.code}-${product}`,
+                product,
+                country,
+                code: x.s.code,
+                eta: x.s.eta,
+                pallets,
+                manager,
+              }));
+            })
+            .sort((a, b) => a.product.localeCompare(b.product, "uk")),
         },
         products: productList,
         branchCount: branches.length,
