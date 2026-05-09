@@ -117,7 +117,22 @@ function BranchRequestsPage() {
   });
 
   const pending = useMemo(() => (data ?? []).filter((r) => r.status === "pending"), [data]);
-  const decided = useMemo(() => (data ?? []).filter((r) => r.status !== "pending"), [data]);
+  const cutoff = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
+  const decided = useMemo(
+    () =>
+      (data ?? []).filter(
+        (r) => r.status !== "pending" && new Date(r.updatedAt).getTime() >= cutoff,
+      ),
+    [data, cutoff],
+  );
+  const archived = useMemo(
+    () =>
+      (data ?? []).filter(
+        (r) => r.status !== "pending" && new Date(r.updatedAt).getTime() < cutoff,
+      ),
+    [data, cutoff],
+  );
+  const [showArchive, setShowArchive] = useState(false);
 
   const approve = async (r: Row, pallets: number) => {
     if (!r.shipmentItemId || !r.shipmentId) {
