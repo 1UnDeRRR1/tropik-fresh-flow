@@ -49,23 +49,9 @@ function BranchRequestsPage() {
   const [editPallets, setEditPallets] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Resolve current import_manager.id by email match
-  const { data: myManagerId } = useQuery({
-    queryKey: ["my-import-manager", user?.email],
-    enabled: !!user?.email && !isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("import_managers")
-        .select("id")
-        .ilike("email", user!.email!)
-        .maybeSingle();
-      return data?.id ?? null;
-    },
-  });
-
   const { data, isLoading } = useQuery({
-    queryKey: ["branch-requests-full", isAdmin ? "all" : myManagerId],
-    enabled: isAdmin || myManagerId !== undefined,
+    queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
       const { data: reqs, error } = await supabase
         .from("branch_requests")
