@@ -26,6 +26,7 @@ type Row = {
   salePrice: number | null;
   saleCurrency: string | null;
   createdAt: string;
+  updatedAt: string;
   branchName: string;
   shipmentCode: string;
   shipmentId: string;
@@ -55,7 +56,7 @@ function BranchRequestsPage() {
     queryFn: async () => {
       const { data: reqs, error } = await supabase
         .from("branch_requests")
-        .select("id,status,pallets,approved_qty,sale_price,sale_currency,created_at,branch_id,shipment_id,shipment_item_id")
+        .select("id,status,pallets,approved_qty,sale_price,sale_currency,created_at,updated_at,branch_id,shipment_id,shipment_item_id")
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -95,6 +96,7 @@ function BranchRequestsPage() {
           salePrice: r.sale_price == null ? null : Number(r.sale_price),
           saleCurrency: r.sale_currency,
           createdAt: r.created_at,
+          updatedAt: r.updated_at ?? r.created_at,
           branchName: b?.name ?? "—",
           shipmentCode: s?.code ?? "—",
           shipmentId: r.shipment_id ?? "",
@@ -117,7 +119,22 @@ function BranchRequestsPage() {
   });
 
   const pending = useMemo(() => (data ?? []).filter((r) => r.status === "pending"), [data]);
-  const decided = useMemo(() => (data ?? []).filter((r) => r.status !== "pending"), [data]);
+  const cutoff = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
+  const decided = useMemo(
+    () =>
+      (data ?? []).filter(
+        (r) => r.status !== "pending" && new Date(r.updatedAt).getTime() >= cutoff,
+      ),
+    [data, cutoff],
+  );
+  const archived = useMemo(
+    () =>
+      (data ?? []).filter(
+        (r) => r.status !== "pending" && new Date(r.updatedAt).getTime() < cutoff,
+      ),
+    [data, cutoff],
+  );
+  const [showArchive, setShowArchive] = useState(false);
 
   const approve = async (r: Row, pallets: number) => {
     if (!r.shipmentItemId || !r.shipmentId) {
@@ -179,7 +196,7 @@ function BranchRequestsPage() {
       }
       const { error: re } = await supabase
         .from("branch_requests")
-        .update({ status: "approved", approved_qty: pallets })
+        .update({ status: "approved", approved_qty: pallets, updated_at: new Date().toISOString() })
         .eq("id", r.id);
       if (re) throw re;
       toast.success(
@@ -201,7 +218,7 @@ function BranchRequestsPage() {
     setBusyId(r.id);
     const { error } = await supabase
       .from("branch_requests")
-      .update({ status: "rejected", approved_qty: 0 })
+      .update({ status: "rejected", approved_qty: 0, updated_at: new Date().toISOString() })
       .eq("id", r.id);
     setBusyId(null);
     if (error) {
@@ -238,9 +255,33 @@ function BranchRequestsPage() {
 
           <SectionCard title={`Опрацьовано (${decided.length})`}>
             {!decided.length ? (
-              <EmptyState title="Поки що порожньо" />
+              <EmptyState title="Поки що порожньо" hint="Зберігаються 30 днів з моменту рішення" />
             ) : (
-              <RequestList rows={decided} busyId={busyId} />
+              <>
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  Зберігаються 30 днів з моменту рішення, далі — в архіві.
+                </p>
+                <RequestList rows={decided} busyId={busyId} />
+              </>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title={`Архів (${archived.length})`}
+            action={
+              <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
+                {showArchive ? "Сховати" : "Показати"}
+              </Button>
+            }
+          >
+            {!showArchive ? (
+              <p className="text-xs text-muted-foreground">
+                Заявки старші за 30 днів. Натисніть «Показати», щоб переглянути.
+              </p>
+            ) : !archived.length ? (
+              <EmptyState title="Архів порожній" />
+            ) : (
+              <RequestList rows={archived} busyId={busyId} />
             )}
           </SectionCard>
         </>
