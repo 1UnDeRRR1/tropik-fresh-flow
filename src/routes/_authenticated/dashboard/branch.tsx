@@ -200,7 +200,7 @@ function BranchDashboard() {
                         return s.pending > 0 ? (
                           <span>
                             {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
-                            <span className="text-primary">{s.pending}п</span>
+                            <span className="text-blue-600">{s.pending}п</span>
                           </span>
                         ) : (
                           <span>{s.free}п</span>
@@ -271,7 +271,7 @@ function BranchDashboard() {
                               {s.pending > 0 ? (
                                 <>
                                   {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
-                                  <span className="text-primary">{s.pending}п</span>
+                                  <span className="text-blue-600">{s.pending}п</span>
                                 </>
                               ) : (
                                 <>{s.free}п</>
