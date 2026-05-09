@@ -69,6 +69,10 @@ type ShipmentRow = {
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
 
+function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count">) {
+  return (item.product_name ?? "").trim().length > 0 && Number(item.pallet_count ?? 0) > 0;
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -84,9 +88,9 @@ function ProductsFullscreen() {
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
-      return {
+        return {
         shipment: s.data as ShipmentRow | null,
-        items: (items.data ?? []) as ItemRow[],
+          items: ((items.data ?? []) as ItemRow[]).filter(isValidShipmentItem),
         products: (prods.data ?? []) as ProductRef[],
       };
     },
@@ -97,7 +101,7 @@ function ProductsFullscreen() {
   const products = data?.products ?? [];
   const country = toUaCountry(sh?.country) || "—";
   const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
-  const hasRealPallets = items.some((i) => Number(i.pallet_count ?? 0) > 0);
+  const hasRealPallets = items.length > 0;
 
   // Auto-delete empty shipment when leaving (browser back, tab close, route change)
   const itemsRef = useRef(items);
@@ -135,15 +139,25 @@ function ProductsFullscreen() {
   };
 
   const addItem = async () => {
+    const productName = window.prompt("Вкажіть назву товару")?.trim() ?? "";
+    if (!productName) return toast.error("Назва товару обов'язкова");
+    const palletsRaw = window.prompt("Вкажіть кількість палет", "1");
+    if (palletsRaw == null) return;
+    const palletCount = Number(palletsRaw.replace(",", "."));
+    if (Number.isNaN(palletCount) || palletCount <= 0) {
+      return toast.error("Кількість має бути більшою за 0");
+    }
+    const match = products.find((p) => p.name.trim().toLowerCase() === productName.toLowerCase());
+    const palletWeight = Number(match?.default_pallet_weight ?? 0);
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: id,
-      product_name: "",
-      qty: 0,
+      product_name: productName,
+      qty: palletCount * palletWeight,
       unit: "kg",
       unit_price: 0,
       price_currency: "EUR",
-      pallet_count: 0,
-      pallet_weight: 0,
+      pallet_count: palletCount,
+      pallet_weight: palletWeight,
     });
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
@@ -329,6 +343,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
   const dirtyRef = useRef(false);
+  const deletedRef = useRef(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     dirtyRef.current = true;
     setForm((f) => ({ ...f, [k]: v }));
@@ -344,16 +359,31 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
   useEffect(() => {
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
-      const totalKg = Number(form.pallet_count) * palletWeight;
+      const trimmedProductName = form.product_name.trim();
+      const palletCount = Number(form.pallet_count);
+      if (!trimmedProductName || palletCount <= 0) {
+        if (deletedRef.current) return;
+        deletedRef.current = true;
+        const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
+        if (error) {
+          deletedRef.current = false;
+          toast.error(error.message);
+        } else {
+          dirtyRef.current = false;
+          qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+        }
+        return;
+      }
+      const totalKg = palletCount * palletWeight;
       const { error } = await supabase
         .from("shipment_items")
         .update({
-          product_name: form.product_name,
+          product_name: trimmedProductName,
           variety: form.variety || null,
           origin_country: form.origin_country || null,
           caliber: form.caliber || null,
           sku: form.sku || null,
-          pallet_count: Number(form.pallet_count),
+          pallet_count: palletCount,
           pallet_weight: palletWeight,
           unit_price: Number(form.unit_price),
           price_currency: form.price_currency,
@@ -386,6 +416,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           placeholder="Товар"
           className="font-medium"
           expandedMinWidth={200}
+          required={false}
         />
       </td>
       <td className="relative px-0.5 py-0.5">
