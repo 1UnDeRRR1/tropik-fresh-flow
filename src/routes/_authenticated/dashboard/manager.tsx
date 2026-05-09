@@ -210,34 +210,3 @@ function ManagerDashboard() {
   );
 }
 
-type ShipItem = { id: string; code: string; eta: string | null; country: string | null; planned: number; distributed: number; remaining: number };
-
-function ShipList({ rows, tone, icon }: { rows: ShipItem[]; tone?: "danger" | "brand"; icon?: React.ReactNode }) {
-  return (
-    <ul className="divide-y divide-border">
-      {rows.map((r) => (
-        <li key={r.id}>
-          <Link
-            to="/distribution/$shipmentId"
-            params={{ shipmentId: r.id }}
-            className="flex items-center justify-between gap-3 py-3 transition active:scale-[0.99]"
-          >
-            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", tone === "danger" ? "bg-destructive/15 text-destructive" : tone === "brand" ? "bg-brand/15 text-brand" : "bg-muted text-muted-foreground")}>
-              {icon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{r.code}</div>
-              <div className="truncate text-xs text-muted-foreground">
-                {toUaCountry(r.country) || "—"} · ETA {r.eta ?? "—"} · {r.distributed}/{r.planned}п
-              </div>
-            </div>
-            <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold", r.remaining > 0 ? "bg-brand/15 text-brand" : "bg-emerald-500/15 text-emerald-600")}>
-              {r.remaining > 0 ? `${r.remaining}п` : "✓"}
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
