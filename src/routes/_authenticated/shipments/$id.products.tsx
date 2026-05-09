@@ -301,6 +301,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
           options={COUNTRY_OPTIONS}
+          aliases={COUNTRY_ALIASES}
           placeholder="Країна"
           expandedMinWidth={180}
         />
