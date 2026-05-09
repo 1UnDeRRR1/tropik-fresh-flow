@@ -126,18 +126,33 @@ function Analytics() {
   }, [data, today]);
 
   // Level 1: grouped by product+country
-  type Group = { key: string; product: string; country: string; pallets: number; flats: Flat[] };
+  type Group = {
+    key: string;
+    product: string;
+    country: string;
+    pallets: number;
+    positions: number;
+    shipments: number;
+    flats: Flat[];
+  };
   const groups = useMemo<Group[]>(() => {
     const m = new Map<string, Group>();
+    const shipSets = new Map<string, Set<string>>();
     for (const f of activeFlat) {
       const country = (f.item.origin_country || f.shipment.country || "").trim();
       const product = f.item.product_name.trim();
       const key = `${product}__${country}`;
-      const g = m.get(key) ?? { key, product, country, pallets: 0, flats: [] };
+      const g =
+        m.get(key) ?? { key, product, country, pallets: 0, positions: 0, shipments: 0, flats: [] };
       g.pallets += Number(f.item.pallet_count ?? 0);
+      g.positions += 1;
       g.flats.push(f);
       m.set(key, g);
+      const s = shipSets.get(key) ?? new Set<string>();
+      s.add(f.shipment.id);
+      shipSets.set(key, s);
     }
+    for (const [k, g] of m) g.shipments = shipSets.get(k)?.size ?? 0;
     return Array.from(m.values()).sort(
       (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
     );
