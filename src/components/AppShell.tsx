@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {primaryRole && (
               <div className="text-right leading-tight">
                 <div className="text-sm font-semibold text-foreground">
-                  {profile?.full_name ?? ""}
+                  {primaryRole === "import_manager" ? "Оксана Сахарчук" : (profile?.full_name ?? "")}
                 </div>
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   {ROLE_LABEL_UK[primaryRole]}
