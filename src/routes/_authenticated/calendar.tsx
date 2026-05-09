@@ -124,6 +124,7 @@ function CalendarPage() {
                           {(it.origin_country || sh.country) ? (
                             <span> · {it.origin_country || sh.country}</span>
                           ) : null}
+                          <span> · <span className="font-bold tabular-nums text-brand">{Number(it.pallet_count ?? 0)}п</span></span>
                         </div>
                       </li>
                     )),
