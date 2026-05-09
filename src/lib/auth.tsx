@@ -18,6 +18,7 @@ interface AuthCtx {
   profile: Profile | null;
   roles: AppRole[];
   loading: boolean;
+  dataLoaded: boolean;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   hasRole: (r: AppRole | AppRole[]) => boolean;
