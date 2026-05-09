@@ -164,11 +164,6 @@ function ShipmentsList() {
         )}
       </SectionCard>
 
-      <div className="text-[11px] text-muted-foreground">
-        <span className="mr-3 inline-block h-2 w-2 rounded-full bg-destructive align-middle"></span>Затримка
-        <span className="ml-4 mr-3 inline-block h-2 w-2 rounded-full bg-warning align-middle"></span>Скоро прибуде
-        <span className="ml-4 mr-3 inline-block h-2 w-2 rounded-full bg-success align-middle"></span>Завершено
-      </div>
     </div>
   );
 }
