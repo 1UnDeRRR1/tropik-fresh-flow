@@ -33,6 +33,7 @@ type ShipmentRow = {
   country: string | null;
   eta: string | null;
   arrived_at: string | null;
+  status: string | null;
   import_manager_id: string | null;
   supplier_id: string | null;
   shipment_items: ItemRow[];
