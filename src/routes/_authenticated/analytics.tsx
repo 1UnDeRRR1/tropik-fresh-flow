@@ -291,9 +291,14 @@ function Analytics() {
                   onClick={() => setOpenGroup(g)}
                   className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
                 >
-                  <div className="min-w-0 text-sm">
-                    <span className="font-medium">{g.product}</span>
-                    {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
+                  <div className="min-w-0 flex-1 text-sm">
+                    <div>
+                      <span className="font-medium">{g.product}</span>
+                      {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {g.shipments} пост. · {g.positions} поз.
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <span className="text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
