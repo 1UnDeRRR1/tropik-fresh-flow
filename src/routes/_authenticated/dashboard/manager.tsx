@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/AppShell";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { countLoadedPallets } from "@/lib/loading-plan";
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
   component: ManagerDashboard,
@@ -46,6 +47,11 @@ function ManagerDashboard() {
         { event: "*", schema: "public", table: "loading_plan" },
         () => qc.invalidateQueries({ queryKey: ["dash-manager", user.id] }),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shipment_items" },
+        () => qc.invalidateQueries({ queryKey: ["dash-manager", user.id] }),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -72,15 +78,16 @@ function ManagerDashboard() {
           .select("id,product_name,caliber,country,planned_pallets,count_existing,created_at")
           .eq("is_active", true)
           .order("created_at", { ascending: false }),
-        supabase.from("shipment_items").select("product_name,caliber,pallet_count,shipments(country,created_at)"),
+        supabase.from("shipment_items").select("product_name,origin_country,pallet_count,created_at,shipments(country,created_at)"),
       ]);
 
       const ships = (shipsRes.data ?? []) as ShipRow[];
       const plan = (planRes.data ?? []) as PlanRow[];
       const allLoaded = (allLoadedRes.data ?? []) as Array<{
         product_name: string;
-        caliber: string | null;
+        origin_country: string | null;
         pallet_count: number | null;
+        created_at: string | null;
         shipments: { country: string | null; created_at: string | null } | null;
       }>;
 
@@ -102,17 +109,7 @@ function ManagerDashboard() {
       );
 
       const planWithRemaining = plan.map((p) => {
-        const done = allLoaded
-          .filter((it) => {
-            if ((it.product_name ?? "").trim().toLowerCase() !== p.product_name.trim().toLowerCase()) return false;
-            if (p.country && (it.shipments?.country ?? "").trim().toLowerCase() !== p.country.trim().toLowerCase()) return false;
-            if (!p.count_existing) {
-              const sCreated = it.shipments?.created_at;
-              if (!sCreated || sCreated < p.created_at) return false;
-            }
-            return true;
-          })
-          .reduce((a, x) => a + Number(x.pallet_count ?? 0), 0);
+        const done = countLoadedPallets(p, allLoaded);
         return { ...p, loaded: done, remaining: Number(p.planned_pallets) - done };
       });
 
