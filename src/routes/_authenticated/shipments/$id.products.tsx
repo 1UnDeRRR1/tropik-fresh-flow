@@ -337,24 +337,6 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
   );
 }
 
-function SelectCell({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      className={cn(
-        "h-8 w-full rounded-md border border-transparent bg-transparent px-1 text-[12px] focus:border-input focus:bg-background",
-        focused && EXPANDED + " rounded-md px-2",
-      )}
-    >
-      <option value="">—</option>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
-  );
-}
 
 function NumCell({ value, onChange, step }: { value: number; onChange: (v: number) => void; step?: string }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
