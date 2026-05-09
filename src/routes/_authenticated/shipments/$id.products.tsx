@@ -318,7 +318,20 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <NumCell value={form.pallet_count} onChange={(v) => set("pallet_count", v)} />
+        <NumCell
+          value={form.pallet_count}
+          onChange={(v) => {
+            const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
+            const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
+            const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
+            if (v > max) {
+              toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
+              set("pallet_count", max);
+            } else {
+              set("pallet_count", v);
+            }
+          }}
+        />
       </td>
       <td className="relative px-0.5 py-0.5">
         <PriceCell
