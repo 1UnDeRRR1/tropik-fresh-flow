@@ -167,7 +167,7 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
                   <td className="py-1.5 px-1">{it.caliber || "—"}</td>
                   <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
                   <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
-                  <td className="py-1.5 px-1 text-right">{fmt(Number(it.cost_price_usd ?? 0))}</td>
+                  <td className="py-1.5 px-1 text-right"><CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} /></td>
                 </tr>
               ))}
             </tbody>
