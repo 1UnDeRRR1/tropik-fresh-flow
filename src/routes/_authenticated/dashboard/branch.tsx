@@ -256,30 +256,45 @@ function BranchDashboard() {
                     </div>
                   </div>
                   <ul className="divide-y divide-border rounded-xl border border-border">
-                    {list.map((r) => (
-                      <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-mono text-[11px] font-semibold">{r.code}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
+                    {list.map((r) => {
+                      const s = statsFor(r);
+                      return (
+                        <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-[11px] font-semibold">{r.code}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right tabular-nums">
-                          <div className="font-bold">{r.pallets}п</div>
-                          <div className="text-[11px] text-muted-foreground">{r.weight.toLocaleString("uk-UA")} кг</div>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOfferRow(r);
-                          }}
-                        >
-                          Запропонувати
-                        </Button>
-                      </li>
-                    ))}
+                          <div className="text-right tabular-nums">
+                            <div className="font-bold">
+                              {s.pending > 0 ? (
+                                <>
+                                  {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
+                                  <span className="text-primary">{s.pending}п</span>
+                                </>
+                              ) : (
+                                <>{s.free}п</>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              всього {r.pallets}п · {r.weight.toLocaleString("uk-UA")} кг
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                            disabled={s.free <= 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOfferRow({ ...r, pallets: s.free });
+                            }}
+                          >
+                            Запропонувати
+                          </Button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );
