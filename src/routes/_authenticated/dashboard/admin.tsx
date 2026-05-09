@@ -267,6 +267,8 @@ function AdminDashboard() {
           <a href="/admin/products" className="rounded-xl bg-secondary p-3">Товари</a>
           <a href="/admin/countries" className="rounded-xl bg-secondary p-3">Логістика</a>
           <a href="/analytics" className="rounded-xl bg-secondary p-3">Аналітика</a>
+          <a href="/admin/triggers" className="rounded-xl bg-destructive/10 p-3 text-destructive">Тригери</a>
+          <a href="/admin/vacations" className="rounded-xl bg-warning/10 p-3">Відпустки</a>
         </div>
       </SectionCard>
 
