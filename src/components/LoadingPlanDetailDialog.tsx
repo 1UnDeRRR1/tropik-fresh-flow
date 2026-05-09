@@ -55,7 +55,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
       const { data } = await supabase
         .from("shipment_items")
         .select(
-          "shipment_id,product_name,origin_country,pallet_count,created_at,shipments(code,country,created_at,suppliers(name),vehicles(code))",
+          "shipment_id,product_name,origin_country,pallet_count,created_at,shipments(code,country,created_at,eta,suppliers(name),vehicles(code,eta))",
         );
       return (data ?? []) as LoadedRow[];
     },
