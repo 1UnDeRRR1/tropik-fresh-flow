@@ -251,7 +251,7 @@ function DistributionMatrix() {
 
       {overflow && (
         <div className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-          ⚠️ Розподілено більше, ніж FACT. Перевірте кількість палет.
+          ⚠️ Розподілено більше, ніж Факт. Перевірте кількість палет.
         </div>
       )}
 
@@ -273,7 +273,7 @@ function DistributionMatrix() {
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1.5 text-[11px] tabular-nums">
-                  <span className="rounded-md bg-secondary px-1.5 py-0.5">FACT {t.total}</span>
+                  <span className="rounded-md bg-secondary px-1.5 py-0.5">Факт {t.total}</span>
                   <span className="rounded-md bg-brand/10 px-1.5 py-0.5 font-semibold text-brand">{t.distributed}</span>
                   <span className={cn("rounded-md px-1.5 py-0.5 font-semibold", t.remaining < 0 ? "bg-destructive/15 text-destructive" : "bg-secondary")}>
                     зал {t.remaining}
@@ -336,7 +336,7 @@ function DistributionMatrix() {
             <thead>
               <tr>
                 <th className="sticky left-0 z-10 bg-card px-2 py-2 text-left font-semibold">Товар</th>
-                <th className="bg-card px-2 py-2 text-right font-semibold">FACT</th>
+                <th className="bg-card px-2 py-2 text-right font-semibold">Факт</th>
                 <th className="bg-card px-2 py-2 text-right font-semibold">Розпод.</th>
                 <th className="bg-card px-2 py-2 text-right font-semibold">Залиш.</th>
                 {data.branches.map((b) => (
@@ -383,7 +383,7 @@ function DistributionMatrix() {
         </div>
         <div className="mt-3 flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
-            FACT — отримана к-сть палет з інвойсу. Залиш. — нерозподілений залишок.
+            Факт — отримана к-сть палет з інвойсу. Залиш. — нерозподілений залишок.
           </p>
           <Button size="sm" variant="ghost" onClick={() => setConfirmOpen("reset")} disabled={saving}>
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Скинути
@@ -409,7 +409,7 @@ function DistributionMatrix() {
       <AlertDialog open={confirmOpen === "save-overflow"} onOpenChange={(v) => !v && setConfirmOpen(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Перевищення FACT</AlertDialogTitle>
+            <AlertDialogTitle>Перевищення Факт</AlertDialogTitle>
             <AlertDialogDescription>
               Для деяких товарів розподілено більше палет, ніж надійшло. Зберегти все одно?
             </AlertDialogDescription>
