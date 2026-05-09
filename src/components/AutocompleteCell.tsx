@@ -60,6 +60,7 @@ export function AutocompleteCell({
   required?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const acceptingRef = useRef(false);
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
 
@@ -90,7 +91,11 @@ export function AutocompleteCell({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // allow click on suggestion items (they use onMouseDown preventDefault)
+    if (acceptingRef.current) {
+      acceptingRef.current = false;
+      setFocused(false);
+      return;
+    }
     if (required && trimmed && !isExactMatch) {
       e.preventDefault();
       setInvalid(true);
@@ -136,11 +141,17 @@ export function AutocompleteCell({
             <button
               key={s}
               type="button"
-              onMouseDown={(e) => {
+              onPointerDown={(e) => {
                 e.preventDefault();
+                acceptingRef.current = true;
                 accept(s);
               }}
-              className="block w-full truncate px-3 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                acceptingRef.current = true;
+                accept(s);
+              }}
+              className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
             >
               {s}
             </button>
