@@ -101,7 +101,7 @@ function ShipmentsList() {
                   <th className="px-2 py-2">Країна</th>
                   <th className="px-2 py-2">ETA</th>
                   <th className="px-2 py-2">Статус</th>
-                  <th className="px-2 py-2 text-right">FACT</th>
+                  <th className="px-2 py-2 text-right">Факт</th>
                   <th className="px-2 py-2 text-right">Розпод.</th>
                   <th className="px-2 py-2 text-right">Залиш.</th>
                 </tr>
