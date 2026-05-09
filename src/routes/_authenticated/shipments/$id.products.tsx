@@ -387,7 +387,7 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       }}
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
-        focused && EXPANDED + " text-right",
+        focused && EXPANDED_RIGHT + " text-right",
       )}
     />
   );
