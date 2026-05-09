@@ -1,13 +1,18 @@
 import { createFileRoute, Link, Outlet, useMatches } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { AlertTriangle, CheckCircle2, Package, ChevronRight } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Package, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { toUaCountry } from "@/lib/countries";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { CostPair } from "@/components/CostPair";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
@@ -17,8 +22,308 @@ function Distribution() {
   const matches = useMatches();
   const isChild = matches.some((m) => m.routeId === "/_authenticated/distribution/$shipmentId");
   if (isChild) return <Outlet />;
+  const { primaryRole } = useAuth();
+  if (primaryRole === "branch") return <BranchFreeList />;
   return <DistributionList />;
 }
+
+// ============ Branch "Вільно" view ============
+
+const fmtEta = (eta: string | null) =>
+  eta
+    ? new Date(eta).toLocaleDateString("uk-UA", { day: "2-digit", month: "long" })
+    : "Без дати";
+
+type FreeRow = {
+  itemId: string;
+  shipmentId: string;
+  importManagerId: string | null;
+  code: string;
+  eta: string | null;
+  product: string;
+  country: string | null;
+  caliber: string;
+  palletWeight: number;
+  free: number;
+  weight: number;
+  indicative: number | null;
+  invoice: number | null;
+};
+
+function BranchFreeList() {
+  const { user, profile } = useAuth();
+  const qc = useQueryClient();
+  const [pick, setPick] = useState<FreeRow | null>(null);
+  const [pallets, setPallets] = useState("");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("UAH");
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data } = useQuery({
+    queryKey: ["branch-free"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .select(`
+          id,code,eta,country,import_manager_id,
+          shipment_items(id,product_name,caliber,origin_country,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
+          distributions(distribution_items(shipment_item_id,pallets))
+        `)
+        .neq("status", "cancelled")
+        .order("eta", { ascending: true, nullsFirst: false })
+        .limit(300);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: pendingReqs } = useQuery({
+    queryKey: ["branch-free-pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("branch_requests")
+        .select("shipment_item_id,pallets,status")
+        .eq("status", "pending");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const rows: FreeRow[] = useMemo(() => {
+    if (!data) return [];
+    const distMap = new Map<string, number>();
+    data.forEach((s: any) => {
+      (s.distributions ?? []).forEach((d: any) =>
+        (d.distribution_items ?? []).forEach((di: any) => {
+          if (!di.shipment_item_id) return;
+          distMap.set(di.shipment_item_id, (distMap.get(di.shipment_item_id) ?? 0) + Number(di.pallets ?? 0));
+        }),
+      );
+    });
+    const pendMap = new Map<string, number>();
+    (pendingReqs ?? []).forEach((r: any) => {
+      if (!r.shipment_item_id) return;
+      pendMap.set(r.shipment_item_id, (pendMap.get(r.shipment_item_id) ?? 0) + Number(r.pallets ?? 0));
+    });
+    const out: FreeRow[] = [];
+    data.forEach((s: any) => {
+      (s.shipment_items ?? []).forEach((it: any) => {
+        const planned = Number(it.pallet_count ?? 0);
+        const distributed = distMap.get(it.id) ?? 0;
+        const pending = pendMap.get(it.id) ?? 0;
+        const free = planned - distributed - pending;
+        if (free <= 0) return;
+        const palletWeight = Number(it.pallet_weight ?? 0);
+        out.push({
+          itemId: it.id,
+          shipmentId: s.id,
+          importManagerId: s.import_manager_id,
+          code: s.code,
+          eta: s.eta,
+          product: it.product_name,
+          country: it.origin_country ?? s.country ?? null,
+          caliber: it.caliber ?? "—",
+          palletWeight,
+          free,
+          weight: free * palletWeight,
+          indicative: it.final_cost_indicative,
+          invoice: it.final_cost_invoice,
+        });
+      });
+    });
+    return out;
+  }, [data, pendingReqs]);
+
+  const openOffer = (r: FreeRow) => {
+    setPick(r);
+    setPallets(String(r.free));
+    setPrice("");
+    setCurrency("UAH");
+  };
+
+  const submit = async () => {
+    if (!pick || !user || !profile?.branch_id) return;
+    const p = Number(pallets);
+    const pr = Number(price);
+    if (!p || p <= 0 || p > pick.free) {
+      toast.error(`Палет від 1 до ${pick.free}`);
+      return;
+    }
+    if (!pr || pr <= 0) {
+      toast.error("Вкажіть ціну продажу");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("branch_requests").insert({
+      branch_id: profile.branch_id,
+      shipment_id: pick.shipmentId,
+      shipment_item_id: pick.itemId,
+      pallets: p,
+      qty: p * pick.palletWeight,
+      sale_price: pr,
+      sale_currency: currency,
+      request_type: "free_offer",
+      status: "pending",
+      requested_by: user.id,
+      notes: `Пропозиція по ${pick.product} (${pick.code}): ${p}п × ${pr} ${currency}/кг`,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Пропозицію відправлено імпорт-менеджеру");
+    setPick(null);
+    qc.invalidateQueries({ queryKey: ["branch-free"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
+  };
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Вільно" subtitle="Нерозподілений товар усіх менеджерів" />
+
+      {!rows.length ? (
+        <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
+      ) : (
+        <SectionCard title="Доступно для запиту">
+          <div className="-mx-2 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-xs">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="px-2 py-2 font-medium">Прибуття</th>
+                  <th className="px-2 py-2 font-medium">Поставка</th>
+                  <th className="px-2 py-2 font-medium">Товар</th>
+                  <th className="px-2 py-2 font-medium">Країна</th>
+                  <th className="px-2 py-2 font-medium">Калібр</th>
+                  <th className="px-2 py-2 text-right font-medium">Палет</th>
+                  <th className="px-2 py-2 text-right font-medium">Вага</th>
+                  <th className="px-2 py-2 text-right font-medium">Ціна</th>
+                  <th className="w-6" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((r) => (
+                  <tr
+                    key={r.itemId}
+                    onClick={() => openOffer(r)}
+                    className="cursor-pointer hover:bg-muted/40 active:bg-muted/60"
+                  >
+                    <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtEta(r.eta)}</td>
+                    <td className="px-2 py-2 font-mono text-[11px] font-semibold">{r.code}</td>
+                    <td className="px-2 py-2 font-medium">{r.product}</td>
+                    <td className="px-2 py-2 text-muted-foreground">{r.country ? toUaCountry(r.country) : "—"}</td>
+                    <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.free}п</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums">
+                      {r.weight.toLocaleString("uk-UA")} кг
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <CostPair indicative={r.indicative} invoice={r.invoice} suffix="/кг" size="xs" />
+                    </td>
+                    <td className="px-1 py-2 text-muted-foreground">
+                      <ChevronRight className="h-4 w-4" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      )}
+
+      <Sheet open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="text-left">
+            <SheetTitle className="flex items-center justify-between gap-2">
+              <span>
+                {pick?.product}
+                {pick?.country && (
+                  <span className="text-muted-foreground"> · {toUaCountry(pick.country)}</span>
+                )}
+              </span>
+              <button
+                onClick={() => setPick(null)}
+                className="rounded-full p-1 hover:bg-muted"
+                aria-label="Закрити"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </SheetTitle>
+          </SheetHeader>
+
+          {pick && (
+            <div className="mt-3 space-y-4">
+              <div className="rounded-xl border border-border bg-background/40 p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Поставка</span>
+                  <span className="font-mono font-semibold">{pick.code}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Прибуття</span>
+                  <span>{fmtEta(pick.eta)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Калібр</span>
+                  <span>{pick.caliber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Доступно</span>
+                  <span className="font-bold">{pick.free}п · {pick.weight.toLocaleString("uk-UA")} кг</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Кількість палет</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={pick.free}
+                  value={pallets}
+                  onChange={(e) => setPallets(e.target.value)}
+                  inputMode="numeric"
+                />
+                <div className="text-[11px] text-muted-foreground">
+                  ≈ {(Number(pallets || 0) * pick.palletWeight).toLocaleString("uk-UA")} кг
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Ціна продажу за кг</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0.00"
+                    inputMode="decimal"
+                    className="flex-1"
+                  />
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                  >
+                    <option value="UAH">UAH</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+
+              <Button onClick={submit} disabled={submitting} className="w-full">
+                {submitting ? "Відправка…" : "Відправити пропозицію"}
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+// ============ Staff distribution list (unchanged) ============
 
 type ShipRow = {
   id: string;
@@ -66,7 +371,6 @@ function DistributionList() {
   const notDist = rows.filter((r) => r.remaining > 0 && (!r.eta || r.eta > iso24h));
   const done = rows.filter((r) => r.distributed > 0);
 
-  // Scroll to anchored section
   useEffect(() => {
     const h = window.location.hash?.slice(1);
     if (!h || !data) return;

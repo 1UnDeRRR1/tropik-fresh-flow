@@ -54,10 +54,14 @@ export type Database = {
           decision_notes: string | null
           id: string
           notes: string | null
+          pallets: number | null
           qty: number | null
           request_type: string
           requested_by: string | null
+          sale_currency: string | null
+          sale_price: number | null
           shipment_id: string | null
+          shipment_item_id: string | null
           status: Database["public"]["Enums"]["branch_request_status"]
           to_branch_id: string | null
           updated_at: string
@@ -69,10 +73,14 @@ export type Database = {
           decision_notes?: string | null
           id?: string
           notes?: string | null
+          pallets?: number | null
           qty?: number | null
           request_type?: string
           requested_by?: string | null
+          sale_currency?: string | null
+          sale_price?: number | null
           shipment_id?: string | null
+          shipment_item_id?: string | null
           status?: Database["public"]["Enums"]["branch_request_status"]
           to_branch_id?: string | null
           updated_at?: string
@@ -84,10 +92,14 @@ export type Database = {
           decision_notes?: string | null
           id?: string
           notes?: string | null
+          pallets?: number | null
           qty?: number | null
           request_type?: string
           requested_by?: string | null
+          sale_currency?: string | null
+          sale_price?: number | null
           shipment_id?: string | null
+          shipment_item_id?: string | null
           status?: Database["public"]["Enums"]["branch_request_status"]
           to_branch_id?: string | null
           updated_at?: string
