@@ -1,78 +1,100 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { allocateTransport, fmtKg } from "@/lib/transport";
-import { fmtUSD } from "@/lib/currency";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
 });
 
-type Row = {
+type ShipmentRow = {
   id: string;
-  code: string;
-  status: string;
-  logistics_cost_usd: number | null;
-  shipment_items: Array<{ id: string; pallet_count: number | null; pallet_weight: number | null }>;
+  country: string | null;
+  eta: string | null;
+  arrived_at: string | null;
+  import_manager_id: string | null;
+  shipment_items: Array<{
+    id: string;
+    product_name: string;
+    origin_country: string | null;
+    pallet_count: number | null;
+  }>;
 };
 
+function todayISO() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
 function Analytics() {
+  const { user, hasRole } = useAuth();
+  const isStaffAll = hasRole(["admin", "super_admin"]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-transport-usd"],
+    queryKey: ["analytics-product-country", user?.id, isStaffAll],
+    enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("shipments")
-        .select("id,code,status,logistics_cost_usd, shipment_items(id,pallet_count,pallet_weight)")
+        .select(
+          "id,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,pallet_count)",
+        )
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(500);
+      if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
+      const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Row[];
+      return (data ?? []) as ShipmentRow[];
     },
   });
 
-  const rows = (data ?? []).map((sh) => {
-    const totalCostUsd = Number(sh.logistics_cost_usd ?? 0);
-    const alloc = allocateTransport(sh.shipment_items ?? [], totalCostUsd);
-    const avgPerKg = alloc.shipmentTotalWeight > 0 ? totalCostUsd / alloc.shipmentTotalWeight : 0;
-    return { id: sh.id, code: sh.code, status: sh.status, totalCostUsd, totalWeight: alloc.shipmentTotalWeight, avgPerKg };
-  });
+  const today = todayISO();
+  const groups = new Map<string, { product: string; country: string; pallets: number }>();
+
+  for (const sh of data ?? []) {
+    // Disappear the day AFTER arrival: include while today <= arrival date.
+    const arrival = sh.arrived_at ?? sh.eta;
+    if (arrival && arrival < today) continue;
+    for (const it of sh.shipment_items ?? []) {
+      const product = (it.product_name || "").trim();
+      const country = (it.origin_country || sh.country || "").trim();
+      const pallets = Number(it.pallet_count ?? 0);
+      if (!product || pallets <= 0) continue;
+      const key = `${product}__${country}`;
+      const cur = groups.get(key) ?? { product, country, pallets: 0 };
+      cur.pallets += pallets;
+      groups.set(key, cur);
+    }
+  }
+
+  const rows = Array.from(groups.values()).sort(
+    (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
+  );
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Аналітика" subtitle="Транспортні витрати у USD" />
+      <PageHeader title="Аналітика" subtitle="Активні товари у поставках (палети)" />
 
-      <SectionCard title="Розподіл транспортних витрат (USD)">
+      <SectionCard title="Товар · країна · кількість">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
         ) : !rows.length ? (
-          <EmptyState title="Дані зʼявляться після перших поставок" />
+          <EmptyState title="Немає активних товарів" hint="Тут зʼявляться товари ваших поставок до наступного дня після прибуття." />
         ) : (
-          <div className="-mx-4 overflow-x-auto px-4">
-            <table className="w-full min-w-[480px] text-xs">
-              <thead className="text-muted-foreground">
-                <tr className="border-b border-border">
-                  <th className="py-2 text-left font-medium">Поставка</th>
-                  <th className="py-2 text-right font-medium">Вага</th>
-                  <th className="py-2 text-right font-medium">Транспорт</th>
-                  <th className="py-2 text-right font-medium">$/кг</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-border/50">
-                    <td className="py-2 pr-2 font-medium">
-                      <Link to="/shipments/$id" params={{ id: r.id }} className="text-brand hover:underline">{r.code}</Link>
-                    </td>
-                    <td className="py-2 text-right tabular-nums">{fmtKg(r.totalWeight)}</td>
-                    <td className="py-2 text-right tabular-nums">{fmtUSD(r.totalCostUsd)}</td>
-                    <td className="py-2 text-right tabular-nums text-brand">{fmtUSD(r.avgPerKg)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="divide-y divide-border">
+            {rows.map((r) => (
+              <li key={`${r.product}__${r.country}`} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0 text-sm">
+                  <span className="font-medium">{r.product}</span>
+                  {r.country ? <span className="text-muted-foreground"> · {r.country}</span> : null}
+                </div>
+                <div className="shrink-0 text-sm font-bold tabular-nums text-brand">{r.pallets}п</div>
+              </li>
+            ))}
+          </ul>
         )}
       </SectionCard>
     </div>
