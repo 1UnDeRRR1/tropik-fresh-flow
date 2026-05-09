@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { CostPair } from "@/components/CostPair";
+import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: ProductsFullscreen,
