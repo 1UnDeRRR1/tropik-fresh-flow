@@ -69,10 +69,10 @@ function ManagerDashboard() {
         supabase.from("branch_requests").select("id").eq("status", "pending"),
         supabase
           .from("loading_plan")
-          .select("id,product_name,caliber,country,planned_pallets")
+          .select("id,product_name,caliber,country,planned_pallets,count_existing,created_at")
           .eq("is_active", true)
           .order("created_at", { ascending: false }),
-        supabase.from("shipment_items").select("product_name,caliber,pallet_count,shipments(country)"),
+        supabase.from("shipment_items").select("product_name,caliber,pallet_count,shipments(country,created_at)"),
       ]);
 
       const ships = (shipsRes.data ?? []) as ShipRow[];
@@ -81,7 +81,7 @@ function ManagerDashboard() {
         product_name: string;
         caliber: string | null;
         pallet_count: number | null;
-        shipments: { country: string | null } | null;
+        shipments: { country: string | null; created_at: string | null } | null;
       }>;
 
       const stats = ships.map((s) => {
@@ -107,6 +107,10 @@ function ManagerDashboard() {
             if ((it.product_name ?? "").trim().toLowerCase() !== p.product_name.trim().toLowerCase()) return false;
             if (p.caliber && (it.caliber ?? "").trim().toLowerCase() !== p.caliber.trim().toLowerCase()) return false;
             if (p.country && (it.shipments?.country ?? "").trim().toLowerCase() !== p.country.trim().toLowerCase()) return false;
+            if (!p.count_existing) {
+              const sCreated = it.shipments?.created_at;
+              if (!sCreated || sCreated < p.created_at) return false;
+            }
             return true;
           })
           .reduce((a, x) => a + Number(x.pallet_count ?? 0), 0);
