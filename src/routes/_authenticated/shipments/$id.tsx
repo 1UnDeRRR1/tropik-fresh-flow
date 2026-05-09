@@ -392,9 +392,10 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
             <div className="space-y-1">
               <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту (на все авто)</Label>
               <div className="flex gap-2">
-                <Input id="transport" type="number" step="0.01" inputMode="decimal" className="flex-1"
-                  value={transport === "" ? String(shipment.logistics_cost ?? 0) : transport}
-                  onChange={(e) => setTransport(e.target.value)} />
+                <Input id="transport" type="text" inputMode="decimal" className="flex-1"
+                  placeholder="—"
+                  value={transport === "" ? (Number(shipment.logistics_cost ?? 0) === 0 ? "" : String(shipment.logistics_cost)) : transport}
+                  onChange={(e) => setTransport(e.target.value.replace(/[^\d.,-]/g, ""))} />
                 <select
                   value={transportCurrency}
                   onChange={(e) => setTransportCurrency(e.target.value as Currency)}
