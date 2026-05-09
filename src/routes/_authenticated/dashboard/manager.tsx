@@ -203,30 +203,52 @@ function ManagerDashboard() {
             {data.plan.map((p) => {
               const done = p.remaining <= 0;
               return (
-                <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">
-                      {p.product_name}
-                      {p.caliber ? ` ${p.caliber}` : ""}
-                      {p.country ? ` · ${p.country}` : ""}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      план {Number(p.planned_pallets)}п · завантажено {p.loaded}п
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      done ? "bg-emerald-500/15 text-emerald-600" : "bg-brand/15 text-brand"
-                    }`}
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedPlan({
+                        id: p.id,
+                        product_name: p.product_name,
+                        country: p.country,
+                        caliber: p.caliber,
+                        planned_pallets: Number(p.planned_pallets),
+                        count_existing: p.count_existing,
+                        created_at: p.created_at,
+                      })
+                    }
+                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition active:scale-[0.99]"
                   >
-                    {done ? "0п" : `${p.remaining}п`}
-                  </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">
+                        {p.product_name}
+                        {p.caliber ? ` ${p.caliber}` : ""}
+                        {p.country ? ` · ${p.country}` : ""}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        план {Number(p.planned_pallets)}п · завантажено {p.loaded}п
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        done ? "bg-emerald-500/15 text-emerald-600" : "bg-brand/15 text-brand"
+                      }`}
+                    >
+                      {done ? "0п" : `${p.remaining}п`}
+                    </span>
+                  </button>
                 </li>
               );
             })}
           </ul>
         )}
       </SectionCard>
+
+      <LoadingPlanDetailDialog
+        plan={selectedPlan}
+        open={!!selectedPlan}
+        onOpenChange={(o) => !o && setSelectedPlan(null)}
+      />
     </div>
   );
 }
