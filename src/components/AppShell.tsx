@@ -20,8 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const items: NavItem[] = isBranch
     ? [
         { to: dashHref, label: "Головна", icon: Home },
-        { to: "/distribution", label: "Розподіл", icon: Truck },
-        { to: "/branch-requests", label: "Заявки", icon: Package },
+        { to: "/distribution", label: "Вільно", icon: Package },
         { to: "/transfers", label: "Трансфери", icon: BarChart3 },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
