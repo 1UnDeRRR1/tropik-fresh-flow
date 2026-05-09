@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { cn } from "@/lib/utils";
-import { run, feedback } from "@/lib/mutation-helpers";
+import { run, translateError } from "@/lib/mutation-helpers";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/branches")({
   component: BranchesAdmin,
@@ -45,20 +46,23 @@ function BranchesAdmin() {
         sort_order: Number(form.sort_order) || 99,
       }));
     },
-    ...feedback({ success: "Філію додано" }),
     onSuccess: () => {
       setForm({ name: "", code: "", city: "", sort_order: 99 });
       qc.invalidateQueries({ queryKey: ["admin", "branches"] });
-      import("sonner").then(({ toast }) => toast.success("Філію додано"));
+      toast.success("Філію додано");
     },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Branch> }) => {
       await run(supabase.from("branches").update(patch).eq("id", id));
     },
-    ...feedback({ success: "Збережено" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "branches"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "branches"] });
+      toast.success("Збережено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   return (
