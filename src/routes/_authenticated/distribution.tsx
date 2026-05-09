@@ -92,39 +92,64 @@ function DistributionList() {
 
       <section id="done">
         <SectionCard title="Розподілено">
-          {!done.length ? <EmptyState title="Розподілів ще немає" /> : <List rows={done} tone="brand" icon={<CheckCircle2 className="h-4 w-4" />} />}
+          {!done.length ? <EmptyState title="Розподілів ще немає" /> : <List rows={done} variant="done" icon={<CheckCircle2 className="h-4 w-4" />} />}
         </SectionCard>
       </section>
     </div>
   );
 }
 
-function List({ rows, tone, icon }: { rows: Bucket[]; tone?: "danger" | "brand"; icon?: React.ReactNode }) {
+function List({ rows, tone, icon, variant }: { rows: Bucket[]; tone?: "danger" | "brand"; icon?: React.ReactNode; variant?: "done" }) {
   return (
     <ul className="divide-y divide-border">
-      {rows.map((r) => (
-        <li key={r.id}>
-          <Link
-            to="/distribution/$shipmentId"
-            params={{ shipmentId: r.id }}
-            className="flex items-center justify-between gap-3 py-3 transition active:scale-[0.99]"
-          >
-            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", tone === "danger" ? "bg-destructive/15 text-destructive" : tone === "brand" ? "bg-brand/15 text-brand" : "bg-muted text-muted-foreground")}>
-              {icon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{r.code}</div>
-              <div className="truncate text-xs text-muted-foreground">
-                {toUaCountry(r.country) || "—"} · ETA {r.eta ?? "—"} · {r.distributed}/{r.planned}п
+      {rows.map((r) => {
+        const isDone = variant === "done";
+        const fullyDistributed = isDone && r.remaining === 0;
+        const iconClass = isDone
+          ? fullyDistributed
+            ? "bg-emerald-500/15 text-emerald-600"
+            : "bg-warning/15 text-warning"
+          : tone === "danger"
+            ? "bg-destructive/15 text-destructive"
+            : tone === "brand"
+              ? "bg-brand/15 text-brand"
+              : "bg-muted text-muted-foreground";
+        const badgeText = isDone
+          ? fullyDistributed
+            ? "✓"
+            : `${r.distributed}п`
+          : r.remaining > 0
+            ? `${r.remaining}п`
+            : "✓";
+        const badgeClass = isDone
+          ? "bg-emerald-500/15 text-emerald-600"
+          : r.remaining > 0
+            ? "bg-brand/15 text-brand"
+            : "bg-emerald-500/15 text-emerald-600";
+        return (
+          <li key={r.id}>
+            <Link
+              to="/distribution/$shipmentId"
+              params={{ shipmentId: r.id }}
+              className="flex items-center justify-between gap-3 py-3 transition active:scale-[0.99]"
+            >
+              <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", iconClass)}>
+                {icon}
               </div>
-            </div>
-            <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold", r.remaining > 0 ? "bg-brand/15 text-brand" : "bg-emerald-500/15 text-emerald-600")}>
-              {r.remaining > 0 ? `${r.remaining}п` : "✓"}
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </Link>
-        </li>
-      ))}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{r.code}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {toUaCountry(r.country) || "—"} · ETA {r.eta ?? "—"} · {r.distributed}/{r.planned}п
+                </div>
+              </div>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold", badgeClass)}>
+                {badgeText}
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }
