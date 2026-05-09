@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AlertOctagon, AlertTriangle, Info } from "lucide-react";
@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
-import { Navigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/admin/triggers")({
   component: TriggersPage,
