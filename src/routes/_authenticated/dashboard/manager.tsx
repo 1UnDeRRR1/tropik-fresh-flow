@@ -135,21 +135,15 @@ function ManagerDashboard() {
     },
   });
 
-  const fullName = profile?.full_name ?? "Менеджер";
-
   return (
     <div className="space-y-5">
-      <PageHeader
-        title={fullName}
-        subtitle="Імпорт-менеджер"
-        action={
-          <Link to="/shipments/new">
-            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова поставка
-            </Button>
-          </Link>
-        }
-      />
+      <div className="flex justify-end">
+        <Link to="/shipments/new">
+          <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
+            <Plus className="mr-1 h-4 w-4" /> Нова поставка
+          </Button>
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 [&>a]:block [&>a>div]:h-full [&>div]:h-full">
         <StatCard
