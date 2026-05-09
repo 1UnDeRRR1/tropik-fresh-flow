@@ -256,7 +256,7 @@ function AdminDashboard() {
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {r.products || "—"} · ETA {r.eta ?? "—"} · {r.manager}
+                        {r.products || "—"}{r.country ? ` • ${r.country}` : ""} · ETA {r.eta ?? "—"} · {r.manager}
                       </div>
                     </li>
                   ))}
