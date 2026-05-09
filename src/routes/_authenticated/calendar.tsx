@@ -33,9 +33,11 @@ const MONTHS_UK = [
 ];
 
 function isoDate(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.toISOString().slice(0, 10);
+  // Local YYYY-MM-DD (avoid UTC shift in toISOString)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function fmtPrice(v: number | null | undefined, cur: string | null | undefined) {
