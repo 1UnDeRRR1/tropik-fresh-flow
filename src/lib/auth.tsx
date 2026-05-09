@@ -95,7 +95,7 @@ export function useAuth() {
 export const ROLE_LABEL_UK: Record<AppRole, string> = {
   super_admin: "Супер-адмін",
   admin: "Адміністратор",
-  import_manager: "Імпорт-менеджер",
+  import_manager: "Менеджер ЗЕД",
   branch: "Філія",
 };
 
