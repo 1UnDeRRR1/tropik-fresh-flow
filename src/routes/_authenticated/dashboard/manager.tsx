@@ -96,10 +96,20 @@ function ManagerDashboard() {
         return { ...p, loaded: done, remaining: Number(p.planned_pallets) - done };
       });
 
+      const toItem = (x: typeof stats[number]) => ({
+        id: x.s.id,
+        code: x.s.code,
+        eta: x.s.eta,
+        country: x.s.country,
+        planned: x.planned,
+        distributed: x.distributed,
+        remaining: x.undistributed,
+      });
+
       return {
-        urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0) },
-        distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0) },
-        notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0) },
+        urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0), list: urgent.map(toItem) },
+        distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0), list: distributed.map(toItem) },
+        notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0), list: notDist.map(toItem) },
         requests: requestsRes.data?.length ?? 0,
         plan: planWithRemaining,
       };
