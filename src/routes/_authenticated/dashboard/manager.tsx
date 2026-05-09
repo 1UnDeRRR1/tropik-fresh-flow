@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion, ChevronRight } from "lucide-react";
+import { toUaCountry } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
@@ -94,10 +96,20 @@ function ManagerDashboard() {
         return { ...p, loaded: done, remaining: Number(p.planned_pallets) - done };
       });
 
+      const toItem = (x: typeof stats[number]) => ({
+        id: x.s.id,
+        code: x.s.code,
+        eta: x.s.eta,
+        country: x.s.country,
+        planned: x.planned,
+        distributed: x.distributed,
+        remaining: x.undistributed,
+      });
+
       return {
-        urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0) },
-        distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0) },
-        notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0) },
+        urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0), list: urgent.map(toItem) },
+        distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0), list: distributed.map(toItem) },
+        notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0), list: notDist.map(toItem) },
         requests: requestsRes.data?.length ?? 0,
         plan: planWithRemaining,
       };
@@ -128,30 +140,24 @@ function ManagerDashboard() {
           icon={<AlertTriangle className="h-5 w-5" />}
           tone="danger"
           pulse={(data?.urgent.ships ?? 0) > 0}
-          to="/distribution"
-          hash="urgent"
         />
 
-        <Link to="/distribution" hash="done">
-          <div className="h-full rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div className="mt-2 text-2xl font-black tracking-tight">
-              {`${data?.distributed.ships ?? 0}(${data?.distributed.pallets ?? 0}п)`}
-            </div>
-            <div className="mt-1 text-xs opacity-80">Розподілені палети</div>
+        <div className="h-full rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
+            <CheckCircle2 className="h-5 w-5" />
           </div>
-        </Link>
+          <div className="mt-2 text-2xl font-black tracking-tight">
+            {`${data?.distributed.ships ?? 0}(${data?.distributed.pallets ?? 0}п)`}
+          </div>
+          <div className="mt-1 text-xs opacity-80">Розподілені палети</div>
+        </div>
 
         <StatCard
           label="Не розподілено"
           value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
           hint="Очікують розподілу"
           icon={<Package className="h-4 w-4" />}
-          to="/distribution"
-          hash="not"
         />
 
         <StatCard
@@ -163,6 +169,24 @@ function ManagerDashboard() {
           to="/branch-requests"
         />
       </div>
+
+      {(data?.urgent.list?.length ?? 0) > 0 && (
+        <SectionCard title="24 години — терміново">
+          <ShipList rows={data!.urgent.list} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />
+        </SectionCard>
+      )}
+
+      {(data?.notDist.list?.length ?? 0) > 0 && (
+        <SectionCard title="Нерозподілено">
+          <ShipList rows={data!.notDist.list} icon={<Package className="h-4 w-4" />} />
+        </SectionCard>
+      )}
+
+      {(data?.distributed.list?.length ?? 0) > 0 && (
+        <SectionCard title="Розподілено">
+          <ShipList rows={data!.distributed.list} tone="brand" icon={<CheckCircle2 className="h-4 w-4" />} />
+        </SectionCard>
+      )}
 
       <SectionCard title="План завантажень">
         {!data?.plan?.length ? (
@@ -197,5 +221,37 @@ function ManagerDashboard() {
         )}
       </SectionCard>
     </div>
+  );
+}
+
+type ShipItem = { id: string; code: string; eta: string | null; country: string | null; planned: number; distributed: number; remaining: number };
+
+function ShipList({ rows, tone, icon }: { rows: ShipItem[]; tone?: "danger" | "brand"; icon?: React.ReactNode }) {
+  return (
+    <ul className="divide-y divide-border">
+      {rows.map((r) => (
+        <li key={r.id}>
+          <Link
+            to="/distribution/$shipmentId"
+            params={{ shipmentId: r.id }}
+            className="flex items-center justify-between gap-3 py-3 transition active:scale-[0.99]"
+          >
+            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", tone === "danger" ? "bg-destructive/15 text-destructive" : tone === "brand" ? "bg-brand/15 text-brand" : "bg-muted text-muted-foreground")}>
+              {icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">{r.code}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {toUaCountry(r.country) || "—"} · ETA {r.eta ?? "—"} · {r.distributed}/{r.planned}п
+              </div>
+            </div>
+            <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold", r.remaining > 0 ? "bg-brand/15 text-brand" : "bg-emerald-500/15 text-emerald-600")}>
+              {r.remaining > 0 ? `${r.remaining}п` : "✓"}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
