@@ -57,7 +57,9 @@ function DistributionMatrix() {
           .select("id,branch_id, distribution_items(shipment_item_id,pallets,qty)")
           .eq("shipment_id", shipmentId),
       ]);
-      const items = (itemsRes.data ?? []) as Item[];
+      const items = ((itemsRes.data ?? []) as Item[]).filter(
+        (it) => (it.product_name ?? "").trim().length > 0 && Number(it.pallet_count ?? 0) > 0,
+      );
       // Defensive dedupe by id and by name (defense in depth)
       const seenIds = new Set<string>();
       const seenNames = new Set<string>();
@@ -236,7 +238,7 @@ function DistributionMatrix() {
   );
 
   return (
-    <div className="space-y-4 pb-28">
+    <div className="space-y-4 pb-44 md:pb-28">
       <PageHeader
         title="Розподіл по філіях"
         subtitle={`Поставка ${data.shipment?.code ?? ""}${dirty ? " · є незбережені зміни" : ""}`}
@@ -388,8 +390,8 @@ function DistributionMatrix() {
       </SectionCard>
       </div>
 
-      {/* Sticky save bar (mobile) */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
+      {/* Sticky save bar (mobile) — sits above bottom nav */}
+      <div className="fixed inset-x-0 bottom-16 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur md:hidden pb-safe">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3">
           <div className="text-[11px] text-muted-foreground">
             {dirty ? "Незбережені зміни" : "Все збережено"}
