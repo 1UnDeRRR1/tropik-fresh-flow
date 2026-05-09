@@ -96,6 +96,7 @@ function BranchRequestsPage() {
           salePrice: r.sale_price == null ? null : Number(r.sale_price),
           saleCurrency: r.sale_currency,
           createdAt: r.created_at,
+          updatedAt: r.updated_at ?? r.created_at,
           branchName: b?.name ?? "—",
           shipmentCode: s?.code ?? "—",
           shipmentId: r.shipment_id ?? "",
