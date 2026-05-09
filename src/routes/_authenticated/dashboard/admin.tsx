@@ -22,10 +22,11 @@ interface ShipRow {
   id: string;
   code: string;
   eta: string | null;
+  arrived_at: string | null;
   status: string;
   country: string | null;
   created_by: string | null;
-  shipment_items: { id: string; product_name: string; pallet_count: number | null }[];
+  shipment_items: { id: string; product_name: string; pallet_count: number | null; origin_country: string | null }[];
   distributions: {
     branch_id: string;
     distribution_items: { pallets: number | null; shipment_item_id: string }[] | null;
