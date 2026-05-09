@@ -132,6 +132,7 @@ function AdminDashboard() {
             eta: x.s.eta,
             pallets: x.pallets,
             products: x.products,
+            country: toUaCountry(x.s.country),
             manager: profileName(x.s.created_by),
           })),
         },
