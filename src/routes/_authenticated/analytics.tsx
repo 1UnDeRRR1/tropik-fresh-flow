@@ -352,7 +352,8 @@ function Analytics() {
             <DialogTitle className="text-base">
               {openOwner?.name}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                Всього: {openOwner?.pallets}п
+              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                {openOwner?.shipments} пост. · {openOwner?.positions} поз. · {openOwner?.pallets}п
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -368,14 +369,21 @@ function Analytics() {
                         product: p.product,
                         country: p.country,
                         pallets: p.pallets,
+                        positions: p.positions,
+                        shipments: p.shipments,
                         flats: p.flats,
                       })
                     }
                     className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
                   >
-                    <div className="min-w-0 text-sm">
-                      <span className="font-medium">{p.product}</span>
-                      {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
+                    <div className="min-w-0 flex-1 text-sm">
+                      <div>
+                        <span className="font-medium">{p.product}</span>
+                        {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {p.shipments} пост. · {p.positions} поз.
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <span className="text-sm font-bold tabular-nums text-brand">{p.pallets}п</span>
