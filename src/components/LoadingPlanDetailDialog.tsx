@@ -32,9 +32,19 @@ interface LoadedRow {
     code: string | null;
     country: string | null;
     created_at: string | null;
+    eta: string | null;
     suppliers: { name: string | null } | null;
-    vehicles: { code: string | null } | null;
+    vehicles: { code: string | null; eta: string | null } | null;
   } | null;
+}
+
+function formatEta(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}.${mm}`;
 }
 
 export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
