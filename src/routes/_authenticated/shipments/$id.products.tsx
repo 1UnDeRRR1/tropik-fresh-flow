@@ -369,8 +369,8 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-1.5 py-0.5 text-right text-[12px] tabular-nums font-bold text-success">
-        ${Number(item.final_cost_indicative ?? 0).toFixed(2)}
+      <td className="px-1.5 py-0.5 text-right">
+        <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="xs" />
       </td>
       <td className="px-0.5 py-0.5">
         <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">
