@@ -9,12 +9,16 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
+import { AutocompleteCell } from "@/components/AutocompleteCell";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: ProductsFullscreen,
 });
 
-const ORIGIN_COUNTRIES = ["Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія"];
+const COUNTRY_OPTIONS = [
+  "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
+  "Greece", "Italy", "Spain", "Netherlands", "Belgium", "Poland", "Moldova", "Albania", "North Macedonia",
+];
 
 type ItemRow = {
   id: string;
