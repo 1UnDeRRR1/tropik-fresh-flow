@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { CostPair } from "@/components/CostPair";
+import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: ProductsFullscreen,
@@ -96,10 +97,40 @@ function ProductsFullscreen() {
   const products = data?.products ?? [];
   const country = toUaCountry(sh?.country) || "—";
   const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
+  const hasRealPallets = items.some((i) => Number(i.pallet_count ?? 0) > 0);
+
+  // Auto-delete empty shipment when leaving (browser back, tab close, route change)
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => {
+    return () => {
+      const list = itemsRef.current;
+      const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
+      if (!real) void deleteShipmentIfEmpty(id);
+    };
+  }, [id]);
+  useEffect(() => {
+    const onUnload = () => {
+      const list = itemsRef.current;
+      const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
+      if (!real) {
+        // Best-effort cleanup; ignore promise
+        void deleteShipmentIfEmpty(id);
+      }
+    };
+    window.addEventListener("pagehide", onUnload);
+    return () => window.removeEventListener("pagehide", onUnload);
+  }, [id]);
+
   const blockExit = (e: React.MouseEvent) => {
     if (missingPriceCount > 0) {
       e.preventDefault();
       toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
+      return;
+    }
+    if (!hasRealPallets) {
+      e.preventDefault();
+      toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
     }
   };
 
