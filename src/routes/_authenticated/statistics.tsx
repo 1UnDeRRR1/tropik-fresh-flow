@@ -14,6 +14,8 @@ export const Route = createFileRoute("/_authenticated/statistics")({
   component: StatisticsPage,
 });
 
+const ALL = "__all__";
+
 type ItemRow = {
   id: string;
   shipment_id: string;
@@ -34,16 +36,17 @@ type ShipmentRow = {
   arrived_at: string | null;
   created_at: string;
   supplier_id: string | null;
+  import_manager_id: string | null;
 };
 
 type Supplier = { id: string; name: string };
+type Manager = { id: string; full_name: string };
 
 function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
 function toISO(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function parseISO(s: string) { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
 
-// ISO week number
 function isoWeek(d: Date): { year: number; week: number } {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = t.getUTCDay() || 7;
@@ -70,10 +73,10 @@ function StatisticsPage() {
   if (loading) return null;
   if (!hasRole(["admin", "super_admin"])) return <Navigate to="/" />;
 
-  // 12 months window
   const today = new Date();
   const minDate = addDays(today, -365);
 
+  // Period state
   const [mode, setMode] = useState<PeriodMode>("month");
   const [monthVal, setMonthVal] = useState<string>(() => `${today.getFullYear()}-${pad(today.getMonth()+1)}`);
   const [weekVal, setWeekVal] = useState<string>(() => {
@@ -83,12 +86,16 @@ function StatisticsPage() {
   const [fromVal, setFromVal] = useState<string>(toISO(minDate));
   const [toVal, setToVal] = useState<string>(toISO(today));
 
+  // Filter state (ALL or value)
+  const [productF, setProductF] = useState<string>(ALL);
+  const [countryF, setCountryF] = useState<string>(ALL);
+  const [supplierF, setSupplierF] = useState<string>(ALL);
+  const [managerF, setManagerF] = useState<string>(ALL);
+
   const [from, to] = useMemo<[Date, Date]>(() => {
     if (mode === "month") {
       const [y, m] = monthVal.split("-").map(Number);
-      const start = new Date(y, m - 1, 1);
-      const end = new Date(y, m, 0);
-      return [start, end];
+      return [new Date(y, m - 1, 1), new Date(y, m, 0)];
     }
     if (mode === "week") {
       const [y, w] = weekVal.split("-W").map(Number);
@@ -108,32 +115,40 @@ function StatisticsPage() {
     queryKey: ["statistics-12m"],
     queryFn: async () => {
       const cutoff = toISO(minDate);
-      const [shRes, supRes] = await Promise.all([
+      const [shRes, supRes, mgrRes] = await Promise.all([
         supabase
           .from("shipments")
-          .select("id,country,loading_date,eta,arrived_at,created_at,supplier_id, shipment_items(id,shipment_id,product_name,origin_country,pallet_count,unit_price,price_currency,final_cost_indicative,final_cost_invoice)")
+          .select("id,country,loading_date,eta,arrived_at,created_at,supplier_id,import_manager_id, shipment_items(id,shipment_id,product_name,origin_country,pallet_count,unit_price,price_currency,final_cost_indicative,final_cost_invoice)")
           .gte("created_at", `${cutoff}T00:00:00`)
           .order("loading_date", { ascending: false })
           .limit(2000),
         supabase.from("suppliers").select("id,name").order("name"),
+        supabase.from("import_managers").select("id,full_name").order("full_name"),
       ]);
       const shipments = ((shRes.data ?? []) as unknown as (ShipmentRow & { shipment_items: ItemRow[] })[]);
-      const suppliers = (supRes.data ?? []) as Supplier[];
-      return { shipments, suppliers };
+      return {
+        shipments,
+        suppliers: (supRes.data ?? []) as Supplier[],
+        managers: (mgrRes.data ?? []) as Manager[],
+      };
     },
   });
 
   const shipments = data?.shipments ?? [];
   const suppliers = data?.suppliers ?? [];
+  const managers = data?.managers ?? [];
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
+  const managerMap = useMemo(() => Object.fromEntries(managers.map(m => [m.id, m.full_name])), [managers]);
 
-  // Flatten + filter by date range using best-available date
   type Flat = {
     item: ItemRow;
     shipment: ShipmentRow;
-    date: string; // ISO
+    date: string;
+    country: string;
   };
-  const flat = useMemo<Flat[]>(() => {
+
+  // Period-only flat (used to populate filter options)
+  const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
       const dateStr = sh.loading_date ?? sh.arrived_at ?? sh.eta ?? sh.created_at.slice(0, 10);
@@ -142,65 +157,98 @@ function StatisticsPage() {
       for (const it of (sh.shipment_items ?? [])) {
         if (!it.product_name?.trim()) continue;
         if (!it.pallet_count || Number(it.pallet_count) <= 0) continue;
-        out.push({ item: it, shipment: sh, date: dateStr });
+        out.push({ item: it, shipment: sh, date: dateStr, country: it.origin_country ?? sh.country ?? "—" });
       }
     }
     return out;
   }, [shipments, fromISOStr, toISOStr]);
 
-  // Product/country pairs
+  // Filter options derived from period (so they react)
   const productOptions = useMemo(() => {
-    const set = new Map<string, { product: string; country: string }>();
-    for (const f of flat) {
-      const country = f.item.origin_country ?? f.shipment.country ?? "—";
-      const key = `${f.item.product_name}||${country}`;
-      if (!set.has(key)) set.set(key, { product: f.item.product_name, country });
+    const set = new Set<string>();
+    for (const f of flatPeriod) set.add(f.item.product_name);
+    return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
+  }, [flatPeriod]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of flatPeriod) {
+      if (productF === ALL || f.item.product_name === productF) set.add(f.country);
     }
-    return Array.from(set.entries()).map(([key, v]) => ({ key, ...v })).sort((a,b) => a.product.localeCompare(b.product, "uk"));
-  }, [flat]);
+    return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
+  }, [flatPeriod, productF]);
 
   const supplierOptions = useMemo(() => {
-    const ids = new Set(flat.map(f => f.shipment.supplier_id).filter(Boolean) as string[]);
+    const ids = new Set<string>();
+    for (const f of flatPeriod) {
+      if (productF !== ALL && f.item.product_name !== productF) continue;
+      if (countryF !== ALL && f.country !== countryF) continue;
+      if (f.shipment.supplier_id) ids.add(f.shipment.supplier_id);
+    }
     return suppliers.filter(s => ids.has(s.id));
-  }, [flat, suppliers]);
+  }, [flatPeriod, productF, countryF, suppliers]);
 
-  const [selectedProductKey, setSelectedProductKey] = useState<string>("");
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+  const managerOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const f of flatPeriod) {
+      if (productF !== ALL && f.item.product_name !== productF) continue;
+      if (countryF !== ALL && f.country !== countryF) continue;
+      if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) continue;
+      if (f.shipment.import_manager_id) ids.add(f.shipment.import_manager_id);
+    }
+    return managers.filter(m => ids.has(m.id));
+  }, [flatPeriod, productF, countryF, supplierF, managers]);
 
-  const productRows = useMemo(() => {
-    if (!selectedProductKey) return [];
-    const [product, country] = selectedProductKey.split("||");
-    return flat
-      .filter(f => f.item.product_name === product && (f.item.origin_country ?? f.shipment.country ?? "—") === country)
-      .sort((a,b) => a.date.localeCompare(b.date));
-  }, [flat, selectedProductKey]);
+  // Final filtered rows
+  const rows = useMemo<Flat[]>(() => {
+    return flatPeriod.filter(f => {
+      if (productF !== ALL && f.item.product_name !== productF) return false;
+      if (countryF !== ALL && f.country !== countryF) return false;
+      if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) return false;
+      if (managerF !== ALL && f.shipment.import_manager_id !== managerF) return false;
+      return true;
+    }).sort((a,b) => a.date.localeCompare(b.date));
+  }, [flatPeriod, productF, countryF, supplierF, managerF]);
 
-  const supplierRows = useMemo(() => {
-    if (!selectedSupplierId) return [];
-    return flat
-      .filter(f => f.shipment.supplier_id === selectedSupplierId)
-      .sort((a,b) => a.date.localeCompare(b.date));
-  }, [flat, selectedSupplierId]);
-
-  const supplierStats = useMemo(() => {
-    if (supplierRows.length === 0) return null;
-    let totalPallets = 0;
-    let priceSum = 0, priceCnt = 0;
-    let invSum = 0, invCnt = 0;
-    for (const r of supplierRows) {
-      const p = Number(r.item.pallet_count ?? 0);
-      totalPallets += p;
+  // Aggregates
+  const totals = useMemo(() => {
+    let pallets = 0, priceSum = 0, priceCnt = 0, indSum = 0, indCnt = 0, invSum = 0, invCnt = 0;
+    for (const r of rows) {
+      pallets += Number(r.item.pallet_count ?? 0);
       if (r.item.unit_price) { priceSum += Number(r.item.unit_price); priceCnt++; }
+      if (r.item.final_cost_indicative) { indSum += Number(r.item.final_cost_indicative); indCnt++; }
       if (r.item.final_cost_invoice) { invSum += Number(r.item.final_cost_invoice); invCnt++; }
     }
     return {
-      totalPallets,
+      pallets,
       avgPrice: priceCnt ? priceSum / priceCnt : 0,
-      avgInvoice: invCnt ? invSum / invCnt : 0,
+      avgInd: indCnt ? indSum / indCnt : 0,
+      avgInv: invCnt ? invSum / invCnt : 0,
     };
-  }, [supplierRows]);
+  }, [rows]);
 
-  // Build month/week options within last 12 months
+  // Per-supplier breakdown
+  const bySupplier = useMemo(() => {
+    const map = new Map<string, { name: string; pallets: number; priceSum: number; priceCnt: number; invSum: number; invCnt: number; rows: Flat[] }>();
+    for (const r of rows) {
+      const sid = r.shipment.supplier_id ?? "—";
+      const name = supplierMap[sid] ?? "—";
+      const cur = map.get(sid) ?? { name, pallets: 0, priceSum: 0, priceCnt: 0, invSum: 0, invCnt: 0, rows: [] };
+      cur.pallets += Number(r.item.pallet_count ?? 0);
+      if (r.item.unit_price) { cur.priceSum += Number(r.item.unit_price); cur.priceCnt++; }
+      if (r.item.final_cost_invoice) { cur.invSum += Number(r.item.final_cost_invoice); cur.invCnt++; }
+      cur.rows.push(r);
+      map.set(sid, cur);
+    }
+    return Array.from(map.entries()).map(([id, v]) => ({
+      id, name: v.name, pallets: v.pallets,
+      avgPrice: v.priceCnt ? v.priceSum / v.priceCnt : 0,
+      avgInv: v.invCnt ? v.invSum / v.invCnt : 0,
+      rows: v.rows,
+    })).sort((a,b) => b.pallets - a.pallets);
+  }, [rows, supplierMap]);
+
+  // Period dropdown options
   const monthOptions = useMemo(() => {
     const arr: { value: string; label: string }[] = [];
     const d = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -238,6 +286,14 @@ function StatisticsPage() {
   };
   const fmtNum = (n: number | null | undefined, digits = 2) => n == null ? "—" : Number(n).toFixed(digits);
 
+  const resetAll = () => { setProductF(ALL); setCountryF(ALL); setSupplierF(ALL); setManagerF(ALL); };
+
+  const activeChips: string[] = [];
+  if (productF !== ALL) activeChips.push(`Товар: ${productF}`);
+  if (countryF !== ALL) activeChips.push(`Країна: ${countryF}`);
+  if (supplierF !== ALL) activeChips.push(`Постачальник: ${supplierMap[supplierF] ?? "—"}`);
+  if (managerF !== ALL) activeChips.push(`Менеджер: ${managerMap[managerF] ?? "—"}`);
+
   return (
     <div className="space-y-4">
       <PageHeader title="Статистика" subtitle="Останні 12 місяців" />
@@ -247,12 +303,7 @@ function StatisticsPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {(["week","month","year","custom"] as PeriodMode[]).map(m => (
-              <Button
-                key={m}
-                size="sm"
-                variant={mode === m ? "default" : "outline"}
-                onClick={() => setMode(m)}
-              >
+              <Button key={m} size="sm" variant={mode === m ? "default" : "outline"} onClick={() => setMode(m)}>
                 {m === "week" ? "Тиждень" : m === "month" ? "Місяць" : m === "year" ? "Рік" : "Період"}
               </Button>
             ))}
@@ -260,25 +311,19 @@ function StatisticsPage() {
           {mode === "month" && (
             <Select value={monthVal} onValueChange={setMonthVal}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
             </Select>
           )}
           {mode === "week" && (
             <Select value={weekVal} onValueChange={setWeekVal}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {weekOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{weekOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
             </Select>
           )}
           {mode === "year" && (
             <Select value={yearVal} onValueChange={setYearVal}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {yearOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{yearOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
             </Select>
           )}
           {mode === "custom" && (
@@ -293,126 +338,140 @@ function StatisticsPage() {
               </div>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">
-            {fmtDate(fromISOStr)} – {fmtDate(toISOStr)} • позицій: {flat.length}
-          </p>
+          <p className="text-xs text-muted-foreground">{fmtDate(fromISOStr)} – {fmtDate(toISOStr)}</p>
         </div>
       </SectionCard>
 
-      {/* PRODUCTS */}
-      <SectionCard title="Товари">
-        <div className="space-y-3">
-          <Select value={selectedProductKey} onValueChange={setSelectedProductKey}>
-            <SelectTrigger><SelectValue placeholder="Оберіть товар • країна" /></SelectTrigger>
-            <SelectContent>
-              {productOptions.length === 0 && <div className="px-2 py-1 text-xs text-muted-foreground">Немає даних</div>}
-              {productOptions.map(o => (
-                <SelectItem key={o.key} value={o.key}>{o.product} • {o.country}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isLoading ? (
-            <EmptyState title="Завантаження…" />
-          ) : !selectedProductKey ? (
-            <EmptyState title="Оберіть товар" hint="Покажемо всі закупки за період" />
-          ) : productRows.length === 0 ? (
-            <EmptyState title="Немає закупок" hint="За обраний період" />
-          ) : (
-            <div className="-mx-4 overflow-x-auto px-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Дата</TableHead>
-                    <TableHead>Постачальник</TableHead>
-                    <TableHead className="text-right">Палет</TableHead>
-                    <TableHead className="text-right">Закупка</TableHead>
-                    <TableHead className="text-right">Індикатив</TableHead>
-                    <TableHead className="text-right">Інвойс</TableHead>
+      {/* FILTERS */}
+      <SectionCard title="Фільтри">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <label className="text-xs text-muted-foreground">Товар</label>
+            <Select value={productF} onValueChange={(v) => { setProductF(v); setCountryF(ALL); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>ВСІ</SelectItem>
+                {productOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Країна</label>
+            <Select value={countryF} onValueChange={setCountryF}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>ВСІ</SelectItem>
+                {countryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Постачальник</label>
+            <Select value={supplierF} onValueChange={setSupplierF}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>ВСІ</SelectItem>
+                {supplierOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Імпорт-менеджер</label>
+            <Select value={managerF} onValueChange={setManagerF}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>ВСІ</SelectItem>
+                {managerOptions.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {activeChips.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {activeChips.map((c, i) => (
+              <span key={i} className="rounded-full bg-secondary px-2 py-1 text-[11px]">{c}</span>
+            ))}
+            <Button size="sm" variant="ghost" onClick={resetAll}>Скинути</Button>
+          </div>
+        )}
+        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+          <div className="rounded-lg border border-border bg-card p-2">
+            <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
+            <div className="text-base font-bold">{totals.pallets}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-2">
+            <div className="text-[10px] uppercase text-muted-foreground">сер. зак.</div>
+            <div className="text-base font-bold">{totals.avgPrice.toFixed(2)}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-2">
+            <div className="text-[10px] uppercase text-muted-foreground">сер. інд.</div>
+            <div className="text-base font-bold">{totals.avgInd.toFixed(2)}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-2">
+            <div className="text-[10px] uppercase text-muted-foreground">сер. інв.</div>
+            <div className="text-base font-bold">{totals.avgInv.toFixed(2)}</div>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* PRODUCTS — list of purchases */}
+      <SectionCard title="Товари — закупки">
+        {isLoading ? (
+          <EmptyState title="Завантаження…" />
+        ) : rows.length === 0 ? (
+          <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
+        ) : (
+          <div className="-mx-4 overflow-x-auto px-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Дата</TableHead>
+                  <TableHead>Товар</TableHead>
+                  <TableHead>Країна</TableHead>
+                  <TableHead>Постачальник</TableHead>
+                  <TableHead>Менеджер</TableHead>
+                  <TableHead className="text-right">Палет</TableHead>
+                  <TableHead className="text-right">Закупка</TableHead>
+                  <TableHead className="text-right">Індикатив</TableHead>
+                  <TableHead className="text-right">Інвойс</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map(r => (
+                  <TableRow key={r.item.id}>
+                    <TableCell className="whitespace-nowrap">{fmtDate(r.date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.item.product_name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.country}</TableCell>
+                    <TableCell className="whitespace-nowrap">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</TableCell>
+                    <TableCell className="text-right">{fmtNum(r.item.pallet_count, 0)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(r.item.unit_price)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(r.item.final_cost_indicative)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(r.item.final_cost_invoice)}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {productRows.map(r => (
-                    <TableRow key={r.item.id}>
-                      <TableCell className="whitespace-nowrap">{fmtDate(r.date)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</TableCell>
-                      <TableCell className="text-right">{fmtNum(r.item.pallet_count, 0)}</TableCell>
-                      <TableCell className="text-right">{fmtNum(r.item.unit_price)}</TableCell>
-                      <TableCell className="text-right">{fmtNum(r.item.final_cost_indicative)}</TableCell>
-                      <TableCell className="text-right">{fmtNum(r.item.final_cost_invoice)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </SectionCard>
 
-      {/* SUPPLIERS */}
-      <SectionCard title="Постачальники">
-        <div className="space-y-3">
-          <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-            <SelectTrigger><SelectValue placeholder="Оберіть постачальника" /></SelectTrigger>
-            <SelectContent>
-              {supplierOptions.length === 0 && <div className="px-2 py-1 text-xs text-muted-foreground">Немає даних</div>}
-              {supplierOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {isLoading ? (
-            <EmptyState title="Завантаження…" />
-          ) : !selectedSupplierId ? (
-            <EmptyState title="Оберіть постачальника" />
-          ) : supplierRows.length === 0 ? (
-            <EmptyState title="Немає закупок" hint="За обраний період" />
-          ) : (
-            <>
-              {supplierStats && (
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg border border-border bg-card p-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
-                    <div className="text-lg font-bold">{supplierStats.totalPallets}</div>
-                  </div>
-                  <div className="rounded-lg border border-border bg-card p-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">сер. закупка</div>
-                    <div className="text-lg font-bold">{supplierStats.avgPrice.toFixed(2)}</div>
-                  </div>
-                  <div className="rounded-lg border border-border bg-card p-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">сер. інвойс</div>
-                    <div className="text-lg font-bold">{supplierStats.avgInvoice.toFixed(2)}</div>
-                  </div>
+      {/* SUPPLIERS — aggregation */}
+      <SectionCard title="Постачальники — порівняння">
+        {bySupplier.length === 0 ? (
+          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
+        ) : (
+          <div className="space-y-3">
+            {bySupplier.map(g => (
+              <div key={g.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-semibold">{g.name}</div>
+                  <div className="text-xs text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • інв. {g.avgInv.toFixed(2)}</div>
                 </div>
-              )}
-              <div className="-mx-4 overflow-x-auto px-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Товар</TableHead>
-                      <TableHead>Країна</TableHead>
-                      <TableHead className="text-right">Палет</TableHead>
-                      <TableHead className="text-right">Закупка</TableHead>
-                      <TableHead className="text-right">Індикатив</TableHead>
-                      <TableHead className="text-right">Інвойс</TableHead>
-                      <TableHead>Дата</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {supplierRows.map(r => (
-                      <TableRow key={r.item.id}>
-                        <TableCell className="whitespace-nowrap">{r.item.product_name}</TableCell>
-                        <TableCell className="whitespace-nowrap">{r.item.origin_country ?? r.shipment.country ?? "—"}</TableCell>
-                        <TableCell className="text-right">{fmtNum(r.item.pallet_count, 0)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(r.item.unit_price)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(r.item.final_cost_indicative)}</TableCell>
-                        <TableCell className="text-right">{fmtNum(r.item.final_cost_invoice)}</TableCell>
-                        <TableCell className="whitespace-nowrap">{fmtDate(r.date)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
               </div>
-            </>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
     </div>
   );
