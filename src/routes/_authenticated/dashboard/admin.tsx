@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/admin")({
   component: AdminDashboard,
 });
 
-type Detail = "urgent" | "transit" | "products" | null;
+type Detail = "urgent" | "transit" | "products" | "branches" | null;
 
 interface ShipRow {
   id: string;
