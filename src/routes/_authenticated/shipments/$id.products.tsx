@@ -130,7 +130,7 @@ function ProductsFullscreen() {
 
       {sh && <TransportBar shipment={sh} />}
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
