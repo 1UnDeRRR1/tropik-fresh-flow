@@ -1,27 +1,48 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CostPair } from "@/components/CostPair";
+import { ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
 });
 
+type ItemRow = {
+  id: string;
+  product_name: string;
+  origin_country: string | null;
+  caliber: string | null;
+  variety: string | null;
+  pallet_count: number | null;
+  pallet_weight: number | null;
+  unit_price: number | null;
+  price_currency: string | null;
+  final_cost_indicative: number | null;
+  final_cost_invoice: number | null;
+};
+
 type ShipmentRow = {
   id: string;
+  code: string;
   country: string | null;
   eta: string | null;
   arrived_at: string | null;
   import_manager_id: string | null;
-  shipment_items: Array<{
-    id: string;
-    product_name: string;
-    origin_country: string | null;
-    pallet_count: number | null;
-  }>;
+  supplier_id: string | null;
+  shipment_items: ItemRow[];
 };
+
+type Manager = { id: string; full_name: string };
+type Supplier = { id: string; name: string };
+type Branch = { id: string; name: string };
+type DistItem = { shipment_item_id: string; pallets: number | null };
+type Dist = { branch_id: string; distribution_items: DistItem[] };
 
 function todayISO() {
   const d = new Date();
@@ -29,74 +50,257 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+type Flat = {
+  item: ItemRow;
+  shipment: ShipmentRow;
+};
+
 function Analytics() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
+  const today = todayISO();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["analytics-product-country", user?.id, isStaffAll],
+    queryKey: ["analytics-v2", user?.id, isStaffAll],
     enabled: !!user,
     queryFn: async () => {
       let q = supabase
         .from("shipments")
         .select(
-          "id,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,pallet_count)",
+          "id,code,country,eta,arrived_at,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
         )
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .order("eta", { ascending: true })
+        .limit(1000);
       if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as ShipmentRow[];
+      const [shRes, mgrRes, supRes, brRes, distRes] = await Promise.all([
+        q,
+        supabase.from("import_managers").select("id,full_name"),
+        supabase.from("suppliers").select("id,name"),
+        supabase.from("branches").select("id,name").eq("is_active", true),
+        supabase.from("distributions").select("branch_id, shipment_id, distribution_items(shipment_item_id,pallets)"),
+      ]);
+      if (shRes.error) throw shRes.error;
+      return {
+        shipments: (shRes.data ?? []) as ShipmentRow[],
+        managers: (mgrRes.data ?? []) as Manager[],
+        suppliers: (supRes.data ?? []) as Supplier[],
+        branches: (brRes.data ?? []) as Branch[],
+        distributions: (distRes.data ?? []) as Dist[],
+      };
     },
   });
 
-  const today = todayISO();
-  const groups = new Map<string, { product: string; country: string; pallets: number }>();
+  const mgrMap = useMemo(() => new Map((data?.managers ?? []).map((m) => [m.id, m.full_name])), [data]);
+  const supMap = useMemo(() => new Map((data?.suppliers ?? []).map((s) => [s.id, s.name])), [data]);
+  const brMap = useMemo(() => new Map((data?.branches ?? []).map((b) => [b.id, b.name])), [data]);
 
-  for (const sh of data ?? []) {
-    // Disappear the day AFTER arrival: include while today <= arrival date.
-    const arrival = sh.arrived_at ?? sh.eta;
-    if (arrival && arrival < today) continue;
-    for (const it of sh.shipment_items ?? []) {
-      const product = (it.product_name || "").trim();
-      const country = (it.origin_country || sh.country || "").trim();
-      const pallets = Number(it.pallet_count ?? 0);
-      if (!product || pallets <= 0) continue;
-      const key = `${product}__${country}`;
-      const cur = groups.get(key) ?? { product, country, pallets: 0 };
-      cur.pallets += pallets;
-      groups.set(key, cur);
+  // Per-item distribution map: itemId -> Map<branchId, pallets>
+  const distByItem = useMemo(() => {
+    const m = new Map<string, Map<string, number>>();
+    for (const d of data?.distributions ?? []) {
+      for (const di of d.distribution_items ?? []) {
+        const inner = m.get(di.shipment_item_id) ?? new Map<string, number>();
+        inner.set(d.branch_id, (inner.get(d.branch_id) ?? 0) + Number(di.pallets ?? 0));
+        m.set(di.shipment_item_id, inner);
+      }
     }
-  }
+    return m;
+  }, [data]);
 
-  const rows = Array.from(groups.values()).sort(
-    (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
-  );
+  // Active items: ETA day still valid (today <= arrival)
+  const activeFlat = useMemo<Flat[]>(() => {
+    const out: Flat[] = [];
+    for (const sh of data?.shipments ?? []) {
+      const arrival = sh.arrived_at ?? sh.eta;
+      if (arrival && arrival < today) continue;
+      for (const it of sh.shipment_items ?? []) {
+        const name = (it.product_name || "").trim();
+        const pallets = Number(it.pallet_count ?? 0);
+        if (!name || pallets <= 0) continue;
+        out.push({ item: it, shipment: sh });
+      }
+    }
+    return out;
+  }, [data, today]);
+
+  // Level 1: grouped by product+country
+  type Group = { key: string; product: string; country: string; pallets: number; flats: Flat[] };
+  const groups = useMemo<Group[]>(() => {
+    const m = new Map<string, Group>();
+    for (const f of activeFlat) {
+      const country = (f.item.origin_country || f.shipment.country || "").trim();
+      const product = f.item.product_name.trim();
+      const key = `${product}__${country}`;
+      const g = m.get(key) ?? { key, product, country, pallets: 0, flats: [] };
+      g.pallets += Number(f.item.pallet_count ?? 0);
+      g.flats.push(f);
+      m.set(key, g);
+    }
+    return Array.from(m.values()).sort(
+      (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
+    );
+  }, [activeFlat]);
+
+  const [openGroup, setOpenGroup] = useState<Group | null>(null);
+  const [openItem, setOpenItem] = useState<Flat | null>(null);
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Аналітика" subtitle="Активні товари у поставках (палети)" />
+      <PageHeader title="Аналітика" subtitle="Усі активні товари в системі" />
 
-      <SectionCard title="Товар · країна · кількість">
+      <SectionCard title="Товар · країна · палети">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
-        ) : !rows.length ? (
-          <EmptyState title="Немає активних товарів" hint="Тут зʼявляться товари ваших поставок до наступного дня після прибуття." />
+        ) : !groups.length ? (
+          <EmptyState title="Немає активних товарів" hint="Товари зникають з аналітики наступного дня після прибуття." />
         ) : (
           <ul className="divide-y divide-border">
-            {rows.map((r) => (
-              <li key={`${r.product}__${r.country}`} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0 text-sm">
-                  <span className="font-medium">{r.product}</span>
-                  {r.country ? <span className="text-muted-foreground"> · {r.country}</span> : null}
-                </div>
-                <div className="shrink-0 text-sm font-bold tabular-nums text-brand">{r.pallets}п</div>
+            {groups.map((g) => (
+              <li key={g.key}>
+                <button
+                  type="button"
+                  onClick={() => setOpenGroup(g)}
+                  className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
+                >
+                  <div className="min-w-0 text-sm">
+                    <span className="font-medium">{g.product}</span>
+                    {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </SectionCard>
+
+      {/* Level 2: positions of selected product+country */}
+      <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {openGroup?.product}
+              {openGroup?.country ? <span className="text-muted-foreground"> · {openGroup.country}</span> : null}
+            </DialogTitle>
+          </DialogHeader>
+          {openGroup ? (
+            <ul className="divide-y divide-border">
+              {openGroup.flats
+                .slice()
+                .sort((a, b) => (a.shipment.eta ?? "").localeCompare(b.shipment.eta ?? ""))
+                .map((f) => {
+                  const it = f.item;
+                  const sh = f.shipment;
+                  const pallets = Number(it.pallet_count ?? 0);
+                  const weight = pallets * Number(it.pallet_weight ?? 0);
+                  const dist = distByItem.get(it.id);
+                  const distributed = dist ? Array.from(dist.values()).reduce((a, b) => a + b, 0) : 0;
+                  const remaining = pallets - distributed;
+                  return (
+                    <li key={`${sh.id}-${it.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenItem(f)}
+                        className="flex w-full flex-col gap-1 py-2.5 text-left active:opacity-70"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-sm font-semibold">
+                            {it.product_name}
+                            {it.caliber ? <span className="text-muted-foreground"> ·{it.caliber}</span> : null}
+                          </span>
+                          <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                          <span className="font-mono text-foreground">{sh.code}</span>
+                          {sh.eta && <span>ETA {sh.eta}</span>}
+                          <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
+                          <span>{(it.origin_country || sh.country) ?? "—"}</span>
+                          <span>{Math.round(weight)} кг</span>
+                          <span className="text-success">розпод. {distributed}п</span>
+                          <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 text-[11px]">
+                          <span className="text-muted-foreground">
+                            закуп. {Number(it.unit_price ?? 0).toFixed(2)} {it.price_currency ?? ""}
+                          </span>
+                          <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" size="xs" />
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Менеджер: {mgrMap.get(sh.import_manager_id ?? "") ?? "—"}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+            </ul>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Level 3: distribution per item by branch */}
+      <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {openItem?.item.product_name}
+              {openItem?.item.caliber ? <span className="text-muted-foreground"> ·{openItem.item.caliber}</span> : null}
+              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                {openItem?.shipment.code} · {(openItem?.item.origin_country || openItem?.shipment.country) ?? ""}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          {openItem
+            ? (() => {
+                const total = Number(openItem.item.pallet_count ?? 0);
+                const dist = distByItem.get(openItem.item.id);
+                const rows = dist
+                  ? Array.from(dist.entries())
+                      .map(([bid, p]) => ({ branch: brMap.get(bid) ?? "—", pallets: p }))
+                      .filter((r) => r.pallets > 0)
+                      .sort((a, b) => a.branch.localeCompare(b.branch, "uk"))
+                  : [];
+                const distributed = rows.reduce((a, b) => a + b.pallets, 0);
+                const remaining = total - distributed;
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-secondary px-2 py-1.5">
+                        <div className="text-[10px] text-muted-foreground">Всього</div>
+                        <div className="text-sm font-bold tabular-nums">{total}п</div>
+                      </div>
+                      <div className="rounded-lg bg-success/15 px-2 py-1.5">
+                        <div className="text-[10px] text-success">Розпод.</div>
+                        <div className="text-sm font-bold tabular-nums text-success">{distributed}п</div>
+                      </div>
+                      <div className={`rounded-lg px-2 py-1.5 ${remaining < 0 ? "bg-destructive/15" : "bg-warning/15"}`}>
+                        <div className={`text-[10px] ${remaining < 0 ? "text-destructive" : "text-warning"}`}>Залиш.</div>
+                        <div className={`text-sm font-bold tabular-nums ${remaining < 0 ? "text-destructive" : "text-warning"}`}>
+                          {remaining}п
+                        </div>
+                      </div>
+                    </div>
+
+                    {rows.length ? (
+                      <ul className="divide-y divide-border rounded-xl border border-border">
+                        {rows.map((r) => (
+                          <li key={r.branch} className="flex items-center justify-between gap-2 px-3 py-2">
+                            <span className="truncate text-sm font-medium">{r.branch}</span>
+                            <span className="text-sm font-bold tabular-nums text-brand">{r.pallets}п</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
+                    )}
+                  </div>
+                );
+              })()
+            : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
