@@ -82,7 +82,7 @@ function ShipmentsList() {
         action={
           <Link to="/shipments/new">
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова
+              <Plus className="mr-1 h-4 w-4" /> Нова поставка
             </Button>
           </Link>
         }
@@ -130,8 +130,8 @@ function ShipmentsList() {
                   const isOwner = !!user && s.import_manager_id === user.id;
                   return (
                     <tr key={s.id} className={cn("border-t border-border", tone)}>
-                      <td className="sticky left-0 z-10 bg-card py-2 pr-2">
-                        <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand">
+                      <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
+                        <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
                           {s.code}
                         </Link>
                       </td>

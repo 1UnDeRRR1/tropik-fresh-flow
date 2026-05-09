@@ -175,6 +175,7 @@ function ManagerDashboard() {
           value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
           hint="Очікують розподілу"
           icon={<Package className="h-4 w-4" />}
+          tone="warning"
           to="/distribution"
           hash="not"
         />
