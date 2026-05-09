@@ -19,6 +19,8 @@ export const Route = createFileRoute("/_authenticated/dashboard/branch")({
 
 type Row = {
   key: string;
+  shipment_item_id: string;
+  distribution_id: string;
   code: string;
   eta: string | null;
   status: string;
@@ -68,6 +70,8 @@ function BranchDashboard() {
             if (!it) return null;
             return {
               key: `${d.id}-${it.id}`,
+              shipment_item_id: it.id,
+              distribution_id: d.id,
               code: d.shipments?.code ?? "—",
               eta: d.shipments?.eta ?? null,
               status: d.status,
