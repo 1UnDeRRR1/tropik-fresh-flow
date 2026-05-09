@@ -18,8 +18,9 @@ export const Route = createFileRoute("/_authenticated/shipments/")({
 
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
+  const qc = useQueryClient();
 
   const { data } = useQuery({
     queryKey: ["shipments-list"],
