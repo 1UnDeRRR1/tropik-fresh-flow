@@ -57,7 +57,9 @@ function DistributionMatrix() {
           .select("id,branch_id, distribution_items(shipment_item_id,pallets,qty)")
           .eq("shipment_id", shipmentId),
       ]);
-      const items = (itemsRes.data ?? []) as Item[];
+      const items = ((itemsRes.data ?? []) as Item[]).filter(
+        (it) => (it.product_name ?? "").trim().length > 0 && Number(it.pallet_count ?? 0) > 0,
+      );
       // Defensive dedupe by id and by name (defense in depth)
       const seenIds = new Set<string>();
       const seenNames = new Set<string>();
