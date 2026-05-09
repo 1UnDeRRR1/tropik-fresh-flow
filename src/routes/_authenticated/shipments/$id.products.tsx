@@ -154,9 +154,11 @@ function ProductsFullscreen() {
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => (
-                <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} />
-              ))}
+              {items.map((it) => {
+                const otherPallets = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
+                const otherKg = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} />;
+              })}
             </tbody>
           </table>
         )}
