@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, defaultRoutePerRole } from "@/lib/auth";
+import { useAuth, usePostLoginTarget } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,8 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, loading, primaryRole, dataLoaded } = useAuth();
+  const { user } = useAuth();
+  const { ready, target } = usePostLoginTarget();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -22,7 +23,8 @@ function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!loading && user && dataLoaded) return <Navigate to={defaultRoutePerRole(primaryRole)} />;
+  // Single source of truth for post-login destination.
+  if (user && ready) return <Navigate to={target} />;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();

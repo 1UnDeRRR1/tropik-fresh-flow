@@ -121,3 +121,16 @@ export function defaultRoutePerRole(role: AppRole | null): string {
       return "/dashboard/branch";
   }
 }
+
+/**
+ * Centralized post-login destination resolver.
+ * Returns { ready, target } — `target` is the role-specific "Головна" page.
+ * Use in any redirect entry point (login page, _authenticated/index, OAuth callback, etc.)
+ * so that the landing rule is identical everywhere.
+ */
+export function usePostLoginTarget(): { ready: boolean; target: string } {
+  const { user, loading, dataLoaded, primaryRole } = useAuth();
+  const ready = !loading && !!user && dataLoaded;
+  return { ready, target: defaultRoutePerRole(primaryRole) };
+}
+
