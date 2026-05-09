@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send } from "lucide-react";
-import { Logo } from "./Logo";
+import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
