@@ -439,6 +439,10 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         step="0.01"
         value={text}
         placeholder={focused ? "" : "0"}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onFocus={(e) => { setFocused(true); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}
         onChange={(e) => { setText(e.target.value); onValueChange(e.target.value === "" ? 0 : Number(e.target.value)); }}
