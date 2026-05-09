@@ -59,9 +59,13 @@ function ShipmentsList() {
     });
   }, [data, today, soon]);
 
-  const filtered = filter === "all" ? rows : rows.filter((r) => r.status === filter);
-
-  const STATUSES = Object.keys(SHIPMENT_LABEL) as (keyof typeof SHIPMENT_LABEL)[];
+  const filtered = rows.filter((r) => {
+    if (filter === "all") return true;
+    if (filter === "done") return r.fact > 0 && r.remaining === 0;
+    if (filter === "none") return r.fact > 0 && r.dist === 0;
+    if (filter === "partial") return r.dist > 0 && r.remaining > 0;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
@@ -80,14 +84,12 @@ function ShipmentsList() {
 
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="flex gap-2 pb-1">
-          <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>Усі</FilterPill>
-          {STATUSES.map((s) => (
-            <FilterPill key={s} active={filter === s} onClick={() => setFilter(s)}>
-              {SHIPMENT_LABEL[s]}
-            </FilterPill>
-          ))}
+          <StatusFilterPill active={filter === "done"} onClick={() => setFilter(filter === "done" ? "all" : "done")} tone="success">Виконано</StatusFilterPill>
+          <StatusFilterPill active={filter === "none"} onClick={() => setFilter(filter === "none" ? "all" : "none")} tone="destructive">Не розпод.</StatusFilterPill>
+          <StatusFilterPill active={filter === "partial"} onClick={() => setFilter(filter === "partial" ? "all" : "partial")} tone="warning">Дорозподіл</StatusFilterPill>
         </div>
       </div>
+
 
       <SectionCard title={`Реєстр (${filtered.length})`}>
         {!filtered.length ? (
