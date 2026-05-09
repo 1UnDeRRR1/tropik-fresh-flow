@@ -220,7 +220,6 @@ function BranchDashboard() {
                         </div>
                         <Button
                           size="sm"
-                          variant="outline"
                           className="h-8 px-2 text-xs"
                           onClick={(e) => {
                             e.stopPropagation();
