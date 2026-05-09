@@ -178,6 +178,66 @@ function FilterPill({ active, children, onClick }: { active: boolean; children: 
   );
 }
 
+function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code: string; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const onDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!confirm(`Видалити поставку ${code}? Цю дію неможливо скасувати.`)) return;
+    const { error } = await supabase.from("shipments").delete().eq("id", shipmentId);
+    if (error) return toast.error(error.message);
+    toast.success("Поставку видалено");
+    onChanged();
+  };
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-label="Дії"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-36 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              navigate({ to: "/shipments/$id", params: { id: shipmentId } });
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Редагувати
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Видалити
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type OpenVehicleRow = {
   id: string;
   code: string;
