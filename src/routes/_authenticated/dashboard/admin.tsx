@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { AlertTriangle, Truck, Building2, Users } from "lucide-react";
+import { AlertTriangle, Truck, Building2, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
+import { toUaCountry } from "@/lib/countries";
 import {
   Dialog,
   DialogContent,
@@ -15,13 +16,14 @@ export const Route = createFileRoute("/_authenticated/dashboard/admin")({
   component: AdminDashboard,
 });
 
-type Detail = "urgent" | "transit" | "branches" | null;
+type Detail = "urgent" | "transit" | "products" | null;
 
 interface ShipRow {
   id: string;
   code: string;
   eta: string | null;
   status: string;
+  country: string | null;
   created_by: string | null;
   shipment_items: { id: string; product_name: string; pallet_count: number | null }[];
   distributions: {
@@ -39,17 +41,16 @@ function AdminDashboard() {
       const isoToday = new Date().toISOString().slice(0, 10);
       const iso24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-      const [shipsRes, branchesRes, profilesRes, suppliersRes] = await Promise.all([
+      const [shipsRes, branchesRes, profilesRes] = await Promise.all([
         supabase
           .from("shipments")
           .select(
-            "id,code,eta,status,created_by,shipment_items(id,product_name,pallet_count),distributions(branch_id,distribution_items(pallets,shipment_item_id))",
+            "id,code,eta,status,country,created_by,shipment_items(id,product_name,pallet_count),distributions(branch_id,distribution_items(pallets,shipment_item_id))",
           )
           .order("eta", { ascending: true })
           .limit(500),
         supabase.from("branches").select("id,name").order("sort_order"),
         supabase.from("profiles").select("id,full_name"),
-        supabase.from("suppliers").select("id", { count: "exact", head: true }),
       ]);
 
       const ships = (shipsRes.data ?? []) as ShipRow[];
@@ -61,7 +62,6 @@ function AdminDashboard() {
 
       const active = ships.filter((s) => !["completed", "cancelled"].includes(s.status));
 
-      // urgent: ETA <= 24h with undistributed pallets
       const urgent = active
         .filter((s) => s.eta && s.eta >= isoToday && s.eta <= iso24h)
         .map((s) => {
@@ -74,7 +74,6 @@ function AdminDashboard() {
         })
         .filter((x) => x.undistributed > 0);
 
-      // in transit: active with eta in future (or any active)
       const transit = active
         .filter((s) => s.eta && s.eta >= isoToday)
         .map((s) => {
@@ -83,19 +82,16 @@ function AdminDashboard() {
           return { s, pallets, products };
         });
 
-      // branch distribution: branch -> product -> pallets (+ shipment codes, manager)
-      type BranchAgg = Record<
-        string,
-        {
-          branchName: string;
-          items: Record<
-            string,
-            { pallets: number; shipments: Set<string>; managers: Set<string> }
-          >;
-        }
-      >;
-      const byBranch: BranchAgg = {};
-      for (const s of ships) {
+      // Products in transit, distributed to at least one branch.
+      // Group key: product_name + country
+      type ProdAgg = {
+        product: string;
+        country: string;
+        branches: Record<string, number>; // branchName -> pallets
+      };
+      const byProduct = new Map<string, ProdAgg>();
+      for (const { s } of transit) {
+        const country = toUaCountry(s.country);
         const itemMap = new Map(s.shipment_items.map((i) => [i.id, i]));
         for (const d of s.distributions) {
           for (const di of d.distribution_items ?? []) {
@@ -103,19 +99,19 @@ function AdminDashboard() {
             if (!it) continue;
             const pallets = Number(di.pallets ?? 0);
             if (pallets <= 0) continue;
+            const key = `${it.product_name}|${country}`;
+            const entry =
+              byProduct.get(key) ??
+              { product: it.product_name, country, branches: {} };
             const bn = branchName(d.branch_id);
-            const entry = (byBranch[d.branch_id] ??= { branchName: bn, items: {} });
-            const itEntry = (entry.items[it.product_name] ??= {
-              pallets: 0,
-              shipments: new Set(),
-              managers: new Set(),
-            });
-            itEntry.pallets += pallets;
-            itEntry.shipments.add(s.code);
-            itEntry.managers.add(profileName(s.created_by));
+            entry.branches[bn] = (entry.branches[bn] ?? 0) + pallets;
+            byProduct.set(key, entry);
           }
         }
       }
+      const productList = Array.from(byProduct.values()).sort((a, b) =>
+        a.product.localeCompare(b.product, "uk"),
+      );
 
       return {
         urgent: {
@@ -139,16 +135,12 @@ function AdminDashboard() {
             manager: profileName(x.s.created_by),
           })),
         },
-        branches: {
-          count: branches.length,
-          list: Object.values(byBranch),
-        },
-        supplierCount: suppliersRes.count ?? 0,
+        products: productList,
+        branchCount: branches.length,
       };
     },
   });
 
-  // group urgent by manager
   type UrgentRow = { code: string; eta: string | null; pallets: number; manager: string };
   const urgentByManager = (data?.urgent.list ?? []).reduce<Record<string, UrgentRow[]>>(
     (acc, x) => {
@@ -177,23 +169,25 @@ function AdminDashboard() {
             value={`${data?.transit.count ?? 0}(${data?.transit.pallets ?? 0}п)`}
             hint="Активні поставки"
             icon={<Truck className="h-5 w-5" />}
-            tone="brand"
-          />
-        </button>
-        <button type="button" onClick={() => setDetail("branches")} className="text-left">
-          <StatCard
-            label="Філії"
-            value={data?.branches.count ?? 0}
-            hint="Розподіл по філіях"
-            icon={<Building2 className="h-5 w-5" />}
-            tone="warning"
+            tone="success"
           />
         </button>
         <StatCard
-          label="Постачальники"
-          value={data?.supplierCount ?? 0}
-          icon={<Users className="h-4 w-4" />}
+          label="Філії"
+          value={data?.branchCount ?? 0}
+          hint="Усього"
+          icon={<Building2 className="h-5 w-5" />}
+          tone="warning"
         />
+        <button type="button" onClick={() => setDetail("products")} className="text-left">
+          <StatCard
+            label="Товари по філіям"
+            value={data?.products.length ?? 0}
+            hint="Розподілено в дорозі"
+            icon={<Package className="h-5 w-5" />}
+            tone="info"
+          />
+        </button>
       </div>
 
       <SectionCard title="Master-data">
@@ -256,7 +250,7 @@ function AdminDashboard() {
                     <li key={r.code} className="px-3 py-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">{r.code}</span>
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                        <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-bold text-success">
                           {r.pallets}п
                         </span>
                       </div>
@@ -270,32 +264,37 @@ function AdminDashboard() {
             </>
           )}
 
-          {detail === "branches" && (
+          {detail === "products" && (
             <>
               <DialogHeader>
-                <DialogTitle>Розподіл по філіях</DialogTitle>
+                <DialogTitle>Товари по філіям</DialogTitle>
               </DialogHeader>
-              {(data?.branches.list ?? []).length === 0 ? (
-                <EmptyState title="Розподілу ще немає" />
+              {(data?.products ?? []).length === 0 ? (
+                <EmptyState title="Розподілених товарів в дорозі немає" />
               ) : (
                 <div className="space-y-4">
-                  {data!.branches.list.map((b) => (
-                    <div key={b.branchName}>
-                      <div className="mb-1 text-sm font-bold">{b.branchName}</div>
+                  {data!.products.map((p) => (
+                    <div key={`${p.product}-${p.country}`}>
+                      <div className="mb-1 text-sm font-bold">
+                        {p.product}
+                        {p.country && (
+                          <span className="text-muted-foreground"> • {p.country}</span>
+                        )}
+                      </div>
                       <ul className="divide-y divide-border rounded-xl border border-border">
-                        {Object.entries(b.items).map(([name, info]) => (
-                          <li key={name} className="flex items-center justify-between px-3 py-2 text-sm">
-                            <div>
-                              <div className="font-medium">{name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {Array.from(info.shipments).join(", ")} · {Array.from(info.managers).join(", ")}
-                              </div>
-                            </div>
-                            <span className="rounded-full bg-warning/30 px-2 py-0.5 text-xs font-bold">
-                              {info.pallets}п
-                            </span>
-                          </li>
-                        ))}
+                        {Object.entries(p.branches)
+                          .sort(([a], [b]) => a.localeCompare(b, "uk"))
+                          .map(([bn, pal]) => (
+                            <li
+                              key={bn}
+                              className="flex items-center justify-between px-3 py-2 text-sm"
+                            >
+                              <span>{bn}</span>
+                              <span className="rounded-full bg-info/15 px-2 py-0.5 text-xs font-bold text-info">
+                                {pal}п
+                              </span>
+                            </li>
+                          ))}
                       </ul>
                     </div>
                   ))}
