@@ -31,7 +31,6 @@ function startsWithAny(option: string, query: string) {
   const o = option.toLowerCase();
   const q = query.toLowerCase();
   if (o.startsWith(q)) return true;
-  // try translit both directions
   if (o.startsWith(uaToLat(q))) return true;
   if (o.startsWith(latToUa(q))) return true;
   if (uaToLat(o).startsWith(uaToLat(q))) return true;
@@ -45,6 +44,7 @@ export function AutocompleteCell({
   value,
   onChange,
   options,
+  aliases,
   placeholder,
   expandedMinWidth,
   className,
@@ -53,10 +53,11 @@ export function AutocompleteCell({
   value: string;
   onChange: (v: string) => void;
   options: string[];
+  /** map of lowercase alias -> canonical option (e.g. "italy" -> "Італія") */
+  aliases?: Record<string, string>;
   placeholder?: string;
   expandedMinWidth?: number;
   className?: string;
-  // when true, blur is blocked unless value matches an option (or is empty)
   required?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,15 +67,36 @@ export function AutocompleteCell({
 
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
-  const isExactMatch =
-    !trimmed || options.some((o) => o.toLowerCase() === lower);
 
+  // Resolve an input string to a canonical option (UA), or null.
+  const resolveCanonical = (s: string): string | null => {
+    const l = s.trim().toLowerCase();
+    if (!l) return null;
+    const direct = options.find((o) => o.toLowerCase() === l);
+    if (direct) return direct;
+    if (aliases && aliases[l]) return aliases[l];
+    return null;
+  };
+
+  const canonical = resolveCanonical(trimmed);
+  const isExactMatch = !trimmed || !!canonical;
+
+  // Suggestions: match canonical options by query, OR by alias keys whose value maps to an option.
+  const aliasMatchedCanonicals = aliases
+    ? Object.entries(aliases)
+        .filter(([k]) => k.startsWith(lower) && lower.length >= 2)
+        .map(([, v]) => v)
+    : [];
   const suggestions =
-    trimmed.length >= 2 && !isExactMatch
-      ? options.filter((o) => startsWithAny(o, trimmed)).slice(0, 6)
+    trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
+      ? Array.from(
+          new Set([
+            ...options.filter((o) => startsWithAny(o, trimmed)),
+            ...aliasMatchedCanonicals,
+          ]),
+        ).slice(0, 6)
       : [];
 
-  // typing always clears invalid state
   useEffect(() => {
     if (invalid) setInvalid(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +105,6 @@ export function AutocompleteCell({
   const accept = (s: string) => {
     onChange(s);
     setInvalid(false);
-    // close on accept
     setTimeout(() => {
       inputRef.current?.blur();
       setFocused(false);
@@ -96,7 +117,15 @@ export function AutocompleteCell({
       setFocused(false);
       return;
     }
-    if (required && trimmed && !isExactMatch) {
+    // Auto-normalize alias -> canonical (e.g. "Italy" -> "Італія")
+    const c = resolveCanonical(trimmed);
+    if (c && c !== trimmed) {
+      onChange(c);
+      setInvalid(false);
+      setFocused(false);
+      return;
+    }
+    if (required && trimmed && !c) {
       e.preventDefault();
       setInvalid(true);
       setTimeout(() => inputRef.current?.focus(), 0);
