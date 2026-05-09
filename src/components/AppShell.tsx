@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart } from "lucide-react";
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -12,11 +12,12 @@ interface NavItem {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { profile, primaryRole } = useAuth();
+  const { profile, primaryRole, hasRole } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const dashHref = defaultRoutePerRole(primaryRole);
 
   const isBranch = primaryRole === "branch";
+  const isAdmin = hasRole(["admin", "super_admin"]);
   const items: NavItem[] = isBranch
     ? [
         { to: dashHref, label: "Головна", icon: Home },
@@ -29,6 +30,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/shipments", label: "Поставки", icon: Package },
         { to: "/distribution", label: "Розподіл", icon: Truck },
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
+        ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
@@ -70,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-3xl px-4 pb-28 pt-4">{children}</main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe">
-        <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : "grid-cols-5")}>
+        <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
           {items.map((it) => {
             const active =
               pathname === it.to ||
