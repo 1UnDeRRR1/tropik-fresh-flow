@@ -970,6 +970,10 @@ export type Database = {
         Args: { p_country_code: string }
         Returns: number
       }
+      recompute_vehicle_item_costs: {
+        Args: { _shipment_id: string; _vehicle_id: string }
+        Returns: undefined
+      }
       recompute_vehicle_totals_for: {
         Args: { _vehicle_id: string }
         Returns: undefined
