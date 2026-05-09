@@ -239,13 +239,15 @@ function AdminDashboard() {
             tone="success"
           />
         </button>
-        <StatCard
-          label="Філії"
-          value={data?.branchCount ?? 0}
-          hint="Усього"
-          icon={<Building2 className="h-5 w-5" />}
-          tone="warning"
-        />
+        <button type="button" onClick={() => setDetail("branches")} className="text-left">
+          <StatCard
+            label="Філія товари"
+            value={data?.branchCount ?? 0}
+            hint="Розподілено по філіям"
+            icon={<Building2 className="h-5 w-5" />}
+            tone="warning"
+          />
+        </button>
         <button type="button" onClick={() => setDetail("products")} className="text-left">
           <StatCard
             label="Товари по філіям"
