@@ -254,6 +254,82 @@ function Analytics() {
           </ul>
         )}
       </SectionCard>
+      )}
+
+      {view !== "product" && (
+        <SectionCard title={view === "manager" ? "Менеджер · палети" : "Постачальник · палети"}>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Завантаження…</p>
+          ) : !ownerGroups.length ? (
+            <EmptyState title="Немає активних товарів" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {ownerGroups.map((og) => (
+                <li key={og.key}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenOwner(og)}
+                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
+                  >
+                    <div className="min-w-0 text-sm">
+                      <span className="font-medium">{og.name}</span>
+                      <span className="text-muted-foreground"> · {og.products.length} поз.</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="text-sm font-bold tabular-nums text-brand">{og.pallets}п</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Owner detail dialog */}
+      <Dialog open={!!openOwner} onOpenChange={(o) => !o && setOpenOwner(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {openOwner?.name}
+              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                Всього: {openOwner?.pallets}п
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          {openOwner ? (
+            <ul className="divide-y divide-border">
+              {openOwner.products.map((p) => (
+                <li key={`${p.product}__${p.country}`}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGroup({
+                        key: `${p.product}__${p.country}`,
+                        product: p.product,
+                        country: p.country,
+                        pallets: p.pallets,
+                        flats: p.flats,
+                      })
+                    }
+                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
+                  >
+                    <div className="min-w-0 text-sm">
+                      <span className="font-medium">{p.product}</span>
+                      {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="text-sm font-bold tabular-nums text-brand">{p.pallets}п</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Level 2: positions of selected product+country */}
       <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
