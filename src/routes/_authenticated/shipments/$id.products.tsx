@@ -367,6 +367,10 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       value={value}
       list={list}
       placeholder={focused ? "" : placeholder}
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
         setFocused(true);
