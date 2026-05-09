@@ -29,6 +29,8 @@ interface PlanRow {
   caliber: string | null;
   country: string | null;
   planned_pallets: number;
+  count_existing: boolean;
+  created_at: string;
 }
 
 function ManagerDashboard() {
