@@ -140,24 +140,30 @@ function ManagerDashboard() {
           icon={<AlertTriangle className="h-5 w-5" />}
           tone="danger"
           pulse={(data?.urgent.ships ?? 0) > 0}
+          to="/distribution"
+          hash="urgent"
         />
 
-        <div className="h-full rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
-            <CheckCircle2 className="h-5 w-5" />
+        <Link to="/distribution" hash="done" className="block h-full">
+          <div className="h-full rounded-2xl border border-transparent bg-emerald-500 p-4 text-white shadow-card transition active:scale-[0.98]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wide opacity-90">Розподілено</span>
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div className="mt-2 text-2xl font-black tracking-tight">
+              {`${data?.distributed.ships ?? 0}(${data?.distributed.pallets ?? 0}п)`}
+            </div>
+            <div className="mt-1 text-xs opacity-80">Розподілені палети</div>
           </div>
-          <div className="mt-2 text-2xl font-black tracking-tight">
-            {`${data?.distributed.ships ?? 0}(${data?.distributed.pallets ?? 0}п)`}
-          </div>
-          <div className="mt-1 text-xs opacity-80">Розподілені палети</div>
-        </div>
+        </Link>
 
         <StatCard
           label="Не розподілено"
           value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
           hint="Очікують розподілу"
           icon={<Package className="h-4 w-4" />}
+          to="/distribution"
+          hash="not"
         />
 
         <StatCard
@@ -169,24 +175,6 @@ function ManagerDashboard() {
           to="/branch-requests"
         />
       </div>
-
-      {(data?.urgent.list?.length ?? 0) > 0 && (
-        <SectionCard title="24 години — терміново">
-          <ShipList rows={data!.urgent.list} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />
-        </SectionCard>
-      )}
-
-      {(data?.notDist.list?.length ?? 0) > 0 && (
-        <SectionCard title="Нерозподілено">
-          <ShipList rows={data!.notDist.list} icon={<Package className="h-4 w-4" />} />
-        </SectionCard>
-      )}
-
-      {(data?.distributed.list?.length ?? 0) > 0 && (
-        <SectionCard title="Розподілено">
-          <ShipList rows={data!.distributed.list} tone="brand" icon={<CheckCircle2 className="h-4 w-4" />} />
-        </SectionCard>
-      )}
 
       <SectionCard title="План завантажень">
         {!data?.plan?.length ? (
