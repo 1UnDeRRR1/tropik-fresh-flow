@@ -390,8 +390,8 @@ function DistributionMatrix() {
       </SectionCard>
       </div>
 
-      {/* Sticky save bar (mobile) */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
+      {/* Sticky save bar (mobile) — sits above bottom nav */}
+      <div className="fixed inset-x-0 bottom-16 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur md:hidden pb-safe">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3">
           <div className="text-[11px] text-muted-foreground">
             {dirty ? "Незбережені зміни" : "Все збережено"}
