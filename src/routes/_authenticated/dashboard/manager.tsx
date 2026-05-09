@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
@@ -28,10 +29,28 @@ interface PlanRow {
   caliber: string | null;
   country: string | null;
   planned_pallets: number;
+  count_existing: boolean;
+  created_at: string;
 }
 
 function ManagerDashboard() {
   const { user, profile } = useAuth();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel("loading-plan-manager")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "loading_plan" },
+        () => qc.invalidateQueries({ queryKey: ["dash-manager", user.id] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, user?.id]);
 
   const { data } = useQuery({
     enabled: !!user?.id,
@@ -50,10 +69,10 @@ function ManagerDashboard() {
         supabase.from("branch_requests").select("id").eq("status", "pending"),
         supabase
           .from("loading_plan")
-          .select("id,product_name,caliber,country,planned_pallets")
+          .select("id,product_name,caliber,country,planned_pallets,count_existing,created_at")
           .eq("is_active", true)
           .order("created_at", { ascending: false }),
-        supabase.from("shipment_items").select("product_name,caliber,pallet_count,shipments(country)"),
+        supabase.from("shipment_items").select("product_name,caliber,pallet_count,shipments(country,created_at)"),
       ]);
 
       const ships = (shipsRes.data ?? []) as ShipRow[];
@@ -62,7 +81,7 @@ function ManagerDashboard() {
         product_name: string;
         caliber: string | null;
         pallet_count: number | null;
-        shipments: { country: string | null } | null;
+        shipments: { country: string | null; created_at: string | null } | null;
       }>;
 
       const stats = ships.map((s) => {
@@ -88,6 +107,10 @@ function ManagerDashboard() {
             if ((it.product_name ?? "").trim().toLowerCase() !== p.product_name.trim().toLowerCase()) return false;
             if (p.caliber && (it.caliber ?? "").trim().toLowerCase() !== p.caliber.trim().toLowerCase()) return false;
             if (p.country && (it.shipments?.country ?? "").trim().toLowerCase() !== p.country.trim().toLowerCase()) return false;
+            if (!p.count_existing) {
+              const sCreated = it.shipments?.created_at;
+              if (!sCreated || sCreated < p.created_at) return false;
+            }
             return true;
           })
           .reduce((a, x) => a + Number(x.pallet_count ?? 0), 0);
