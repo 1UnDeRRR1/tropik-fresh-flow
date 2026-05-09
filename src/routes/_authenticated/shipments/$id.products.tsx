@@ -220,7 +220,10 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
   );
 }
 
-function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipmentId: string; products: ProductRef[] }) {
+const MAX_PALLETS = 26;
+const MAX_WEIGHT_KG = 21500;
+
+function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number }) {
   const qc = useQueryClient();
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
