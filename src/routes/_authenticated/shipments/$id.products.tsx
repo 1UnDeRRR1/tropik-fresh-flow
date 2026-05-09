@@ -257,28 +257,28 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
 
   return (
     <tr className="border-b border-border/40">
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.product_name} placeholder="Товар" onChange={(v) => set("product_name", v)} className="font-medium" list="products-list" />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.product_name} placeholder="Товар" onChange={(v) => set("product_name", v)} className="font-medium" list="products-list" expandedMinWidth={180} />
         <datalist id="products-list">
           {products.map((p) => <option key={p.name} value={p.name} />)}
         </datalist>
       </td>
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="relative px-0.5 py-0.5">
         <SelectCell value={form.origin_country} options={ORIGIN_COUNTRIES} onChange={(v) => set("origin_country", v)} />
       </td>
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} />
       </td>
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="relative px-0.5 py-0.5">
         <NumCell value={form.pallet_count} onChange={(v) => set("pallet_count", v)} />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="relative px-0.5 py-0.5">
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
@@ -298,7 +298,9 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
   );
 }
 
-function CellInput({ value, onChange, placeholder, className, list }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string }) {
+const EXPANDED = "absolute left-0 top-[calc(100%+4px)] z-30 h-10 min-w-[140px] w-max max-w-[80vw] border-input bg-background text-sm shadow-lg ring-2 ring-brand/40";
+
+function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number }) {
   const [focused, setFocused] = useState(false);
   return (
     <Input
@@ -311,17 +313,28 @@ function CellInput({ value, onChange, placeholder, className, list }: { value: s
         e.currentTarget.select();
       }}
       onBlur={() => setFocused(false)}
-      className={cn("h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background", className)}
+      style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
+      className={cn(
+        "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
+        focused && EXPANDED,
+        className,
+      )}
     />
   );
 }
 
 function SelectCell({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  const [focused, setFocused] = useState(false);
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-8 w-full rounded-md border border-transparent bg-transparent px-1 text-[12px] focus:border-input focus:bg-background"
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      className={cn(
+        "h-8 w-full rounded-md border border-transparent bg-transparent px-1 text-[12px] focus:border-input focus:bg-background",
+        focused && EXPANDED + " rounded-md px-2",
+      )}
     >
       <option value="">—</option>
       {options.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -352,7 +365,10 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
         setText(v);
         onChange(v === "" ? 0 : Number(v));
       }}
-      className="h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background"
+      className={cn(
+        "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
+        focused && EXPANDED + " text-right",
+      )}
     />
   );
 }
@@ -376,7 +392,10 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         onFocus={(e) => { setFocused(true); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}
         onChange={(e) => { setText(e.target.value); onValueChange(e.target.value === "" ? 0 : Number(e.target.value)); }}
-        className="h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background"
+        className={cn(
+          "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
+          focused && EXPANDED + " text-right",
+        )}
       />
       <select
         value={currency}
