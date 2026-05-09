@@ -196,7 +196,7 @@ function BranchRequestsPage() {
       }
       const { error: re } = await supabase
         .from("branch_requests")
-        .update({ status: "approved", approved_qty: pallets })
+        .update({ status: "approved", approved_qty: pallets, updated_at: new Date().toISOString() })
         .eq("id", r.id);
       if (re) throw re;
       toast.success(
