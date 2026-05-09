@@ -194,7 +194,19 @@ function BranchDashboard() {
                     <td className="px-2 py-2 font-medium">{r.product}</td>
                     <td className="px-2 py-2 text-muted-foreground">{r.country ? toUaCountry(r.country) : "—"}</td>
                     <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.pallets}п</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums">
+                      {(() => {
+                        const s = statsFor(r);
+                        return s.pending > 0 ? (
+                          <span>
+                            {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
+                            <span className="text-primary">{s.pending}п</span>
+                          </span>
+                        ) : (
+                          <span>{s.free}п</span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-2 py-2 text-right font-bold tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
                     <td className="px-2 py-2 text-right">
                       <CostPair indicative={r.indicative} invoice={r.invoice} suffix="/кг" size="xs" />
