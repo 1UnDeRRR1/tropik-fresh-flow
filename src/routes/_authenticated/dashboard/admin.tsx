@@ -46,7 +46,7 @@ function AdminDashboard() {
         supabase
           .from("shipments")
           .select(
-            "id,code,eta,status,country,created_by,shipment_items(id,product_name,pallet_count),distributions(branch_id,distribution_items(pallets,shipment_item_id))",
+            "id,code,eta,arrived_at,status,country,created_by,shipment_items(id,product_name,pallet_count,origin_country),distributions(branch_id,distribution_items(pallets,shipment_item_id))",
           )
           .order("eta", { ascending: true })
           .limit(500),
@@ -61,12 +61,24 @@ function AdminDashboard() {
         profiles.find((p) => p.id === id)?.full_name ?? "—";
       const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? "—";
 
-      const active = ships.filter((s) => !["completed", "cancelled"].includes(s.status));
+      // Unified active filter (matches Analytics): status not closed, arrival day still valid
+      const active = ships.filter((s) => {
+        if (["completed", "cancelled"].includes(s.status)) return false;
+        const arrival = s.arrived_at ?? s.eta;
+        return !!arrival && arrival >= isoToday;
+      });
+
+      // Per-item validity (matches Analytics)
+      const validItems = (s: ShipRow) =>
+        (s.shipment_items ?? []).filter(
+          (i) => (i.product_name || "").trim() && Number(i.pallet_count ?? 0) > 0,
+        );
 
       const urgent = active
-        .filter((s) => s.eta && s.eta >= isoToday && s.eta <= iso24h)
+        .filter((s) => s.eta && s.eta <= iso24h)
         .map((s) => {
-          const planned = s.shipment_items.reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
+          const items = validItems(s);
+          const planned = items.reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
           const distributed = s.distributions.reduce(
             (a, d) => a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
             0,
@@ -75,31 +87,29 @@ function AdminDashboard() {
         })
         .filter((x) => x.undistributed > 0);
 
-      const transit = active
-        .filter((s) => s.eta && s.eta >= isoToday)
-        .map((s) => {
-          const pallets = s.shipment_items.reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
-          const products = Array.from(new Set(s.shipment_items.map((i) => i.product_name))).join(", ");
-          return { s, pallets, products };
-        });
+      const transit = active.map((s) => {
+        const items = validItems(s);
+        const pallets = items.reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
+        return { s, items, pallets };
+      }).filter((x) => x.items.length > 0);
 
       // Products in transit, distributed to at least one branch.
-      // Group key: product_name + country
+      // Group key: product_name + country (origin_country ?? shipment.country) — matches Analytics
       type ProdAgg = {
         product: string;
         country: string;
         branches: Record<string, number>; // branchName -> pallets
       };
       const byProduct = new Map<string, ProdAgg>();
-      for (const { s } of transit) {
-        const country = toUaCountry(s.country);
-        const itemMap = new Map(s.shipment_items.map((i) => [i.id, i]));
+      for (const { s, items } of transit) {
+        const itemMap = new Map(items.map((i) => [i.id, i]));
         for (const d of s.distributions) {
           for (const di of d.distribution_items ?? []) {
             const it = itemMap.get(di.shipment_item_id);
             if (!it) continue;
             const pallets = Number(di.pallets ?? 0);
             if (pallets <= 0) continue;
+            const country = toUaCountry(it.origin_country || s.country);
             const key = `${it.product_name}|${country}`;
             const entry =
               byProduct.get(key) ??
@@ -130,32 +140,23 @@ function AdminDashboard() {
           pallets: transit.reduce((a, x) => a + x.pallets, 0),
           list: transit
             .flatMap((x) => {
-              const byProd = new Map<string, number>();
-              for (const it of x.s.shipment_items) {
-                const p = Number(it.pallet_count ?? 0);
-                byProd.set(it.product_name, (byProd.get(it.product_name) ?? 0) + p);
-              }
-              const country = toUaCountry(x.s.country);
               const manager = profileName(x.s.created_by);
-              const entries = Array.from(byProd.entries());
-              if (entries.length === 0) {
-                return [{
-                  key: x.s.code,
-                  product: "—",
-                  country,
-                  code: x.s.code,
-                  eta: x.s.eta,
-                  pallets: 0,
-                  manager,
-                }];
+              // group items per (product+country) within shipment — matches Analytics grouping
+              const byProd = new Map<string, { product: string; country: string; pallets: number }>();
+              for (const it of x.items) {
+                const country = toUaCountry(it.origin_country || x.s.country);
+                const k = `${it.product_name}|${country}`;
+                const prev = byProd.get(k) ?? { product: it.product_name, country, pallets: 0 };
+                prev.pallets += Number(it.pallet_count ?? 0);
+                byProd.set(k, prev);
               }
-              return entries.map(([product, pallets]) => ({
-                key: `${x.s.code}-${product}`,
-                product,
-                country,
+              return Array.from(byProd.values()).map((e) => ({
+                key: `${x.s.code}-${e.product}-${e.country}`,
+                product: e.product,
+                country: e.country,
                 code: x.s.code,
                 eta: x.s.eta,
-                pallets,
+                pallets: e.pallets,
                 manager,
               }));
             })
