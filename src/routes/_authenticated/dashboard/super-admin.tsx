@@ -34,12 +34,12 @@ function SuperAdminDashboard() {
     <div className="space-y-5">
       <PageHeader title="Супер-адмін" subtitle="Повний контроль системи" />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Користувачів" value={data?.userCount ?? 0} icon={<Users className="h-4 w-4" />} tone="primary" />
         <StatCard label="Ролей призначено" value={data?.roleCount ?? 0} icon={<Shield className="h-4 w-4" />} tone="brand" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link to="/suppliers" className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <div className="text-sm font-semibold">Постачальники</div>
           <div className="text-xs text-muted-foreground">Управління</div>

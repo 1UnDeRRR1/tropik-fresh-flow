@@ -35,18 +35,47 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
+  const isActive = (to: string, label: string) =>
+    pathname === to ||
+    (to !== "/" && pathname.startsWith(to)) ||
+    (label === "Головна" && pathname.startsWith("/dashboard"));
+
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between gap-3 px-4 pt-safe">
-          <Link to={dashHref} aria-label="TROPIK" className="flex items-center">
-            <img
-              src={logoSrc}
-              alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
-              className="h-12 w-auto object-contain"
-              draggable={false}
-            />
-          </Link>
+        <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 pt-safe md:px-6 lg:px-10">
+          <div className="flex items-center gap-3 lg:gap-4">
+            <Link to={dashHref} aria-label="TROPIK" className="flex items-center">
+              <img
+                src={logoSrc}
+                alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
+                className="h-12 w-auto object-contain"
+                draggable={false}
+              />
+            </Link>
+            {/* Top nav for tablet/desktop */}
+            <nav className="hidden md:flex md:items-center md:gap-1 lg:gap-2">
+              {items.map((it) => {
+                const active = isActive(it.to, it.label);
+                const Icon = it.icon;
+                return (
+                  <Link
+                    key={it.to}
+                    to={it.to}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
+                      active
+                        ? "bg-secondary text-brand"
+                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4", active && "stroke-[2.4]")} />
+                    <span>{it.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
           <div className="flex items-center gap-2">
             {primaryRole && (
               <div className="text-right leading-tight">
@@ -69,15 +98,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 pb-28 pt-4">{children}</main>
+      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10">
+        {children}
+      </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe">
+      {/* Bottom nav: mobile only */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe md:hidden">
         <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
           {items.map((it) => {
-            const active =
-              pathname === it.to ||
-              (it.to !== "/" && pathname.startsWith(it.to)) ||
-              (it.label === "Головна" && pathname.startsWith("/dashboard"));
+            const active = isActive(it.to, it.label);
             const Icon = it.icon;
             return (
               <Link
@@ -111,7 +140,7 @@ export function PageHeader({
   return (
     <div className="mb-5 flex items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-black tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-black tracking-tight md:text-3xl">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {action}

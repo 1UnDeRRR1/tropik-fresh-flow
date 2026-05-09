@@ -145,7 +145,7 @@ function ManagerDashboard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 [&>a]:block [&>a>div]:h-full [&>div]:h-full">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 [&>a]:block [&>a>div]:h-full [&>div]:h-full">
         <StatCard
           label="24Г не розподілено"
           value={`${data?.urgent.ships ?? 0}(${data?.urgent.pallets ?? 0}п)`}
