@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/admin")({
   component: AdminDashboard,
 });
 
-type Detail = "urgent" | "transit" | "products" | null;
+type Detail = "urgent" | "transit" | "products" | "branches" | null;
 
 interface ShipRow {
   id: string;
@@ -50,7 +50,7 @@ function AdminDashboard() {
           )
           .order("eta", { ascending: true })
           .limit(500),
-        supabase.from("branches").select("id,name").order("sort_order"),
+        supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase.from("profiles").select("id,full_name"),
       ]);
 
@@ -124,6 +124,45 @@ function AdminDashboard() {
         a.product.localeCompare(b.product, "uk"),
       );
 
+      // Group by branch (in branch sort order) -> products alphabetical
+      type BranchAgg = {
+        branchId: string;
+        branchName: string;
+        products: Map<string, { product: string; country: string; pallets: number }>;
+      };
+      const byBranch = new Map<string, BranchAgg>();
+      for (const { s, items } of transit) {
+        const itemMap = new Map(items.map((i) => [i.id, i]));
+        for (const d of s.distributions) {
+          for (const di of d.distribution_items ?? []) {
+            const it = itemMap.get(di.shipment_item_id);
+            if (!it) continue;
+            const pallets = Number(di.pallets ?? 0);
+            if (pallets <= 0) continue;
+            const country = toUaCountry(it.origin_country || s.country);
+            const entry =
+              byBranch.get(d.branch_id) ??
+              { branchId: d.branch_id, branchName: branchName(d.branch_id), products: new Map() };
+            const k = `${it.product_name}|${country}`;
+            const prev = entry.products.get(k) ?? { product: it.product_name, country, pallets: 0 };
+            prev.pallets += pallets;
+            entry.products.set(k, prev);
+            byBranch.set(d.branch_id, entry);
+          }
+        }
+      }
+      const branchOrder = new Map(branches.map((b, i) => [b.id, i]));
+      const branchList = Array.from(byBranch.values())
+        .sort((a, b) => (branchOrder.get(a.branchId) ?? 999) - (branchOrder.get(b.branchId) ?? 999))
+        .map((b) => ({
+          branchId: b.branchId,
+          branchName: b.branchName,
+          products: Array.from(b.products.values()).sort((a, b) =>
+            a.product.localeCompare(b.product, "uk"),
+          ),
+          totalPallets: Array.from(b.products.values()).reduce((a, p) => a + p.pallets, 0),
+        }));
+
       return {
         urgent: {
           count: urgent.length,
@@ -163,6 +202,7 @@ function AdminDashboard() {
             .sort((a, b) => a.product.localeCompare(b.product, "uk")),
         },
         products: productList,
+        branches: branchList,
         branchCount: branches.length,
       };
     },
@@ -199,13 +239,15 @@ function AdminDashboard() {
             tone="success"
           />
         </button>
-        <StatCard
-          label="Філії"
-          value={data?.branchCount ?? 0}
-          hint="Усього"
-          icon={<Building2 className="h-5 w-5" />}
-          tone="warning"
-        />
+        <button type="button" onClick={() => setDetail("branches")} className="text-left">
+          <StatCard
+            label="Філія товари"
+            value={data?.branchCount ?? 0}
+            hint="Розподілено по філіям"
+            icon={<Building2 className="h-5 w-5" />}
+            tone="warning"
+          />
+        </button>
         <button type="button" onClick={() => setDetail("products")} className="text-left">
           <StatCard
             label="Товари по філіям"
@@ -322,6 +364,48 @@ function AdminDashboard() {
                               </span>
                             </li>
                           ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {detail === "branches" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Філія товари</DialogTitle>
+              </DialogHeader>
+              {(data?.branches ?? []).length === 0 ? (
+                <EmptyState title="Розподілених товарів в дорозі немає" />
+              ) : (
+                <div className="space-y-4">
+                  {data!.branches.map((b) => (
+                    <div key={b.branchId}>
+                      <div className="mb-1 flex items-center justify-between text-sm font-bold">
+                        <span>{b.branchName}</span>
+                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-bold text-foreground">
+                          {b.totalPallets}п
+                        </span>
+                      </div>
+                      <ul className="divide-y divide-border rounded-xl border border-border">
+                        {b.products.map((p) => (
+                          <li
+                            key={`${p.product}-${p.country}`}
+                            className="flex items-center justify-between px-3 py-2 text-sm"
+                          >
+                            <span className="truncate">
+                              {p.product}
+                              {p.country && (
+                                <span className="text-muted-foreground"> • {p.country}</span>
+                              )}
+                            </span>
+                            <span className="shrink-0 rounded-full bg-info/15 px-2 py-0.5 text-xs font-bold text-info">
+                              {p.pallets}п
+                            </span>
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   ))}
