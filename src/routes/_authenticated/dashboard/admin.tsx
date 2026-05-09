@@ -149,7 +149,8 @@ function AdminDashboard() {
   });
 
   // group urgent by manager
-  const urgentByManager = (data?.urgent.list ?? []).reduce<Record<string, typeof data.urgent.list>>(
+  type UrgentRow = { code: string; eta: string | null; pallets: number; manager: string };
+  const urgentByManager = (data?.urgent.list ?? []).reduce<Record<string, UrgentRow[]>>(
     (acc, x) => {
       (acc[x.manager] ??= []).push(x);
       return acc;
