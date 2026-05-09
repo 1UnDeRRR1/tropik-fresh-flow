@@ -343,6 +343,15 @@ function BranchRequestsPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Sheet open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="text-left">
+            <SheetTitle>Деталі заявки</SheetTitle>
+          </SheetHeader>
+          {detail && <DetailContent row={detail} />}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
