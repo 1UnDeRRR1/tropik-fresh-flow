@@ -141,6 +141,10 @@ export function AutocompleteCell({
         ref={inputRef}
         value={value}
         placeholder={focused ? "" : placeholder}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
         onFocus={(e) => {
           setFocused(true);
