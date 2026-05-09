@@ -25,6 +25,8 @@ type Row = {
   caliber: string;
   pallets: number;
   weight: number;
+  indicative: number | null;
+  invoice: number | null;
 };
 
 const fmtEta = (eta: string | null) =>
