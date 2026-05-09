@@ -56,7 +56,7 @@ function BranchRequestsPage() {
     queryFn: async () => {
       const { data: reqs, error } = await supabase
         .from("branch_requests")
-        .select("id,status,pallets,approved_qty,sale_price,sale_currency,created_at,branch_id,shipment_id,shipment_item_id")
+        .select("id,status,pallets,approved_qty,sale_price,sale_currency,created_at,updated_at,branch_id,shipment_id,shipment_item_id")
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
