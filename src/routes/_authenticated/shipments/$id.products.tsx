@@ -182,8 +182,17 @@ function ProductsFullscreen() {
       </div>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <Link to="/shipments/$id" params={{ id }} className="block">
-          <Button className="w-full bg-brand text-brand-foreground hover:bg-brand/90">Готово</Button>
+        <Link to="/shipments/$id" params={{ id }} className="block" onClick={blockExit}>
+          <Button
+            className={cn(
+              "w-full",
+              missingPriceCount > 0
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "bg-brand text-brand-foreground hover:bg-brand/90",
+            )}
+          >
+            {missingPriceCount > 0 ? `Заповніть ціну (${missingPriceCount})` : "Готово"}
+          </Button>
         </Link>
       </footer>
     </div>
