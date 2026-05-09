@@ -108,7 +108,6 @@ function LoadingPlanAdmin() {
     return loaded
       .filter((it) => {
         if (it.product_name?.trim().toLowerCase() !== row.product_name.trim().toLowerCase()) return false;
-        if (row.caliber && (it.caliber ?? "").trim().toLowerCase() !== row.caliber.trim().toLowerCase()) return false;
         if (row.country && (it.shipments?.country ?? "").trim().toLowerCase() !== row.country.trim().toLowerCase()) return false;
         if (!row.count_existing) {
           const sCreated = it.shipments?.created_at;
