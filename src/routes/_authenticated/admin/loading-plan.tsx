@@ -184,8 +184,22 @@ function LoadingPlanAdmin() {
               return (
                 <li key={p.id} className="py-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedPlan({
+                          id: p.id,
+                          product_name: p.product_name,
+                          country: p.country,
+                          caliber: p.caliber,
+                          planned_pallets: Number(p.planned_pallets),
+                          count_existing: p.count_existing,
+                          created_at: p.created_at,
+                        })
+                      }
+                      className="min-w-0 flex-1 text-left transition active:scale-[0.99]"
+                    >
+                      <div className="text-sm font-semibold underline-offset-2 hover:underline">
                         {p.product_name}
                         {p.caliber ? ` ${p.caliber}` : ""}
                       </div>
@@ -197,7 +211,7 @@ function LoadingPlanAdmin() {
                           ? "Враховує вже завантажений товар"
                           : "Тільки нові завантаження після створення позиції"}
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-bold ${
