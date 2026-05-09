@@ -62,6 +62,44 @@ function BranchDashboard() {
     },
   });
 
+  const { data: outOffers } = useQuery({
+    queryKey: ["branch-outgoing-offers", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("branch_transfer_offers")
+        .select("shipment_item_id,distribution_id,status,offered_pallets,accepted_pallets")
+        .eq("from_branch_id", branchId!);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        shipment_item_id: string;
+        distribution_id: string;
+        status: string;
+        offered_pallets: number;
+        accepted_pallets: number;
+      }>;
+    },
+  });
+
+  const offerStats = useMemo(() => {
+    const m = new Map<string, { pending: number; accepted: number }>();
+    (outOffers ?? []).forEach((o) => {
+      const k = `${o.distribution_id}-${o.shipment_item_id}`;
+      const cur = m.get(k) ?? { pending: 0, accepted: 0 };
+      if (o.status === "pending") cur.pending += Number(o.offered_pallets || 0);
+      if (o.status === "accepted" || o.status === "partially_accepted")
+        cur.accepted += Number(o.accepted_pallets || 0);
+      m.set(k, cur);
+    });
+    return m;
+  }, [outOffers]);
+
+  const statsFor = (r: { distribution_id: string; shipment_item_id: string; pallets: number }) => {
+    const s = offerStats.get(`${r.distribution_id}-${r.shipment_item_id}`) ?? { pending: 0, accepted: 0 };
+    const free = Math.max(0, r.pallets - s.pending - s.accepted);
+    return { pending: s.pending, accepted: s.accepted, free };
+  };
+
   const rows: Row[] = useMemo(
     () =>
       (data ?? []).flatMap((d) =>
