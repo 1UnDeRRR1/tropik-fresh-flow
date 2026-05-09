@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
@@ -18,8 +18,9 @@ export const Route = createFileRoute("/_authenticated/shipments/")({
 
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
+  const qc = useQueryClient();
 
   const { data } = useQuery({
     queryKey: ["shipments-list"],
@@ -104,6 +105,7 @@ function ShipmentsList() {
                   <th className="px-2 py-2 text-right">Факт</th>
                   <th className="px-2 py-2 text-right">Розпод.</th>
                   <th className="px-2 py-2 text-right">Залиш.</th>
+                  <th className="px-2 py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -115,6 +117,7 @@ function ShipmentsList() {
                       : s.isSoon
                         ? "bg-warning/5"
                         : "";
+                  const isOwner = !!user && s.import_manager_id === user.id;
                   return (
                     <tr key={s.id} className={cn("border-t border-border", tone)}>
                       <td className="sticky left-0 z-10 bg-card py-2 pr-2">
@@ -132,6 +135,15 @@ function ShipmentsList() {
                       <td className="px-2 py-2 text-right tabular-nums font-semibold text-brand">{s.dist}</td>
                       <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining < 0 ? "text-destructive" : s.remaining === 0 ? "text-success" : "")}>
                         {s.remaining}
+                      </td>
+                      <td className="px-1 py-2">
+                        {isOwner && (
+                          <RowActions
+                            shipmentId={s.id}
+                            code={s.code}
+                            onChanged={() => qc.invalidateQueries({ queryKey: ["shipments-list"] })}
+                          />
+                        )}
                       </td>
                     </tr>
                   );
@@ -163,6 +175,66 @@ function FilterPill({ active, children, onClick }: { active: boolean; children: 
     >
       {children}
     </button>
+  );
+}
+
+function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code: string; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const onDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!confirm(`Видалити поставку ${code}? Цю дію неможливо скасувати.`)) return;
+    const { error } = await supabase.from("shipments").delete().eq("id", shipmentId);
+    if (error) return toast.error(error.message);
+    toast.success("Поставку видалено");
+    onChanged();
+  };
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-label="Дії"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-36 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              navigate({ to: "/shipments/$id", params: { id: shipmentId } });
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Редагувати
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Видалити
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -180,6 +180,9 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
   );
   const [cur, setCur] = useState<string>(shipment.logistics_cost_currency ?? "EUR");
   const dirty = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isEmpty = val === "" || Number(val) <= 0;
 
   useEffect(() => {
     if (!dirty.current) return;
@@ -198,21 +201,40 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
   }, [val, cur, shipment.id, qc]);
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Перевезення авто</span>
+    <div className={cn(
+      "flex items-center gap-2 border-b px-3 py-1.5 transition-colors",
+      isEmpty ? "border-destructive bg-destructive/10" : "border-border bg-muted/40",
+    )}>
+      <span className={cn(
+        "text-[11px] font-semibold uppercase tracking-wide",
+        isEmpty ? "text-destructive" : "text-muted-foreground",
+      )}>
+        Перевезення авто {isEmpty && "*"}
+      </span>
       <Input
+        ref={inputRef}
         type="number"
         inputMode="decimal"
         step="0.01"
-        placeholder="0"
+        placeholder="Обов'язково"
         value={val}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
+        onBlur={(e) => {
+          if (isEmpty) {
+            e.preventDefault();
+            toast.error("Вкажіть вартість перевезення");
+            setTimeout(() => inputRef.current?.focus(), 0);
+          }
+        }}
         onChange={(e) => { dirty.current = true; setVal(e.target.value); }}
-        className="h-7 flex-1 px-2 text-[12px]"
+        className={cn(
+          "h-7 flex-1 px-2 text-[12px]",
+          isEmpty && "border-destructive bg-destructive/15 ring-2 ring-destructive/60",
+        )}
       />
       <select
         value={cur}
