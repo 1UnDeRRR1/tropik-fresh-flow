@@ -357,8 +357,7 @@ function DistributionMatrix() {
                         {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-2 text-[10px]">
-                        <span className="font-bold text-success">ІНД ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг</span>
-                        <span className="font-bold text-destructive">ІНВ ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг</span>
+                        <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" size="xs" />
                       </div>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{t.total}</td>
