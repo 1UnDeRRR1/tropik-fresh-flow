@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { COUNTRIES } from "@/lib/arrival";
 import { countLoadedPallets } from "@/lib/loading-plan";
+import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/loading-plan")({
   component: LoadingPlanAdmin,
