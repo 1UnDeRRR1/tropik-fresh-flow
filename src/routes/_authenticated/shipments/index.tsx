@@ -130,7 +130,17 @@ function ShipmentsList() {
                       <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
                         {s.eta ?? "—"}
                       </td>
-                      <td className="px-2 py-2"><StatusChip status={s.status} /></td>
+                      <td className="px-2 py-2">
+                        {s.fact > 0 && s.remaining === 0 ? (
+                          <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
+                        ) : s.fact > 0 && s.dist === 0 ? (
+                          <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive">Не розподілено</span>
+                        ) : s.dist > 0 && s.remaining > 0 ? (
+                          <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">Дорозподіл</span>
+                        ) : (
+                          <StatusChip status={s.status} />
+                        )}
+                      </td>
                       <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
                       <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : "text-destructive")}>{s.dist}</td>
                       <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : "text-destructive")}>
