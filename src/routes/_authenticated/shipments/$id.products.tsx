@@ -123,14 +123,22 @@ function ProductsFullscreen() {
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
-          onClick={() => navigate({ to: "/shipments/$id", params: { id } })}
+          onClick={() => {
+            if (missingPriceCount > 0) {
+              toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
+              return;
+            }
+            navigate({ to: "/shipments/$id", params: { id } });
+          }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{country} · {items.length} поз.</div>
+          <div className={cn("truncate text-[10px] uppercase tracking-wide", missingPriceCount > 0 ? "text-destructive" : "text-muted-foreground")}>
+            {country} · {items.length} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
+          </div>
         </div>
         <Button size="sm" onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
           <Plus className="h-4 w-4" />
