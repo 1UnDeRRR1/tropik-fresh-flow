@@ -262,16 +262,26 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
   return (
     <tr className="border-b border-border/40">
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.product_name} placeholder="Товар" onChange={(v) => set("product_name", v)} className="font-medium" list="products-list" expandedMinWidth={180} />
-        <datalist id="products-list">
-          {products.map((p) => <option key={p.name} value={p.name} />)}
-        </datalist>
+        <AutocompleteCell
+          value={form.product_name}
+          onChange={(v) => set("product_name", v)}
+          options={products.map((p) => p.name)}
+          placeholder="Товар"
+          className="font-medium"
+          expandedMinWidth={200}
+        />
       </td>
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <SelectCell value={form.origin_country} options={ORIGIN_COUNTRIES} onChange={(v) => set("origin_country", v)} />
+        <AutocompleteCell
+          value={form.origin_country}
+          onChange={(v) => set("origin_country", v)}
+          options={COUNTRY_OPTIONS}
+          placeholder="Країна"
+          expandedMinWidth={180}
+        />
       </td>
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} />
