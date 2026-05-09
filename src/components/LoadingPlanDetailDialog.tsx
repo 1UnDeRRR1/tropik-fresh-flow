@@ -32,9 +32,19 @@ interface LoadedRow {
     code: string | null;
     country: string | null;
     created_at: string | null;
+    eta: string | null;
     suppliers: { name: string | null } | null;
-    vehicles: { code: string | null } | null;
+    vehicles: { code: string | null; eta: string | null } | null;
   } | null;
+}
+
+function formatEta(value: string | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}.${mm}`;
 }
 
 export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
@@ -45,7 +55,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
       const { data } = await supabase
         .from("shipment_items")
         .select(
-          "shipment_id,product_name,origin_country,pallet_count,created_at,shipments(code,country,created_at,suppliers(name),vehicles(code))",
+          "shipment_id,product_name,origin_country,pallet_count,created_at,shipments(code,country,created_at,eta,suppliers(name),vehicles(code,eta))",
         );
       return (data ?? []) as LoadedRow[];
     },
@@ -83,6 +93,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
               const code = m.shipments?.code ?? "—";
               const supplier = m.shipments?.suppliers?.name ?? "—";
               const country = m.origin_country ?? m.shipments?.country ?? "";
+              const eta = formatEta(m.shipments?.eta ?? m.shipments?.vehicles?.eta ?? null);
               return (
                 <li key={`${m.shipment_id}-${idx}`} className="py-2.5">
                   <Link
@@ -99,6 +110,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
                       <div className="text-xs text-muted-foreground">
                         {supplier}
                         {country ? ` · ${country}` : ""}
+                        {eta ? ` · ETA ${eta}` : ""}
                       </div>
                     </div>
                     <span className="shrink-0 rounded-full bg-brand/15 px-2 py-0.5 text-xs font-bold text-brand">
