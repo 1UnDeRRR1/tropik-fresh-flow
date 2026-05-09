@@ -122,31 +122,18 @@ function BranchDashboard() {
         <EmptyState title="Поки немає вхідних поставок" />
       ) : (
         <SectionCard title="Вхідні позиції">
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl border border-border bg-background/40 p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Палет всього</div>
-              <div className="text-2xl font-bold tabular-nums">{totalPallets}</div>
-            </div>
-            <div className="rounded-xl border border-border bg-background/40 p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Вага всього</div>
-              <div className="text-2xl font-bold tabular-nums">
-                {totalWeight.toLocaleString("uk-UA")} <span className="text-sm font-medium text-muted-foreground">кг</span>
-              </div>
-            </div>
-          </div>
-
           <div className="-mx-2 overflow-x-auto">
-            <table className="w-full min-w-[680px] text-xs">
+            <table className="w-full min-w-[720px] text-xs">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="px-2 py-2 font-medium">Прибуття</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
                   <th className="px-2 py-2 font-medium">Товар</th>
                   <th className="px-2 py-2 font-medium">Країна</th>
                   <th className="px-2 py-2 font-medium">Калібр</th>
                   <th className="px-2 py-2 text-right font-medium">Палет</th>
                   <th className="px-2 py-2 text-right font-medium">Вага</th>
-                  <th className="px-2 py-2 font-medium">Прибуття</th>
-                  <th className="px-2 py-2 font-medium">Статус</th>
+                  <th className="px-2 py-2 text-right font-medium">Ціна</th>
                   <th className="w-6" />
                 </tr>
               </thead>
@@ -157,15 +144,15 @@ function BranchDashboard() {
                     onClick={() => setDrill({ product: r.product, country: r.country })}
                     className="cursor-pointer hover:bg-muted/40 active:bg-muted/60"
                   >
+                    <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtEta(r.eta)}</td>
                     <td className="px-2 py-2 font-mono text-[11px] font-semibold">{r.code}</td>
                     <td className="px-2 py-2 font-medium">{r.product}</td>
                     <td className="px-2 py-2 text-muted-foreground">{r.country ? toUaCountry(r.country) : "—"}</td>
                     <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
                     <td className="px-2 py-2 text-right font-bold tabular-nums">{r.pallets}п</td>
                     <td className="px-2 py-2 text-right font-bold tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
-                    <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtEta(r.eta)}</td>
-                    <td className="px-2 py-2">
-                      <StatusChip status={r.status} kind="distribution" />
+                    <td className="px-2 py-2 text-right">
+                      <CostPair indicative={r.indicative} invoice={r.invoice} suffix="/кг" size="xs" />
                     </td>
                     <td className="px-1 py-2 text-muted-foreground">
                       <ChevronRight className="h-4 w-4" />
