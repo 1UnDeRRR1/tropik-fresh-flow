@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
@@ -101,7 +101,7 @@ function ShipmentsList() {
                   <th className="px-2 py-2">Країна</th>
                   <th className="px-2 py-2">ETA</th>
                   <th className="px-2 py-2">Статус</th>
-                  <th className="px-2 py-2 text-right">FACT</th>
+                  <th className="px-2 py-2 text-right">Факт</th>
                   <th className="px-2 py-2 text-right">Розпод.</th>
                   <th className="px-2 py-2 text-right">Залиш.</th>
                 </tr>
@@ -174,16 +174,18 @@ type OpenVehicleRow = {
   eta: string | null;
   total_pallets: number;
   total_weight_kg: number;
-  shipments: { suppliers: { name: string | null } | null }[] | null;
+  shipments: { id: string; import_manager_id: string | null; suppliers: { name: string | null } | null }[] | null;
 };
 
 function OpenVehiclesBlock() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { data, refetch } = useQuery({
     queryKey: ["open-vehicles-list"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(suppliers(name))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(id,import_manager_id,suppliers(name))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
@@ -212,18 +214,55 @@ function OpenVehiclesBlock() {
           const weight = Number(v.total_weight_kg ?? 0);
           const palletsPct = Math.min(100, (pallets / 26) * 100);
           const weightPct = Math.min(100, (weight / 21500) * 100);
+          // If current user owns one of the shipments in this vehicle → go straight to that shipment's products
+          const ownShipment = (v.shipments ?? []).find((s) => s.import_manager_id === user?.id);
+          const handleCardClick = () => {
+            if (ownShipment) {
+              navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
+            } else {
+              navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
+            }
+          };
           return (
-            <div key={v.id} className="rounded-xl border border-border bg-card p-3">
-              <div className="flex items-center justify-between">
-                <div>
+            <div
+              key={v.id}
+              role="button"
+              tabIndex={0}
+              onClick={handleCardClick}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleCardClick();
+                }
+              }}
+              className="cursor-pointer rounded-xl border border-border bg-card p-3 transition active:scale-[0.99] hover:border-brand/40"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <div className="font-bold text-brand">{v.code}</div>
-                  <div className="text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
+                  <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
                 </div>
-                <div className="flex gap-1">
-                  <Link to="/shipments/new">
-                    <Button size="sm" variant="secondary">+ Постач.</Button>
-                  </Link>
-                  <Button size="sm" variant="ghost" onClick={() => closeVehicle(v.id)}>Закрити</Button>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
+                    }}
+                  >
+                    + Постач.
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeVehicle(v.id);
+                    }}
+                  >
+                    Закрити
+                  </Button>
                 </div>
               </div>
               {sups.length > 0 && (

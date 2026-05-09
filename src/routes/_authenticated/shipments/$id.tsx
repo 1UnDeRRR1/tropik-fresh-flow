@@ -74,7 +74,7 @@ function ShipmentDetail() {
       />
 
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="FACT палет" value={fact} tone="primary" />
+        <StatCard label="Факт палет" value={fact} tone="primary" />
         <StatCard label="Розподілено" value={distributed} tone="brand" />
         <StatCard label="Залишок" value={fact - distributed} />
         <StatCard label="ETA" value={sh.eta ?? "—"} />
