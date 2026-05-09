@@ -82,7 +82,7 @@ function ShipmentsList() {
         action={
           <Link to="/shipments/new">
             <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова
+              <Plus className="mr-1 h-4 w-4" /> Нова поставка
             </Button>
           </Link>
         }
