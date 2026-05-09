@@ -184,14 +184,19 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
   const dirty = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isEmpty = val === "" || Number(val) <= 0;
+  const isEmpty = val === "" || Number(val.replace(",", ".")) <= 0;
 
   useEffect(() => {
     if (!dirty.current) return;
     const t = setTimeout(async () => {
+      const normalized = val.replace(",", ".");
+      // Skip incomplete numbers like "1." or "1,"
+      if (/[.,]$/.test(val)) return;
+      const num = normalized === "" ? 0 : Number(normalized);
+      if (Number.isNaN(num)) return;
       const { error } = await supabase
         .from("shipments")
-        .update({ logistics_cost: val === "" ? 0 : Number(val), logistics_cost_currency: cur })
+        .update({ logistics_cost: num, logistics_cost_currency: cur })
         .eq("id", shipment.id);
       if (error) toast.error(error.message);
       else {
@@ -215,9 +220,8 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
       </span>
       <Input
         ref={inputRef}
-        type="number"
+        type="text"
         inputMode="decimal"
-        step="0.01"
         placeholder="Обов'язково"
         value={val}
         autoComplete="off"
@@ -232,7 +236,10 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
             setTimeout(() => inputRef.current?.focus(), 0);
           }
         }}
-        onChange={(e) => { dirty.current = true; setVal(e.target.value); }}
+        onChange={(e) => {
+          dirty.current = true;
+          setVal(e.target.value.replace(/[^\d.,-]/g, ""));
+        }}
         className={cn(
           "h-7 flex-1 px-2 text-[12px]",
           isEmpty && "border-destructive bg-destructive/15 ring-2 ring-destructive/60",
