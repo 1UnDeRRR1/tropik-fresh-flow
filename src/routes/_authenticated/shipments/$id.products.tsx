@@ -151,7 +151,7 @@ function ProductsFullscreen() {
                 <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Ціна</th>
-                <th className="px-1.5 py-2 text-right font-bold text-success">ІНД $</th>
+                <th className="px-1.5 py-2 text-right font-medium text-muted-foreground">Собів. $</th>
                 <th className="px-1.5 py-2"></th>
               </tr>
             </thead>
