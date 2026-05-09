@@ -184,14 +184,19 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
   const dirty = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isEmpty = val === "" || Number(val) <= 0;
+  const isEmpty = val === "" || Number(val.replace(",", ".")) <= 0;
 
   useEffect(() => {
     if (!dirty.current) return;
     const t = setTimeout(async () => {
+      const normalized = val.replace(",", ".");
+      // Skip incomplete numbers like "1." or "1,"
+      if (/[.,]$/.test(val)) return;
+      const num = normalized === "" ? 0 : Number(normalized);
+      if (Number.isNaN(num)) return;
       const { error } = await supabase
         .from("shipments")
-        .update({ logistics_cost: val === "" ? 0 : Number(val), logistics_cost_currency: cur })
+        .update({ logistics_cost: num, logistics_cost_currency: cur })
         .eq("id", shipment.id);
       if (error) toast.error(error.message);
       else {
@@ -215,9 +220,8 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
       </span>
       <Input
         ref={inputRef}
-        type="number"
+        type="text"
         inputMode="decimal"
-        step="0.01"
         placeholder="Обов'язково"
         value={val}
         autoComplete="off"
@@ -232,7 +236,10 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
             setTimeout(() => inputRef.current?.focus(), 0);
           }
         }}
-        onChange={(e) => { dirty.current = true; setVal(e.target.value); }}
+        onChange={(e) => {
+          dirty.current = true;
+          setVal(e.target.value.replace(/[^\d.,-]/g, ""));
+        }}
         className={cn(
           "h-7 flex-1 px-2 text-[12px]",
           isEmpty && "border-destructive bg-destructive/15 ring-2 ring-destructive/60",
@@ -415,16 +422,19 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
 function NumCell({ value, onChange, step }: { value: number; onChange: (v: number) => void; step?: string }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
+  // Only resync from prop when NOT focused, to avoid eating typed zeros (e.g. "1.0" → "1")
   useEffect(() => {
-    setText(value === 0 ? "" : String(value));
-  }, [value]);
+    if (focused) return;
+    const parsed = text === "" ? 0 : Number(text);
+    if (parsed !== value) setText(value === 0 ? "" : String(value));
+  }, [value, focused, text]);
   return (
     <Input
-      type="number"
-      inputMode="numeric"
+      type="text"
+      inputMode="decimal"
       step={step ?? "1"}
       value={text}
-      placeholder={focused ? "" : "0"}
+      placeholder={focused ? "" : "—"}
       autoComplete="off"
       autoCorrect="off"
       autoCapitalize="off"
@@ -435,9 +445,17 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       }}
       onBlur={() => setFocused(false)}
       onChange={(e) => {
-        const v = e.target.value;
-        setText(v);
-        onChange(v === "" ? 0 : Number(v));
+        // Allow digits, comma, dot. Normalize comma → dot for parsing only.
+        const raw = e.target.value.replace(/[^\d.,-]/g, "");
+        setText(raw);
+        const normalized = raw.replace(",", ".");
+        // Don't push parent updates for incomplete numbers like "", "-", "1.", "0."
+        if (normalized === "" || normalized === "-" || /[.,]$/.test(raw)) {
+          if (raw === "") onChange(0);
+          return;
+        }
+        const n = Number(normalized);
+        if (!Number.isNaN(n)) onChange(n);
       }}
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
@@ -454,22 +472,35 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
 }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
-  useEffect(() => { setText(value === 0 ? "" : String(value)); }, [value]);
+  useEffect(() => {
+    if (focused) return;
+    const parsed = text === "" ? 0 : Number(text.replace(",", "."));
+    if (parsed !== value) setText(value === 0 ? "" : String(value));
+  }, [value, focused, text]);
   return (
     <div className="flex items-center gap-0.5">
       <Input
-        type="number"
+        type="text"
         inputMode="decimal"
-        step="0.01"
         value={text}
-        placeholder={focused ? "" : "0"}
+        placeholder={focused ? "" : "—"}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
         onFocus={(e) => { setFocused(true); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}
-        onChange={(e) => { setText(e.target.value); onValueChange(e.target.value === "" ? 0 : Number(e.target.value)); }}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/[^\d.,-]/g, "");
+          setText(raw);
+          const normalized = raw.replace(",", ".");
+          if (normalized === "" || normalized === "-" || /[.,]$/.test(raw)) {
+            if (raw === "") onValueChange(0);
+            return;
+          }
+          const n = Number(normalized);
+          if (!Number.isNaN(n)) onValueChange(n);
+        }}
         className={cn(
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
