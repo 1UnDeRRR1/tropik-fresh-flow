@@ -349,6 +349,7 @@ export type Database = {
       loading_plan: {
         Row: {
           caliber: string | null
+          count_existing: boolean
           country: string | null
           created_at: string
           created_by: string | null
@@ -361,6 +362,7 @@ export type Database = {
         }
         Insert: {
           caliber?: string | null
+          count_existing?: boolean
           country?: string | null
           created_at?: string
           created_by?: string | null
@@ -373,6 +375,7 @@ export type Database = {
         }
         Update: {
           caliber?: string | null
+          count_existing?: boolean
           country?: string | null
           created_at?: string
           created_by?: string | null
