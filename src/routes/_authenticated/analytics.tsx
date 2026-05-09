@@ -82,7 +82,7 @@ function Analytics() {
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
         ) : !rows.length ? (
-          <EmptyState title="Немає активних товарів" description="Тут зʼявляться товари ваших поставок до наступного дня після прибуття." />
+          <EmptyState title="Немає активних товарів" hint="Тут зʼявляться товари ваших поставок до наступного дня після прибуття." />
         ) : (
           <ul className="divide-y divide-border">
             {rows.map((r) => (
