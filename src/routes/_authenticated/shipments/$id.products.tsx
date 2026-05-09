@@ -17,8 +17,30 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
 
 const COUNTRY_OPTIONS = [
   "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
-  "Greece", "Italy", "Spain", "Netherlands", "Belgium", "Poland", "Moldova", "Albania", "North Macedonia",
+  "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
 ];
+
+// Lowercase EN (and ISO) -> canonical UA names. Lets users type English and have it normalized.
+const COUNTRY_ALIASES: Record<string, string> = {
+  greece: "Греція", gr: "Греція",
+  italy: "Італія", it: "Італія",
+  spain: "Іспанія", es: "Іспанія",
+  netherlands: "Нідерланди", holland: "Нідерланди", nl: "Нідерланди",
+  belgium: "Бельгія", be: "Бельгія",
+  poland: "Польща", pl: "Польща",
+  moldova: "Молдова", md: "Молдова",
+  albania: "Албанія", al: "Албанія",
+  macedonia: "Македонія", "north macedonia": "Македонія", mk: "Македонія",
+  turkey: "Туреччина", tr: "Туреччина",
+  france: "Франція", fr: "Франція",
+  germany: "Німеччина", de: "Німеччина",
+  portugal: "Португалія", pt: "Португалія",
+  romania: "Румунія", ro: "Румунія",
+  serbia: "Сербія", rs: "Сербія",
+  georgia: "Грузія", ge: "Грузія",
+  egypt: "Єгипет", eg: "Єгипет",
+  morocco: "Марокко", ma: "Марокко",
+};
 
 type ItemRow = {
   id: string;
@@ -279,6 +301,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
           options={COUNTRY_OPTIONS}
+          aliases={COUNTRY_ALIASES}
           placeholder="Країна"
           expandedMinWidth={180}
         />
