@@ -29,6 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/shipments", label: "Поставки", icon: Package },
         { to: "/distribution", label: "Розподіл", icon: Truck },
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
+        { to: "/calendar", label: "Календар", icon: Calendar },
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
