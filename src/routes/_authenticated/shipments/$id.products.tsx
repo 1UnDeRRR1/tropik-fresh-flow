@@ -312,7 +312,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
   );
 }
 
-const EXPANDED = "absolute left-0 top-[calc(100%+4px)] z-30 h-10 min-w-[140px] w-max max-w-[80vw] border-input bg-background text-sm shadow-lg ring-2 ring-brand/40";
+const EXPANDED = "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 
 function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number }) {
   const [focused, setFocused] = useState(false);
