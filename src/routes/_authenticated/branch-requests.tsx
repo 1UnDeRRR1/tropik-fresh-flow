@@ -253,11 +253,33 @@ function BranchRequestsPage() {
             )}
           </SectionCard>
 
-          <SectionCard title={`Опрацьовано (${decided.length})`}>
+          <SectionCard
+            title={`Опрацьовано (${decided.length})`}
+            subtitle="Зберігаються 30 днів з моменту рішення"
+          >
             {!decided.length ? (
               <EmptyState title="Поки що порожньо" />
             ) : (
               <RequestList rows={decided} busyId={busyId} />
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title={`Архів (${archived.length})`}
+            actions={
+              <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
+                {showArchive ? "Сховати" : "Показати"}
+              </Button>
+            }
+          >
+            {!showArchive ? (
+              <p className="text-xs text-muted-foreground">
+                Заявки старші за 30 днів. Натисніть «Показати», щоб переглянути.
+              </p>
+            ) : !archived.length ? (
+              <EmptyState title="Архів порожній" />
+            ) : (
+              <RequestList rows={archived} busyId={busyId} />
             )}
           </SectionCard>
         </>
