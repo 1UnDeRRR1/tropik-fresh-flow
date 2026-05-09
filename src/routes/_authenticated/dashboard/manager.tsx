@@ -35,6 +35,22 @@ interface PlanRow {
 
 function ManagerDashboard() {
   const { user, profile } = useAuth();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel("loading-plan-manager")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "loading_plan" },
+        () => qc.invalidateQueries({ queryKey: ["dash-manager", user.id] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, user?.id]);
 
   const { data } = useQuery({
     enabled: !!user?.id,
