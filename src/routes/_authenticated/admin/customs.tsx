@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { toast } from "sonner";
+import { translateError } from "@/lib/mutation-helpers";
 
 export const Route = createFileRoute("/_authenticated/admin/customs")({
   component: CustomsAdmin,
@@ -61,7 +62,7 @@ function CustomsAdmin() {
       setForm({ ...form, product_name: "", threshold_price_usd: 0, customs_fee_percent: 0, euro1_markup_usd: 0 });
       qc.invalidateQueries({ queryKey: ["admin", "customs_reference"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const update = useMutation({
@@ -69,8 +70,11 @@ function CustomsAdmin() {
       const { error } = await supabase.from("customs_reference").update(patch).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "customs_reference"] }),
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "customs_reference"] });
+      toast.success("Збережено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   return (
@@ -154,11 +158,11 @@ function CustomsAdmin() {
                         onChange={(ev) => update.mutate({ id: r.id, patch: { active: ev.target.checked } })} />
                       <span>{merged.active ? "Активний" : "Неактивний"}</span>
                     </label>
-                    <button className="btn-sm" disabled={!dirty}
+                    <button className="btn-sm" disabled={!dirty || update.isPending}
                       onClick={() => update.mutate(
                         { id: r.id, patch: e },
                         { onSuccess: () => { const n = { ...edit }; delete n[r.id]; setEdit(n); } },
-                      )}>Зберегти</button>
+                      )}>{update.isPending ? "Збереження…" : "Зберегти"}</button>
                   </div>
                 </li>
               );
