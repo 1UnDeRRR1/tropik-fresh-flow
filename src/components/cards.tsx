@@ -16,7 +16,7 @@ export function StatCard({
   value: ReactNode;
   hint?: string;
   icon?: ReactNode;
-  tone?: "default" | "brand" | "primary" | "danger";
+  tone?: "default" | "brand" | "primary" | "danger" | "warning";
   to?: string;
   hash?: string;
   pulse?: boolean;
