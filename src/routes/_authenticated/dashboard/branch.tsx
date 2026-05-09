@@ -165,28 +165,6 @@ function BranchDashboard() {
         </SectionCard>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          to="/transfers"
-          className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-card active:scale-[0.98]"
-        >
-          <div>
-            <div className="text-sm font-semibold">Переміщення</div>
-            <div className="text-xs text-muted-foreground">Між філіями</div>
-          </div>
-          <ArrowLeftRight className="h-5 w-5 text-brand" />
-        </Link>
-        <Link
-          to="/branch-requests"
-          className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-card active:scale-[0.98]"
-        >
-          <div>
-            <div className="text-sm font-semibold">Заявки</div>
-            <div className="text-xs text-muted-foreground">Нові запити</div>
-          </div>
-          <Bell className="h-5 w-5 text-brand" />
-        </Link>
-      </div>
 
       <Sheet open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
