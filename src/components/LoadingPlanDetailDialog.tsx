@@ -93,6 +93,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
               const code = m.shipments?.code ?? "—";
               const supplier = m.shipments?.suppliers?.name ?? "—";
               const country = m.origin_country ?? m.shipments?.country ?? "";
+              const eta = formatEta(m.shipments?.eta ?? m.shipments?.vehicles?.eta ?? null);
               return (
                 <li key={`${m.shipment_id}-${idx}`} className="py-2.5">
                   <Link
@@ -109,6 +110,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
                       <div className="text-xs text-muted-foreground">
                         {supplier}
                         {country ? ` · ${country}` : ""}
+                        {eta ? ` · ETA ${eta}` : ""}
                       </div>
                     </div>
                     <span className="shrink-0 rounded-full bg-brand/15 px-2 py-0.5 text-xs font-bold text-brand">
