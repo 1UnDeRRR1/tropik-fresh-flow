@@ -1,0 +1,1 @@
+UPDATE public.shipment_items SET unit_price_usd = unit_price_usd;
