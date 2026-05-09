@@ -26,6 +26,7 @@ interface PlanRow {
 
 function LoadingPlanAdmin() {
   const qc = useQueryClient();
+  const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
   const [form, setForm] = useState({
     product_name: "",
     caliber: "",
