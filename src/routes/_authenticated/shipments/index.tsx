@@ -215,31 +215,47 @@ function OpenVehiclesBlock() {
           const weightPct = Math.min(100, (weight / 21500) * 100);
           // If current user owns one of the shipments in this vehicle → go straight to that shipment's products
           const ownShipment = (v.shipments ?? []).find((s) => s.import_manager_id === user?.id);
-          const cardLink = ownShipment
-            ? { to: "/shipments/$id/products" as const, params: { id: ownShipment.id }, search: undefined }
-            : { to: "/shipments/new" as const, params: undefined, search: { vehicleId: v.id } };
+          const handleCardClick = () => {
+            if (ownShipment) {
+              navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
+            } else {
+              navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
+            }
+          };
           return (
-            <Link
+            <div
               key={v.id}
-              to={cardLink.to}
-              params={cardLink.params}
-              search={cardLink.search}
-              className="block rounded-xl border border-border bg-card p-3 transition active:scale-[0.99] hover:border-brand/40"
+              role="button"
+              tabIndex={0}
+              onClick={handleCardClick}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleCardClick();
+                }
+              }}
+              className="cursor-pointer rounded-xl border border-border bg-card p-3 transition active:scale-[0.99] hover:border-brand/40"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-bold text-brand">{v.code}</div>
                   <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
                 </div>
-                <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Link to="/shipments/new" search={{ vehicleId: v.id }}>
-                    <Button size="sm" variant="secondary">+ Постач.</Button>
-                  </Link>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
+                    }}
+                  >
+                    + Постач.
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={(e) => {
-                      e.preventDefault();
                       e.stopPropagation();
                       closeVehicle(v.id);
                     }}
@@ -271,7 +287,7 @@ function OpenVehiclesBlock() {
                   <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
                 </div>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>
