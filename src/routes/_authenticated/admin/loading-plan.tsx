@@ -8,6 +8,8 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { COUNTRIES } from "@/lib/arrival";
 import { countLoadedPallets } from "@/lib/loading-plan";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
+import { run, translateError } from "@/lib/mutation-helpers";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/loading-plan")({
   component: LoadingPlanAdmin,
@@ -84,32 +86,42 @@ function LoadingPlanAdmin() {
 
   const create = useMutation({
     mutationFn: async () => {
-      await supabase.from("loading_plan").insert({
+      await run(supabase.from("loading_plan").insert({
         product_name: form.product_name,
         caliber: form.caliber || null,
         country: form.country || null,
         planned_pallets: Number(form.planned_pallets) || 0,
         count_existing: form.count_existing,
-      });
+      }));
     },
     onSuccess: () => {
       setForm({ product_name: "", caliber: "", country: "", planned_pallets: 0, count_existing: true });
       qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] });
+      toast.success("Позицію плану додано");
     },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<PlanRow> }) => {
-      await supabase.from("loading_plan").update(patch).eq("id", id);
+      await run(supabase.from("loading_plan").update(patch).eq("id", id));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] });
+      toast.success("Збережено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("loading_plan").delete().eq("id", id);
+      await run(supabase.from("loading_plan").delete().eq("id", id));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] });
+      toast.success("Видалено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   function loadedFor(row: PlanRow): number {

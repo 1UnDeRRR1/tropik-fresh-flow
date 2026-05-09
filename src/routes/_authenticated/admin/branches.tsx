@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { cn } from "@/lib/utils";
+import { run, translateError } from "@/lib/mutation-helpers";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/branches")({
   component: BranchesAdmin,
@@ -37,24 +39,30 @@ function BranchesAdmin() {
 
   const create = useMutation({
     mutationFn: async () => {
-      await supabase.from("branches").insert({
+      await run(supabase.from("branches").insert({
         name: form.name,
         code: form.code || null,
         city: form.city || null,
         sort_order: Number(form.sort_order) || 99,
-      });
+      }));
     },
     onSuccess: () => {
       setForm({ name: "", code: "", city: "", sort_order: 99 });
       qc.invalidateQueries({ queryKey: ["admin", "branches"] });
+      toast.success("Філію додано");
     },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Branch> }) => {
-      await supabase.from("branches").update(patch).eq("id", id);
+      await run(supabase.from("branches").update(patch).eq("id", id));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "branches"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "branches"] });
+      toast.success("Збережено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   return (
@@ -155,7 +163,7 @@ function BranchesAdmin() {
                     </label>
                     <button
                       className="btn-sm"
-                      disabled={!dirty}
+                      disabled={!dirty || update.isPending}
                       onClick={() => {
                         update.mutate(
                           { id: b.id, patch: e },
@@ -169,7 +177,7 @@ function BranchesAdmin() {
                         );
                       }}
                     >
-                      Зберегти
+                      {update.isPending ? "Збереження…" : "Зберегти"}
                     </button>
                   </div>
                 </li>

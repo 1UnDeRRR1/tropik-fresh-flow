@@ -4,6 +4,8 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
+import { run, translateError } from "@/lib/mutation-helpers";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/countries")({
   component: CountriesAdmin,
@@ -34,23 +36,29 @@ function CountriesAdmin() {
 
   const create = useMutation({
     mutationFn: async () => {
-      await supabase.from("country_logistics").insert({
+      await run(supabase.from("country_logistics").insert({
         country: form.country,
         logistics_days: Number(form.logistics_days) || 1,
         weekend_adjustment: form.weekend_adjustment,
-      });
+      }));
     },
     onSuccess: () => {
       setForm({ country: "", logistics_days: 1, weekend_adjustment: true });
       qc.invalidateQueries({ queryKey: ["admin", "countries"] });
+      toast.success("Країну додано");
     },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<CL> }) => {
-      await supabase.from("country_logistics").update(patch).eq("id", id);
+      await run(supabase.from("country_logistics").update(patch).eq("id", id));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "countries"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "countries"] });
+      toast.success("Збережено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   return (
@@ -97,11 +105,11 @@ function CountriesAdmin() {
                         onChange={(ev) => update.mutate({ id: c.id, patch: { weekend_adjustment: ev.target.checked } })} />
                       <span>Зсув з вихідних</span>
                     </label>
-                    <button className="btn-sm" disabled={!dirty}
+                    <button className="btn-sm" disabled={!dirty || update.isPending}
                       onClick={() => update.mutate(
                         { id: c.id, patch: e },
                         { onSuccess: () => { const n = { ...edit }; delete n[c.id]; setEdit(n); } },
-                      )}>Зберегти</button>
+                      )}>{update.isPending ? "Збереження…" : "Зберегти"}</button>
                   </div>
                 </li>
               );

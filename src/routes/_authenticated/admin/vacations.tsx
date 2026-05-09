@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
+import { run, translateError } from "@/lib/mutation-helpers";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/vacations")({
   component: VacationsPage,
@@ -69,42 +71,49 @@ function VacationsPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const { data: vac, error } = await supabase
-        .from("manager_vacations")
-        .insert({
-          import_manager_id: form.import_manager_id,
-          start_date: form.start_date,
-          end_date: form.end_date,
-          mode: form.mode,
-          replacement_manager_id:
-            form.mode === "full" ? form.replacement_manager_id || null : null,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      if (form.mode === "manual") {
+      const { data: vac } = await run(
+        supabase
+          .from("manager_vacations")
+          .insert({
+            import_manager_id: form.import_manager_id,
+            start_date: form.start_date,
+            end_date: form.end_date,
+            mode: form.mode,
+            replacement_manager_id:
+              form.mode === "full" ? form.replacement_manager_id || null : null,
+          })
+          .select()
+          .single(),
+      );
+      if (form.mode === "manual" && vac) {
         const rows = Object.entries(supplierMap)
           .filter(([, mid]) => mid)
           .map(([sid, mid]) => ({
-            vacation_id: vac.id,
+            vacation_id: (vac as { id: string }).id,
             supplier_id: sid,
             temp_manager_id: mid,
           }));
-        if (rows.length) await supabase.from("vacation_supplier_assignments").insert(rows);
+        if (rows.length) await run(supabase.from("vacation_supplier_assignments").insert(rows));
       }
     },
     onSuccess: () => {
       setForm({ import_manager_id: "", start_date: "", end_date: "", mode: "full", replacement_manager_id: "" });
       setSupplierMap({});
       qc.invalidateQueries({ queryKey: ["vacations"] });
+      toast.success("Відпустку додано");
     },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   const del = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("manager_vacations").delete().eq("id", id);
+      await run(supabase.from("manager_vacations").delete().eq("id", id));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["vacations"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vacations"] });
+      toast.success("Видалено");
+    },
+    onError: (e) => toast.error(translateError(e)),
   });
 
   if (loading) return null;
