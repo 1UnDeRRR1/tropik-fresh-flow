@@ -22,6 +22,7 @@ type ShipmentRow = {
     origin_country: string | null;
     unit_price: number | null;
     price_currency: string | null;
+    pallet_count: number | null;
   }>;
 };
 
