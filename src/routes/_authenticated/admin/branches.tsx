@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { cn } from "@/lib/utils";
+import { run, feedback } from "@/lib/mutation-helpers";
 
 export const Route = createFileRoute("/_authenticated/admin/branches")({
   component: BranchesAdmin,
@@ -37,23 +38,26 @@ function BranchesAdmin() {
 
   const create = useMutation({
     mutationFn: async () => {
-      await supabase.from("branches").insert({
+      await run(supabase.from("branches").insert({
         name: form.name,
         code: form.code || null,
         city: form.city || null,
         sort_order: Number(form.sort_order) || 99,
-      });
+      }));
     },
+    ...feedback({ success: "Філію додано" }),
     onSuccess: () => {
       setForm({ name: "", code: "", city: "", sort_order: 99 });
       qc.invalidateQueries({ queryKey: ["admin", "branches"] });
+      import("sonner").then(({ toast }) => toast.success("Філію додано"));
     },
   });
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Branch> }) => {
-      await supabase.from("branches").update(patch).eq("id", id);
+      await run(supabase.from("branches").update(patch).eq("id", id));
     },
+    ...feedback({ success: "Збережено" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "branches"] }),
   });
 
@@ -155,7 +159,7 @@ function BranchesAdmin() {
                     </label>
                     <button
                       className="btn-sm"
-                      disabled={!dirty}
+                      disabled={!dirty || update.isPending}
                       onClick={() => {
                         update.mutate(
                           { id: b.id, patch: e },
@@ -169,7 +173,7 @@ function BranchesAdmin() {
                         );
                       }}
                     >
-                      Зберегти
+                      {update.isPending ? "Збереження…" : "Зберегти"}
                     </button>
                   </div>
                 </li>
