@@ -131,9 +131,9 @@ function ShipmentsList() {
                         {s.eta ?? "—"}
                       </td>
                       <td className="px-2 py-2"><StatusChip status={s.status} /></td>
-                      <td className="px-2 py-2 text-right tabular-nums">{s.fact}</td>
-                      <td className="px-2 py-2 text-right tabular-nums font-semibold text-brand">{s.dist}</td>
-                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining < 0 ? "text-destructive" : s.remaining === 0 ? "text-success" : "")}>
+                      <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
+                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : "text-destructive")}>{s.dist}</td>
+                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : "text-destructive")}>
                         {s.remaining}
                       </td>
                       <td className="px-1 py-2">
