@@ -93,7 +93,7 @@ function BranchFreeList() {
     if (!data) return [];
     const distMap = new Map<string, number>();
     data.forEach((s: any) => {
-      (s.distribution_items ?? []).forEach((d: any) =>
+      (s.distributions ?? []).forEach((d: any) =>
         (d.distribution_items ?? []).forEach((di: any) => {
           if (!di.shipment_item_id) return;
           distMap.set(di.shipment_item_id, (distMap.get(di.shipment_item_id) ?? 0) + Number(di.pallets ?? 0));
