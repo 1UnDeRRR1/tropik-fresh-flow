@@ -95,6 +95,13 @@ function ProductsFullscreen() {
   const items = data?.items ?? [];
   const products = data?.products ?? [];
   const country = toUaCountry(sh?.country) || "—";
+  const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
+  const blockExit = (e: React.MouseEvent) => {
+    if (missingPriceCount > 0) {
+      e.preventDefault();
+      toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
+    }
+  };
 
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
@@ -116,14 +123,22 @@ function ProductsFullscreen() {
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
-          onClick={() => navigate({ to: "/shipments/$id", params: { id } })}
+          onClick={() => {
+            if (missingPriceCount > 0) {
+              toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
+              return;
+            }
+            navigate({ to: "/shipments/$id", params: { id } });
+          }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{country} · {items.length} поз.</div>
+          <div className={cn("truncate text-[10px] uppercase tracking-wide", missingPriceCount > 0 ? "text-destructive" : "text-muted-foreground")}>
+            {country} · {items.length} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
+          </div>
         </div>
         <Button size="sm" onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
           <Plus className="h-4 w-4" />
@@ -167,8 +182,17 @@ function ProductsFullscreen() {
       </div>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <Link to="/shipments/$id" params={{ id }} className="block">
-          <Button className="w-full bg-brand text-brand-foreground hover:bg-brand/90">Готово</Button>
+        <Link to="/shipments/$id" params={{ id }} className="block" onClick={blockExit}>
+          <Button
+            className={cn(
+              "w-full",
+              missingPriceCount > 0
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "bg-brand text-brand-foreground hover:bg-brand/90",
+            )}
+          >
+            {missingPriceCount > 0 ? `Заповніть ціну (${missingPriceCount})` : "Готово"}
+          </Button>
         </Link>
       </footer>
     </div>
@@ -477,13 +501,17 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
     const parsed = text === "" ? 0 : Number(text.replace(",", "."));
     if (parsed !== value) setText(value === 0 ? "" : String(value));
   }, [value, focused, text]);
+  const isEmpty = !value || value <= 0;
   return (
-    <div className="flex items-center gap-0.5">
+    <div className={cn(
+      "flex items-center gap-0.5 rounded",
+      isEmpty && "ring-2 ring-destructive bg-destructive/15",
+    )}>
       <Input
         type="text"
         inputMode="decimal"
         value={text}
-        placeholder={focused ? "" : "—"}
+        placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -504,6 +532,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         className={cn(
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
+          isEmpty && "text-destructive placeholder:text-destructive font-semibold",
         )}
       />
       <select
