@@ -39,9 +39,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 pt-safe">
           <Link to={dashHref} className="flex items-center gap-2">
             <Logo mark />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Supply Distribution
-            </span>
           </Link>
           <Link
             to="/notifications"
