@@ -14,7 +14,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, loading, primaryRole } = useAuth();
+  const { user, loading, primaryRole, dataLoaded } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -22,7 +22,7 @@ function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!loading && user) return <Navigate to={defaultRoutePerRole(primaryRole)} />;
+  if (!loading && user && dataLoaded) return <Navigate to={defaultRoutePerRole(primaryRole)} />;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
