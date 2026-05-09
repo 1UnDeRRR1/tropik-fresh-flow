@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { PageHeader } from "@/components/AppShell";
+
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -36,7 +36,7 @@ interface PlanRow {
 }
 
 function ManagerDashboard() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
 
@@ -135,21 +135,15 @@ function ManagerDashboard() {
     },
   });
 
-  const fullName = profile?.full_name ?? "Менеджер";
-
   return (
     <div className="space-y-5">
-      <PageHeader
-        title={fullName}
-        subtitle="Імпорт-менеджер"
-        action={
-          <Link to="/shipments/new">
-            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова поставка
-            </Button>
-          </Link>
-        }
-      />
+      <div className="flex justify-end">
+        <Link to="/shipments/new">
+          <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
+            <Plus className="mr-1 h-4 w-4" /> Нова поставка
+          </Button>
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 [&>a]:block [&>a>div]:h-full [&>div]:h-full">
         <StatCard
