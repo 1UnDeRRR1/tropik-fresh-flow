@@ -23,6 +23,9 @@ import {
 } from "@/lib/shipment-code";
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
+  validateSearch: (search: Record<string, unknown>): { vehicleId?: string } => ({
+    vehicleId: typeof search.vehicleId === "string" ? search.vehicleId : undefined,
+  }),
   component: NewShipment,
 });
 
