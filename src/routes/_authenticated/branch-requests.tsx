@@ -253,20 +253,22 @@ function BranchRequestsPage() {
             )}
           </SectionCard>
 
-          <SectionCard
-            title={`Опрацьовано (${decided.length})`}
-            subtitle="Зберігаються 30 днів з моменту рішення"
-          >
+          <SectionCard title={`Опрацьовано (${decided.length})`}>
             {!decided.length ? (
-              <EmptyState title="Поки що порожньо" />
+              <EmptyState title="Поки що порожньо" hint="Зберігаються 30 днів з моменту рішення" />
             ) : (
-              <RequestList rows={decided} busyId={busyId} />
+              <>
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  Зберігаються 30 днів з моменту рішення, далі — в архіві.
+                </p>
+                <RequestList rows={decided} busyId={busyId} />
+              </>
             )}
           </SectionCard>
 
           <SectionCard
             title={`Архів (${archived.length})`}
-            actions={
+            action={
               <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
                 {showArchive ? "Сховати" : "Показати"}
               </Button>
