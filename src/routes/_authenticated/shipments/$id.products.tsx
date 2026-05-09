@@ -95,6 +95,13 @@ function ProductsFullscreen() {
   const items = data?.items ?? [];
   const products = data?.products ?? [];
   const country = toUaCountry(sh?.country) || "—";
+  const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
+  const blockExit = (e: React.MouseEvent) => {
+    if (missingPriceCount > 0) {
+      e.preventDefault();
+      toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
+    }
+  };
 
   const addItem = async () => {
     const { error } = await supabase.from("shipment_items").insert({
