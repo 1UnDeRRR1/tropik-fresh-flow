@@ -10,6 +10,8 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { toUaCountry } from "@/lib/countries";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CostPair } from "@/components/CostPair";
+import { OfferDialog } from "@/components/OfferDialog";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
