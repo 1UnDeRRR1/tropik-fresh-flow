@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send } from "lucide-react";
-import { Logo } from "./Logo";
+import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -36,23 +36,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 pt-safe">
-          <Link to={dashHref} className="flex items-center gap-2">
-            <Logo mark />
+        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between gap-3 px-4 pt-safe">
+          <Link to={dashHref} aria-label="TROPIK" className="flex items-center">
+            <img
+              src={logoSrc}
+              alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
+              className="h-12 w-auto object-contain"
+              draggable={false}
+            />
           </Link>
-          <Link
-            to="/notifications"
-            className="relative rounded-full p-2 text-foreground hover:bg-secondary"
-            aria-label="Сповіщення"
-          >
-            <Bell className="h-5 w-5" />
-          </Link>
-        </div>
-        {primaryRole && (
-          <div className="mx-auto max-w-3xl px-4 pb-2 text-xs text-muted-foreground">
-            {profile?.full_name ?? ""} · <span className="text-brand">{ROLE_LABEL_UK[primaryRole]}</span>
+          <div className="flex items-center gap-2">
+            {primaryRole && (
+              <div className="text-right leading-tight">
+                <div className="text-sm font-semibold text-foreground">
+                  {profile?.full_name ?? ""}
+                </div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {ROLE_LABEL_UK[primaryRole]}
+                </div>
+              </div>
+            )}
+            <Link
+              to="/notifications"
+              className="relative rounded-full p-2 text-foreground hover:bg-secondary"
+              aria-label="Сповіщення"
+            >
+              <Bell className="h-5 w-5" />
+            </Link>
           </div>
-        )}
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-28 pt-4">{children}</main>
