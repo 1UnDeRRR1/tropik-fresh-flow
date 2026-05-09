@@ -234,20 +234,13 @@ function BranchFreeList() {
       <Sheet open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader className="text-left">
-            <SheetTitle className="flex items-center justify-between gap-2">
+            <SheetTitle className="pr-8">
               <span>
                 {pick?.product}
                 {pick?.country && (
                   <span className="text-muted-foreground"> · {toUaCountry(pick.country)}</span>
                 )}
               </span>
-              <button
-                onClick={() => setPick(null)}
-                className="rounded-full p-1 hover:bg-muted"
-                aria-label="Закрити"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </SheetTitle>
           </SheetHeader>
 
