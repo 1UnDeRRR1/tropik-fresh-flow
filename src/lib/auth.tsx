@@ -42,23 +42,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ]);
     setProfile(prof as Profile | null);
     setRoles(((rs ?? []) as { role: AppRole }[]).map((r) => r.role));
+    setDataLoaded(true);
   };
+
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
+        setDataLoaded(false);
         setTimeout(() => loadUserData(s.user.id), 0);
       } else {
         setProfile(null);
         setRoles([]);
+        setDataLoaded(true);
       }
     });
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       if (data.session?.user) await loadUserData(data.session.user.id);
+      else setDataLoaded(true);
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
