@@ -42,6 +42,7 @@ function BranchDashboard() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
+  const [offerRow, setOfferRow] = useState<Row | null>(null);
 
   const { data } = useQuery({
     queryKey: ["branch-incoming", branchId],
@@ -206,8 +207,8 @@ function BranchDashboard() {
                   </div>
                   <ul className="divide-y divide-border rounded-xl border border-border">
                     {list.map((r) => (
-                      <li key={r.key} className="flex items-center justify-between px-3 py-2 text-sm">
-                        <div>
+                      <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                        <div className="min-w-0 flex-1">
                           <div className="font-mono text-[11px] font-semibold">{r.code}</div>
                           <div className="text-[11px] text-muted-foreground">
                             {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
@@ -217,6 +218,17 @@ function BranchDashboard() {
                           <div className="font-bold">{r.pallets}п</div>
                           <div className="text-[11px] text-muted-foreground">{r.weight.toLocaleString("uk-UA")} кг</div>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOfferRow(r);
+                          }}
+                        >
+                          Запропонувати
+                        </Button>
                       </li>
                     ))}
                   </ul>
