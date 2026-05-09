@@ -28,7 +28,7 @@ export function StatCard({
         tone === "brand" && "border-transparent bg-brand text-brand-foreground",
         tone === "primary" && "border-transparent bg-primary text-primary-foreground",
         tone === "danger" && "border-transparent bg-destructive text-destructive-foreground shadow-lg",
-        tone === "warning" && "border-transparent bg-warning text-warning-foreground shadow-lg",
+        tone === "warning" && "border-transparent bg-warning text-foreground shadow-lg",
         pulse && "animate-pulse",
       )}
     >
