@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { COUNTRIES } from "@/lib/arrival";
+import { countLoadedPallets } from "@/lib/loading-plan";
 
 export const Route = createFileRoute("/_authenticated/admin/loading-plan")({
   component: LoadingPlanAdmin,
@@ -48,11 +49,12 @@ function LoadingPlanAdmin() {
     queryFn: async () => {
       const { data } = await supabase
         .from("shipment_items")
-        .select("product_name,caliber,pallet_count,shipments(country,created_at)");
+        .select("product_name,origin_country,pallet_count,created_at,shipments(country,created_at)");
       return (data ?? []) as Array<{
         product_name: string;
-        caliber: string | null;
+        origin_country: string | null;
         pallet_count: number | null;
+        created_at: string | null;
         shipments: { country: string | null; created_at: string | null } | null;
       }>;
     },
@@ -66,6 +68,11 @@ function LoadingPlanAdmin() {
         "postgres_changes",
         { event: "*", schema: "public", table: "loading_plan" },
         () => qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shipment_items" },
+        () => qc.invalidateQueries({ queryKey: ["admin", "loading-plan", "loaded"] }),
       )
       .subscribe();
     return () => {
@@ -105,17 +112,7 @@ function LoadingPlanAdmin() {
 
   function loadedFor(row: PlanRow): number {
     if (!loaded) return 0;
-    return loaded
-      .filter((it) => {
-        if (it.product_name?.trim().toLowerCase() !== row.product_name.trim().toLowerCase()) return false;
-        if (row.country && (it.shipments?.country ?? "").trim().toLowerCase() !== row.country.trim().toLowerCase()) return false;
-        if (!row.count_existing) {
-          const sCreated = it.shipments?.created_at;
-          if (!sCreated || sCreated < row.created_at) return false;
-        }
-        return true;
-      })
-      .reduce((a, x) => a + Number(x.pallet_count ?? 0), 0);
+    return countLoadedPallets(row, loaded);
   }
 
   return (
