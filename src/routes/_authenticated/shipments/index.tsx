@@ -59,9 +59,13 @@ function ShipmentsList() {
     });
   }, [data, today, soon]);
 
-  const filtered = filter === "all" ? rows : rows.filter((r) => r.status === filter);
-
-  const STATUSES = Object.keys(SHIPMENT_LABEL) as (keyof typeof SHIPMENT_LABEL)[];
+  const filtered = rows.filter((r) => {
+    if (filter === "all") return true;
+    if (filter === "done") return r.fact > 0 && r.remaining === 0;
+    if (filter === "none") return r.fact > 0 && r.dist === 0;
+    if (filter === "partial") return r.dist > 0 && r.remaining > 0;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
@@ -80,14 +84,12 @@ function ShipmentsList() {
 
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="flex gap-2 pb-1">
-          <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>Усі</FilterPill>
-          {STATUSES.map((s) => (
-            <FilterPill key={s} active={filter === s} onClick={() => setFilter(s)}>
-              {SHIPMENT_LABEL[s]}
-            </FilterPill>
-          ))}
+          <StatusFilterPill active={filter === "done"} onClick={() => setFilter(filter === "done" ? "all" : "done")} tone="success">Виконано</StatusFilterPill>
+          <StatusFilterPill active={filter === "none"} onClick={() => setFilter(filter === "none" ? "all" : "none")} tone="destructive">Не розпод.</StatusFilterPill>
+          <StatusFilterPill active={filter === "partial"} onClick={() => setFilter(filter === "partial" ? "all" : "partial")} tone="warning">Дорозподіл</StatusFilterPill>
         </div>
       </div>
+
 
       <SectionCard title={`Реєстр (${filtered.length})`}>
         {!filtered.length ? (
@@ -168,14 +170,38 @@ function ShipmentsList() {
   );
 }
 
-function FilterPill({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function StatusFilterPill({
+  active,
+  children,
+  onClick,
+  tone,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+  tone: "success" | "destructive" | "warning";
+}) {
+  const toneClasses = {
+    success: {
+      active: "border-success bg-success text-success-foreground",
+      inactive: "border-success/40 bg-success/10 text-success hover:bg-success/20",
+    },
+    destructive: {
+      active: "border-destructive bg-destructive text-destructive-foreground",
+      inactive: "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20",
+    },
+    warning: {
+      active: "border-warning bg-warning text-warning-foreground",
+      inactive: "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20",
+    },
+  }[tone];
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
-        active ? "border-brand bg-brand text-brand-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
+        "shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition whitespace-nowrap",
+        active ? toneClasses.active : toneClasses.inactive,
       )}
     >
       {children}
