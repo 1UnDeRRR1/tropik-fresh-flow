@@ -6,20 +6,10 @@ import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip } from "@/components/StatusChip";
-import { toUaCountry } from "@/lib/countries";
-import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
 });
-
-const FIELD_LABEL: Record<string, string> = {
-  qty: "К-сть",
-  unit_price: "Ціна",
-  caliber: "Калібр",
-  pallet_count: "Палет",
-  eta: "Дата прибуття",
-};
 
 function BranchDashboard() {
   const { profile } = useAuth();
@@ -33,55 +23,55 @@ function BranchDashboard() {
         .from("distributions")
         .select(`
           id,status,
-          shipments(id,code,eta,country, suppliers(name)),
-          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,pallet_count,pallet_weight,invoice_price,indicative_price,final_cost_indicative,final_cost_invoice))
+          shipments(id,code,eta),
+          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,final_cost_indicative,final_cost_invoice))
         `)
         .eq("branch_id", branchId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
-
-      const itemIds = (dists ?? [])
-        .flatMap((d) => d.distribution_items?.map((di) => di.shipment_items?.id) ?? [])
-        .filter(Boolean) as string[];
-
-      let changes: { shipment_item_id: string; field: string; old_value: string | null; new_value: string | null; created_at: string }[] = [];
-      if (itemIds.length) {
-        const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-        const { data: ch } = await supabase
-          .from("shipment_item_changes")
-          .select("shipment_item_id,field,old_value,new_value,created_at")
-          .in("shipment_item_id", itemIds)
-          .gte("created_at", since)
-          .order("created_at", { ascending: false });
-        changes = ch ?? [];
-      }
-      return { dists: dists ?? [], changes };
+      return dists ?? [];
     },
   });
 
-  type Dist = NonNullable<typeof data>["dists"][number];
-  type Change = NonNullable<typeof data>["changes"][number];
+  // Flatten to rows: one row per product position
+  const rows = (data ?? []).flatMap((d) =>
+    (d.distribution_items ?? [])
+      .map((di) => {
+        const it = di.shipment_items;
+        if (!it) return null;
+        return {
+          key: `${d.id}-${it.id}`,
+          code: d.shipments?.code ?? "—",
+          eta: d.shipments?.eta ?? null,
+          status: d.status,
+          product: it.product_name,
+          caliber: it.caliber ?? "—",
+          pallets: Number(di.pallets ?? 0),
+          weight: Number(di.qty ?? 0),
+          indicative: Number(it.final_cost_indicative ?? 0),
+          invoice: Number(it.final_cost_invoice ?? 0),
+        };
+      })
+      .filter(Boolean) as Array<{
+      key: string;
+      code: string;
+      eta: string | null;
+      status: string;
+      product: string;
+      caliber: string;
+      pallets: number;
+      weight: number;
+      indicative: number;
+      invoice: number;
+    }>,
+  );
 
-  // Group by arrival date
-  const groups = new Map<string, Dist[]>();
-  data?.dists.forEach((d) => {
-    const eta = d.shipments?.eta ?? "Без дати";
-    const arr = groups.get(eta) ?? [];
-    arr.push(d);
-    groups.set(eta, arr);
-  });
-  const sortedGroups = Array.from(groups.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
-
-  const changesByItem = new Map<string, Change[]>();
-  data?.changes.forEach((c) => {
-    const arr = changesByItem.get(c.shipment_item_id) ?? [];
-    arr.push(c);
-    changesByItem.set(c.shipment_item_id, arr);
-  });
+  const totalPallets = rows.reduce((s, r) => s + r.pallets, 0);
+  const totalWeight = rows.reduce((s, r) => s + r.weight, 0);
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Філія" subtitle="Вхідні поставки за датою прибуття" />
+      <PageHeader title="Філія" subtitle="Призначені вам товари" />
 
       {!branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
@@ -89,67 +79,56 @@ function BranchDashboard() {
         </div>
       )}
 
-      {!sortedGroups.length ? (
+      {!rows.length ? (
         <EmptyState title="Поки немає вхідних поставок" />
       ) : (
-        sortedGroups.map(([eta, dists]) => (
-          <SectionCard
-            key={eta}
-            title={eta === "Без дати" ? "Без дати прибуття" : new Date(eta).toLocaleDateString("uk-UA", { weekday: "long", day: "2-digit", month: "long" })}
-          >
-            <div className="space-y-3">
-              {dists.map((d) => (
-                <div key={d.id} className="rounded-xl border border-border bg-background/40 p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold">{d.shipments?.code}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {d.shipments?.suppliers?.name ?? "—"} · {toUaCountry(d.shipments?.country ?? "")}
-                      </div>
-                    </div>
-                    <StatusChip status={d.status} kind="distribution" />
-                  </div>
-                  <ul className="mt-2 divide-y divide-border">
-                    {d.distribution_items?.map((di, idx) => {
-                      const it = di.shipment_items;
-                      if (!it) return null;
-                      const itemChanges = changesByItem.get(it.id) ?? [];
-                      return (
-                        <li key={idx} className="py-2 text-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium">{it.product_name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {it.caliber ? `Калібр ${it.caliber} · ` : ""}
-                                {Number(di.pallets ?? 0)} пал. · {Number(di.qty ?? 0)} кг
-                              </div>
-                            </div>
-                            <div className="text-right text-xs">
-                              <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" />
-                              <div className="text-[10px] text-muted-foreground">собівартість</div>
-                            </div>
-                          </div>
-                          {itemChanges.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {itemChanges.slice(0, 4).map((c, i) => (
-                                <span
-                                  key={i}
-                                  className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning"
-                                >
-                                  {FIELD_LABEL[c.field] ?? c.field}: {c.old_value ?? "—"} → {c.new_value ?? "0"}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
+        <SectionCard title="Вхідні позиції">
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-border bg-background/40 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Палет всього</div>
+              <div className="text-2xl font-bold tabular-nums">{totalPallets}</div>
             </div>
-          </SectionCard>
-        ))
+            <div className="rounded-xl border border-border bg-background/40 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Вага всього</div>
+              <div className="text-2xl font-bold tabular-nums">
+                {totalWeight.toLocaleString("uk-UA")} <span className="text-sm font-medium text-muted-foreground">кг</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="-mx-2 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-xs">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="px-2 py-2 font-medium">Поставка</th>
+                  <th className="px-2 py-2 font-medium">Товар</th>
+                  <th className="px-2 py-2 font-medium">Калібр</th>
+                  <th className="px-2 py-2 text-right font-medium">Палет</th>
+                  <th className="px-2 py-2 text-right font-medium">Вага</th>
+                  <th className="px-2 py-2 text-right font-medium">Індикатив</th>
+                  <th className="px-2 py-2 text-right font-medium">Інвойс</th>
+                  <th className="px-2 py-2 font-medium">Статус</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((r) => (
+                  <tr key={r.key}>
+                    <td className="px-2 py-2 font-mono text-[11px] font-semibold">{r.code}</td>
+                    <td className="px-2 py-2 font-medium">{r.product}</td>
+                    <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.pallets}п</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-success font-semibold">${r.indicative.toFixed(2)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-destructive font-semibold">${r.invoice.toFixed(2)}</td>
+                    <td className="px-2 py-2">
+                      <StatusChip status={r.status} kind="distribution" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       )}
 
       <div className="grid grid-cols-2 gap-3">
