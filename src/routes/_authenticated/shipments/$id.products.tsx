@@ -123,7 +123,7 @@ function ProductsFullscreen() {
                 <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Ціна</th>
-                <th className="px-1.5 py-2 text-right font-medium">Собів. $</th>
+                <th className="px-1.5 py-2 text-right font-bold text-success">ІНД $</th>
                 <th className="px-1.5 py-2"></th>
               </tr>
             </thead>
@@ -286,8 +286,8 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-1.5 py-0.5 text-right text-[12px] tabular-nums font-medium">
-        {Number(item.final_cost_indicative ?? 0).toFixed(2)}
+      <td className="px-1.5 py-0.5 text-right text-[12px] tabular-nums font-bold text-success">
+        ${Number(item.final_cost_indicative ?? 0).toFixed(2)}
       </td>
       <td className="px-0.5 py-0.5">
         <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">

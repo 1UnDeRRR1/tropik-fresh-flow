@@ -267,8 +267,9 @@ function DistributionMatrix() {
                     {it.product_name}
                     {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
                   </div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">
-                    інд ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг · інв ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px]">
+                    <span className="font-bold text-success">ІНД ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг</span>
+                    <span className="font-bold text-destructive">ІНВ ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг</span>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1.5 text-[11px] tabular-nums">
@@ -355,8 +356,9 @@ function DistributionMatrix() {
                         {it.product_name}
                         {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
                       </div>
-                      <div className="text-[10px] font-normal text-muted-foreground">
-                        інд ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг · інв ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг
+                      <div className="flex flex-wrap gap-x-2 text-[10px]">
+                        <span className="font-bold text-success">ІНД ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг</span>
+                        <span className="font-bold text-destructive">ІНВ ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг</span>
                       </div>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{t.total}</td>

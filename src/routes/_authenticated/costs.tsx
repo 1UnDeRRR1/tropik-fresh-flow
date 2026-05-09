@@ -41,10 +41,10 @@ function Costs() {
                 <tr>
                   <th className="py-1 pr-2">Товар</th>
                   <th className="py-1 pr-2 text-right">Ціна $</th>
-                  <th className="py-1 pr-2 text-right">Митниця інд</th>
-                  <th className="py-1 pr-2 text-right">Митниця інв</th>
-                  <th className="py-1 pr-2 text-right">Інд $/кг</th>
-                  <th className="py-1 text-right">Інв $/кг</th>
+                  <th className="py-1 pr-2 text-right font-bold text-success">Митниця ІНД</th>
+                  <th className="py-1 pr-2 text-right font-bold text-destructive">Митниця ІНВ</th>
+                  <th className="py-1 pr-2 text-right font-bold text-success">ІНД $/кг</th>
+                  <th className="py-1 text-right font-bold text-destructive">ІНВ $/кг</th>
                 </tr>
               </thead>
               <tbody>
@@ -52,10 +52,10 @@ function Costs() {
                   <tr key={r.id} className="border-t border-border">
                     <td className="py-1 pr-2">{r.product_name}{!r.customs_match_id && <span className="ml-1 text-amber-600">·?</span>}</td>
                     <td className="py-1 pr-2 text-right tabular-nums">{Number(r.unit_price_usd ?? 0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right tabular-nums">{Number(r.customs_cost_indicative ?? 0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right tabular-nums">{Number(r.customs_cost_invoice ?? 0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right tabular-nums font-semibold text-brand">{Number(r.final_cost_indicative ?? 0).toFixed(2)}</td>
-                    <td className="py-1 text-right tabular-nums font-semibold text-brand">{Number(r.final_cost_invoice ?? 0).toFixed(2)}</td>
+                    <td className="py-1 pr-2 text-right tabular-nums font-bold text-success">${Number(r.customs_cost_indicative ?? 0).toFixed(2)}</td>
+                    <td className="py-1 pr-2 text-right tabular-nums font-bold text-destructive">${Number(r.customs_cost_invoice ?? 0).toFixed(2)}</td>
+                    <td className="py-1 pr-2 text-right tabular-nums font-bold text-success">${Number(r.final_cost_indicative ?? 0).toFixed(2)}</td>
+                    <td className="py-1 text-right tabular-nums font-bold text-destructive">${Number(r.final_cost_invoice ?? 0).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
