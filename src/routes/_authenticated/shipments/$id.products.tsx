@@ -9,12 +9,16 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
+import { AutocompleteCell } from "@/components/AutocompleteCell";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: ProductsFullscreen,
 });
 
-const ORIGIN_COUNTRIES = ["Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія"];
+const COUNTRY_OPTIONS = [
+  "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
+  "Greece", "Italy", "Spain", "Netherlands", "Belgium", "Poland", "Moldova", "Albania", "North Macedonia",
+];
 
 type ItemRow = {
   id: string;
@@ -258,16 +262,26 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
   return (
     <tr className="border-b border-border/40">
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.product_name} placeholder="Товар" onChange={(v) => set("product_name", v)} className="font-medium" list="products-list" expandedMinWidth={180} />
-        <datalist id="products-list">
-          {products.map((p) => <option key={p.name} value={p.name} />)}
-        </datalist>
+        <AutocompleteCell
+          value={form.product_name}
+          onChange={(v) => set("product_name", v)}
+          options={products.map((p) => p.name)}
+          placeholder="Товар"
+          className="font-medium"
+          expandedMinWidth={200}
+        />
       </td>
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <SelectCell value={form.origin_country} options={ORIGIN_COUNTRIES} onChange={(v) => set("origin_country", v)} />
+        <AutocompleteCell
+          value={form.origin_country}
+          onChange={(v) => set("origin_country", v)}
+          options={COUNTRY_OPTIONS}
+          placeholder="Країна"
+          expandedMinWidth={180}
+        />
       </td>
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} />
@@ -298,7 +312,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
   );
 }
 
-const EXPANDED = "absolute left-0 top-[calc(100%+4px)] z-30 h-10 min-w-[140px] w-max max-w-[80vw] border-input bg-background text-sm shadow-lg ring-2 ring-brand/40";
+const EXPANDED = "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 
 function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number }) {
   const [focused, setFocused] = useState(false);
@@ -323,24 +337,6 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
   );
 }
 
-function SelectCell({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      className={cn(
-        "h-8 w-full rounded-md border border-transparent bg-transparent px-1 text-[12px] focus:border-input focus:bg-background",
-        focused && EXPANDED + " rounded-md px-2",
-      )}
-    >
-      <option value="">—</option>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
-  );
-}
 
 function NumCell({ value, onChange, step }: { value: number; onChange: (v: number) => void; step?: string }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
