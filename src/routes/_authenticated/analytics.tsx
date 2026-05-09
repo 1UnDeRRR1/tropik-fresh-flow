@@ -145,11 +145,87 @@ function Analytics() {
 
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [openItem, setOpenItem] = useState<Flat | null>(null);
+  const [view, setView] = useState<"product" | "manager" | "supplier">("product");
+
+  // Grouping by manager / supplier (admins only)
+  type OwnerGroup = {
+    key: string;
+    name: string;
+    pallets: number;
+    products: { product: string; country: string; pallets: number; flats: Flat[] }[];
+  };
+  const ownerGroups = useMemo<OwnerGroup[]>(() => {
+    if (view === "product") return [];
+    const map = new Map<string, OwnerGroup>();
+    for (const f of activeFlat) {
+      const ownerId =
+        view === "manager" ? f.shipment.import_manager_id ?? "" : f.shipment.supplier_id ?? "";
+      const ownerName =
+        view === "manager"
+          ? mgrMap.get(ownerId) ?? "— Без менеджера"
+          : supMap.get(ownerId) ?? "— Без постачальника";
+      const key = ownerId || `__none_${view}`;
+      const og = map.get(key) ?? { key, name: ownerName, pallets: 0, products: [] };
+      const product = f.item.product_name.trim();
+      const country = (f.item.origin_country || f.shipment.country || "").trim();
+      const pallets = Number(f.item.pallet_count ?? 0);
+      let pg = og.products.find((p) => p.product === product && p.country === country);
+      if (!pg) {
+        pg = { product, country, pallets: 0, flats: [] };
+        og.products.push(pg);
+      }
+      pg.pallets += pallets;
+      pg.flats.push(f);
+      og.pallets += pallets;
+      map.set(key, og);
+    }
+    const arr = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "uk"));
+    for (const g of arr) {
+      g.products.sort(
+        (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
+      );
+    }
+    return arr;
+  }, [activeFlat, view, mgrMap, supMap]);
+
+  const [openOwner, setOpenOwner] = useState<OwnerGroup | null>(null);
+
+  const totalPallets = useMemo(
+    () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
+    [activeFlat],
+  );
 
   return (
     <div className="space-y-4">
       <PageHeader title="Аналітика" subtitle="Усі активні товари в системі" />
 
+      {isStaffAll && (
+        <div className="flex items-center justify-between gap-2">
+          <div className="inline-flex rounded-lg bg-muted p-1 text-xs font-medium">
+            {(
+              [
+                { v: "product", label: "Товар" },
+                { v: "manager", label: "Менеджер" },
+                { v: "supplier", label: "Постачальник" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.v}
+                type="button"
+                onClick={() => setView(t.v)}
+                className={`rounded-md px-3 py-1.5 transition-colors ${
+                  view === t.v ? "bg-background text-foreground shadow" : "text-muted-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">Всього: <span className="font-bold tabular-nums text-brand">{totalPallets}п</span></span>
+        </div>
+      )}
+
+      {view === "product" && (
       <SectionCard title="Товар · країна · палети">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
@@ -178,6 +254,82 @@ function Analytics() {
           </ul>
         )}
       </SectionCard>
+      )}
+
+      {view !== "product" && (
+        <SectionCard title={view === "manager" ? "Менеджер · палети" : "Постачальник · палети"}>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Завантаження…</p>
+          ) : !ownerGroups.length ? (
+            <EmptyState title="Немає активних товарів" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {ownerGroups.map((og) => (
+                <li key={og.key}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenOwner(og)}
+                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
+                  >
+                    <div className="min-w-0 text-sm">
+                      <span className="font-medium">{og.name}</span>
+                      <span className="text-muted-foreground"> · {og.products.length} поз.</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="text-sm font-bold tabular-nums text-brand">{og.pallets}п</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Owner detail dialog */}
+      <Dialog open={!!openOwner} onOpenChange={(o) => !o && setOpenOwner(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {openOwner?.name}
+              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                Всього: {openOwner?.pallets}п
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          {openOwner ? (
+            <ul className="divide-y divide-border">
+              {openOwner.products.map((p) => (
+                <li key={`${p.product}__${p.country}`}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenGroup({
+                        key: `${p.product}__${p.country}`,
+                        product: p.product,
+                        country: p.country,
+                        pallets: p.pallets,
+                        flats: p.flats,
+                      })
+                    }
+                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
+                  >
+                    <div className="min-w-0 text-sm">
+                      <span className="font-medium">{p.product}</span>
+                      {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="text-sm font-bold tabular-nums text-brand">{p.pallets}п</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Level 2: positions of selected product+country */}
       <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
