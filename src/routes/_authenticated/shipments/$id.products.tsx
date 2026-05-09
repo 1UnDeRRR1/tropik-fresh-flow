@@ -206,6 +206,10 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
         step="0.01"
         placeholder="0"
         value={val}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => { dirty.current = true; setVal(e.target.value); }}
         className="h-7 flex-1 px-2 text-[12px]"
