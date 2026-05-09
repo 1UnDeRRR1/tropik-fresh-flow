@@ -92,6 +92,7 @@ export function OfferDialog({
       toast.success(`Відправлено пропозицій: ${n}`);
       qc.invalidateQueries({ queryKey: ["offers"] });
       qc.invalidateQueries({ queryKey: ["branch-incoming"] });
+      qc.invalidateQueries({ queryKey: ["branch-outgoing-offers"] });
       onClose();
     },
     onError: (e: any) => toast.error(e?.message ?? "Не вдалося"),

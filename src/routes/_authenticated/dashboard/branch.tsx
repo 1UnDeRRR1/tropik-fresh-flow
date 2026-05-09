@@ -62,6 +62,44 @@ function BranchDashboard() {
     },
   });
 
+  const { data: outOffers } = useQuery({
+    queryKey: ["branch-outgoing-offers", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("branch_transfer_offers")
+        .select("shipment_item_id,distribution_id,status,offered_pallets,accepted_pallets")
+        .eq("from_branch_id", branchId!);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        shipment_item_id: string;
+        distribution_id: string;
+        status: string;
+        offered_pallets: number;
+        accepted_pallets: number;
+      }>;
+    },
+  });
+
+  const offerStats = useMemo(() => {
+    const m = new Map<string, { pending: number; accepted: number }>();
+    (outOffers ?? []).forEach((o) => {
+      const k = `${o.distribution_id}-${o.shipment_item_id}`;
+      const cur = m.get(k) ?? { pending: 0, accepted: 0 };
+      if (o.status === "pending") cur.pending += Number(o.offered_pallets || 0);
+      if (o.status === "accepted" || o.status === "partially_accepted")
+        cur.accepted += Number(o.accepted_pallets || 0);
+      m.set(k, cur);
+    });
+    return m;
+  }, [outOffers]);
+
+  const statsFor = (r: { distribution_id: string; shipment_item_id: string; pallets: number }) => {
+    const s = offerStats.get(`${r.distribution_id}-${r.shipment_item_id}`) ?? { pending: 0, accepted: 0 };
+    const free = Math.max(0, r.pallets - s.pending - s.accepted);
+    return { pending: s.pending, accepted: s.accepted, free };
+  };
+
   const rows: Row[] = useMemo(
     () =>
       (data ?? []).flatMap((d) =>
@@ -156,7 +194,19 @@ function BranchDashboard() {
                     <td className="px-2 py-2 font-medium">{r.product}</td>
                     <td className="px-2 py-2 text-muted-foreground">{r.country ? toUaCountry(r.country) : "—"}</td>
                     <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.pallets}п</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums">
+                      {(() => {
+                        const s = statsFor(r);
+                        return s.pending > 0 ? (
+                          <span>
+                            {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
+                            <span className="text-primary">{s.pending}п</span>
+                          </span>
+                        ) : (
+                          <span>{s.free}п</span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-2 py-2 text-right font-bold tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
                     <td className="px-2 py-2 text-right">
                       <CostPair indicative={r.indicative} invoice={r.invoice} suffix="/кг" size="xs" />
@@ -206,30 +256,45 @@ function BranchDashboard() {
                     </div>
                   </div>
                   <ul className="divide-y divide-border rounded-xl border border-border">
-                    {list.map((r) => (
-                      <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-mono text-[11px] font-semibold">{r.code}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
+                    {list.map((r) => {
+                      const s = statsFor(r);
+                      return (
+                        <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-[11px] font-semibold">{r.code}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right tabular-nums">
-                          <div className="font-bold">{r.pallets}п</div>
-                          <div className="text-[11px] text-muted-foreground">{r.weight.toLocaleString("uk-UA")} кг</div>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOfferRow(r);
-                          }}
-                        >
-                          Запропонувати
-                        </Button>
-                      </li>
-                    ))}
+                          <div className="text-right tabular-nums">
+                            <div className="font-bold">
+                              {s.pending > 0 ? (
+                                <>
+                                  {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
+                                  <span className="text-primary">{s.pending}п</span>
+                                </>
+                              ) : (
+                                <>{s.free}п</>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              всього {r.pallets}п · {r.weight.toLocaleString("uk-UA")} кг
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                            disabled={s.free <= 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOfferRow({ ...r, pallets: s.free });
+                            }}
+                          >
+                            Запропонувати
+                          </Button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );
