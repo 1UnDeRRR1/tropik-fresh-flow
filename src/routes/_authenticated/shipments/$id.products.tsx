@@ -501,13 +501,17 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
     const parsed = text === "" ? 0 : Number(text.replace(",", "."));
     if (parsed !== value) setText(value === 0 ? "" : String(value));
   }, [value, focused, text]);
+  const isEmpty = !value || value <= 0;
   return (
-    <div className="flex items-center gap-0.5">
+    <div className={cn(
+      "flex items-center gap-0.5 rounded",
+      isEmpty && "ring-2 ring-destructive bg-destructive/15",
+    )}>
       <Input
         type="text"
         inputMode="decimal"
         value={text}
-        placeholder={focused ? "" : "—"}
+        placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -528,6 +532,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         className={cn(
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
+          isEmpty && "text-destructive placeholder:text-destructive font-semibold",
         )}
       />
       <select
