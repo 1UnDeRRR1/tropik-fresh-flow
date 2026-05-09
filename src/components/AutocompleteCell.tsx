@@ -91,7 +91,11 @@ export function AutocompleteCell({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // allow click on suggestion items (they use onMouseDown preventDefault)
+    if (acceptingRef.current) {
+      acceptingRef.current = false;
+      setFocused(false);
+      return;
+    }
     if (required && trimmed && !isExactMatch) {
       e.preventDefault();
       setInvalid(true);
