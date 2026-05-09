@@ -371,6 +371,48 @@ function AdminDashboard() {
               )}
             </>
           )}
+
+          {detail === "branches" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Філія товари</DialogTitle>
+              </DialogHeader>
+              {(data?.branches ?? []).length === 0 ? (
+                <EmptyState title="Розподілених товарів в дорозі немає" />
+              ) : (
+                <div className="space-y-4">
+                  {data!.branches.map((b) => (
+                    <div key={b.branchId}>
+                      <div className="mb-1 flex items-center justify-between text-sm font-bold">
+                        <span>{b.branchName}</span>
+                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-xs font-bold text-foreground">
+                          {b.totalPallets}п
+                        </span>
+                      </div>
+                      <ul className="divide-y divide-border rounded-xl border border-border">
+                        {b.products.map((p) => (
+                          <li
+                            key={`${p.product}-${p.country}`}
+                            className="flex items-center justify-between px-3 py-2 text-sm"
+                          >
+                            <span className="truncate">
+                              {p.product}
+                              {p.country && (
+                                <span className="text-muted-foreground"> • {p.country}</span>
+                              )}
+                            </span>
+                            <span className="shrink-0 rounded-full bg-info/15 px-2 py-0.5 text-xs font-bold text-info">
+                              {p.pallets}п
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
