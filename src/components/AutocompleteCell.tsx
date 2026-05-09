@@ -60,6 +60,7 @@ export function AutocompleteCell({
   required?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const acceptingRef = useRef(false);
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
 
