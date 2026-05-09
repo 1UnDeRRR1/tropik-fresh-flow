@@ -60,6 +60,7 @@ function ShipmentsList() {
   }, [data, today, soon]);
 
   const filtered = rows
+    .filter((r) => r.fact > 0)
     .filter((r) => {
       if (filter === "all") return true;
       if (filter === "done") return r.fact > 0 && r.remaining === 0;
