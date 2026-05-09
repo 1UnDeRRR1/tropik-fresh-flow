@@ -49,23 +49,9 @@ function BranchRequestsPage() {
   const [editPallets, setEditPallets] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Resolve current import_manager.id by email match
-  const { data: myManagerId } = useQuery({
-    queryKey: ["my-import-manager", user?.email],
-    enabled: !!user?.email && !isAdmin,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("import_managers")
-        .select("id")
-        .ilike("email", user!.email!)
-        .maybeSingle();
-      return data?.id ?? null;
-    },
-  });
-
   const { data, isLoading } = useQuery({
-    queryKey: ["branch-requests-full", isAdmin ? "all" : myManagerId],
-    enabled: isAdmin || myManagerId !== undefined,
+    queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
       const { data: reqs, error } = await supabase
         .from("branch_requests")
@@ -83,7 +69,7 @@ function BranchRequestsPage() {
       const [{ data: branches }, { data: ships }, { data: items }] = await Promise.all([
         supabase.from("branches").select("id,name").in("id", branchIds),
         shipmentIds.length
-          ? supabase.from("shipments").select("id,code,country,import_manager_id").in("id", shipmentIds)
+          ? supabase.from("shipments").select("id,code,country,import_manager_id,created_by").in("id", shipmentIds)
           : Promise.resolve({ data: [] as any[] }),
         itemIds.length
           ? supabase
@@ -114,7 +100,7 @@ function BranchRequestsPage() {
           shipmentId: r.shipment_id ?? "",
           shipmentItemId: r.shipment_item_id,
           branchId: r.branch_id,
-          importManagerId: s?.import_manager_id ?? null,
+          importManagerId: s?.created_by ?? null,
           product: it?.product_name ?? "—",
           country: it?.origin_country ?? s?.country ?? null,
           caliber: it?.caliber ?? "—",
@@ -126,8 +112,7 @@ function BranchRequestsPage() {
       });
 
       if (isAdmin) return rows;
-      if (!myManagerId) return [];
-      return rows.filter((r) => r.importManagerId === myManagerId);
+      return rows.filter((r) => r.importManagerId === user!.id);
     },
   });
 
