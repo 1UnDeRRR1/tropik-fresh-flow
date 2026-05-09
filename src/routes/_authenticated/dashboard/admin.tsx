@@ -272,17 +272,15 @@ function AdminDashboard() {
               ) : (
                 <ul className="divide-y divide-border rounded-xl border border-border">
                   {data!.transit.list.map((r) => (
-                    <li key={r.code} className="px-3 py-2 text-sm">
+                    <li key={r.key} className="px-3 py-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-semibold">
-                          {r.products || "—"}{r.country ? ` • ${r.country}` : ""}
-                        </span>
+                        <span className="truncate font-semibold">{r.product}</span>
                         <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-bold text-success">
                           {r.pallets}п
                         </span>
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {r.code} · ETA {r.eta ?? "—"} · {r.manager}
+                        {r.country ? `${r.country} · ` : ""}{r.code} · ETA {r.eta ?? "—"} · {r.manager}
                       </div>
                     </li>
                   ))}
