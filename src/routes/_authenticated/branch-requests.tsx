@@ -26,6 +26,7 @@ type Row = {
   salePrice: number | null;
   saleCurrency: string | null;
   createdAt: string;
+  updatedAt: string;
   branchName: string;
   shipmentCode: string;
   shipmentId: string;
