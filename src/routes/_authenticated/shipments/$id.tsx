@@ -333,7 +333,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
   const savedCurrency = (shipment.logistics_cost_currency as Currency) ?? "EUR";
   const [transportCurrency, setTransportCurrency] = useState<Currency>(savedCurrency);
   const [transport, setTransport] = useState<string>("");
-  const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport);
+  const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport.replace(",", "."));
   const totalTransportUsd = convertToUsd(totalTransport, transportCurrency, shipment.eur_usd_rate);
 
   // Vehicle-wide totals for display & allocation
