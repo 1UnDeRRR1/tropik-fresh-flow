@@ -274,24 +274,26 @@ function BranchRequestsPage() {
             )}
           </SectionCard>
 
-          <SectionCard
-            title={`Архів (${archived.length})`}
-            action={
-              <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
-                {showArchive ? "Сховати" : "Показати"}
-              </Button>
-            }
-          >
-            {!showArchive ? (
-              <p className="text-xs text-muted-foreground">
-                Заявки старші за 30 днів. Натисніть «Показати», щоб переглянути.
-              </p>
-            ) : !archived.length ? (
-              <EmptyState title="Архів порожній" />
-            ) : (
-              <RequestList rows={archived} busyId={busyId} />
-            )}
-          </SectionCard>
+          {isAdmin && (
+            <SectionCard
+              title={`Архів (${archived.length})`}
+              action={
+                <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
+                  {showArchive ? "Сховати" : "Показати"}
+                </Button>
+              }
+            >
+              {!showArchive ? (
+                <p className="text-xs text-muted-foreground">
+                  Заявки старші за 30 днів. Доступно тільки адміністраторам.
+                </p>
+              ) : !archived.length ? (
+                <EmptyState title="Архів порожній" />
+              ) : (
+                <ArchiveList rows={archived} onOpen={(r) => setDetail(r)} />
+              )}
+            </SectionCard>
+          )}
         </>
       )}
 
