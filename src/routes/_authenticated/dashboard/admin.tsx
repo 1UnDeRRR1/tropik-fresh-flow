@@ -219,7 +219,7 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <button type="button" onClick={() => setDetail("urgent")} className="text-left">
           <StatCard
             label="24Г не розподілено"
@@ -260,7 +260,7 @@ function AdminDashboard() {
       </div>
 
       <SectionCard title="Master-data">
-        <div className="grid grid-cols-2 gap-2 text-sm font-medium">
+        <div className="grid grid-cols-2 gap-2 text-sm font-medium md:grid-cols-4 lg:grid-cols-7">
           <a href="/admin/branches" className="rounded-xl bg-secondary p-3">Філії</a>
           <a href="/admin/managers" className="rounded-xl bg-secondary p-3">Менеджери</a>
           <a href="/admin/suppliers" className="rounded-xl bg-secondary p-3">Постачальники</a>
