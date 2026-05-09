@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Settings } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/shipments", label: "Поставки", icon: Package },
         { to: "/distribution", label: "Розподіл", icon: Truck },
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
+        { to: "/calendar", label: "Календар", icon: Calendar },
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
@@ -63,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-3xl px-4 pb-28 pt-4">{children}</main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe">
-        <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : "grid-cols-5")}>
+        <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : "grid-cols-5")}>
           {items.map((it) => {
             const active =
               pathname === it.to ||
