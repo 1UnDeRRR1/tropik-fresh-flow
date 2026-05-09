@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: ProductsFullscreen,
@@ -54,6 +55,7 @@ type ItemRow = {
   unit_price: number | null;
   price_currency: string | null;
   final_cost_indicative: number | null;
+  final_cost_invoice: number | null;
 };
 
 type ShipmentRow = {
@@ -78,7 +80,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
       return {
@@ -149,7 +151,7 @@ function ProductsFullscreen() {
                 <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Ціна</th>
-                <th className="px-1.5 py-2 text-right font-bold text-success">ІНД $</th>
+                <th className="px-1.5 py-2 text-right font-medium text-muted-foreground">Собів. $</th>
                 <th className="px-1.5 py-2"></th>
               </tr>
             </thead>
@@ -367,8 +369,8 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-1.5 py-0.5 text-right text-[12px] tabular-nums font-bold text-success">
-        ${Number(item.final_cost_indicative ?? 0).toFixed(2)}
+      <td className="px-1.5 py-0.5 text-right">
+        <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="xs" />
       </td>
       <td className="px-0.5 py-0.5">
         <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">

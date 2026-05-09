@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip } from "@/components/StatusChip";
 import { toUaCountry } from "@/lib/countries";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -124,8 +125,7 @@ function BranchDashboard() {
                               </div>
                             </div>
                             <div className="text-right text-xs">
-                              <div className="font-bold tabular-nums text-success">ІНД ${Number(it.final_cost_indicative ?? 0).toFixed(2)}/кг</div>
-                              <div className="font-bold tabular-nums text-destructive">ІНВ ${Number(it.final_cost_invoice ?? 0).toFixed(2)}/кг</div>
+                              <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" />
                               <div className="text-[10px] text-muted-foreground">собівартість</div>
                             </div>
                           </div>
