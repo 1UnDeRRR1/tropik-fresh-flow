@@ -218,7 +218,7 @@ function BranchRequestsPage() {
     setBusyId(r.id);
     const { error } = await supabase
       .from("branch_requests")
-      .update({ status: "rejected", approved_qty: 0 })
+      .update({ status: "rejected", approved_qty: 0, updated_at: new Date().toISOString() })
       .eq("id", r.id);
     setBusyId(null);
     if (error) {
