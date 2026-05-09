@@ -179,6 +179,7 @@ type OpenVehicleRow = {
 
 function OpenVehiclesBlock() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data, refetch } = useQuery({
     queryKey: ["open-vehicles-list"],
     queryFn: async () => {
