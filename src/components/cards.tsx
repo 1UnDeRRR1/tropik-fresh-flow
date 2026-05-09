@@ -16,7 +16,7 @@ export function StatCard({
   value: ReactNode;
   hint?: string;
   icon?: ReactNode;
-  tone?: "default" | "brand" | "primary" | "danger" | "warning";
+  tone?: "default" | "brand" | "primary" | "danger" | "warning" | "success" | "info";
   to?: string;
   hash?: string;
   pulse?: boolean;
@@ -29,6 +29,8 @@ export function StatCard({
         tone === "primary" && "border-transparent bg-primary text-primary-foreground",
         tone === "danger" && "border-transparent bg-destructive text-destructive-foreground shadow-lg",
         tone === "warning" && "border-transparent bg-warning text-foreground shadow-lg",
+        tone === "success" && "border-transparent bg-success text-brand-foreground shadow-lg",
+        tone === "info" && "border-transparent bg-info text-brand-foreground shadow-lg",
         pulse && "animate-pulse",
       )}
     >
