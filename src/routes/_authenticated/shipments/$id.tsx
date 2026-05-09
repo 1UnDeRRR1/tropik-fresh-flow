@@ -302,13 +302,52 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
+  // Vehicle-wide transport: load sibling shipments & their items
+  const { data: vehicleData } = useQuery({
+    queryKey: ["vehicle-transport", shipment.vehicle_id, shipmentId],
+    enabled: !!shipment.vehicle_id,
+    queryFn: async () => {
+      const { data: sibs } = await supabase
+        .from("shipments")
+        .select("id,code,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,created_at")
+        .eq("vehicle_id", shipment.vehicle_id!)
+        .order("created_at", { ascending: true });
+      const sibIds = (sibs ?? []).map((s) => s.id);
+      const { data: sibItems } = sibIds.length
+        ? await supabase
+            .from("shipment_items")
+            .select("id,shipment_id,pallet_count,pallet_weight,product_name")
+            .in("shipment_id", sibIds)
+        : { data: [] as { id: string; shipment_id: string; pallet_count: number | null; pallet_weight: number | null; product_name: string | null }[] };
+      return { siblings: sibs ?? [], allItems: sibItems ?? [] };
+    },
+  });
+
+  const siblings = vehicleData?.siblings ?? [];
+  const otherWithCost = siblings.find((s) => s.id !== shipmentId && Number(s.logistics_cost ?? 0) > 0);
+  const transportLocked = !!otherWithCost;
+  const inheritedCurrency = (otherWithCost?.logistics_cost_currency as Currency) ?? "EUR";
+  const inheritedAmount = Number(otherWithCost?.logistics_cost ?? 0);
+  const inheritedUsd = Number(otherWithCost?.logistics_cost_usd ?? convertToUsd(inheritedAmount, inheritedCurrency, otherWithCost?.eur_usd_rate));
+
   const savedCurrency = (shipment.logistics_cost_currency as Currency) ?? "EUR";
   const [transportCurrency, setTransportCurrency] = useState<Currency>(savedCurrency);
   const [transport, setTransport] = useState<string>("");
   const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport);
   const totalTransportUsd = convertToUsd(totalTransport, transportCurrency, shipment.eur_usd_rate);
-  const alloc = allocateTransport(items, totalTransportUsd);
+
+  // Vehicle-wide totals for display & allocation
+  const vehicleTotalUsd = siblings.length
+    ? siblings.reduce((a, s) => {
+        if (s.id === shipmentId && transport !== "") return a + totalTransportUsd;
+        return a + Number(s.logistics_cost_usd ?? 0);
+      }, 0)
+    : totalTransportUsd;
+  const allocItems = (vehicleData?.allItems ?? []).length ? vehicleData!.allItems : items;
+  const alloc = allocateTransport(allocItems, vehicleTotalUsd);
+
   const saveTransport = async () => {
+    if (transportLocked) return;
     const { error } = await supabase.from("shipments").update({
       logistics_cost: totalTransport,
       logistics_cost_currency: transportCurrency,
@@ -317,6 +356,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
     toast.success("Транспортні витрати збережено");
     setTransport("");
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+    qc.invalidateQueries({ queryKey: ["vehicle-transport", shipment.vehicle_id, shipmentId] });
   };
 
   return (
@@ -337,35 +377,48 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
 
       <SectionCard title="Транспортні витрати — розподіл по товарах">
         <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту</Label>
-            <div className="flex gap-2">
-              <Input id="transport" type="number" step="0.01" inputMode="decimal" className="flex-1"
-                value={transport === "" ? String(shipment.logistics_cost ?? 0) : transport}
-                onChange={(e) => setTransport(e.target.value)} />
-              <select
-                value={transportCurrency}
-                onChange={(e) => setTransportCurrency(e.target.value as Currency)}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <Button type="button" onClick={saveTransport} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
+          {transportLocked ? (
+            <div className="rounded-xl border border-dashed border-brand/40 bg-brand/5 p-3 text-sm">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Транспорт вже вказано для авто</div>
+              <div className="mt-1 text-base font-semibold text-foreground">
+                {inheritedAmount.toFixed(2)} {inheritedCurrency}
+                {inheritedCurrency === "EUR" && <span className="ml-2 text-muted-foreground">≈ {fmtUSD(inheritedUsd)}</span>}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Вартість транспорту вводиться один раз на авто і розподіляється між усіма позиціями всіх постачальників.
+              </p>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {transportCurrency === "EUR"
-                ? <>Курс EUR/USD: <b>{fmtRate(shipment.eur_usd_rate)}</b>{shipment.eur_usd_rate_date ? ` (${shipment.eur_usd_rate_date})` : ""} · конверт.: <b className="text-foreground">{fmtUSD(totalTransportUsd)}</b></>
-                : <>Базова валоюта обліку — USD</>}
-              {" "}· Розподіл пропорційно до фактичної ваги товару. Митні витрати — окремий модуль.
-            </p>
-          </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="transport" className="text-xs">Загальна вартість транспорту (на все авто)</Label>
+              <div className="flex gap-2">
+                <Input id="transport" type="number" step="0.01" inputMode="decimal" className="flex-1"
+                  value={transport === "" ? String(shipment.logistics_cost ?? 0) : transport}
+                  onChange={(e) => setTransport(e.target.value)} />
+                <select
+                  value={transportCurrency}
+                  onChange={(e) => setTransportCurrency(e.target.value as Currency)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <Button type="button" onClick={saveTransport} className="bg-brand text-brand-foreground hover:bg-brand/90">Зберегти</Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {transportCurrency === "EUR"
+                  ? <>Курс EUR/USD: <b>{fmtRate(shipment.eur_usd_rate)}</b>{shipment.eur_usd_rate_date ? ` (${shipment.eur_usd_rate_date})` : ""} · конверт.: <b className="text-foreground">{fmtUSD(totalTransportUsd)}</b></>
+                  : <>Базова валюта обліку — USD</>}
+                {" "}· Розподіл пропорційно до фактичної ваги по всьому авто.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
-            <StatCard label="Загальна вага" value={fmtKg(alloc.shipmentTotalWeight)} />
-            <StatCard label="Транспорт всього" value={fmtUSD(totalTransportUsd)} tone="brand" />
+            <StatCard label="Загальна вага (авто)" value={fmtKg(alloc.shipmentTotalWeight)} />
+            <StatCard label="Транспорт всього (авто)" value={fmtUSD(vehicleTotalUsd)} tone="brand" />
           </div>
 
-          {!items.length ? <EmptyState title="Додайте позиції щоб побачити розподіл" /> : (
+          {!alloc.shipmentTotalWeight ? <EmptyState title="Додайте позиції щоб побачити розподіл" /> : (
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="w-full min-w-[520px] text-xs">
                 <thead className="text-muted-foreground">
@@ -378,8 +431,9 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((it) => {
+                  {allocItems.map((it) => {
                     const r = alloc.rows[it.id];
+                    if (!r) return null;
                     return (
                       <tr key={it.id} className="border-b border-border/50">
                         <td className="py-2 pr-2 font-medium">{it.product_name}</td>
