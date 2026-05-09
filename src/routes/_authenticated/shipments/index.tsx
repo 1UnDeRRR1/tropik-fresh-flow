@@ -59,13 +59,20 @@ function ShipmentsList() {
     });
   }, [data, today, soon]);
 
-  const filtered = rows.filter((r) => {
-    if (filter === "all") return true;
-    if (filter === "done") return r.fact > 0 && r.remaining === 0;
-    if (filter === "none") return r.fact > 0 && r.dist === 0;
-    if (filter === "partial") return r.dist > 0 && r.remaining > 0;
-    return true;
-  });
+  const filtered = rows
+    .filter((r) => {
+      if (filter === "all") return true;
+      if (filter === "done") return r.fact > 0 && r.remaining === 0;
+      if (filter === "none") return r.fact > 0 && r.dist === 0;
+      if (filter === "partial") return r.dist > 0 && r.remaining > 0;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!a.eta && !b.eta) return 0;
+      if (!a.eta) return 1;
+      if (!b.eta) return -1;
+      return a.eta.localeCompare(b.eta);
+    });
 
   return (
     <div className="space-y-4">
