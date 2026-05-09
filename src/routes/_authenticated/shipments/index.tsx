@@ -134,7 +134,7 @@ function ShipmentsList() {
                         {s.fact > 0 && s.remaining === 0 ? (
                           <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
                         ) : s.fact > 0 && s.dist === 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive">Не розподілено</span>
+                          <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive whitespace-nowrap">Не розпод.</span>
                         ) : s.dist > 0 && s.remaining > 0 ? (
                           <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">Дорозподіл</span>
                         ) : (
