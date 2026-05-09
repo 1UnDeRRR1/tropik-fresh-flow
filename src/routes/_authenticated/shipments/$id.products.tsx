@@ -154,9 +154,11 @@ function ProductsFullscreen() {
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => (
-                <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} />
-              ))}
+              {items.map((it) => {
+                const otherPallets = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
+                const otherKg = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} />;
+              })}
             </tbody>
           </table>
         )}
@@ -204,6 +206,10 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
         step="0.01"
         placeholder="0"
         value={val}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => { dirty.current = true; setVal(e.target.value); }}
         className="h-7 flex-1 px-2 text-[12px]"
@@ -220,7 +226,10 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
   );
 }
 
-function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipmentId: string; products: ProductRef[] }) {
+const MAX_PALLETS = 26;
+const MAX_WEIGHT_KG = 21500;
+
+function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number }) {
   const qc = useQueryClient();
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
@@ -313,7 +322,20 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <NumCell value={form.pallet_count} onChange={(v) => set("pallet_count", v)} />
+        <NumCell
+          value={form.pallet_count}
+          onChange={(v) => {
+            const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
+            const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
+            const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
+            if (v > max) {
+              toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
+              set("pallet_count", max);
+            } else {
+              set("pallet_count", v);
+            }
+          }}
+        />
       </td>
       <td className="relative px-0.5 py-0.5">
         <PriceCell
@@ -345,6 +367,10 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       value={value}
       list={list}
       placeholder={focused ? "" : placeholder}
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
         setFocused(true);
@@ -371,10 +397,14 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
   return (
     <Input
       type="number"
-      inputMode="decimal"
+      inputMode="numeric"
       step={step ?? "1"}
       value={text}
       placeholder={focused ? "" : "0"}
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
       onFocus={(e) => {
         setFocused(true);
         e.currentTarget.select();
@@ -409,6 +439,10 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         step="0.01"
         value={text}
         placeholder={focused ? "" : "0"}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onFocus={(e) => { setFocused(true); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}
         onChange={(e) => { setText(e.target.value); onValueChange(e.target.value === "" ? 0 : Number(e.target.value)); }}
