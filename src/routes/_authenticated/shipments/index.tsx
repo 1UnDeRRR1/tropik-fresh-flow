@@ -105,6 +105,7 @@ function ShipmentsList() {
                   <th className="px-2 py-2 text-right">Факт</th>
                   <th className="px-2 py-2 text-right">Розпод.</th>
                   <th className="px-2 py-2 text-right">Залиш.</th>
+                  <th className="px-2 py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +117,7 @@ function ShipmentsList() {
                       : s.isSoon
                         ? "bg-warning/5"
                         : "";
+                  const isOwner = !!user && s.import_manager_id === user.id;
                   return (
                     <tr key={s.id} className={cn("border-t border-border", tone)}>
                       <td className="sticky left-0 z-10 bg-card py-2 pr-2">
@@ -133,6 +135,15 @@ function ShipmentsList() {
                       <td className="px-2 py-2 text-right tabular-nums font-semibold text-brand">{s.dist}</td>
                       <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining < 0 ? "text-destructive" : s.remaining === 0 ? "text-success" : "")}>
                         {s.remaining}
+                      </td>
+                      <td className="px-1 py-2">
+                        {isOwner && (
+                          <RowActions
+                            shipmentId={s.id}
+                            code={s.code}
+                            onChanged={() => qc.invalidateQueries({ queryKey: ["shipments-list"] })}
+                          />
+                        )}
                       </td>
                     </tr>
                   );
