@@ -10,6 +10,8 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { toUaCountry } from "@/lib/countries";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CostPair } from "@/components/CostPair";
+import { OfferDialog } from "@/components/OfferDialog";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -17,6 +19,8 @@ export const Route = createFileRoute("/_authenticated/dashboard/branch")({
 
 type Row = {
   key: string;
+  shipment_item_id: string;
+  distribution_id: string;
   code: string;
   eta: string | null;
   status: string;
@@ -38,6 +42,7 @@ function BranchDashboard() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
+  const [offerRow, setOfferRow] = useState<Row | null>(null);
 
   const { data } = useQuery({
     queryKey: ["branch-incoming", branchId],
@@ -66,6 +71,8 @@ function BranchDashboard() {
             if (!it) return null;
             return {
               key: `${d.id}-${it.id}`,
+              shipment_item_id: it.id,
+              distribution_id: d.id,
               code: d.shipments?.code ?? "—",
               eta: d.shipments?.eta ?? null,
               status: d.status,
@@ -200,8 +207,8 @@ function BranchDashboard() {
                   </div>
                   <ul className="divide-y divide-border rounded-xl border border-border">
                     {list.map((r) => (
-                      <li key={r.key} className="flex items-center justify-between px-3 py-2 text-sm">
-                        <div>
+                      <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                        <div className="min-w-0 flex-1">
                           <div className="font-mono text-[11px] font-semibold">{r.code}</div>
                           <div className="text-[11px] text-muted-foreground">
                             {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
@@ -211,6 +218,17 @@ function BranchDashboard() {
                           <div className="font-bold">{r.pallets}п</div>
                           <div className="text-[11px] text-muted-foreground">{r.weight.toLocaleString("uk-UA")} кг</div>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOfferRow(r);
+                          }}
+                        >
+                          Запропонувати
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -220,6 +238,23 @@ function BranchDashboard() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <OfferDialog
+        open={!!offerRow}
+        onClose={() => setOfferRow(null)}
+        item={
+          offerRow
+            ? {
+                shipment_item_id: offerRow.shipment_item_id,
+                distribution_id: offerRow.distribution_id,
+                product_name: offerRow.product,
+                caliber: offerRow.caliber,
+                available_pallets: offerRow.pallets,
+                shipment_code: offerRow.code,
+              }
+            : null
+        }
+      />
     </div>
   );
 }
