@@ -130,7 +130,7 @@ function ProductsFullscreen() {
 
       {sh && <TransportBar shipment={sh} />}
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -336,6 +336,7 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
 }
 
 const EXPANDED = "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
+const EXPANDED_RIGHT = "absolute right-0 left-auto top-[calc(100%+10px)] z-40 h-10 min-w-[120px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 
 function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number }) {
   const [focused, setFocused] = useState(false);
@@ -386,7 +387,7 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       }}
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
-        focused && EXPANDED + " text-right",
+        focused && EXPANDED_RIGHT + " text-right",
       )}
     />
   );
@@ -413,7 +414,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         onChange={(e) => { setText(e.target.value); onValueChange(e.target.value === "" ? 0 : Number(e.target.value)); }}
         className={cn(
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
-          focused && EXPANDED + " text-right",
+          focused && EXPANDED_RIGHT + " text-right",
         )}
       />
       <select
