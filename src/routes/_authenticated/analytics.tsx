@@ -33,6 +33,7 @@ type ShipmentRow = {
   country: string | null;
   eta: string | null;
   arrived_at: string | null;
+  status: string | null;
   import_manager_id: string | null;
   supplier_id: string | null;
   shipment_items: ItemRow[];
@@ -67,7 +68,7 @@ function Analytics() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
+          "id,code,country,eta,arrived_at,status,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
         )
         .order("eta", { ascending: true })
         .limit(1000);
@@ -111,8 +112,9 @@ function Analytics() {
   const activeFlat = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of data?.shipments ?? []) {
+      if (sh.status && ["completed", "cancelled"].includes(sh.status)) continue;
       const arrival = sh.arrived_at ?? sh.eta;
-      if (arrival && arrival < today) continue;
+      if (!arrival || arrival < today) continue;
       for (const it of sh.shipment_items ?? []) {
         const name = (it.product_name || "").trim();
         const pallets = Number(it.pallet_count ?? 0);
