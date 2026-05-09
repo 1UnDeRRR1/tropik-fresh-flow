@@ -105,7 +105,6 @@ function ManagerDashboard() {
         const done = allLoaded
           .filter((it) => {
             if ((it.product_name ?? "").trim().toLowerCase() !== p.product_name.trim().toLowerCase()) return false;
-            if (p.caliber && (it.caliber ?? "").trim().toLowerCase() !== p.caliber.trim().toLowerCase()) return false;
             if (p.country && (it.shipments?.country ?? "").trim().toLowerCase() !== p.country.trim().toLowerCase()) return false;
             if (!p.count_existing) {
               const sCreated = it.shipments?.created_at;
