@@ -121,6 +121,7 @@ type ShipmentRow = {
   logistics_cost_currency: string | null;
   eur_usd_rate: number | null;
   eur_usd_rate_date: string | null;
+  vehicle_id: string | null;
 };
 
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
