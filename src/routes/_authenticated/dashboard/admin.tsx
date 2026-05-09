@@ -50,7 +50,7 @@ function AdminDashboard() {
           )
           .order("eta", { ascending: true })
           .limit(500),
-        supabase.from("branches").select("id,name").order("sort_order"),
+        supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase.from("profiles").select("id,full_name"),
       ]);
 
