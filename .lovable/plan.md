@@ -1,33 +1,57 @@
-## Plan: Simplify & reorder New Shipment form
+# Тригери та система відпусток (admin)
 
-File: `src/routes/_authenticated/shipments/new.tsx`
+Велика функція. Розіб'ю на 2 етапи з окремими підтвердженнями. Спочатку обговоримо план — потім реалізую.
 
-### 1. Remove visual noise
-- In `PageHeader`, drop the subtitle `"Авто = країна завантаження. Один вантаж — одна країна."` — keep title only.
-- Remove the helper line under country: `"Дефолт із постачальника, але редагується вручну."`
-- Remove the helper line under vehicle picker: `"Оберіть країну, щоб відфільтрувати авто."`
+## Етап 1 — Система тригерів
 
-### 2. Keep top action toggle
-- Keep the two buttons: `+ НОВЕ АВТО` and `ДО ВІДКРИТОГО` (already correct).
+### База даних
+Тригери обчислюємо «на льоту» з існуючих даних (без зайвої таблиці) — це дозволяє завжди мати актуальну картину. Створимо лише:
+- `manager_vacations` (потрібно для виключення «неактивний менеджер»):
+  - `import_manager_id`, `start_date`, `end_date`, `replacement_manager_id` (nullable), `mode` ('full' | 'manual'), `created_by`
+- `vacation_supplier_assignments` (для режиму «manual split»):
+  - `vacation_id`, `supplier_id`, `temp_manager_id`
+- RLS: читання — staff; запис — admin/super_admin.
 
-### 3. New field order (mode = `new`)
-Reorder JSX blocks to match exactly:
-1. Постачальник (combobox) — moved to first
-2. Країна завантаження (combobox) — auto-filled from supplier default country, still editable; in existing mode used to filter vehicles
-3. Номер поставки (auto-generated, editable override) — moved up before dates
-4. Дата завантаження (date input)
-5. Розрахункова дата прибуття (computed read-only preview)
-6. Submit button — relabel to `СТВОРИТИ ТА ПЕРЕЙТИ ДО ТОВАРІВ`
+### Сервер
+`src/lib/triggers.functions.ts` — `getTriggers()` (createServerFn + requireSupabaseAuth, доступ лише admin/super_admin). Повертає масив:
+```
+{ id, level: 'red'|'yellow'|'blue', code, title, entity, entityId, link, details }
+```
+Усі 11 правил рахуються одним SQL/JS-обчисленням з вибірок:
+- shipments + items + distributions + vehicles + branches + branch_requests + import_managers + manager_vacations.
 
-For mode = `existing`, show the vehicle picker right after Постачальник; country, code, dates come from the selected vehicle (read-only preview), then the same submit button.
+Деталі правил (як у ТЗ):
+- RED: vehicle не закритий ≤24h до loading_date; нерозподілений товар ≤24h до ETA; філія без жодного запиту 14 днів; менеджер без shipments 7 днів (виключаючи відпустку).
+- YELLOW: відсутність позиції, що є у ≥80% філій 7 днів; ≥3 відкритих авто у менеджера; ≥50% нерозподілено + ETA ≤48h + transit ≥4 дн.; одна філія тримає ≥50% позиції.
+- BLUE: транспорт по країні +30% vs попереднє авто; закупівельна ціна +30% vs середнє за 7 днів; «низька ціна затверджена» (≥3 заявки, прийнято найнижчу + відхилено ≥2 вищі).
 
-### 4. Logic kept as-is
-- Supplier → country auto-fill (already implemented via `useEffect` with `countryTouched` guard).
-- Code auto-generation `COUNTRY_CODE + sequence + SUPPLIER_CODE` (already implemented; sequence resolved at submit).
-- ETA = loading_date + country logistics days with weekend adjustment (already implemented via `calcArrivalDate`).
-- Submit handler unchanged — only the button label changes.
+### UI
+Нова вкладка/секція **«Тригери»** на `/dashboard/admin` (видна лише admin/super_admin):
+- 3 групи: Червоні / Жовті / Сині, з лічильниками.
+- Карточки тригерів: колір-індикатор, заголовок, контекст (менеджер/філія/поставка), клік → перехід на пов'язану сутність (shipment, distribution, branch).
+- Mobile-first, українською.
 
-### 5. Submit button label
-Change current `Створити поставку` (line ~430-ish) to `СТВОРИТИ ТА ПЕРЕЙТИ ДО ТОВАРІВ`.
+## Етап 2 — Система відпусток
 
-No DB / business-logic changes. Pure UI reorder + label/text cleanup.
+### UI: `/admin/vacations`
+- Список менеджерів + кнопка «Призначити відпустку».
+- Діалог: дати + вибір режиму:
+  1. **Повна заміна** — один replacement-менеджер.
+  2. **Ручний розподіл** — таблиця постачальників, для кожного обрати temp-менеджера.
+
+### Логіка перепризначення
+Не змінюємо `suppliers.import_manager_id` фізично. Натомість додаємо helper `effectiveManagerId(supplier, date)`:
+- якщо є активна `vacation` що покриває дату + supplier має mapping → temp manager;
+- інакше → оригінальний.
+
+Усі місця, де перевіряється «чий постачальник/поставка», переходять на цей helper. Shipments створені під час відпустки автоматично «повернуться» — бо ми завжди дивимось на оригінального менеджера supplier'а поза вікном відпустки.
+
+### Авто-повернення
+Нічого додатково не треба: після `end_date` `effectiveManagerId` повертає оригінал. Cron не потрібен.
+
+## Що зроблю першим
+1. Міграція: `manager_vacations`, `vacation_supplier_assignments` + RLS.
+2. `triggers.functions.ts` + UI секція тригерів.
+3. Сторінка відпусток + helper `effectiveManagerId` + застосування у фільтрах поставок/постачальників.
+
+Підтверди план — і починаю з міграції (Етап 1 → потім Етап 2 в наступному кроці, щоб не змішувати в одному великому коміті).

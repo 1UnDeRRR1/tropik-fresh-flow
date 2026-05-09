@@ -480,6 +480,60 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_vacations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          import_manager_id: string
+          mode: string
+          notes: string | null
+          replacement_manager_id: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          import_manager_id: string
+          mode?: string
+          notes?: string | null
+          replacement_manager_id?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          import_manager_id?: string
+          mode?: string
+          notes?: string | null
+          replacement_manager_id?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_vacations_import_manager_id_fkey"
+            columns: ["import_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_vacations_replacement_manager_id_fkey"
+            columns: ["replacement_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -982,6 +1036,52 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vacation_supplier_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          supplier_id: string
+          temp_manager_id: string
+          vacation_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          supplier_id: string
+          temp_manager_id: string
+          vacation_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          supplier_id?: string
+          temp_manager_id?: string
+          vacation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacation_supplier_assignments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacation_supplier_assignments_temp_manager_id_fkey"
+            columns: ["temp_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacation_supplier_assignments_vacation_id_fkey"
+            columns: ["vacation_id"]
+            isOneToOne: false
+            referencedRelation: "manager_vacations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vehicles: {
         Row: {

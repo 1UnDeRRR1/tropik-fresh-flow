@@ -32,6 +32,8 @@ import { Route as AuthenticatedDashboardSuperAdminRouteImport } from './routes/_
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard/manager'
 import { Route as AuthenticatedDashboardBranchRouteImport } from './routes/_authenticated/dashboard/branch'
 import { Route as AuthenticatedDashboardAdminRouteImport } from './routes/_authenticated/dashboard/admin'
+import { Route as AuthenticatedAdminVacationsRouteImport } from './routes/_authenticated/admin/vacations'
+import { Route as AuthenticatedAdminTriggersRouteImport } from './routes/_authenticated/admin/triggers'
 import { Route as AuthenticatedAdminSuppliersRouteImport } from './routes/_authenticated/admin/suppliers'
 import { Route as AuthenticatedAdminQaRouteImport } from './routes/_authenticated/admin/qa'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin/products'
@@ -168,6 +170,18 @@ const AuthenticatedDashboardAdminRoute =
     path: '/dashboard/admin',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminVacationsRoute =
+  AuthenticatedAdminVacationsRouteImport.update({
+    id: '/vacations',
+    path: '/vacations',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminTriggersRoute =
+  AuthenticatedAdminTriggersRouteImport.update({
+    id: '/triggers',
+    path: '/triggers',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminSuppliersRoute =
   AuthenticatedAdminSuppliersRouteImport.update({
     id: '/suppliers',
@@ -249,6 +263,8 @@ export interface FileRoutesByFullPath {
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
+  '/admin/triggers': typeof AuthenticatedAdminTriggersRoute
+  '/admin/vacations': typeof AuthenticatedAdminVacationsRoute
   '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -282,6 +298,8 @@ export interface FileRoutesByTo {
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
+  '/admin/triggers': typeof AuthenticatedAdminTriggersRoute
+  '/admin/vacations': typeof AuthenticatedAdminVacationsRoute
   '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -318,6 +336,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/qa': typeof AuthenticatedAdminQaRoute
   '/_authenticated/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
+  '/_authenticated/admin/triggers': typeof AuthenticatedAdminTriggersRoute
+  '/_authenticated/admin/vacations': typeof AuthenticatedAdminVacationsRoute
   '/_authenticated/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
   '/_authenticated/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
@@ -354,6 +374,8 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/qa'
     | '/admin/suppliers'
+    | '/admin/triggers'
+    | '/admin/vacations'
     | '/dashboard/admin'
     | '/dashboard/branch'
     | '/dashboard/manager'
@@ -387,6 +409,8 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/qa'
     | '/admin/suppliers'
+    | '/admin/triggers'
+    | '/admin/vacations'
     | '/dashboard/admin'
     | '/dashboard/branch'
     | '/dashboard/manager'
@@ -422,6 +446,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/qa'
     | '/_authenticated/admin/suppliers'
+    | '/_authenticated/admin/triggers'
+    | '/_authenticated/admin/vacations'
     | '/_authenticated/dashboard/admin'
     | '/_authenticated/dashboard/branch'
     | '/_authenticated/dashboard/manager'
@@ -604,6 +630,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/vacations': {
+      id: '/_authenticated/admin/vacations'
+      path: '/vacations'
+      fullPath: '/admin/vacations'
+      preLoaderRoute: typeof AuthenticatedAdminVacationsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/triggers': {
+      id: '/_authenticated/admin/triggers'
+      path: '/triggers'
+      fullPath: '/admin/triggers'
+      preLoaderRoute: typeof AuthenticatedAdminTriggersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/suppliers': {
       id: '/_authenticated/admin/suppliers'
       path: '/suppliers'
@@ -686,6 +726,8 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminQaRoute: typeof AuthenticatedAdminQaRoute
   AuthenticatedAdminSuppliersRoute: typeof AuthenticatedAdminSuppliersRoute
+  AuthenticatedAdminTriggersRoute: typeof AuthenticatedAdminTriggersRoute
+  AuthenticatedAdminVacationsRoute: typeof AuthenticatedAdminVacationsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -698,6 +740,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminQaRoute: AuthenticatedAdminQaRoute,
   AuthenticatedAdminSuppliersRoute: AuthenticatedAdminSuppliersRoute,
+  AuthenticatedAdminTriggersRoute: AuthenticatedAdminTriggersRoute,
+  AuthenticatedAdminVacationsRoute: AuthenticatedAdminVacationsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
