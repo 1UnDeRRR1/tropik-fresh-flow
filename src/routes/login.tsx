@@ -63,7 +63,7 @@ function LoginPage() {
       />
       <div className="relative w-full max-w-sm">
         <div className="mb-10 flex flex-col items-center gap-3 text-center">
-          <Logo className="text-4xl text-primary-foreground" />
+          <Logo size={240} />
           <p className="text-xs uppercase tracking-[0.3em] text-primary-foreground/70">
             Supply Distribution
           </p>
