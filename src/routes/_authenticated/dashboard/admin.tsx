@@ -132,6 +132,7 @@ function AdminDashboard() {
             eta: x.s.eta,
             pallets: x.pallets,
             products: x.products,
+            country: toUaCountry(x.s.country),
             manager: profileName(x.s.created_by),
           })),
         },
@@ -255,7 +256,7 @@ function AdminDashboard() {
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {r.products || "—"} · ETA {r.eta ?? "—"} · {r.manager}
+                        {r.products || "—"}{r.country ? ` • ${r.country}` : ""} · ETA {r.eta ?? "—"} · {r.manager}
                       </div>
                     </li>
                   ))}
