@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, StatCard, EmptyState } from "@/components/cards";
 import { StatusChip } from "@/components/StatusChip";
+import { CostPair } from "@/components/CostPair";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
