@@ -106,6 +106,57 @@ export type Database = {
         }
         Relationships: []
       }
+      branch_transfer_offers: {
+        Row: {
+          accepted_pallets: number
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decision_notes: string | null
+          distribution_id: string
+          from_branch_id: string
+          id: string
+          notes: string | null
+          offered_pallets: number
+          shipment_item_id: string
+          status: Database["public"]["Enums"]["branch_offer_status"]
+          to_branch_id: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_pallets?: number
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decision_notes?: string | null
+          distribution_id: string
+          from_branch_id: string
+          id?: string
+          notes?: string | null
+          offered_pallets: number
+          shipment_item_id: string
+          status?: Database["public"]["Enums"]["branch_offer_status"]
+          to_branch_id: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_pallets?: number
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decision_notes?: string | null
+          distribution_id?: string
+          from_branch_id?: string
+          id?: string
+          notes?: string | null
+          offered_pallets?: number
+          shipment_item_id?: string
+          status?: Database["public"]["Enums"]["branch_offer_status"]
+          to_branch_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branches: {
         Row: {
           address: string | null
@@ -969,6 +1020,7 @@ export type Database = {
         Args: { _shipment_id: string }
         Returns: number
       }
+      expire_branch_transfer_offers: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -994,6 +1046,12 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "import_manager" | "branch"
+      branch_offer_status:
+        | "pending"
+        | "partially_accepted"
+        | "accepted"
+        | "rejected"
+        | "expired"
       branch_request_status:
         | "pending"
         | "approved"
@@ -1146,6 +1204,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "import_manager", "branch"],
+      branch_offer_status: [
+        "pending",
+        "partially_accepted",
+        "accepted",
+        "rejected",
+        "expired",
+      ],
       branch_request_status: [
         "pending",
         "approved",
