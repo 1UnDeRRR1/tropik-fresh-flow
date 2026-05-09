@@ -29,6 +29,7 @@ type Row = {
   updatedAt: string;
   branchName: string;
   shipmentCode: string;
+  supplierName: string;
   shipmentId: string;
   shipmentItemId: string | null;
   branchId: string;
