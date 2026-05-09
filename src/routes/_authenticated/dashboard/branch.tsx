@@ -238,6 +238,23 @@ function BranchDashboard() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <OfferDialog
+        open={!!offerRow}
+        onClose={() => setOfferRow(null)}
+        item={
+          offerRow
+            ? {
+                shipment_item_id: offerRow.shipment_item_id,
+                distribution_id: offerRow.distribution_id,
+                product_name: offerRow.product,
+                caliber: offerRow.caliber,
+                available_pallets: offerRow.pallets,
+                shipment_code: offerRow.code,
+              }
+            : null
+        }
+      />
     </div>
   );
 }
