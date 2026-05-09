@@ -257,28 +257,28 @@ function ProductRowEditor({ item, shipmentId, products }: { item: ItemRow; shipm
 
   return (
     <tr className="border-b border-border/40">
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.product_name} placeholder="Товар" onChange={(v) => set("product_name", v)} className="font-medium" list="products-list" />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.product_name} placeholder="Товар" onChange={(v) => set("product_name", v)} className="font-medium" list="products-list" expandedMinWidth={180} />
         <datalist id="products-list">
           {products.map((p) => <option key={p.name} value={p.name} />)}
         </datalist>
       </td>
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="relative px-0.5 py-0.5">
         <SelectCell value={form.origin_country} options={ORIGIN_COUNTRIES} onChange={(v) => set("origin_country", v)} />
       </td>
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} />
       </td>
-      <td className="px-0.5 py-0.5">
-        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} />
+      <td className="relative px-0.5 py-0.5">
+        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="relative px-0.5 py-0.5">
         <NumCell value={form.pallet_count} onChange={(v) => set("pallet_count", v)} />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="relative px-0.5 py-0.5">
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
