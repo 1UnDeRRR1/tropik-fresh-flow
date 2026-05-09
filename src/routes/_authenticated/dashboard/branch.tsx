@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -169,20 +169,13 @@ function BranchDashboard() {
       <Sheet open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader className="text-left">
-            <SheetTitle className="flex items-center justify-between gap-2">
+            <SheetTitle className="pr-8">
               <span>
                 {drill?.product}
                 {drill?.country && (
                   <span className="text-muted-foreground"> · {toUaCountry(drill.country)}</span>
                 )}
               </span>
-              <button
-                onClick={() => setDrill(null)}
-                className="rounded-full p-1 hover:bg-muted"
-                aria-label="Закрити"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </SheetTitle>
           </SheetHeader>
 
