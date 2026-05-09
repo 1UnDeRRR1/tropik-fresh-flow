@@ -170,14 +170,38 @@ function ShipmentsList() {
   );
 }
 
-function FilterPill({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function StatusFilterPill({
+  active,
+  children,
+  onClick,
+  tone,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+  tone: "success" | "destructive" | "warning";
+}) {
+  const toneClasses = {
+    success: {
+      active: "border-success bg-success text-success-foreground",
+      inactive: "border-success/40 bg-success/10 text-success hover:bg-success/20",
+    },
+    destructive: {
+      active: "border-destructive bg-destructive text-destructive-foreground",
+      inactive: "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20",
+    },
+    warning: {
+      active: "border-warning bg-warning text-warning-foreground",
+      inactive: "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20",
+    },
+  }[tone];
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
-        active ? "border-brand bg-brand text-brand-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
+        "shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition whitespace-nowrap",
+        active ? toneClasses.active : toneClasses.inactive,
       )}
     >
       {children}
