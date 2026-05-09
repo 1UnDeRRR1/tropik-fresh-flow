@@ -102,9 +102,9 @@ function ShipmentsList() {
                   <th className="px-2 py-2">Країна</th>
                   <th className="px-2 py-2">ETA</th>
                   <th className="px-2 py-2">Статус</th>
-                  <th className="px-2 py-2 text-right">Факт</th>
-                  <th className="px-2 py-2 text-right">Розпод.</th>
-                  <th className="px-2 py-2 text-right">Залиш.</th>
+                  <th className="px-2 py-2 text-right text-foreground">Факт</th>
+                  <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
+                  <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
                   <th className="px-2 py-2"></th>
                 </tr>
               </thead>
@@ -131,9 +131,9 @@ function ShipmentsList() {
                         {s.eta ?? "—"}
                       </td>
                       <td className="px-2 py-2"><StatusChip status={s.status} /></td>
-                      <td className="px-2 py-2 text-right tabular-nums">{s.fact}</td>
-                      <td className="px-2 py-2 text-right tabular-nums font-semibold text-brand">{s.dist}</td>
-                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining < 0 ? "text-destructive" : s.remaining === 0 ? "text-success" : "")}>
+                      <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
+                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : "text-destructive")}>{s.dist}</td>
+                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : "text-destructive")}>
                         {s.remaining}
                       </td>
                       <td className="px-1 py-2">
