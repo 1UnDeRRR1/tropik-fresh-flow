@@ -141,11 +141,17 @@ export function AutocompleteCell({
             <button
               key={s}
               type="button"
-              onMouseDown={(e) => {
+              onPointerDown={(e) => {
                 e.preventDefault();
+                acceptingRef.current = true;
                 accept(s);
               }}
-              className="block w-full truncate px-3 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                acceptingRef.current = true;
+                accept(s);
+              }}
+              className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
             >
               {s}
             </button>
