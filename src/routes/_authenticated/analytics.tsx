@@ -112,8 +112,9 @@ function Analytics() {
   const activeFlat = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of data?.shipments ?? []) {
+      if (sh.status && ["completed", "cancelled"].includes(sh.status)) continue;
       const arrival = sh.arrived_at ?? sh.eta;
-      if (arrival && arrival < today) continue;
+      if (!arrival || arrival < today) continue;
       for (const it of sh.shipment_items ?? []) {
         const name = (it.product_name || "").trim();
         const pallets = Number(it.pallet_count ?? 0);
