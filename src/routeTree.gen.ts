@@ -18,6 +18,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDistributionRouteImport } from './routes/_authenticated/distribution'
 import { Route as AuthenticatedCostsRouteImport } from './routes/_authenticated/costs'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBranchRequestsRouteImport } from './routes/_authenticated/branch-requests'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -85,6 +86,11 @@ const AuthenticatedDistributionRoute =
 const AuthenticatedCostsRoute = AuthenticatedCostsRouteImport.update({
   id: '/costs',
   path: '/costs',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedBranchRequestsRoute =
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/costs': typeof AuthenticatedCostsRoute
   '/distribution': typeof AuthenticatedDistributionRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -251,6 +258,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/costs': typeof AuthenticatedCostsRoute
   '/distribution': typeof AuthenticatedDistributionRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/branch-requests': typeof AuthenticatedBranchRequestsRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/costs': typeof AuthenticatedCostsRoute
   '/_authenticated/distribution': typeof AuthenticatedDistributionRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
@@ -320,6 +329,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analytics'
     | '/branch-requests'
+    | '/calendar'
     | '/costs'
     | '/distribution'
     | '/notifications'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/analytics'
     | '/branch-requests'
+    | '/calendar'
     | '/costs'
     | '/distribution'
     | '/notifications'
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
     | '/_authenticated/branch-requests'
+    | '/_authenticated/calendar'
     | '/_authenticated/costs'
     | '/_authenticated/distribution'
     | '/_authenticated/notifications'
@@ -480,6 +492,13 @@ declare module '@tanstack/react-router' {
       path: '/costs'
       fullPath: '/costs'
       preLoaderRoute: typeof AuthenticatedCostsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/branch-requests': {
@@ -700,6 +719,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBranchRequestsRoute: typeof AuthenticatedBranchRequestsRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCostsRoute: typeof AuthenticatedCostsRoute
   AuthenticatedDistributionRoute: typeof AuthenticatedDistributionRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
@@ -720,6 +740,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBranchRequestsRoute: AuthenticatedBranchRequestsRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCostsRoute: AuthenticatedCostsRoute,
   AuthenticatedDistributionRoute: AuthenticatedDistributionRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,

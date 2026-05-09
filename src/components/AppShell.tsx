@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Settings } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
