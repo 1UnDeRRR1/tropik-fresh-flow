@@ -36,7 +36,7 @@ interface PlanRow {
 }
 
 function ManagerDashboard() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
 
