@@ -47,6 +47,7 @@ function NewShipment() {
   const navigate = useNavigate();
   const { user, hasRole, loading } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
+  const search = Route.useSearch();
 
   // Redirect non-staff to their dashboard
   useEffect(() => {
@@ -55,8 +56,8 @@ function NewShipment() {
     }
   }, [loading, isStaff, navigate]);
 
-  const [mode, setMode] = useState<Mode>("new");
-  const [vehicleId, setVehicleId] = useState<string>("");
+  const [mode, setMode] = useState<Mode>(search.vehicleId ? "existing" : "new");
+  const [vehicleId, setVehicleId] = useState<string>(search.vehicleId ?? "");
   const [country, setCountry] = useState<string>("");
   const [countryTouched, setCountryTouched] = useState(false);
   const [loadingDate, setLoadingDate] = useState<string>("");
