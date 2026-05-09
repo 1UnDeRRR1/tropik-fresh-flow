@@ -48,7 +48,7 @@ function BranchDashboard() {
         .select(`
           id,status,
           shipments(id,code,eta,country),
-          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,origin_country))
+          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,origin_country,final_cost_indicative,final_cost_invoice))
         `)
         .eq("branch_id", branchId!)
         .order("created_at", { ascending: false });
@@ -74,6 +74,8 @@ function BranchDashboard() {
               caliber: it.caliber ?? "—",
               pallets: Number(di.pallets ?? 0),
               weight: Number(di.qty ?? 0),
+              indicative: it.final_cost_indicative,
+              invoice: it.final_cost_invoice,
             } as Row;
           })
           .filter(Boolean) as Row[],
