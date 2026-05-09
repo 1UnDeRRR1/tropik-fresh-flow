@@ -29,6 +29,7 @@ type Row = {
   updatedAt: string;
   branchName: string;
   shipmentCode: string;
+  supplierName: string;
   shipmentId: string;
   shipmentItemId: string | null;
   branchId: string;
@@ -49,6 +50,7 @@ function BranchRequestsPage() {
   const [edit, setEdit] = useState<Row | null>(null);
   const [editPallets, setEditPallets] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id],
@@ -70,7 +72,7 @@ function BranchRequestsPage() {
       const [{ data: branches }, { data: ships }, { data: items }] = await Promise.all([
         supabase.from("branches").select("id,name").in("id", branchIds),
         shipmentIds.length
-          ? supabase.from("shipments").select("id,code,country,import_manager_id,created_by").in("id", shipmentIds)
+          ? supabase.from("shipments").select("id,code,country,import_manager_id,created_by,supplier_id").in("id", shipmentIds)
           : Promise.resolve({ data: [] as any[] }),
         itemIds.length
           ? supabase
@@ -80,9 +82,15 @@ function BranchRequestsPage() {
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
+      const supplierIds = [...new Set(((ships ?? []) as any[]).map((s) => s.supplier_id).filter(Boolean))];
+      const { data: sups } = supplierIds.length
+        ? await supabase.from("suppliers").select("id,name").in("id", supplierIds)
+        : { data: [] as any[] };
+
       const bMap = new Map((branches ?? []).map((b: any) => [b.id, b]));
       const sMap = new Map((ships ?? []).map((s: any) => [s.id, s]));
       const iMap = new Map((items ?? []).map((i: any) => [i.id, i]));
+      const supMap = new Map((sups ?? []).map((s: any) => [s.id, s]));
 
       const rows: Row[] = list.map((r) => {
         const b = bMap.get(r.branch_id);
@@ -99,6 +107,7 @@ function BranchRequestsPage() {
           updatedAt: r.updated_at ?? r.created_at,
           branchName: b?.name ?? "—",
           shipmentCode: s?.code ?? "—",
+          supplierName: s?.supplier_id ? (supMap.get(s.supplier_id)?.name ?? "—") : "—",
           shipmentId: r.shipment_id ?? "",
           shipmentItemId: r.shipment_item_id,
           branchId: r.branch_id,
@@ -266,24 +275,26 @@ function BranchRequestsPage() {
             )}
           </SectionCard>
 
-          <SectionCard
-            title={`Архів (${archived.length})`}
-            action={
-              <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
-                {showArchive ? "Сховати" : "Показати"}
-              </Button>
-            }
-          >
-            {!showArchive ? (
-              <p className="text-xs text-muted-foreground">
-                Заявки старші за 30 днів. Натисніть «Показати», щоб переглянути.
-              </p>
-            ) : !archived.length ? (
-              <EmptyState title="Архів порожній" />
-            ) : (
-              <RequestList rows={archived} busyId={busyId} />
-            )}
-          </SectionCard>
+          {isAdmin && (
+            <SectionCard
+              title={`Архів (${archived.length})`}
+              action={
+                <Button size="sm" variant="ghost" onClick={() => setShowArchive((v) => !v)}>
+                  {showArchive ? "Сховати" : "Показати"}
+                </Button>
+              }
+            >
+              {!showArchive ? (
+                <p className="text-xs text-muted-foreground">
+                  Заявки старші за 30 днів. Доступно тільки адміністраторам.
+                </p>
+              ) : !archived.length ? (
+                <EmptyState title="Архів порожній" />
+              ) : (
+                <ArchiveList rows={archived} onOpen={(r) => setDetail(r)} />
+              )}
+            </SectionCard>
+          )}
         </>
       )}
 
@@ -330,6 +341,15 @@ function BranchRequestsPage() {
               </Button>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="text-left">
+            <SheetTitle>Деталі заявки</SheetTitle>
+          </SheetHeader>
+          {detail && <DetailContent row={detail} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -445,6 +465,104 @@ function Field({ label, value, bold }: { label: string; value: string; bold?: bo
     <div className="flex items-center justify-between gap-2">
       <span className="text-muted-foreground">{label}</span>
       <span className={bold ? "font-bold tabular-nums" : "tabular-nums"}>{value}</span>
+    </div>
+  );
+}
+
+function ArchiveList({ rows, onOpen }: { rows: Row[]; onOpen: (r: Row) => void }) {
+  return (
+    <ul className="divide-y divide-border">
+      {rows.map((r) => (
+        <li key={r.id}>
+          <button
+            type="button"
+            onClick={() => onOpen(r)}
+            className="flex w-full items-center gap-2 py-2 text-left text-xs hover:bg-muted/40 -mx-2 px-2 rounded transition-colors"
+          >
+            <span className="tabular-nums text-muted-foreground shrink-0">
+              {new Date(r.updatedAt).toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+            </span>
+            <span className="truncate font-medium">{r.supplierName}</span>
+            <span className="font-mono font-semibold shrink-0">{r.shipmentCode}</span>
+            <span className="truncate text-muted-foreground ml-auto">{r.product}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DetailContent({ row }: { row: Row }) {
+  const { data: dist } = useQuery({
+    queryKey: ["branch-request-distribution", row.shipmentId, row.shipmentItemId],
+    enabled: !!row.shipmentId && !!row.shipmentItemId,
+    queryFn: async () => {
+      const { data: dists } = await supabase
+        .from("distributions")
+        .select("id,branch_id,status,created_at")
+        .eq("shipment_id", row.shipmentId);
+      const ids = (dists ?? []).map((d) => d.id);
+      if (!ids.length) return [] as any[];
+      const { data: items } = await supabase
+        .from("distribution_items")
+        .select("distribution_id,pallets,qty,unit_cost")
+        .eq("shipment_item_id", row.shipmentItemId!)
+        .in("distribution_id", ids);
+      const { data: branches } = await supabase
+        .from("branches")
+        .select("id,name")
+        .in("id", (dists ?? []).map((d) => d.branch_id));
+      const bMap = new Map((branches ?? []).map((b: any) => [b.id, b.name]));
+      const dMap = new Map((dists ?? []).map((d: any) => [d.id, d]));
+      return (items ?? []).map((it: any) => {
+        const d = dMap.get(it.distribution_id);
+        return {
+          branchName: bMap.get(d?.branch_id) ?? "—",
+          pallets: Number(it.pallets ?? 0),
+          qty: Number(it.qty ?? 0),
+          status: d?.status ?? "—",
+        };
+      });
+    },
+  });
+
+  return (
+    <div className="mt-3 space-y-4 text-sm">
+      <div className="rounded-xl border border-border p-3 text-xs space-y-1">
+        <Line k="Статус" v={row.status} />
+        <Line k="Дата" v={new Date(row.updatedAt).toLocaleString("uk-UA")} />
+        <Line k="Філія" v={row.branchName} />
+        <Line k="Постачальник" v={row.supplierName} />
+        <Line k="Поставка" v={row.shipmentCode} mono />
+        <Line k="Країна" v={row.country ? toUaCountry(row.country) : "—"} />
+        <Line k="Товар" v={row.product} />
+        <Line k="Калібр" v={row.caliber} />
+        <Line k="Специфікація" v={row.variety ?? "—"} />
+        <Line k="Запит / затверджено" v={`${row.approvedQty ?? 0} / ${row.pallets} п`} />
+        <Line k="Ціна філії" v={row.salePrice ? `${row.salePrice} ${row.saleCurrency ?? ""}/кг` : "—"} />
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Інд / Інв</span>
+          <CostPair indicative={row.indicative} invoice={row.invoice} suffix="/кг" size="xs" />
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Розподіл по філіях
+        </div>
+        {!dist || dist.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Немає даних розподілу.</p>
+        ) : (
+          <ul className="divide-y divide-border rounded-xl border border-border">
+            {dist.map((d, i) => (
+              <li key={i} className="flex items-center justify-between px-3 py-2 text-xs">
+                <span className="font-medium truncate">{d.branchName}</span>
+                <span className="tabular-nums font-bold">{d.pallets} п</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
