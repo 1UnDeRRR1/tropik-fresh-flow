@@ -50,6 +50,7 @@ function BranchRequestsPage() {
   const [edit, setEdit] = useState<Row | null>(null);
   const [editPallets, setEditPallets] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id],
