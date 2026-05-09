@@ -1171,6 +1171,14 @@ export type Database = {
         Args: { _vehicle_id: string }
         Returns: undefined
       }
+      shipment_has_free_pallets: {
+        Args: { _shipment_id: string }
+        Returns: boolean
+      }
+      shipment_item_free_pallets: {
+        Args: { _item_id: string }
+        Returns: number
+      }
       user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
