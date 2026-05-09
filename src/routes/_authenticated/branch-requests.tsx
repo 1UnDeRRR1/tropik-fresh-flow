@@ -71,7 +71,7 @@ function BranchRequestsPage() {
       const [{ data: branches }, { data: ships }, { data: items }] = await Promise.all([
         supabase.from("branches").select("id,name").in("id", branchIds),
         shipmentIds.length
-          ? supabase.from("shipments").select("id,code,country,import_manager_id,created_by").in("id", shipmentIds)
+          ? supabase.from("shipments").select("id,code,country,import_manager_id,created_by,supplier_id").in("id", shipmentIds)
           : Promise.resolve({ data: [] as any[] }),
         itemIds.length
           ? supabase
@@ -81,9 +81,15 @@ function BranchRequestsPage() {
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
+      const supplierIds = [...new Set(((ships ?? []) as any[]).map((s) => s.supplier_id).filter(Boolean))];
+      const { data: sups } = supplierIds.length
+        ? await supabase.from("suppliers").select("id,name").in("id", supplierIds)
+        : { data: [] as any[] };
+
       const bMap = new Map((branches ?? []).map((b: any) => [b.id, b]));
       const sMap = new Map((ships ?? []).map((s: any) => [s.id, s]));
       const iMap = new Map((items ?? []).map((i: any) => [i.id, i]));
+      const supMap = new Map((sups ?? []).map((s: any) => [s.id, s]));
 
       const rows: Row[] = list.map((r) => {
         const b = bMap.get(r.branch_id);
