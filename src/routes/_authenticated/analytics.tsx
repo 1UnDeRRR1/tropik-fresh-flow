@@ -68,7 +68,7 @@ function Analytics() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
+          "id,code,country,eta,arrived_at,status,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
         )
         .order("eta", { ascending: true })
         .limit(1000);
