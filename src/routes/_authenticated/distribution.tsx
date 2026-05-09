@@ -67,7 +67,7 @@ function BranchFreeList() {
         .select(`
           id,code,eta,country,import_manager_id,
           shipment_items(id,product_name,caliber,origin_country,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
-          distribution_items:distributions(distribution_items(shipment_item_id,pallets))
+          distributions(distribution_items(shipment_item_id,pallets))
         `)
         .neq("status", "cancelled")
         .order("eta", { ascending: true, nullsFirst: false })
