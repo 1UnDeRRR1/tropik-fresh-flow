@@ -69,7 +69,7 @@ function BranchRequestsPage() {
       const [{ data: branches }, { data: ships }, { data: items }] = await Promise.all([
         supabase.from("branches").select("id,name").in("id", branchIds),
         shipmentIds.length
-          ? supabase.from("shipments").select("id,code,country,import_manager_id").in("id", shipmentIds)
+          ? supabase.from("shipments").select("id,code,country,import_manager_id,created_by").in("id", shipmentIds)
           : Promise.resolve({ data: [] as any[] }),
         itemIds.length
           ? supabase
