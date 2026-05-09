@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
-import { SectionCard, EmptyState } from "@/components/cards";
+import { EmptyState } from "@/components/cards";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,6 @@ function OffersPage() {
   const branchId = profile?.branch_id;
   const qc = useQueryClient();
 
-  // Lazy-expire on mount
   useEffect(() => {
     (supabase as any).rpc("expire_branch_transfer_offers").then(() => {
       qc.invalidateQueries({ queryKey: ["offers"] });
@@ -110,14 +109,34 @@ function OffersPage() {
     },
   });
 
-  const [accepting, setAccepting] = useState<OfferRow | null>(null);
+  // Group sent offers by shipment+product
+  const sentGroups = useMemo(() => {
+    const map = new Map<string, { code: string; product: string; caliber?: string | null; rows: OfferRow[] }>();
+    for (const o of sent ?? []) {
+      const code = o.shipment_items?.shipments?.code ?? "—";
+      const product = o.shipment_items?.product_name ?? "—";
+      const key = `${code}::${product}::${o.shipment_item_id}`;
+      if (!map.has(key)) map.set(key, { code, product, caliber: o.shipment_items?.caliber, rows: [] });
+      map.get(key)!.rows.push(o);
+    }
+    return [...map.values()];
+  }, [sent]);
+
+  const [actioning, setActioning] = useState<OfferRow | null>(null);
+  const [mode, setMode] = useState<"choose" | "partial">("choose");
   const [acceptQty, setAcceptQty] = useState(0);
+
+  const openAction = (o: OfferRow) => {
+    setActioning(o);
+    setMode("choose");
+    setAcceptQty(o.offered_pallets);
+  };
 
   const decide = useMutation({
     mutationFn: async (vars: { id: string; accepted: number; reject?: boolean }) => {
       const status = vars.reject
         ? "rejected"
-        : vars.accepted === accepting?.offered_pallets
+        : vars.accepted >= (actioning?.offered_pallets ?? 0)
           ? "accepted"
           : "partially_accepted";
       const payload: any = {
@@ -135,10 +154,13 @@ function OffersPage() {
       toast.success("Виконано");
       qc.invalidateQueries({ queryKey: ["offers"] });
       qc.invalidateQueries({ queryKey: ["branch-incoming"] });
-      setAccepting(null);
+      qc.invalidateQueries({ queryKey: ["branch-outgoing-offers"] });
+      setActioning(null);
     },
     onError: (e: any) => toast.error(e?.message ?? "Помилка"),
   });
+
+  const incomingPending = received?.filter((o) => o.status === "pending").length ?? 0;
 
   return (
     <div className="space-y-4">
@@ -146,8 +168,10 @@ function OffersPage() {
 
       <Tabs defaultValue="received">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="received">Вхідні {received?.filter((o) => o.status === "pending").length ? `· ${received.filter((o) => o.status === "pending").length}` : ""}</TabsTrigger>
-          <TabsTrigger value="sent">Відправлені</TabsTrigger>
+          <TabsTrigger value="received">
+            ВХІДНІ {incomingPending ? `· ${incomingPending}` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="sent">ВІДПРАВЛЕНІ</TabsTrigger>
         </TabsList>
 
         <TabsContent value="received" className="mt-4">
@@ -156,43 +180,29 @@ function OffersPage() {
           ) : (
             <ul className="space-y-2">
               {received.map((o) => (
-                <li key={o.id} className="rounded-xl border border-border bg-card p-3">
-                  <div className="mb-2 flex items-center justify-between">
+                <li
+                  key={o.id}
+                  onClick={() => o.status === "pending" && openAction(o)}
+                  className={`rounded-xl border border-border bg-card p-3 ${
+                    o.status === "pending" ? "cursor-pointer active:bg-muted/50" : ""
+                  }`}
+                >
+                  <div className="mb-1 flex items-center justify-between">
                     <div className="text-xs text-muted-foreground">
-                      від <span className="font-semibold text-foreground">{o.from_branch?.name ?? "—"}</span>
+                      <span className="font-semibold text-foreground">{o.from_branch?.name ?? "—"}</span> пропонує
                     </div>
                     <StatusChip status={o.status} />
                   </div>
-                  <div className="text-sm font-semibold">{o.shipment_items?.product_name}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {o.shipment_items?.shipments?.code} · ETA {fmtEta(o.shipment_items?.shipments?.eta)}
+                  <div className="text-sm font-semibold">
+                    {o.shipment_items?.shipments?.code} · {o.shipment_items?.product_name}
+                    {o.shipment_items?.caliber ? ` · ${o.shipment_items.caliber}` : ""}
+                    {" · "}
+                    <span className="text-primary">{o.offered_pallets}п</span>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-sm tabular-nums">
-                      <span className="font-bold">{o.offered_pallets}п</span>
-                      {o.accepted_pallets > 0 && (
-                        <span className="ml-2 text-success">прийнято {o.accepted_pallets}п</span>
-                      )}
-                    </div>
-                    {o.status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => decide.mutate({ id: o.id, accepted: 0, reject: true })}
-                        >
-                          Відхилити
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setAccepting(o);
-                            setAcceptQty(o.offered_pallets);
-                          }}
-                        >
-                          Прийняти
-                        </Button>
-                      </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    ETA {fmtEta(o.shipment_items?.shipments?.eta)}
+                    {o.accepted_pallets > 0 && (
+                      <span className="ml-2 text-success">прийнято {o.accepted_pallets}п</span>
                     )}
                   </div>
                 </li>
@@ -202,41 +212,32 @@ function OffersPage() {
         </TabsContent>
 
         <TabsContent value="sent" className="mt-4">
-          {!sent?.length ? (
+          {!sentGroups.length ? (
             <EmptyState title="Ви не відправляли пропозицій" />
           ) : (
-            <ul className="space-y-2">
-              {sent.map((o) => (
-                <li key={o.id} className="rounded-xl border border-border bg-card p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
-                      до <span className="font-semibold text-foreground">{o.to_branch?.name ?? "—"}</span>
-                    </div>
-                    <StatusChip status={o.status} />
+            <ul className="space-y-3">
+              {sentGroups.map((g, i) => (
+                <li key={i} className="rounded-xl border border-border bg-card p-3">
+                  <div className="text-sm font-semibold">
+                    {g.code} · {g.product}
+                    {g.caliber ? ` · ${g.caliber}` : ""}
                   </div>
-                  <div className="text-sm font-semibold">{o.shipment_items?.product_name}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {o.shipment_items?.shipments?.code} · ETA {fmtEta(o.shipment_items?.shipments?.eta)}
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
-                    <div className="rounded-lg bg-muted/40 py-1">
-                      <div className="font-bold tabular-nums">{o.offered_pallets}п</div>
-                      <div className="text-muted-foreground">запропоновано</div>
-                    </div>
-                    <div className="rounded-lg bg-success/10 py-1">
-                      <div className="font-bold tabular-nums text-success">{o.accepted_pallets}п</div>
-                      <div className="text-muted-foreground">прийнято</div>
-                    </div>
-                    <div className="rounded-lg bg-warning/10 py-1">
-                      <div className="font-bold tabular-nums">
-                        {o.status === "pending"
-                          ? o.offered_pallets - o.accepted_pallets
-                          : 0}
-                        п
-                      </div>
-                      <div className="text-muted-foreground">очікує</div>
-                    </div>
-                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {g.rows.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground">
+                          {r.to_branch?.name ?? "—"}:{" "}
+                          <span className="font-bold tabular-nums">{r.offered_pallets}п</span>
+                          {r.accepted_pallets > 0 && r.accepted_pallets !== r.offered_pallets && (
+                            <span className="ml-1 text-xs text-success">
+                              ({r.accepted_pallets}п прийнято)
+                            </span>
+                          )}
+                        </span>
+                        <StatusChip status={r.status} />
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
@@ -244,43 +245,88 @@ function OffersPage() {
         </TabsContent>
       </Tabs>
 
-      <Sheet open={!!accepting} onOpenChange={(o) => !o && setAccepting(null)}>
+      <Sheet open={!!actioning} onOpenChange={(o) => !o && setActioning(null)}>
         <SheetContent side="bottom" className="rounded-t-2xl">
           <SheetHeader className="text-left">
-            <SheetTitle>Прийняти пропозицію</SheetTitle>
+            <SheetTitle>Пропозиція від {actioning?.from_branch?.name ?? "—"}</SheetTitle>
           </SheetHeader>
-          {accepting && (
+          {actioning && (
             <div className="mt-4 space-y-4">
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
-                <div className="font-semibold">{accepting.shipment_items?.product_name}</div>
+                <div className="font-semibold">
+                  {actioning.shipment_items?.shipments?.code} · {actioning.shipment_items?.product_name}
+                </div>
                 <div className="text-xs text-muted-foreground">
-                  від {accepting.from_branch?.name} · запропоновано {accepting.offered_pallets}п
+                  Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_items?.shipments?.eta)}
                 </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Прийняти палет
-                </label>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" onClick={() => setAcceptQty((p) => Math.max(1, p - 1))}>−</Button>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={accepting.offered_pallets}
-                    value={acceptQty}
-                    onChange={(e) => setAcceptQty(Math.max(1, Math.min(accepting.offered_pallets, Number(e.target.value) || 1)))}
-                    className="text-center"
-                  />
-                  <Button variant="outline" size="icon" onClick={() => setAcceptQty((p) => Math.min(accepting.offered_pallets, p + 1))}>+</Button>
+
+              {mode === "choose" ? (
+                <div className="space-y-2">
+                  <Button
+                    className="w-full"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: actioning.id, accepted: actioning.offered_pallets })}
+                  >
+                    Прийняти все ({actioning.offered_pallets}п)
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={actioning.offered_pallets <= 1}
+                    onClick={() => {
+                      setMode("partial");
+                      setAcceptQty(Math.max(1, Math.min(actioning.offered_pallets - 1, 1)));
+                    }}
+                  >
+                    Прийняти частково
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="destructive"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: actioning.id, accepted: 0, reject: true })}
+                  >
+                    Відхилити
+                  </Button>
                 </div>
-              </div>
-              <Button
-                className="w-full"
-                disabled={decide.isPending || acceptQty < 1}
-                onClick={() => decide.mutate({ id: accepting.id, accepted: acceptQty })}
-              >
-                {acceptQty === accepting.offered_pallets ? "Прийняти повністю" : `Прийняти ${acceptQty}п`}
-              </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                      Прийняти палет (макс {actioning.offered_pallets})
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="icon" onClick={() => setAcceptQty((p) => Math.max(1, p - 1))}>−</Button>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={actioning.offered_pallets}
+                        value={acceptQty}
+                        onChange={(e) =>
+                          setAcceptQty(
+                            Math.max(1, Math.min(actioning.offered_pallets, Number(e.target.value) || 1)),
+                          )
+                        }
+                        className="text-center"
+                      />
+                      <Button variant="outline" size="icon" onClick={() => setAcceptQty((p) => Math.min(actioning.offered_pallets, p + 1))}>+</Button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setMode("choose")}>
+                      Назад
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={decide.isPending || acceptQty < 1}
+                      onClick={() => decide.mutate({ id: actioning.id, accepted: acceptQty })}
+                    >
+                      Прийняти {acceptQty}п
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </SheetContent>
