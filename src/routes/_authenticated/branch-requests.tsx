@@ -100,7 +100,7 @@ function BranchRequestsPage() {
           shipmentId: r.shipment_id ?? "",
           shipmentItemId: r.shipment_item_id,
           branchId: r.branch_id,
-          importManagerId: s?.import_manager_id ?? null,
+          importManagerId: s?.created_by ?? null,
           product: it?.product_name ?? "—",
           country: it?.origin_country ?? s?.country ?? null,
           caliber: it?.caliber ?? "—",
@@ -112,8 +112,7 @@ function BranchRequestsPage() {
       });
 
       if (isAdmin) return rows;
-      if (!myManagerId) return [];
-      return rows.filter((r) => r.importManagerId === myManagerId);
+      return rows.filter((r) => r.importManagerId === user!.id);
     },
   });
 
