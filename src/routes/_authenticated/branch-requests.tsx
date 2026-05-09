@@ -106,6 +106,7 @@ function BranchRequestsPage() {
           updatedAt: r.updated_at ?? r.created_at,
           branchName: b?.name ?? "—",
           shipmentCode: s?.code ?? "—",
+          supplierName: s?.supplier_id ? (supMap.get(s.supplier_id)?.name ?? "—") : "—",
           shipmentId: r.shipment_id ?? "",
           shipmentItemId: r.shipment_item_id,
           branchId: r.branch_id,
