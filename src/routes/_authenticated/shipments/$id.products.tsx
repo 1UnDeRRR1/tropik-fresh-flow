@@ -397,10 +397,14 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
   return (
     <Input
       type="number"
-      inputMode="decimal"
+      inputMode="numeric"
       step={step ?? "1"}
       value={text}
       placeholder={focused ? "" : "0"}
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
       onFocus={(e) => {
         setFocused(true);
         e.currentTarget.select();
