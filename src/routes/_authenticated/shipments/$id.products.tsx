@@ -414,7 +414,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         onChange={(e) => { setText(e.target.value); onValueChange(e.target.value === "" ? 0 : Number(e.target.value)); }}
         className={cn(
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
-          focused && EXPANDED + " text-right",
+          focused && EXPANDED_RIGHT + " text-right",
         )}
       />
       <select
