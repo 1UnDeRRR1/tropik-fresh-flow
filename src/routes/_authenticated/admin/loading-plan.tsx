@@ -254,6 +254,12 @@ function LoadingPlanAdmin() {
           </ul>
         )}
       </SectionCard>
+
+      <LoadingPlanDetailDialog
+        plan={selectedPlan}
+        open={!!selectedPlan}
+        onOpenChange={(o) => !o && setSelectedPlan(null)}
+      />
     </div>
   );
 }
