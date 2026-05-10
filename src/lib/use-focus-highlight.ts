@@ -20,7 +20,7 @@ export function useFocusHighlight(deps: ReadonlyArray<unknown> = []) {
     const tryFocus = () => {
       attempts++;
       const el = document.querySelector<HTMLElement>(
-        `[data-focus-id="${CSS.escape(focus)}"]`,
+        `[data-focus-id~="${CSS.escape(focus)}"]`,
       );
       if (!el) {
         if (attempts < 20) setTimeout(tryFocus, 150);
