@@ -148,7 +148,7 @@ function ShipmentsList() {
                         : "";
                   const isOwner = !!user && s.import_manager_id === user.id;
                   return (
-                    <tr key={s.id} className={cn("border-t border-border", tone)}>
+                    <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
                       <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
                         <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
                           {s.code}
