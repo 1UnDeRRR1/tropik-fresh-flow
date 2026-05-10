@@ -21,6 +21,7 @@ import {
   formatVehicleCode,
   getCountryCode,
 } from "@/lib/shipment-code";
+import { StaffOnly } from "@/components/StaffOnly";
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string } => ({
@@ -28,8 +29,6 @@ export const Route = createFileRoute("/_authenticated/shipments/new")({
   }),
   component: () => <StaffOnly><NewShipment /></StaffOnly>,
 });
-// eslint-disable-next-line react-refresh/only-export-components
-import { StaffOnly } from "@/components/StaffOnly";
 
 type Mode = "new" | "existing";
 
