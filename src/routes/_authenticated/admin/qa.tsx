@@ -57,7 +57,7 @@ const CHECKS: { group: string; items: Check[] }[] = [
     group: "5. Видимість для філії",
     items: [
       { id: "c13", title: "Філія бачить тільки свої товари", desc: "Увійти філіальним користувачем → бачить лише позиції зі своїм branch_id у distributions.", link: { to: "/dashboard/branch", label: "Дашборд філії" } },
-      { id: "c14", title: "Дата прибуття, кількість, собівартість", desc: "На картці філії видно ETA, виділену кількість, інвойсну та індикативну собівартість в USD.", link: { to: "/dashboard/branch", label: "Дашборд філії" } },
+      { id: "c14", title: "Дата прибуття, кількість, собівартість", desc: "На картці філії видно ETA, виділену кількість, індикативну та інвойсну собівартість в USD.", link: { to: "/dashboard/branch", label: "Дашборд філії" } },
       { id: "c15", title: "Зміни видно філії", desc: "Зміни qty / unit_price / caliber / eta з'являються у журналі shipment_item_changes.", link: { to: "/notifications", label: "Сповіщення" } },
       { id: "c16", title: "Скасована позиція позначена", desc: "Якщо pallet_count=0 або item видалено — у філії статус «Скасовано».", link: { to: "/dashboard/branch", label: "Дашборд філії" } },
     ],

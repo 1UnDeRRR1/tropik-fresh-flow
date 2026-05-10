@@ -229,13 +229,14 @@ function StatisticsPage() {
 
   // Per-supplier breakdown
   const bySupplier = useMemo(() => {
-    const map = new Map<string, { name: string; pallets: number; priceSum: number; priceCnt: number; invSum: number; invCnt: number; rows: Flat[] }>();
+    const map = new Map<string, { name: string; pallets: number; priceSum: number; priceCnt: number; indSum: number; indCnt: number; invSum: number; invCnt: number; rows: Flat[] }>();
     for (const r of rows) {
       const sid = r.shipment.supplier_id ?? "—";
       const name = supplierMap[sid] ?? "—";
-      const cur = map.get(sid) ?? { name, pallets: 0, priceSum: 0, priceCnt: 0, invSum: 0, invCnt: 0, rows: [] };
+      const cur = map.get(sid) ?? { name, pallets: 0, priceSum: 0, priceCnt: 0, indSum: 0, indCnt: 0, invSum: 0, invCnt: 0, rows: [] };
       cur.pallets += Number(r.item.pallet_count ?? 0);
       if (r.item.unit_price) { cur.priceSum += Number(r.item.unit_price); cur.priceCnt++; }
+      if (r.item.final_cost_indicative) { cur.indSum += Number(r.item.final_cost_indicative); cur.indCnt++; }
       if (r.item.final_cost_invoice) { cur.invSum += Number(r.item.final_cost_invoice); cur.invCnt++; }
       cur.rows.push(r);
       map.set(sid, cur);
@@ -243,6 +244,7 @@ function StatisticsPage() {
     return Array.from(map.entries()).map(([id, v]) => ({
       id, name: v.name, pallets: v.pallets,
       avgPrice: v.priceCnt ? v.priceSum / v.priceCnt : 0,
+      avgInd: v.indCnt ? v.indSum / v.indCnt : 0,
       avgInv: v.invCnt ? v.invSum / v.invCnt : 0,
       rows: v.rows,
     })).sort((a,b) => b.pallets - a.pallets);
@@ -404,12 +406,12 @@ function StatisticsPage() {
             <div className="text-base font-bold">{totals.avgPrice.toFixed(2)}</div>
           </div>
           <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-muted-foreground">сер. інд.</div>
-            <div className="text-base font-bold">{totals.avgInd.toFixed(2)}</div>
+            <div className="text-[10px] uppercase text-success">сер. інд.</div>
+            <div className="text-base font-bold text-success">{totals.avgInd.toFixed(2)}</div>
           </div>
           <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-muted-foreground">сер. інв.</div>
-            <div className="text-base font-bold">{totals.avgInv.toFixed(2)}</div>
+            <div className="text-[10px] uppercase text-destructive">сер. інв.</div>
+            <div className="text-base font-bold text-destructive">{totals.avgInv.toFixed(2)}</div>
           </div>
         </div>
       </SectionCard>
@@ -432,8 +434,8 @@ function StatisticsPage() {
                   <TableHead>Менеджер</TableHead>
                   <TableHead className="text-right">Палет</TableHead>
                   <TableHead className="text-right">Закупка</TableHead>
-                  <TableHead className="text-right">Індикатив</TableHead>
-                  <TableHead className="text-right">Інвойс</TableHead>
+                  <TableHead className="text-right text-success">Індикатив</TableHead>
+                  <TableHead className="text-right text-destructive">Інвойс</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -446,8 +448,8 @@ function StatisticsPage() {
                     <TableCell className="whitespace-nowrap">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</TableCell>
                     <TableCell className="text-right">{fmtNum(r.item.pallet_count, 0)}</TableCell>
                     <TableCell className="text-right">{fmtNum(r.item.unit_price)}</TableCell>
-                    <TableCell className="text-right">{fmtNum(r.item.final_cost_indicative)}</TableCell>
-                    <TableCell className="text-right">{fmtNum(r.item.final_cost_invoice)}</TableCell>
+                    <TableCell className="text-right font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</TableCell>
+                    <TableCell className="text-right font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -466,7 +468,7 @@ function StatisticsPage() {
               <div key={g.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-semibold">{g.name}</div>
-                  <div className="text-xs text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • інв. {g.avgInv.toFixed(2)}</div>
+                  <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
                 </div>
               </div>
             ))}
