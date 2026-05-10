@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.next_vehicle_sequence(text) TO authenticated;
