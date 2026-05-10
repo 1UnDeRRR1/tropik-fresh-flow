@@ -439,7 +439,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
                     const r = alloc.rows[it.id];
                     if (!r) return null;
                     return (
-                      <tr key={it.id} className="border-b border-border/50">
+                      <tr key={it.id} data-focus-id={`item:${it.id}`} className="border-b border-border/50">
                         <td className="py-2 pr-2 font-medium">{it.product_name}</td>
                         <td className="py-2 text-right tabular-nums">{fmtKg(r.productTotalWeight)}</td>
                         <td className="py-2 text-right tabular-nums">{fmtPct(r.weightShare)}</td>
