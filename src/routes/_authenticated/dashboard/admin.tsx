@@ -278,7 +278,7 @@ function AdminDashboard() {
         <button type="button" onClick={() => setDetail("products")} className="text-left">
           <StatCard
             label="Товари по філіям"
-            value={data?.products.length ?? 0}
+            value={formatPositions(countPositionsFromGroups(data?.products ?? [], (p) => p.product))}
             hint="Розподілено в дорозі"
             icon={<Package className="h-5 w-5" />}
             tone="info"
