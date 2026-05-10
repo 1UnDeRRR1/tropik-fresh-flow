@@ -69,7 +69,42 @@ type ShipmentRow = {
   logistics_cost: number | null;
   logistics_cost_currency: string | null;
   vehicle_id: string | null;
+  created_by: string | null;
+  import_manager_id: string | null;
   vehicle_owner_id: string | null;
+  supplier_name: string | null;
+};
+
+type VehicleContext = {
+  vehicle: {
+    id: string;
+    code: string | null;
+    country: string | null;
+    total_pallets: number | null;
+    total_weight_kg: number | null;
+    created_by: string | null;
+  };
+  ownerName: string;
+  ownerShipment: {
+    id: string;
+    logistics_cost: number | null;
+    logistics_cost_currency: string | null;
+  } | null;
+  loadedItems: Array<{
+    id: string;
+    shipment_id: string;
+    shipment_code: string;
+    supplier_name: string | null;
+    owner_id: string | null;
+    owner_name: string;
+    product_name: string | null;
+    variety: string | null;
+    origin_country: string | null;
+    pallet_count: number | null;
+    pallet_weight: number | null;
+    isCurrentShipment: boolean;
+    isOwnManager: boolean;
+  }>;
 };
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
@@ -82,31 +117,120 @@ function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { user, loading } = useAuth();
+  const { user, loading, hasRole } = useAuth();
+  const isAdmin = hasRole(["super_admin", "admin"]);
 
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
     enabled: !loading && !!user,
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
-        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id").eq("id", id).single(),
+        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
-      const sh = s.data as { id: string; code: string; country: string | null; logistics_cost: number | null; logistics_cost_currency: string | null; vehicle_id: string | null } | null;
+      const sh = s.data as {
+        id: string;
+        code: string;
+        country: string | null;
+        logistics_cost: number | null;
+        logistics_cost_currency: string | null;
+        vehicle_id: string | null;
+        created_by: string | null;
+        import_manager_id: string | null;
+        suppliers?: { name: string | null } | null;
+      } | null;
       let vehicleOwnerId: string | null = null;
+      let vehicleContext: VehicleContext | null = null;
       if (sh?.vehicle_id) {
-        const { data: v } = await supabase
-          .from("vehicles" as never)
-          .select("created_by")
-          .eq("id", sh.vehicle_id)
-          .single();
+        const [{ data: v }, { data: siblingShipments }] = await Promise.all([
+          supabase
+            .from("vehicles" as never)
+            .select("id,code,country,total_pallets,total_weight_kg,created_by")
+            .eq("id", sh.vehicle_id)
+            .single(),
+          supabase
+            .from("shipments")
+            .select("id,code,created_by,import_manager_id,logistics_cost,logistics_cost_currency,suppliers(name)")
+            .eq("vehicle_id", sh.vehicle_id)
+            .order("created_at"),
+        ]);
         vehicleOwnerId = (v as { created_by: string | null } | null)?.created_by ?? null;
+
+        const shipmentsForVehicle = (siblingShipments ?? []).map((row) => ({
+          id: row.id,
+          code: row.code,
+          created_by: row.created_by ?? null,
+          import_manager_id: row.import_manager_id ?? null,
+          logistics_cost: row.logistics_cost ?? null,
+          logistics_cost_currency: row.logistics_cost_currency ?? null,
+          supplier_name: row.suppliers?.name ?? null,
+          owner_id: row.import_manager_id ?? row.created_by ?? null,
+        }));
+        const shipmentIds = shipmentsForVehicle.map((row) => row.id);
+        const ownerIds = Array.from(
+          new Set(
+            [vehicleOwnerId, ...shipmentsForVehicle.map((row) => row.owner_id)].filter(
+              (value): value is string => !!value,
+            ),
+          ),
+        );
+
+        const [{ data: vehicleItems }, { data: profiles }] = await Promise.all([
+          shipmentIds.length
+            ? supabase
+                .from("shipment_items")
+                .select("id,shipment_id,product_name,variety,origin_country,pallet_count,pallet_weight")
+                .in("shipment_id", shipmentIds)
+                .order("created_at")
+            : Promise.resolve({ data: [] }),
+          ownerIds.length
+            ? supabase.from("profiles").select("id,full_name").in("id", ownerIds)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"]));
+        const shipmentById = new Map(shipmentsForVehicle.map((row) => [row.id, row]));
+        const ownerShipment = shipmentsForVehicle.find((row) => row.created_by === vehicleOwnerId) ?? shipmentsForVehicle.find((row) => Number(row.logistics_cost ?? 0) > 0) ?? null;
+
+        vehicleContext = v
+          ? {
+              vehicle: v as VehicleContext["vehicle"],
+              ownerName: vehicleOwnerId ? profileNameById.get(vehicleOwnerId) ?? "Власник авто" : "Власник авто",
+              ownerShipment: ownerShipment
+                ? {
+                    id: ownerShipment.id,
+                    logistics_cost: ownerShipment.logistics_cost,
+                    logistics_cost_currency: ownerShipment.logistics_cost_currency,
+                  }
+                : null,
+              loadedItems: (vehicleItems ?? []).map((vehicleItem) => {
+                const parentShipment = shipmentById.get(vehicleItem.shipment_id);
+                const ownerId = parentShipment?.owner_id ?? null;
+                return {
+                  id: vehicleItem.id,
+                  shipment_id: vehicleItem.shipment_id,
+                  shipment_code: parentShipment?.code ?? "—",
+                  supplier_name: parentShipment?.supplier_name ?? null,
+                  owner_id: ownerId,
+                  owner_name: ownerId ? profileNameById.get(ownerId) ?? "Менеджер" : "Менеджер",
+                  product_name: vehicleItem.product_name ?? null,
+                  variety: vehicleItem.variety ?? null,
+                  origin_country: vehicleItem.origin_country ?? null,
+                  pallet_count: vehicleItem.pallet_count ?? null,
+                  pallet_weight: vehicleItem.pallet_weight ?? null,
+                  isCurrentShipment: vehicleItem.shipment_id === id,
+                  isOwnManager: ownerId != null && ownerId === user?.id,
+                };
+              }),
+            }
+          : null;
       }
       return {
-        shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId } as ShipmentRow) : null,
+        shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId, supplier_name: sh.suppliers?.name ?? null } as ShipmentRow) : null,
         items: (items.data ?? []) as ItemRow[],
         products: (prods.data ?? []) as ProductRef[],
+        vehicleContext,
       };
     },
   });
@@ -115,9 +239,24 @@ function ProductsFullscreen() {
   const items = data?.items ?? [];
   const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
+  const vehicleContext = data?.vehicleContext ?? null;
   const country = toUaCountry(sh?.country) || "—";
   const missingPriceCount = validItems.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
   const hasRealPallets = validItems.length > 0;
+  const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
+  const currentShipmentEditable = !!user?.id && (!!isAdmin || currentShipmentOwnerId === user.id);
+  const capacityItems = vehicleContext?.loadedItems ?? items.map((item) => ({
+    id: item.id,
+    pallet_count: item.pallet_count,
+    pallet_weight: item.pallet_weight,
+  }));
+  const loadedPallets = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0), 0);
+  const loadedKg = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0), 0);
+  const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
+  const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
+  const canEditTransport = !!sh && (!sh.vehicle_id
+    ? currentShipmentEditable
+    : !!user?.id && !!vehicleContext?.ownerShipment && vehicleContext.ownerShipment.id === sh.id && sh.vehicle_owner_id === user.id);
 
   useEffect(() => {
     const onUnload = () => {
@@ -149,6 +288,14 @@ function ProductsFullscreen() {
   };
 
   const addItem = async () => {
+    if (!currentShipmentEditable) {
+      toast.error("Ви можете додавати товари лише у власну поставку");
+      return;
+    }
+    if (sh?.vehicle_id && remainingPallets <= 0 && remainingKg <= 0) {
+      toast.error("У спільному авто більше немає вільного місця");
+      return;
+    }
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: id,
       product_name: "Новий товар",
@@ -186,12 +333,25 @@ function ProductsFullscreen() {
             {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
           </div>
         </div>
-        <Button size="sm" onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
+        <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
           <Plus className="h-4 w-4" />
         </Button>
       </header>
 
-      {sh && <TransportBar shipment={sh} currentUserId={user?.id ?? null} />}
+      {sh && (
+        <TransportBar
+          shipment={sh}
+          currentUserId={user?.id ?? null}
+          vehicleContext={vehicleContext}
+          canEditTransport={canEditTransport}
+        />
+      )}
+      {vehicleContext && (
+        <SharedVehicleSummary
+          vehicleContext={vehicleContext}
+          currentShipmentId={id}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {items.length === 0 ? (
@@ -220,7 +380,7 @@ function ProductsFullscreen() {
               {items.map((it) => {
                 const otherPallets = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
                 const otherKg = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
-                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} />;
+                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} />;
               })}
             </tbody>
           </table>
