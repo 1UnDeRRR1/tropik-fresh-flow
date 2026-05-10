@@ -6,8 +6,10 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 
+import { StaffOnly } from "@/components/StaffOnly";
+
 export const Route = createFileRoute("/_authenticated/calendar")({
-  component: CalendarPage,
+  component: () => <StaffOnly><CalendarPage /></StaffOnly>,
 });
 
 type ShipmentRow = {
