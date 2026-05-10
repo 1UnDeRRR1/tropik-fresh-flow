@@ -177,6 +177,7 @@ function Analytics() {
     name: string;
     pallets: number;
     positions: number;
+    basePositions: number;
     shipments: number;
     products: ProdSub[];
   };
