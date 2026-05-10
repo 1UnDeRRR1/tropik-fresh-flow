@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { COUNTRIES } from "@/lib/arrival";
-import { countLoadedPallets } from "@/lib/loading-plan";
+
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
