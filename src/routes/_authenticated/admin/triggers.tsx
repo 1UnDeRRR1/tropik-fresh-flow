@@ -1,7 +1,7 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertOctagon, AlertTriangle, Info } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ChevronRight, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
@@ -12,6 +12,15 @@ export const Route = createFileRoute("/_authenticated/admin/triggers")({
 });
 
 type Level = "red" | "yellow" | "blue";
+type LinkTarget =
+  | { to: "/shipments/$id"; params: { id: string } }
+  | { to: "/distribution/$shipmentId"; params: { shipmentId: string } }
+  | { to: "/branch-requests" }
+  | { to: "/transfers" }
+  | { to: "/admin/loading-plan" }
+  | { to: "/admin/managers" }
+  | { to: "/admin/branches" }
+  | { to: "/shipments" };
 type Trigger = {
   id: string;
   level: Level;
@@ -19,7 +28,9 @@ type Trigger = {
   title: string;
   detail: string;
   context?: string;
+  link?: LinkTarget;
 };
+
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -89,27 +100,45 @@ function TriggersPage() {
           <EmptyState title="Тригерів немає" />
         ) : (
           <ul className="space-y-2">
-            {list.map((t) => (
-              <li
-                key={t.id}
-                className={`rounded-xl border p-3 ${
-                  t.level === "red"
-                    ? "border-destructive/30 bg-destructive/5"
-                    : t.level === "yellow"
-                      ? "border-warning/40 bg-warning/5"
-                      : "border-info/30 bg-info/5"
-                }`}
-              >
-                <div className="text-sm font-bold">{t.title}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{t.detail}</div>
-                {t.context && (
-                  <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {t.context}
+            {list.map((t) => {
+              const cls = `rounded-xl border p-3 ${
+                t.level === "red"
+                  ? "border-destructive/30 bg-destructive/5"
+                  : t.level === "yellow"
+                    ? "border-warning/40 bg-warning/5"
+                    : "border-info/30 bg-info/5"
+              }`;
+              const inner = (
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm font-bold">{t.title}</div>
+                    {t.link && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                   </div>
-                )}
-              </li>
-            ))}
+                  <div className="mt-0.5 text-xs text-muted-foreground">{t.detail}</div>
+                  {t.context && (
+                    <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {t.context}
+                    </div>
+                  )}
+                </>
+              );
+              return (
+                <li key={t.id}>
+                  {t.link ? (
+                    <Link
+                      {...(t.link as any)}
+                      className={`${cls} block transition hover:brightness-95 active:scale-[0.99]`}
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div className={cls}>{inner}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
+
         )}
       </SectionCard>
     </div>
@@ -185,6 +214,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Авто не закрите перед завантаженням",
         detail: `${v.country} · завантаження ${v.loading_date ?? "—"} · ${v.total_pallets}п`,
         context: "Авто",
+        link: { to: "/shipments" },
       });
     }
   }
@@ -209,6 +239,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Нерозподілений товар перед прибуттям",
         detail: `${s.code} · ETA ${arrival} · ${undist}п не розподілено`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
+        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id } },
       });
     }
   }
@@ -227,6 +258,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Неактивна філія",
         detail: `${b.name} — немає заявок з ціною за 14 днів`,
         context: "Філія",
+        link: { to: "/branch-requests" },
       });
     }
   }
@@ -248,6 +280,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Неактивний менеджер",
         detail: `${m.full_name} — не створював поставок за 7 днів`,
         context: "Менеджер",
+        link: { to: "/admin/managers" },
       });
     }
   }
@@ -286,6 +319,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Філія без популярної позиції",
           detail: `${b.name} не має «${product}» (є у ${set.size}/${totalBranches} філій)`,
           context: "Філія / Товар",
+          link: { to: "/branch-requests" },
         });
       }
     }
@@ -313,6 +347,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Забагато відкритих авто",
         detail: `${mgrName(mid)} має ${n} відкритих авто одночасно`,
         context: "Менеджер",
+        link: { to: "/shipments" },
       });
     }
   }
@@ -341,6 +376,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Багато нерозподіленого перед ETA",
         detail: `${s.code} · ${Math.round(ratio * 100)}% не розподілено · transit ${Math.round(transit)} дн.`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
+        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id } },
       });
     }
   }
@@ -374,6 +410,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Філія домінує по позиції",
           detail: `${branchName(bid)} тримає ${Math.round((pal / total) * 100)}% «${product}»`,
           context: "Філія / Товар",
+          link: { to: "/branch-requests" },
         });
       }
     }
@@ -411,6 +448,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Скачок ціни транспорту",
           detail: `${country}: ${cur.perPal.toFixed(1)}$/п vs попереднє ${prev.perPal.toFixed(1)}$/п (+${Math.round(((cur.perPal - prev.perPal) / prev.perPal) * 100)}%)`,
           context: "Авто",
+          link: { to: "/shipments" },
         });
       }
     }
@@ -447,6 +485,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Скачок закупівельної ціни",
         detail: `${it.product} (${it.country}) · ${it.price.toFixed(2)}$ vs середнє ${avg.toFixed(2)}$ (+${Math.round(((it.price - avg) / avg) * 100)}%)`,
         context: `${it.ship.code} · ${mgrName(shipMgr(it.ship))}`,
+        link: { to: "/shipments/$id", params: { id: it.ship.id } },
       });
     }
   }
@@ -485,6 +524,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       title: "Затверджено низьку ціну",
       detail: `${product} · прийнято ${accepted.sale_price}, відхилено ${higherRejected.length} вищих`,
       context: `Філія: ${branchName(accepted.branch_id)}`,
+      link: { to: "/branch-requests" },
     });
   }
 
@@ -525,6 +565,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       title: level === "red" ? "Збиткова ціна затверджена (критично)" : "Збиткова ціна затверджена",
       detail: `${item.product_name} · ${branchName(r.branch_id)} · ${palletsApproved}п · ${salePrice} ${(r.sale_currency || "UAH").toUpperCase()} (${saleUsd.toFixed(3)}$/кг) vs індикативна ${indicative.toFixed(3)}$/кг (-${Math.round(diffPct)}%)`,
       context: `Менеджер: ${mgrName(shipMgr(ship))}`,
+      link: { to: "/branch-requests" },
     });
   }
 
