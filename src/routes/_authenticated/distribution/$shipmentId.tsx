@@ -222,11 +222,7 @@ function DistributionMatrix() {
   };
 
   const onSaveClick = () => {
-    if (saving || !dirty) return;
-    if (overflow) {
-      setConfirmOpen("save-overflow");
-      return;
-    }
+    if (saving || !dirty || overflow) return;
     void performSave();
   };
 
