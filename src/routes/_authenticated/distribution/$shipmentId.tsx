@@ -139,13 +139,23 @@ function DistributionMatrix() {
     },
   });
 
-  const setCell = (itemId: string, branchId: string, val: number) => {
-    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Math.floor(val) || 0) } }));
+  const capValue = (itemId: string, branchId: string, desired: number) => {
+    const item = data?.items.find((i) => i.id === itemId);
+    const total = Number(item?.pallet_count ?? 0);
+    const others = Object.entries(grid[itemId] ?? {})
+      .filter(([bid]) => bid !== branchId)
+      .reduce((s, [, n]) => s + Number(n || 0), 0);
+    const maxAllowed = Math.max(0, total - others);
+    return Math.max(0, Math.min(maxAllowed, Math.floor(desired) || 0));
   };
-  // (Integer-only sanitization happens inside CellInput; setCell stays as the
-  // canonical numeric setter.)
+  const setCell = (itemId: string, branchId: string, val: number) => {
+    const capped = capValue(itemId, branchId, val);
+    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: capped } }));
+  };
   const bump = (itemId: string, branchId: string, delta: number) => {
-    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Number(g[itemId]?.[branchId] ?? 0) + delta) } }));
+    const current = Number(grid[itemId]?.[branchId] ?? 0);
+    const capped = capValue(itemId, branchId, current + delta);
+    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: capped } }));
   };
 
   const resetAll = () => {
@@ -212,11 +222,7 @@ function DistributionMatrix() {
   };
 
   const onSaveClick = () => {
-    if (saving || !dirty) return;
-    if (overflow) {
-      setConfirmOpen("save-overflow");
-      return;
-    }
+    if (saving || !dirty || overflow) return;
     void performSave();
   };
 
@@ -232,7 +238,7 @@ function DistributionMatrix() {
     <Button
       size="sm"
       onClick={onSaveClick}
-      disabled={saving || !dirty}
+      disabled={saving || !dirty || overflow}
       className="bg-brand text-brand-foreground hover:bg-brand/90"
     >
       {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
@@ -254,7 +260,7 @@ function DistributionMatrix() {
 
       {overflow && (
         <div className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-          ⚠️ Розподілено більше, ніж Факт. Перевірте кількість палет.
+          ⚠️ Розподілено більше, ніж Факт. Зменшіть кількість палет, щоб зберегти.
         </div>
       )}
 
@@ -282,6 +288,12 @@ function DistributionMatrix() {
                   </span>
                 </div>
               </div>
+
+              {t.remaining <= 0 && (
+                <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
+                  {t.remaining < 0 ? "Перевищено факт. кількість палет" : "Немає доступних палет для розподілу"}
+                </div>
+              )}
 
               <div className="mt-3 space-y-1.5">
                 {data.branches.map((b) => {
@@ -396,10 +408,10 @@ function DistributionMatrix() {
       {/* Sticky save bar (mobile) — sits above bottom nav */}
       <div className="fixed inset-x-0 bottom-16 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur md:hidden pb-safe">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3">
-          <div className="text-[11px] text-muted-foreground">
-            {dirty ? "Незбережені зміни" : "Все збережено"}
+          <div className={cn("text-[11px]", overflow ? "font-semibold text-destructive" : "text-muted-foreground")}>
+            {overflow ? "Перевищено факт. кількість" : dirty ? "Незбережені зміни" : "Все збережено"}
           </div>
-          <Button onClick={onSaveClick} disabled={saving || !dirty} className="bg-brand text-brand-foreground hover:bg-brand/90">
+          <Button onClick={onSaveClick} disabled={saving || !dirty || overflow} className="bg-brand text-brand-foreground hover:bg-brand/90">
             {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
             {saving ? "Збереження…" : "Зберегти"}
           </Button>
