@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
@@ -32,7 +33,7 @@ function ShipmentsList() {
         .select(`
           id, code, status, eta, country, import_manager_id,
           suppliers(name, country),
-          shipment_items(pallet_count),
+          shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
         `)
         .order("created_at", { ascending: false });
@@ -48,16 +49,30 @@ function ShipmentsList() {
 
   const rows = useMemo(() => {
     return (data ?? []).map((s) => {
-      const fact = (s.shipment_items ?? []).reduce((a: number, it: { pallet_count: number | null }) => a + Number(it.pallet_count ?? 0), 0);
+      const items = (s.shipment_items ?? []) as Array<{ pallet_count: number | null; pallet_weight: number | null; final_cost_indicative: number | null; final_cost_invoice: number | null }>;
+      const fact = items.reduce((a, it) => a + Number(it.pallet_count ?? 0), 0);
       const dist = (s.distributions ?? []).reduce(
         (a: number, d: { distribution_items: { pallets: number | null }[] | null }) =>
           a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
         0,
       );
+      // Weighted average cost by pallet weight (fallback to simple average).
+      let wSum = 0, indSum = 0, invSum = 0, simpleN = 0, simpleInd = 0, simpleInv = 0;
+      for (const it of items) {
+        const w = Number(it.pallet_weight ?? 0) * Number(it.pallet_count ?? 0);
+        const ind = Number(it.final_cost_indicative ?? 0);
+        const inv = Number(it.final_cost_invoice ?? 0);
+        if (ind || inv) {
+          simpleN++; simpleInd += ind; simpleInv += inv;
+          if (w > 0) { wSum += w; indSum += ind * w; invSum += inv * w; }
+        }
+      }
+      const avgInd = wSum > 0 ? indSum / wSum : (simpleN > 0 ? simpleInd / simpleN : 0);
+      const avgInv = wSum > 0 ? invSum / wSum : (simpleN > 0 ? simpleInv / simpleN : 0);
       const isDelayed = s.status === "delayed" || (s.eta && s.eta < today && !["completed", "cancelled", "distributing"].includes(s.status));
       const isSoon = s.eta && s.eta >= today && s.eta <= soon && !["completed", "cancelled"].includes(s.status);
       const isCompleted = s.status === "completed";
-      return { ...s, fact, dist, remaining: fact - dist, isDelayed, isSoon, isCompleted };
+      return { ...s, fact, dist, remaining: fact - dist, isDelayed, isSoon, isCompleted, avgInd, avgInv };
     });
   }, [data, today, soon]);
 
@@ -117,6 +132,7 @@ function ShipmentsList() {
                   <th className="px-2 py-2 text-right text-foreground">Факт</th>
                   <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
                   <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
+                  <th className="px-2 py-2 text-right text-foreground">Собів. $/кг</th>
                   <th className="px-2 py-2"></th>
                 </tr>
               </thead>
@@ -157,6 +173,13 @@ function ShipmentsList() {
                       <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>{s.dist}</td>
                       <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
                         {s.remaining}
+                      </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap">
+                        {(s.avgInd || s.avgInv) ? (
+                          <CostPair indicative={s.avgInd} invoice={s.avgInv} suffix=" кг" size="xs" />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-1 py-2">
                         {isOwner && (

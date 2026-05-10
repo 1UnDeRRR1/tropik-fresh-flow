@@ -419,7 +419,7 @@ function RequestList({
               />
               <div className="col-span-2 flex items-center justify-between">
                 <span className="text-muted-foreground">Інд / Інв</span>
-                <CostPair indicative={r.indicative} invoice={r.invoice} suffix="/кг" size="xs" />
+                <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
               </div>
             </div>
 
@@ -542,7 +542,7 @@ function DetailContent({ row }: { row: Row }) {
         <Line k="Ціна філії" v={row.salePrice ? `${row.salePrice} ${row.saleCurrency ?? ""}/кг` : "—"} />
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Інд / Інв</span>
-          <CostPair indicative={row.indicative} invoice={row.invoice} suffix="/кг" size="xs" />
+          <CostPair indicative={row.indicative} invoice={row.invoice} suffix=" кг" size="xs" />
         </div>
       </div>
 

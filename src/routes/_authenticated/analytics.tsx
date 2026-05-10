@@ -445,7 +445,7 @@ function Analytics() {
                           <span className="text-muted-foreground">
                             закуп. {Number(it.unit_price ?? 0).toFixed(2)} {it.price_currency ?? ""}
                           </span>
-                          <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" size="xs" />
+                          <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           Менеджер: {mgrMap.get(sh.import_manager_id ?? "") ?? "—"}

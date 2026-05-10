@@ -7,6 +7,7 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
@@ -26,6 +27,8 @@ type ShipmentRow = {
     unit_price: number | null;
     price_currency: string | null;
     pallet_count: number | null;
+    final_cost_indicative: number | null;
+    final_cost_invoice: number | null;
   }>;
 };
 
@@ -42,11 +45,6 @@ function isoDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function fmtPrice(v: number | null | undefined, cur: string | null | undefined) {
-  if (v == null || isNaN(Number(v))) return "—";
-  const symbol = cur === "USD" ? "$" : cur === "EUR" ? "€" : (cur || "");
-  return `${symbol}${Number(v).toFixed(2)}`;
-}
 
 function CalendarPage() {
   const { user, hasRole } = useAuth();
@@ -64,7 +62,7 @@ function CalendarPage() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count)",
+          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count,final_cost_indicative,final_cost_invoice)",
         );
       if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
       const { data, error } = await q;
@@ -175,9 +173,7 @@ function CalendarPage() {
                     <li key={e.key} className="py-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-xs font-bold text-brand">{e.sh.code}</span>
-                        <span className="font-bold tabular-nums">
-                          {fmtPrice(e.it.unit_price, e.it.price_currency)}
-                        </span>
+                        <CostPair indicative={e.it.final_cost_indicative} invoice={e.it.final_cost_invoice} suffix=" кг" size="xs" />
                       </div>
                       <div className="mt-0.5 text-muted-foreground">
                         <span className="font-medium text-foreground">{e.it.product_name}</span>

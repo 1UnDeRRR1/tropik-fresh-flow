@@ -277,7 +277,7 @@ function DistributionMatrix() {
                     {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px]">
-                    <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" size="xs" />
+                    <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1.5 text-[11px] tabular-nums">
@@ -371,7 +371,7 @@ function DistributionMatrix() {
                         {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
                       </div>
                       <div className="flex flex-wrap gap-x-2 text-[10px]">
-                        <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix="/кг" size="xs" />
+                        <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
                       </div>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{t.total}</td>
