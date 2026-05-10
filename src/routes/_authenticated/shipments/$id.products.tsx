@@ -68,6 +68,8 @@ type ShipmentRow = {
   country: string | null;
   logistics_cost: number | null;
   logistics_cost_currency: string | null;
+  vehicle_id: string | null;
+  vehicle_owner_id: string | null;
 };
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
