@@ -468,7 +468,7 @@ function StatisticsPage() {
               <div key={g.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-semibold">{g.name}</div>
-                  <div className="text-xs text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • інв. {g.avgInv.toFixed(2)}</div>
+                  <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
                 </div>
               </div>
             ))}
