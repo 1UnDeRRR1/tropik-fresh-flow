@@ -12,15 +12,11 @@ export const Route = createFileRoute("/_authenticated/admin/triggers")({
 });
 
 type Level = "red" | "yellow" | "blue";
-type LinkTarget =
-  | { to: "/shipments/$id"; params: { id: string } }
-  | { to: "/distribution/$shipmentId"; params: { shipmentId: string } }
-  | { to: "/branch-requests" }
-  | { to: "/transfers" }
-  | { to: "/admin/loading-plan" }
-  | { to: "/admin/managers" }
-  | { to: "/admin/branches" }
-  | { to: "/shipments" };
+type LinkTarget = {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, string>;
+};
 type Trigger = {
   id: string;
   level: Level;
