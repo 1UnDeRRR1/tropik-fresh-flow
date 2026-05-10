@@ -280,6 +280,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Неактивний менеджер",
         detail: `${m.full_name} — не створював поставок за 7 днів`,
         context: "Менеджер",
+        link: { to: "/admin/managers" },
       });
     }
   }
