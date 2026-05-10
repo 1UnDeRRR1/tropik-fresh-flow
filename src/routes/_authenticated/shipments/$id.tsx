@@ -130,6 +130,7 @@ type ShipmentRow = {
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const fallbackCountry = toUaCountry(shipment.country) || "—";
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
+  useFocusHighlight([items]);
   return (
     <SectionCard
       title="Товари"
