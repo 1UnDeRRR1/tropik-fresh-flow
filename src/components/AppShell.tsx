@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
-        ...(isAdmin ? [{ to: "/master-data", label: "MASTER-DATA", icon: Database }] : []),
+        ...(isAdmin ? [{ to: "/master-data", label: "Master", icon: Database }] : []),
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
