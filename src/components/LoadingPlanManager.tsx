@@ -26,8 +26,20 @@ export function LoadingPlanManager() {
     product_name: "",
     caliber: "",
     country: "",
-    planned_pallets: 0,
+    planned_pallets: "" as string,
     count_existing: true,
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products", "active", "names"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
+      return (data ?? []).map((r) => r.name as string);
+    },
   });
 
   const { data: plan } = useQuery({
