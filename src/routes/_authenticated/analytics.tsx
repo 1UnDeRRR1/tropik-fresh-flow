@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { ChevronRight } from "lucide-react";
+import { countPositions, countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
