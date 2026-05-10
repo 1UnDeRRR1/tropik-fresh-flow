@@ -358,7 +358,7 @@ function Analytics() {
             <DialogTitle className="text-base">
               {openOwner?.name}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openOwner?.shipments} пост. · {openOwner?.positions} поз. · {openOwner?.pallets}п
+                {openOwner?.shipments} пост. · {openOwner ? formatPositions({ base: openOwner.basePositions, total: openOwner.positions }) : "0 / 0"} поз. · {openOwner?.pallets}п
               </div>
             </DialogTitle>
           </DialogHeader>
