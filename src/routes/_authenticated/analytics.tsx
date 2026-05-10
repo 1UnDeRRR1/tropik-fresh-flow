@@ -336,7 +336,7 @@ function Analytics() {
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="font-medium">{og.name}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {og.shipments} пост. · {og.positions} поз.
+                        {og.shipments} пост. · {formatPositions({ base: og.basePositions, total: og.positions })} поз.
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
