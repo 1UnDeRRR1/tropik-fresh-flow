@@ -221,16 +221,15 @@ function AdminDashboard() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <button type="button" onClick={() => setDetail("urgent")} className="text-left">
+        <Link to="/admin/triggers" className="text-left">
           <StatCard
-            label="24Г не розподілено"
-            value={`${data?.urgent.count ?? 0}(${data?.urgent.pallets ?? 0}п)`}
-            hint={(data?.urgent.count ?? 0) > 0 ? "Терміново" : "Все під контролем"}
+            label="Тригери"
+            value="Перейти"
+            hint="Червоні · Жовті · Сині"
             icon={<AlertTriangle className="h-5 w-5" />}
             tone="danger"
-            pulse={(data?.urgent.count ?? 0) > 0}
           />
-        </button>
+        </Link>
         <button type="button" onClick={() => setDetail("transit")} className="text-left">
           <StatCard
             label="В дорозі"
