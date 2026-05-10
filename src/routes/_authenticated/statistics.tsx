@@ -229,13 +229,14 @@ function StatisticsPage() {
 
   // Per-supplier breakdown
   const bySupplier = useMemo(() => {
-    const map = new Map<string, { name: string; pallets: number; priceSum: number; priceCnt: number; invSum: number; invCnt: number; rows: Flat[] }>();
+    const map = new Map<string, { name: string; pallets: number; priceSum: number; priceCnt: number; indSum: number; indCnt: number; invSum: number; invCnt: number; rows: Flat[] }>();
     for (const r of rows) {
       const sid = r.shipment.supplier_id ?? "—";
       const name = supplierMap[sid] ?? "—";
-      const cur = map.get(sid) ?? { name, pallets: 0, priceSum: 0, priceCnt: 0, invSum: 0, invCnt: 0, rows: [] };
+      const cur = map.get(sid) ?? { name, pallets: 0, priceSum: 0, priceCnt: 0, indSum: 0, indCnt: 0, invSum: 0, invCnt: 0, rows: [] };
       cur.pallets += Number(r.item.pallet_count ?? 0);
       if (r.item.unit_price) { cur.priceSum += Number(r.item.unit_price); cur.priceCnt++; }
+      if (r.item.final_cost_indicative) { cur.indSum += Number(r.item.final_cost_indicative); cur.indCnt++; }
       if (r.item.final_cost_invoice) { cur.invSum += Number(r.item.final_cost_invoice); cur.invCnt++; }
       cur.rows.push(r);
       map.set(sid, cur);
@@ -243,6 +244,7 @@ function StatisticsPage() {
     return Array.from(map.entries()).map(([id, v]) => ({
       id, name: v.name, pallets: v.pallets,
       avgPrice: v.priceCnt ? v.priceSum / v.priceCnt : 0,
+      avgInd: v.indCnt ? v.indSum / v.indCnt : 0,
       avgInv: v.invCnt ? v.invSum / v.invCnt : 0,
       rows: v.rows,
     })).sort((a,b) => b.pallets - a.pallets);
