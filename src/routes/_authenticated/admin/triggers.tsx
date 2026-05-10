@@ -520,7 +520,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       title: "Затверджено низьку ціну",
       detail: `${product} · прийнято ${accepted.sale_price}, відхилено ${higherRejected.length} вищих`,
       context: `Філія: ${branchName(accepted.branch_id)}`,
-      link: { to: "/branch-requests" },
+      link: { to: "/branch-requests", search: { focus: `req:${accepted.id}`, level: "blue" } },
     });
   }
 
