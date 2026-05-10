@@ -95,7 +95,7 @@ export function LoadingPlanManager() {
       }));
     },
     onSuccess: () => {
-      setForm({ product_name: "", caliber: "", country: "", planned_pallets: 0, count_existing: true });
+      setForm({ product_name: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
       qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] });
       toast.success("Позицію плану додано");
     },
