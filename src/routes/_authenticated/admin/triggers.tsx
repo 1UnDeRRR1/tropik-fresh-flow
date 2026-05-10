@@ -565,6 +565,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       title: level === "red" ? "Збиткова ціна затверджена (критично)" : "Збиткова ціна затверджена",
       detail: `${item.product_name} · ${branchName(r.branch_id)} · ${palletsApproved}п · ${salePrice} ${(r.sale_currency || "UAH").toUpperCase()} (${saleUsd.toFixed(3)}$/кг) vs індикативна ${indicative.toFixed(3)}$/кг (-${Math.round(diffPct)}%)`,
       context: `Менеджер: ${mgrName(shipMgr(ship))}`,
+      link: { to: "/branch-requests" },
     });
   }
 
