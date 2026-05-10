@@ -477,25 +477,21 @@ function TransportBar({
   }, [val, cur, shipment.id, qc]);
 
   if (lockedByOwner || !canEditTransport) {
+    const route = toUaCountry(vehicleContext?.vehicle.country ?? shipment.country) || "—";
     return (
-      <div className="border-b border-border bg-muted/40 px-3 py-2">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Перевезення авто
-            </div>
-            <div className="mt-1 text-sm font-semibold text-foreground">
-              {isEmpty ? "Не вказано" : `${val} ${cur}`}
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Маршрут: {toUaCountry(vehicleContext?.vehicle.country ?? shipment.country) || "—"}
-              {vehicleContext?.ownerName ? ` · власник: ${vehicleContext.ownerName}` : ""}
-            </div>
-          </div>
-          <div className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground">
-            лише перегляд
-          </div>
-        </div>
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Транспорт
+        </span>
+        <span className="text-[12px] font-semibold text-foreground">
+          {isEmpty ? "—" : `${val} ${cur}`}
+        </span>
+        <span className="truncate text-[10px] text-muted-foreground">
+          · {route}{vehicleContext?.ownerName ? ` · ${vehicleContext.ownerName}` : ""}
+        </span>
+        <span className="ml-auto shrink-0 rounded border border-border bg-background px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+          перегляд
+        </span>
       </div>
     );
   }
