@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { ChevronRight } from "lucide-react";
+import { countPositions, countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
@@ -176,6 +177,7 @@ function Analytics() {
     name: string;
     pallets: number;
     positions: number;
+    basePositions: number;
     shipments: number;
     products: ProdSub[];
   };
@@ -193,7 +195,7 @@ function Analytics() {
           : supMap.get(ownerId) ?? "— Без постачальника";
       const key = ownerId || `__none_${view}`;
       const og =
-        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, shipments: 0, products: [] };
+        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, basePositions: 0, shipments: 0, products: [] };
       const product = f.item.product_name.trim();
       const country = (f.item.origin_country || f.shipment.country || "").trim();
       const pallets = Number(f.item.pallet_count ?? 0);
@@ -222,6 +224,7 @@ function Analytics() {
       g.products.sort(
         (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
       );
+      g.basePositions = countPositionsFromGroups(g.products, (p) => p.product).base;
       for (const p of g.products) {
         p.shipments = prodShipSets.get(`${g.key}__${p.product}__${p.country}`)?.size ?? 0;
       }
@@ -235,7 +238,10 @@ function Analytics() {
     () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
     [activeFlat],
   );
-  const totalPositions = activeFlat.length;
+  const positionsCount = useMemo(
+    () => countPositions(activeFlat, (f) => f.item.product_name),
+    [activeFlat],
+  );
   const totalShipments = useMemo(() => {
     const s = new Set<string>();
     for (const f of activeFlat) s.add(f.shipment.id);
@@ -270,7 +276,7 @@ function Analytics() {
           </div>
           <span className="text-xs text-muted-foreground">
             <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
-            <span className="font-bold tabular-nums text-foreground">{totalPositions}</span> поз. ·{" "}
+            <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
             <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
           </span>
         </div>
@@ -297,7 +303,7 @@ function Analytics() {
                       {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      {g.shipments} пост. · {g.positions} поз.
+                      {g.shipments} пост. · {formatPositions({ base: 1, total: g.positions })} поз.
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -330,7 +336,7 @@ function Analytics() {
                     <div className="min-w-0 flex-1 text-sm">
                       <div className="font-medium">{og.name}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {og.shipments} пост. · {og.positions} поз.
+                        {og.shipments} пост. · {formatPositions({ base: og.basePositions, total: og.positions })} поз.
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -352,7 +358,7 @@ function Analytics() {
             <DialogTitle className="text-base">
               {openOwner?.name}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openOwner?.shipments} пост. · {openOwner?.positions} поз. · {openOwner?.pallets}п
+                {openOwner?.shipments} пост. · {openOwner ? formatPositions({ base: openOwner.basePositions, total: openOwner.positions }) : "0 / 0"} поз. · {openOwner?.pallets}п
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -381,7 +387,7 @@ function Analytics() {
                         {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        {p.shipments} пост. · {p.positions} поз.
+                        {p.shipments} пост. · {formatPositions({ base: 1, total: p.positions })} поз.
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
