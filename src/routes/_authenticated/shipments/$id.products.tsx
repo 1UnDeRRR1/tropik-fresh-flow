@@ -336,7 +336,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
   const dirtyRef = useRef(false);
-  const deletedRef = useRef(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     dirtyRef.current = true;
     setForm((f) => ({ ...f, [k]: v }));
@@ -373,7 +372,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
       if (error) toast.error(error.message);
       else {
         dirtyRef.current = false;
-        deletedRef.current = false;
         qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       }
     }, 600);
