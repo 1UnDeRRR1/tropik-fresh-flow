@@ -219,17 +219,42 @@ function AdminDashboard() {
     {},
   );
 
+  const { data: trigCounts } = useQuery({
+    queryKey: ["admin", "triggers", "counts"],
+    queryFn: async () => {
+      const list = await computeTriggers();
+      return {
+        red: list.filter((t) => t.level === "red").length,
+        yellow: list.filter((t) => t.level === "yellow").length,
+        blue: list.filter((t) => t.level === "blue").length,
+      };
+    },
+    refetchInterval: 60_000,
+  });
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Link to="/admin/triggers" className="text-left">
-          <StatCard
-            label="Тригери"
-            value="Перейти"
-            hint="Червоні · Жовті · Сині"
-            icon={<AlertTriangle className="h-5 w-5" />}
-            tone="danger"
-          />
+        <Link
+          to="/admin/triggers"
+          className="block rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-left shadow-sm"
+        >
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            Тригери
+          </div>
+          <div className="flex items-center justify-between gap-3 text-base font-bold">
+            <span className="text-foreground">Червоні</span>
+            <span className="text-foreground">{trigCounts?.red ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-base font-bold">
+            <span className="text-warning">Жовті</span>
+            <span className="text-warning">{trigCounts?.yellow ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-base font-bold">
+            <span className="text-info">Сині</span>
+            <span className="text-info">{trigCounts?.blue ?? 0}</span>
+          </div>
         </Link>
         <button type="button" onClick={() => setDetail("transit")} className="text-left">
           <StatCard
