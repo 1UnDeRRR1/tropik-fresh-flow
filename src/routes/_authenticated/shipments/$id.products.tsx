@@ -105,16 +105,9 @@ function ProductsFullscreen() {
   const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
   const hasRealPallets = items.length > 0;
 
-  // Auto-delete empty shipment when leaving (browser back, tab close, route change)
+  // Keep the latest item list for real exit cleanup only.
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
-  useEffect(() => {
-    return () => {
-      const list = itemsRef.current;
-      const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
-      if (!real) void deleteShipmentIfEmpty(id);
-    };
-  }, [id]);
   useEffect(() => {
     const onUnload = () => {
       const list = itemsRef.current;
@@ -127,6 +120,19 @@ function ProductsFullscreen() {
     window.addEventListener("pagehide", onUnload);
     return () => window.removeEventListener("pagehide", onUnload);
   }, [id]);
+
+  const leaveProducts = async () => {
+    const list = itemsRef.current;
+    const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
+    if (!real) {
+      const deleted = await deleteShipmentIfEmpty(id);
+      if (deleted) {
+        navigate({ to: "/shipments" });
+        return;
+      }
+    }
+    navigate({ to: "/shipments/$id", params: { id } });
+  };
 
   const blockExit = (e: React.MouseEvent) => {
     if (missingPriceCount > 0) {
@@ -166,7 +172,7 @@ function ProductsFullscreen() {
               toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
               return;
             }
-            navigate({ to: "/shipments/$id", params: { id } });
+            void leaveProducts();
           }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
@@ -220,7 +226,12 @@ function ProductsFullscreen() {
       </div>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <Link to="/shipments/$id" params={{ id }} className="block" onClick={blockExit}>
+        <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
+          blockExit(e);
+          if (e.defaultPrevented) return;
+          e.preventDefault();
+          void leaveProducts();
+        }}>
           <Button
             className={cn(
               "w-full",
