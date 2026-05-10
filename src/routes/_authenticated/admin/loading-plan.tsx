@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { COUNTRIES } from "@/lib/arrival";
-import { countLoadedPallets } from "@/lib/loading-plan";
+
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
@@ -51,16 +51,12 @@ function LoadingPlanAdmin() {
   const { data: loaded } = useQuery({
     queryKey: ["admin", "loading-plan", "loaded"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("shipment_items")
-        .select("product_name,origin_country,pallet_count,created_at,shipments(country,created_at)");
-      return (data ?? []) as Array<{
-        product_name: string;
-        origin_country: string | null;
-        pallet_count: number | null;
-        created_at: string | null;
-        shipments: { country: string | null; created_at: string | null } | null;
-      }>;
+      const { data } = await supabase.rpc("loading_plan_loaded_totals");
+      const map = new Map<string, number>();
+      for (const r of (data ?? []) as Array<{ plan_id: string; loaded: number }>) {
+        map.set(r.plan_id, Number(r.loaded ?? 0));
+      }
+      return map;
     },
   });
 
@@ -125,8 +121,7 @@ function LoadingPlanAdmin() {
   });
 
   function loadedFor(row: PlanRow): number {
-    if (!loaded) return 0;
-    return countLoadedPallets(row, loaded);
+    return loaded?.get(row.id) ?? 0;
   }
 
   return (

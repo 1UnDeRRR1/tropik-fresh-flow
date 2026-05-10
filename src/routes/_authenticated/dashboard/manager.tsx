@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { countLoadedPallets } from "@/lib/loading-plan";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
   component: ManagerDashboard,
@@ -67,7 +67,7 @@ function ManagerDashboard() {
       const isoToday = new Date().toISOString().slice(0, 10);
       const iso24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-      const [shipsRes, requestsRes, planRes, allLoadedRes] = await Promise.all([
+      const [shipsRes, requestsRes, planRes, loadedTotalsRes] = await Promise.all([
         supabase
           .from("shipments")
           .select("id,code,eta,status,country,created_by,shipment_items(id,product_name,caliber,pallet_count),distributions(distribution_items(pallets))")
@@ -80,18 +80,17 @@ function ManagerDashboard() {
           .select("id,product_name,caliber,country,planned_pallets,count_existing,created_at")
           .eq("is_active", true)
           .order("created_at", { ascending: false }),
-        supabase.from("shipment_items").select("product_name,origin_country,pallet_count,created_at,shipments(country,created_at)"),
+        supabase.rpc("loading_plan_loaded_totals"),
       ]);
 
       const ships = (shipsRes.data ?? []) as ShipRow[];
       const plan = (planRes.data ?? []) as PlanRow[];
-      const allLoaded = (allLoadedRes.data ?? []) as Array<{
-        product_name: string;
-        origin_country: string | null;
-        pallet_count: number | null;
-        created_at: string | null;
-        shipments: { country: string | null; created_at: string | null } | null;
-      }>;
+      const loadedTotals = new Map<string, number>(
+        ((loadedTotalsRes.data ?? []) as Array<{ plan_id: string; loaded: number }>).map((r) => [
+          r.plan_id,
+          Number(r.loaded ?? 0),
+        ]),
+      );
 
       const stats = ships.map((s) => {
         const planned = (s.shipment_items ?? []).reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
@@ -111,7 +110,7 @@ function ManagerDashboard() {
       );
 
       const planWithRemaining = plan.map((p) => {
-        const done = countLoadedPallets(p, allLoaded);
+        const done = loadedTotals.get(p.id) ?? 0;
         return { ...p, loaded: done, remaining: Number(p.planned_pallets) - done };
       });
 
