@@ -67,7 +67,7 @@ function CalendarPage() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count)",
+          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count,final_cost_indicative,final_cost_invoice)",
         );
       if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
       const { data, error } = await q;
