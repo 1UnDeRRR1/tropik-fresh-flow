@@ -93,6 +93,8 @@ function ShipmentsList() {
       return a.eta.localeCompare(b.eta);
     });
 
+  useFocusHighlight([filtered]);
+
   return (
     <div className="space-y-4">
       <PageHeader
