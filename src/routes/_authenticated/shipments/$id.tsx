@@ -16,8 +16,10 @@ import { toUaCountry } from "@/lib/countries";
 import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
 import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
 
+import { StaffOnly } from "@/components/StaffOnly";
+
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
-  component: ShipmentDetail,
+  component: () => <StaffOnly><ShipmentDetail /></StaffOnly>,
 });
 
 const DISTRIBUTION_LOCKED_STATUSES = new Set(["distributing", "completed"]);

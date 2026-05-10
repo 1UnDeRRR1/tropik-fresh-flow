@@ -12,8 +12,10 @@ import { toUaCountry } from "@/lib/countries";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
+import { StaffOnly } from "@/components/StaffOnly";
+
 export const Route = createFileRoute("/_authenticated/shipments/")({
-  component: ShipmentsList,
+  component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
 });
 
 function ShipmentsList() {

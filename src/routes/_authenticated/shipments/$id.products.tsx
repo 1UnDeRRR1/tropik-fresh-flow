@@ -13,8 +13,10 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 
+import { StaffOnly } from "@/components/StaffOnly";
+
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
-  component: ProductsFullscreen,
+  component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
 const COUNTRY_OPTIONS = [

@@ -20,8 +20,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CostPair } from "@/components/CostPair";
 
+import { StaffOnly } from "@/components/StaffOnly";
+
 export const Route = createFileRoute("/_authenticated/distribution/$shipmentId")({
-  component: DistributionMatrix,
+  component: () => <StaffOnly><DistributionMatrix /></StaffOnly>,
 });
 
 type Item = {
