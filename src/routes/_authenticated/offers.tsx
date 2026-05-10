@@ -309,10 +309,10 @@ function OffersPage() {
             <div className="mt-4 space-y-4">
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
                 <div className="font-semibold">
-                  {actioning.shipment_items?.shipments?.code} · {actioning.shipment_items?.product_name}
+                  {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_items?.shipments?.eta)}
+                  Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_eta)}
                 </div>
               </div>
 
