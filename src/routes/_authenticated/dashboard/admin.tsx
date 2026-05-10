@@ -239,13 +239,13 @@ function AdminDashboard() {
           to="/admin/triggers"
           className="block rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-left shadow-sm"
         >
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-destructive">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground">
             <AlertTriangle className="h-4 w-4" />
             Тригери
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
-            <span className="text-foreground">Червоні</span>
-            <span className="text-foreground">{trigCounts?.red ?? 0}</span>
+            <span className="text-destructive">Червоні</span>
+            <span className="text-destructive">{trigCounts?.red ?? 0}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
             <span className="text-warning">Жовті</span>
