@@ -178,6 +178,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "branch_transfer_offers_shipment_item_fk"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items_branch"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "branch_transfer_offers_to_branch_fk"
             columns: ["to_branch_id"]
             isOneToOne: false
@@ -328,6 +335,13 @@ export type Database = {
             referencedRelation: "shipment_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "distribution_items_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items_branch"
+            referencedColumns: ["id"]
+          },
         ]
       }
       distributions: {
@@ -374,6 +388,13 @@ export type Database = {
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributions_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
             referencedColumns: ["id"]
           },
         ]
@@ -756,6 +777,13 @@ export type Database = {
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
             referencedColumns: ["id"]
           },
         ]
@@ -1142,7 +1170,114 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      shipment_items_branch: {
+        Row: {
+          caliber: string | null
+          created_at: string | null
+          final_cost_indicative: number | null
+          final_cost_invoice: number | null
+          free_pallets: number | null
+          id: string | null
+          origin_country: string | null
+          pallet_count: number | null
+          pallet_weight: number | null
+          product_name: string | null
+          qty: number | null
+          shipment_id: string | null
+          sku: string | null
+          unit: string | null
+          variety: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          caliber?: string | null
+          created_at?: string | null
+          final_cost_indicative?: number | null
+          final_cost_invoice?: number | null
+          free_pallets?: never
+          id?: string | null
+          origin_country?: string | null
+          pallet_count?: number | null
+          pallet_weight?: number | null
+          product_name?: string | null
+          qty?: number | null
+          shipment_id?: string | null
+          sku?: string | null
+          unit?: string | null
+          variety?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          caliber?: string | null
+          created_at?: string | null
+          final_cost_indicative?: number | null
+          final_cost_invoice?: number | null
+          free_pallets?: never
+          id?: string | null
+          origin_country?: string | null
+          pallet_count?: number | null
+          pallet_weight?: number | null
+          product_name?: string | null
+          qty?: number | null
+          shipment_id?: string | null
+          sku?: string | null
+          unit?: string | null
+          variety?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments_branch: {
+        Row: {
+          arrived_at: string | null
+          code: string | null
+          country: string | null
+          created_at: string | null
+          eta: string | null
+          id: string | null
+          loading_date: string | null
+          status: Database["public"]["Enums"]["shipment_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          arrived_at?: string | null
+          code?: string | null
+          country?: string | null
+          created_at?: string | null
+          eta?: string | null
+          id?: string | null
+          loading_date?: string | null
+          status?: Database["public"]["Enums"]["shipment_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          arrived_at?: string | null
+          code?: string | null
+          country?: string | null
+          created_at?: string | null
+          eta?: string | null
+          id?: string | null
+          loading_date?: string | null
+          status?: Database["public"]["Enums"]["shipment_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       ensure_shipment_fx_snapshot: {
