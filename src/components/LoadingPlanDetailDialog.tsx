@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Link } from "@tanstack/react-router";
-import { matchesLoadingPlanRow, type LoadingPlanMatchRow } from "@/lib/loading-plan";
+import { type LoadingPlanMatchRow } from "@/lib/loading-plan";
 
 export interface PlanDetailItem extends LoadingPlanMatchRow {
   id: string;
@@ -28,14 +28,13 @@ interface LoadedRow {
   origin_country: string | null;
   pallet_count: number | null;
   created_at: string | null;
-  shipments: {
-    code: string | null;
-    country: string | null;
-    created_at: string | null;
-    eta: string | null;
-    suppliers: { name: string | null } | null;
-    vehicles: { code: string | null; eta: string | null } | null;
-  } | null;
+  shipment_code: string | null;
+  shipment_country: string | null;
+  shipment_created_at: string | null;
+  shipment_eta: string | null;
+  supplier_name: string | null;
+  vehicle_code: string | null;
+  vehicle_eta: string | null;
 }
 
 function formatEta(value: string | null | undefined): string {
@@ -52,16 +51,13 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
     enabled: open && !!plan,
     queryKey: ["loading-plan-detail", plan?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("shipment_items")
-        .select(
-          "shipment_id,product_name,origin_country,pallet_count,created_at,shipments(code,country,created_at,eta,suppliers(name),vehicles(code,eta))",
-        );
+      if (!plan) return [] as LoadedRow[];
+      const { data } = await supabase.rpc("loading_plan_items", { _plan_id: plan.id });
       return (data ?? []) as LoadedRow[];
     },
   });
 
-  const matches = plan && items ? items.filter((i) => matchesLoadingPlanRow(plan, i)) : [];
+  const matches = items ?? [];
   const totalLoaded = matches.reduce((s, i) => s + Number(i.pallet_count ?? 0), 0);
   const remaining = plan ? Number(plan.planned_pallets) - totalLoaded : 0;
 
