@@ -287,6 +287,19 @@ function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; curr
     return () => clearTimeout(t);
   }, [val, cur, shipment.id, qc]);
 
+  if (lockedByOwner) {
+    return (
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Перевезення авто
+        </span>
+        <span className="flex-1 text-[12px] text-foreground">
+          Транспорт оплачує власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "flex items-center gap-2 border-b px-3 py-1.5 transition-colors",
