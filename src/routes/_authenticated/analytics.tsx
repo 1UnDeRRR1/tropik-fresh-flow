@@ -274,7 +274,7 @@ function Analytics() {
           </div>
           <span className="text-xs text-muted-foreground">
             <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
-            <span className="font-bold tabular-nums text-foreground">{totalPositions}</span> поз. ·{" "}
+            <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
             <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
           </span>
         </div>
