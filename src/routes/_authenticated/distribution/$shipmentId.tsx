@@ -139,13 +139,23 @@ function DistributionMatrix() {
     },
   });
 
-  const setCell = (itemId: string, branchId: string, val: number) => {
-    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Math.floor(val) || 0) } }));
+  const capValue = (itemId: string, branchId: string, desired: number) => {
+    const item = data?.items.find((i) => i.id === itemId);
+    const total = Number(item?.pallet_count ?? 0);
+    const others = Object.entries(grid[itemId] ?? {})
+      .filter(([bid]) => bid !== branchId)
+      .reduce((s, [, n]) => s + Number(n || 0), 0);
+    const maxAllowed = Math.max(0, total - others);
+    return Math.max(0, Math.min(maxAllowed, Math.floor(desired) || 0));
   };
-  // (Integer-only sanitization happens inside CellInput; setCell stays as the
-  // canonical numeric setter.)
+  const setCell = (itemId: string, branchId: string, val: number) => {
+    const capped = capValue(itemId, branchId, val);
+    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: capped } }));
+  };
   const bump = (itemId: string, branchId: string, delta: number) => {
-    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: Math.max(0, Number(g[itemId]?.[branchId] ?? 0) + delta) } }));
+    const current = Number(grid[itemId]?.[branchId] ?? 0);
+    const capped = capValue(itemId, branchId, current + delta);
+    setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: capped } }));
   };
 
   const resetAll = () => {
