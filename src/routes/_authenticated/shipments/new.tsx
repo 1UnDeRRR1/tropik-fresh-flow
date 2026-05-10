@@ -478,3 +478,49 @@ function ModeButton({ active, onClick, children }: { active: boolean; onClick: (
     </button>
   );
 }
+
+const VEHICLE_MAX_PALLETS = 26;
+const VEHICLE_MAX_KG = 21500;
+
+function VehicleLockedInfo({ vehicle }: { vehicle: OpenVehicle }) {
+  const loadedP = Number(vehicle.total_pallets ?? 0);
+  const loadedKg = Number(vehicle.total_weight_kg ?? 0);
+  const freeP = Math.max(0, VEHICLE_MAX_PALLETS - loadedP);
+  const freeKg = Math.max(0, VEHICLE_MAX_KG - loadedKg);
+  const sups = (vehicle.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean).join(", ");
+  return (
+    <div className="space-y-2">
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1 text-muted-foreground">
+          <Lock className="h-3 w-3" /> Країна (зафіксована для авто)
+        </Label>
+        <div className="flex h-10 w-full items-center rounded-md border border-dashed border-border bg-secondary/40 px-3 text-sm font-semibold">
+          {vehicle.country}
+        </div>
+      </div>
+      <div className="rounded-xl border border-border bg-secondary/30 p-3 text-xs">
+        <div className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Завантаження авто</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <div className="text-muted-foreground">Вже завантажено</div>
+            <div className="font-semibold tabular-nums">{loadedP} пал · {Math.round(loadedKg)} кг</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Вільно</div>
+            <div className={cn("font-semibold tabular-nums", freeP <= 1 ? "text-destructive" : "text-success")}>
+              {freeP} пал · {Math.round(freeKg)} кг
+            </div>
+          </div>
+        </div>
+        {sups && (
+          <div className="mt-2 text-[11px] text-muted-foreground">
+            Постачальники в авто: <span className="text-foreground">{sups}</span>
+          </div>
+        )}
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Транспорт оплачує менеджер-власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
+        </div>
+      </div>
+    </div>
+  );
+}
