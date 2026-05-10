@@ -49,10 +49,10 @@ function TriggersPage() {
     };
   }, [triggers]);
 
-  const tabsCfg: { key: Level; label: string; icon: React.ReactNode; cls: string }[] = [
-    { key: "red", label: "Червоні", icon: <AlertOctagon className="h-4 w-4" />, cls: "bg-destructive/15 text-destructive border-destructive/30" },
-    { key: "yellow", label: "Жовті", icon: <AlertTriangle className="h-4 w-4" />, cls: "bg-warning/15 text-foreground border-warning/40" },
-    { key: "blue", label: "Сині", icon: <Info className="h-4 w-4" />, cls: "bg-info/15 text-info border-info/30" },
+  const tabsCfg: { key: Level; label: string; icon: React.ReactNode; cls: string; hoverCls: string }[] = [
+    { key: "red", label: "Червоні", icon: <AlertOctagon className="h-4 w-4" />, cls: "bg-destructive/15 text-destructive border-destructive/30", hoverCls: "hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30" },
+    { key: "yellow", label: "Жовті", icon: <AlertTriangle className="h-4 w-4" />, cls: "bg-warning/15 text-[oklch(0.55_0.18_75)] border-warning/40", hoverCls: "hover:bg-warning/15 hover:text-[oklch(0.55_0.18_75)] hover:border-warning/40" },
+    { key: "blue", label: "Сині", icon: <Info className="h-4 w-4" />, cls: "bg-info/15 text-info border-info/30", hoverCls: "hover:bg-info/15 hover:text-info hover:border-info/30" },
   ];
 
   const list = grouped[tab];
@@ -69,7 +69,7 @@ function TriggersPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`rounded-xl border p-3 text-left transition ${
-                active ? t.cls : "border-border bg-card"
+                active ? t.cls : `border-border bg-card text-foreground ${t.hoverCls}`
               }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase">
