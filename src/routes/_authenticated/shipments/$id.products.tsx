@@ -69,7 +69,42 @@ type ShipmentRow = {
   logistics_cost: number | null;
   logistics_cost_currency: string | null;
   vehicle_id: string | null;
+  created_by: string | null;
+  import_manager_id: string | null;
   vehicle_owner_id: string | null;
+  supplier_name: string | null;
+};
+
+type VehicleContext = {
+  vehicle: {
+    id: string;
+    code: string | null;
+    country: string | null;
+    total_pallets: number | null;
+    total_weight_kg: number | null;
+    created_by: string | null;
+  };
+  ownerName: string;
+  ownerShipment: {
+    id: string;
+    logistics_cost: number | null;
+    logistics_cost_currency: string | null;
+  } | null;
+  loadedItems: Array<{
+    id: string;
+    shipment_id: string;
+    shipment_code: string;
+    supplier_name: string | null;
+    owner_id: string | null;
+    owner_name: string;
+    product_name: string | null;
+    variety: string | null;
+    origin_country: string | null;
+    pallet_count: number | null;
+    pallet_weight: number | null;
+    isCurrentShipment: boolean;
+    isOwnManager: boolean;
+  }>;
 };
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
@@ -82,31 +117,120 @@ function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { user, loading } = useAuth();
+  const { user, loading, hasRole } = useAuth();
+  const isAdmin = hasRole(["super_admin", "admin"]);
 
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
     enabled: !loading && !!user,
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
-        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id").eq("id", id).single(),
+        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
-      const sh = s.data as { id: string; code: string; country: string | null; logistics_cost: number | null; logistics_cost_currency: string | null; vehicle_id: string | null } | null;
+      const sh = s.data as {
+        id: string;
+        code: string;
+        country: string | null;
+        logistics_cost: number | null;
+        logistics_cost_currency: string | null;
+        vehicle_id: string | null;
+        created_by: string | null;
+        import_manager_id: string | null;
+        suppliers?: { name: string | null } | null;
+      } | null;
       let vehicleOwnerId: string | null = null;
+      let vehicleContext: VehicleContext | null = null;
       if (sh?.vehicle_id) {
-        const { data: v } = await supabase
-          .from("vehicles" as never)
-          .select("created_by")
-          .eq("id", sh.vehicle_id)
-          .single();
+        const [{ data: v }, { data: siblingShipments }] = await Promise.all([
+          supabase
+            .from("vehicles" as never)
+            .select("id,code,country,total_pallets,total_weight_kg,created_by")
+            .eq("id", sh.vehicle_id)
+            .single(),
+          supabase
+            .from("shipments")
+            .select("id,code,created_by,import_manager_id,logistics_cost,logistics_cost_currency,suppliers(name)")
+            .eq("vehicle_id", sh.vehicle_id)
+            .order("created_at"),
+        ]);
         vehicleOwnerId = (v as { created_by: string | null } | null)?.created_by ?? null;
+
+        const shipmentsForVehicle = (siblingShipments ?? []).map((row) => ({
+          id: row.id,
+          code: row.code,
+          created_by: row.created_by ?? null,
+          import_manager_id: row.import_manager_id ?? null,
+          logistics_cost: row.logistics_cost ?? null,
+          logistics_cost_currency: row.logistics_cost_currency ?? null,
+          supplier_name: row.suppliers?.name ?? null,
+          owner_id: row.import_manager_id ?? row.created_by ?? null,
+        }));
+        const shipmentIds = shipmentsForVehicle.map((row) => row.id);
+        const ownerIds = Array.from(
+          new Set(
+            [vehicleOwnerId, ...shipmentsForVehicle.map((row) => row.owner_id)].filter(
+              (value): value is string => !!value,
+            ),
+          ),
+        );
+
+        const [{ data: vehicleItems }, { data: profiles }] = await Promise.all([
+          shipmentIds.length
+            ? supabase
+                .from("shipment_items")
+                .select("id,shipment_id,product_name,variety,origin_country,pallet_count,pallet_weight")
+                .in("shipment_id", shipmentIds)
+                .order("created_at")
+            : Promise.resolve({ data: [] }),
+          ownerIds.length
+            ? supabase.from("profiles").select("id,full_name").in("id", ownerIds)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"]));
+        const shipmentById = new Map(shipmentsForVehicle.map((row) => [row.id, row]));
+        const ownerShipment = shipmentsForVehicle.find((row) => row.created_by === vehicleOwnerId) ?? shipmentsForVehicle.find((row) => Number(row.logistics_cost ?? 0) > 0) ?? null;
+
+        vehicleContext = v
+          ? {
+              vehicle: v as VehicleContext["vehicle"],
+              ownerName: vehicleOwnerId ? profileNameById.get(vehicleOwnerId) ?? "Власник авто" : "Власник авто",
+              ownerShipment: ownerShipment
+                ? {
+                    id: ownerShipment.id,
+                    logistics_cost: ownerShipment.logistics_cost,
+                    logistics_cost_currency: ownerShipment.logistics_cost_currency,
+                  }
+                : null,
+              loadedItems: (vehicleItems ?? []).map((vehicleItem) => {
+                const parentShipment = shipmentById.get(vehicleItem.shipment_id);
+                const ownerId = parentShipment?.owner_id ?? null;
+                return {
+                  id: vehicleItem.id,
+                  shipment_id: vehicleItem.shipment_id,
+                  shipment_code: parentShipment?.code ?? "—",
+                  supplier_name: parentShipment?.supplier_name ?? null,
+                  owner_id: ownerId,
+                  owner_name: ownerId ? profileNameById.get(ownerId) ?? "Менеджер" : "Менеджер",
+                  product_name: vehicleItem.product_name ?? null,
+                  variety: vehicleItem.variety ?? null,
+                  origin_country: vehicleItem.origin_country ?? null,
+                  pallet_count: vehicleItem.pallet_count ?? null,
+                  pallet_weight: vehicleItem.pallet_weight ?? null,
+                  isCurrentShipment: vehicleItem.shipment_id === id,
+                  isOwnManager: ownerId != null && ownerId === user?.id,
+                };
+              }),
+            }
+          : null;
       }
       return {
-        shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId } as ShipmentRow) : null,
+        shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId, supplier_name: sh.suppliers?.name ?? null } as ShipmentRow) : null,
         items: (items.data ?? []) as ItemRow[],
         products: (prods.data ?? []) as ProductRef[],
+        vehicleContext,
       };
     },
   });
@@ -115,9 +239,24 @@ function ProductsFullscreen() {
   const items = data?.items ?? [];
   const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
+  const vehicleContext = data?.vehicleContext ?? null;
   const country = toUaCountry(sh?.country) || "—";
   const missingPriceCount = validItems.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
   const hasRealPallets = validItems.length > 0;
+  const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
+  const currentShipmentEditable = !!user?.id && (!!isAdmin || currentShipmentOwnerId === user.id);
+  const capacityItems = vehicleContext?.loadedItems ?? items.map((item) => ({
+    id: item.id,
+    pallet_count: item.pallet_count,
+    pallet_weight: item.pallet_weight,
+  }));
+  const loadedPallets = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0), 0);
+  const loadedKg = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0), 0);
+  const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
+  const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
+  const canEditTransport = !!sh && (!sh.vehicle_id
+    ? currentShipmentEditable
+    : !!user?.id && !!vehicleContext?.ownerShipment && vehicleContext.ownerShipment.id === sh.id && sh.vehicle_owner_id === user.id);
 
   useEffect(() => {
     const onUnload = () => {
@@ -149,6 +288,14 @@ function ProductsFullscreen() {
   };
 
   const addItem = async () => {
+    if (!currentShipmentEditable) {
+      toast.error("Ви можете додавати товари лише у власну поставку");
+      return;
+    }
+    if (sh?.vehicle_id && remainingPallets <= 0 && remainingKg <= 0) {
+      toast.error("У спільному авто більше немає вільного місця");
+      return;
+    }
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: id,
       product_name: "Новий товар",
@@ -186,12 +333,25 @@ function ProductsFullscreen() {
             {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
           </div>
         </div>
-        <Button size="sm" onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
+        <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
           <Plus className="h-4 w-4" />
         </Button>
       </header>
 
-      {sh && <TransportBar shipment={sh} currentUserId={user?.id ?? null} />}
+      {sh && (
+        <TransportBar
+          shipment={sh}
+          currentUserId={user?.id ?? null}
+          vehicleContext={vehicleContext}
+          canEditTransport={canEditTransport}
+        />
+      )}
+      {vehicleContext && (
+        <SharedVehicleSummary
+          vehicleContext={vehicleContext}
+          currentShipmentId={id}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {items.length === 0 ? (
@@ -218,9 +378,10 @@ function ProductsFullscreen() {
             </thead>
             <tbody>
               {items.map((it) => {
-                const otherPallets = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-                const otherKg = items.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
-                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} />;
+                const capacitySource = vehicleContext?.loadedItems ?? items;
+                const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
+                const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} />;
               })}
             </tbody>
           </table>
@@ -250,21 +411,49 @@ function ProductsFullscreen() {
   );
 }
 
-function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; currentUserId: string | null }) {
+function TransportBar({
+  shipment,
+  currentUserId,
+  vehicleContext,
+  canEditTransport,
+}: {
+  shipment: ShipmentRow;
+  currentUserId: string | null;
+  vehicleContext: VehicleContext | null;
+  canEditTransport: boolean;
+}) {
   const lockedByOwner =
     !!shipment.vehicle_id &&
     !!shipment.vehicle_owner_id &&
     !!currentUserId &&
     shipment.vehicle_owner_id !== currentUserId;
   const qc = useQueryClient();
+  const transportShipment = vehicleContext?.ownerShipment?.id === shipment.id
+    ? shipment
+    : vehicleContext?.ownerShipment
+      ? {
+          logistics_cost: vehicleContext.ownerShipment.logistics_cost,
+          logistics_cost_currency: vehicleContext.ownerShipment.logistics_cost_currency,
+        }
+      : shipment;
   const [val, setVal] = useState<string>(
-    shipment.logistics_cost == null || Number(shipment.logistics_cost) === 0 ? "" : String(shipment.logistics_cost),
+    transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0 ? "" : String(transportShipment.logistics_cost),
   );
-  const [cur, setCur] = useState<string>(shipment.logistics_cost_currency ?? "EUR");
+  const [cur, setCur] = useState<string>(transportShipment.logistics_cost_currency ?? "EUR");
   const dirty = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isEmpty = val === "" || Number(val.replace(",", ".")) <= 0;
+
+  useEffect(() => {
+    if (dirty.current) return;
+    setVal(
+      transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0
+        ? ""
+        : String(transportShipment.logistics_cost),
+    );
+    setCur(transportShipment.logistics_cost_currency ?? "EUR");
+  }, [transportShipment.logistics_cost, transportShipment.logistics_cost_currency]);
 
   useEffect(() => {
     if (!dirty.current) return;
@@ -287,15 +476,26 @@ function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; curr
     return () => clearTimeout(t);
   }, [val, cur, shipment.id, qc]);
 
-  if (lockedByOwner) {
+  if (lockedByOwner || !canEditTransport) {
     return (
-      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Перевезення авто
-        </span>
-        <span className="flex-1 text-[12px] text-foreground">
-          Транспорт оплачує власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
-        </span>
+      <div className="border-b border-border bg-muted/40 px-3 py-2">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Перевезення авто
+            </div>
+            <div className="mt-1 text-sm font-semibold text-foreground">
+              {isEmpty ? "Не вказано" : `${val} ${cur}`}
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Маршрут: {toUaCountry(vehicleContext?.vehicle.country ?? shipment.country) || "—"}
+              {vehicleContext?.ownerName ? ` · власник: ${vehicleContext.ownerName}` : ""}
+            </div>
+          </div>
+          <div className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground">
+            лише перегляд
+          </div>
+        </div>
       </div>
     );
   }
@@ -350,10 +550,80 @@ function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; curr
   );
 }
 
+function SharedVehicleSummary({ vehicleContext, currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
+  const totalPallets = Number(vehicleContext.vehicle.total_pallets ?? 0);
+  const totalKg = Number(vehicleContext.vehicle.total_weight_kg ?? 0);
+  const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
+  const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
+
+  return (
+    <div className="border-b border-border bg-card/70 px-3 py-3">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Місткість авто</div>
+            <div className="mt-1 text-sm font-semibold text-foreground">{MAX_PALLETS} пал · {MAX_WEIGHT_KG} кг</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Завантажено</div>
+            <div className="mt-1 text-sm font-semibold text-foreground">{totalPallets} пал · {Math.round(totalKg)} кг</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Вільно</div>
+            <div className={cn("mt-1 text-sm font-semibold", remainingPallets <= 1 ? "text-destructive" : "text-foreground")}>{remainingPallets} пал · {Math.round(remainingKg)} кг</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Маршрут / країна</div>
+            <div className="mt-1 text-sm font-semibold text-foreground">{toUaCountry(vehicleContext.vehicle.country) || "—"}</div>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border bg-muted/20">
+          <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Уже завантажено в авто
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {vehicleContext.loadedItems.length === 0 ? (
+              <div className="px-3 py-3 text-sm text-muted-foreground">Поки що немає завантажених товарів</div>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {vehicleContext.loadedItems.map((loadedItem) => (
+                  <li key={loadedItem.id} className={cn("px-3 py-2", loadedItem.isCurrentShipment && "bg-brand/5") }>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {loadedItem.product_name || "—"}
+                          {loadedItem.variety ? ` · ${loadedItem.variety}` : ""}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {loadedItem.shipment_code} · {loadedItem.supplier_name || "Без постачальника"}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {loadedItem.owner_name}
+                          {loadedItem.isCurrentShipment ? " · ваша поставка" : " · чужий товар"}
+                          {loadedItem.origin_country ? ` · ${loadedItem.origin_country}` : ""}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right text-[11px] font-medium text-foreground">
+                        <div>{Number(loadedItem.pallet_count ?? 0)} пал</div>
+                        <div className="text-muted-foreground">{Math.round(Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0))} кг</div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 
-function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number }) {
+function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
@@ -368,6 +638,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
   });
   const dirtyRef = useRef(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+    if (readOnly) return;
     dirtyRef.current = true;
     setForm((f) => ({ ...f, [k]: v }));
   };
@@ -380,6 +651,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
 
   // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
   useEffect(() => {
+    if (readOnly) return;
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
       const trimmedProductName = form.product_name.trim();
@@ -407,9 +679,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id, qc]);
+  }, [form, palletWeight, item.id, qc, readOnly]);
 
   const remove = async () => {
+    if (readOnly) {
+      toast.error("Можна редагувати лише власні товари");
+      return;
+    }
     if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
@@ -427,10 +703,11 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           className="font-medium"
           expandedMinWidth={200}
           required={false}
+          readOnly={readOnly}
         />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} />
+        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
       <td className="relative px-0.5 py-0.5">
         <AutocompleteCell
@@ -440,17 +717,19 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           aliases={COUNTRY_ALIASES}
           placeholder="Країна"
           expandedMinWidth={180}
+          readOnly={readOnly}
         />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} />
+        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} />
+        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
       <td className="relative px-0.5 py-0.5">
         <NumCell
           value={form.pallet_count}
+          readOnly={readOnly}
           onChange={(v) => {
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
@@ -468,6 +747,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
+          readOnly={readOnly}
           onValueChange={(v) => set("unit_price", v)}
           onCurrencyChange={(c) => set("price_currency", c)}
         />
@@ -476,7 +756,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
         <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="xs" />
       </td>
       <td className="px-0.5 py-0.5">
-        <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">
+        <button type="button" onClick={remove} disabled={readOnly} className="p-1 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </td>
@@ -487,11 +767,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
 const EXPANDED = "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 const EXPANDED_RIGHT = "absolute right-0 left-auto top-[calc(100%+10px)] z-40 h-10 min-w-[120px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 
-function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number }) {
+function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth, readOnly = false }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number; readOnly?: boolean }) {
   const [focused, setFocused] = useState(false);
   return (
     <Input
       value={value}
+      readOnly={readOnly}
       list={list}
       placeholder={focused ? "" : placeholder}
       autoComplete="off"
@@ -500,6 +781,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
+        if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
       }}
@@ -508,6 +790,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
         focused && EXPANDED,
+        readOnly && "cursor-default",
         className,
       )}
     />
@@ -515,7 +798,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
 }
 
 
-function NumCell({ value, onChange, step }: { value: number; onChange: (v: number) => void; step?: string }) {
+function NumCell({ value, onChange, step, readOnly = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
   // Only resync from prop when NOT focused, to avoid eating typed zeros (e.g. "1.0" → "1")
@@ -527,6 +810,7 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
   return (
     <Input
       type="text"
+      readOnly={readOnly}
       inputMode="decimal"
       step={step ?? "1"}
       value={text}
@@ -536,6 +820,7 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       autoCapitalize="off"
       spellCheck={false}
       onFocus={(e) => {
+        if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
       }}
@@ -556,15 +841,17 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
         focused && EXPANDED_RIGHT + " text-right",
+        readOnly && "cursor-default",
       )}
     />
   );
 }
 
-function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
+function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly = false }: {
   value: number; currency: "EUR" | "USD";
   onValueChange: (v: number) => void;
   onCurrencyChange: (c: "EUR" | "USD") => void;
+  readOnly?: boolean;
 }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
@@ -581,6 +868,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
     )}>
       <Input
         type="text"
+        readOnly={readOnly}
         inputMode="decimal"
         value={text}
         placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
@@ -588,7 +876,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        onFocus={(e) => { setFocused(true); e.currentTarget.select(); }}
+        onFocus={(e) => { if (readOnly) return; setFocused(true); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^\d.,-]/g, "");
@@ -605,12 +893,14 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
           isEmpty && "text-destructive placeholder:text-destructive font-semibold",
+          readOnly && "cursor-default",
         )}
       />
       <select
         value={currency}
+        disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
-        className="h-8 rounded border-transparent bg-transparent px-0.5 text-[10px] focus:border-input focus:bg-background"
+        className="h-8 rounded border-transparent bg-transparent px-0.5 text-[10px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="EUR">€</option>
         <option value="USD">$</option>

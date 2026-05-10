@@ -41,7 +41,13 @@ type OpenVehicle = {
   eta: string | null;
   total_pallets: number;
   total_weight_kg: number;
-  shipments: { suppliers: { name: string | null } | null }[] | null;
+  created_by: string | null;
+  shipments: {
+    logistics_cost: number | null;
+    logistics_cost_currency: string | null;
+    created_by: string | null;
+    suppliers: { name: string | null } | null;
+  }[] | null;
 };
 
 function NewShipment() {
@@ -71,6 +77,16 @@ function NewShipment() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [vehicleOpen, setVehicleOpen] = useState(false);
 
+  const { data: managerProfiles } = useQuery({
+    queryKey: ["manager-profiles", user?.id],
+    enabled: !loading && !!user && isStaff,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("id,full_name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data: suppliers } = useQuery({
     queryKey: ["suppliers-select", user?.id],
     enabled: !loading && !!user && isStaff,
@@ -87,7 +103,7 @@ function NewShipment() {
     queryFn: async () => {
       let q = supabase
         .from("vehicles" as never)
-        .select("id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg, shipments(suppliers(name))")
+        .select("id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(logistics_cost,logistics_cost_currency,created_by,suppliers(name))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (country) q = q.eq("country", country);
@@ -106,6 +122,14 @@ function NewShipment() {
     () => openVehicles?.find((v) => v.id === vehicleId) ?? null,
     [openVehicles, vehicleId],
   );
+
+  const profileNameById = useMemo(
+    () => new Map((managerProfiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"])),
+    [managerProfiles],
+  );
+  const selectedVehicleOwnerName = selectedVehicle?.created_by
+    ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
+    : "Власник авто";
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
   useEffect(() => {
@@ -447,7 +471,7 @@ function NewShipment() {
         ) : (
           <>
             {supplierField}
-            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} /> : countryField}
+            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
             {vehicleField}
             {codeField}
             {etaField}
@@ -482,12 +506,13 @@ function ModeButton({ active, onClick, children }: { active: boolean; onClick: (
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
 
-function VehicleLockedInfo({ vehicle }: { vehicle: OpenVehicle }) {
+function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
   const loadedP = Number(vehicle.total_pallets ?? 0);
   const loadedKg = Number(vehicle.total_weight_kg ?? 0);
   const freeP = Math.max(0, VEHICLE_MAX_PALLETS - loadedP);
   const freeKg = Math.max(0, VEHICLE_MAX_KG - loadedKg);
   const sups = (vehicle.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean).join(", ");
+  const ownerShipment = (vehicle.shipments ?? []).find((shipment) => shipment.created_by === vehicle.created_by) ?? (vehicle.shipments ?? []).find((shipment) => Number(shipment.logistics_cost ?? 0) > 0) ?? null;
   return (
     <div className="space-y-2">
       <div className="space-y-1.5">
@@ -502,6 +527,14 @@ function VehicleLockedInfo({ vehicle }: { vehicle: OpenVehicle }) {
         <div className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Завантаження авто</div>
         <div className="grid grid-cols-2 gap-2">
           <div>
+            <div className="text-muted-foreground">Фрахт</div>
+            <div className="font-semibold tabular-nums">
+              {ownerShipment && Number(ownerShipment.logistics_cost ?? 0) > 0
+                ? `${Number(ownerShipment.logistics_cost ?? 0).toFixed(2)} ${ownerShipment.logistics_cost_currency ?? "EUR"}`
+                : "Не вказано"}
+            </div>
+          </div>
+          <div>
             <div className="text-muted-foreground">Вже завантажено</div>
             <div className="font-semibold tabular-nums">{loadedP} пал · {Math.round(loadedKg)} кг</div>
           </div>
@@ -511,12 +544,19 @@ function VehicleLockedInfo({ vehicle }: { vehicle: OpenVehicle }) {
               {freeP} пал · {Math.round(freeKg)} кг
             </div>
           </div>
+          <div>
+            <div className="text-muted-foreground">Маршрут</div>
+            <div className="font-semibold tabular-nums">{vehicle.country}</div>
+          </div>
         </div>
         {sups && (
           <div className="mt-2 text-[11px] text-muted-foreground">
             Постачальники в авто: <span className="text-foreground">{sups}</span>
           </div>
         )}
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Власник авто: <span className="text-foreground">{ownerName}</span>
+        </div>
         <div className="mt-2 text-[11px] text-muted-foreground">
           Транспорт оплачує менеджер-власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
         </div>

@@ -49,6 +49,7 @@ export function AutocompleteCell({
   expandedMinWidth,
   className,
   required = true,
+  readOnly = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -59,6 +60,7 @@ export function AutocompleteCell({
   expandedMinWidth?: number;
   className?: string;
   required?: boolean;
+  readOnly?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const acceptingRef = useRef(false);
@@ -140,6 +142,7 @@ export function AutocompleteCell({
       <Input
         ref={inputRef}
         value={value}
+        readOnly={readOnly}
         placeholder={focused ? "" : placeholder}
         autoComplete="off"
         autoCorrect="off"
@@ -147,6 +150,7 @@ export function AutocompleteCell({
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
         onFocus={(e) => {
+          if (readOnly) return;
           setFocused(true);
           e.currentTarget.select();
         }}
@@ -165,10 +169,11 @@ export function AutocompleteCell({
           "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
           focused && EXPANDED,
           invalid && "!border-destructive !bg-destructive/15 ring-2 ring-destructive/60",
+          readOnly && "cursor-default",
           className,
         )}
       />
-      {focused && suggestions.length > 0 && (
+      {focused && !readOnly && suggestions.length > 0 && (
         <div className="absolute left-0 top-[calc(100%+54px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur">
           {suggestions.map((s) => (
             <button
