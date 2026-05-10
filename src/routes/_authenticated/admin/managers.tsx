@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 export const Route = createFileRoute("/_authenticated/admin/managers")({
   component: ManagersAdmin,
