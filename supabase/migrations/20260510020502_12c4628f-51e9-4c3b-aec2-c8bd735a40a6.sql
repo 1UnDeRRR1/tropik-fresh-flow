@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_delete_invalid_shipment_item ON public.shipment_items;
