@@ -191,7 +191,7 @@ function ProductsFullscreen() {
         </Button>
       </header>
 
-      {sh && <TransportBar shipment={sh} />}
+      {sh && <TransportBar shipment={sh} currentUserId={user?.id ?? null} />}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {items.length === 0 ? (
