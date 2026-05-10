@@ -254,7 +254,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Неактивна філія",
         detail: `${b.name} — немає заявок з ціною за 14 днів`,
         context: "Філія",
-        link: { to: "/branch-requests" },
+        link: { to: "/branch-requests", search: { focus: `branch:${b.id}`, level: "red" } },
       });
     }
   }
