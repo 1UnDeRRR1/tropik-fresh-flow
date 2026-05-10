@@ -488,5 +488,46 @@ export async function computeTriggers(): Promise<Trigger[]> {
     });
   }
 
+  // ---------- LOSS-MAKING APPROVED PRICE (BLUE ≥10%, RED ≥20%) ----------
+  // When an import manager approves at least 1 pallet for a branch at a sale price that
+  // (after FX conversion to USD) is critically below the indicative cost.
+  const UAH_PER_USD = 43.5; // approximate operational rate for trigger evaluation
+  const toUsdPerKg = (price: number, currency: string | null | undefined) => {
+    const c = (currency || "UAH").toUpperCase();
+    if (c === "USD") return price;
+    if (c === "EUR") return price * 1.08;
+    return price / UAH_PER_USD; // UAH default
+  };
+  for (const r of brReq) {
+    if (r.status !== "approved") continue;
+    if (!r.shipment_item_id) continue;
+    const palletsApproved = Number(r.pallets ?? 0) || Number(r.approved_qty ?? 0);
+    if (palletsApproved < 1) continue;
+    const salePrice = Number(r.sale_price ?? 0);
+    if (salePrice <= 0) continue;
+    let item: any = null;
+    let ship: any = null;
+    for (const s of ships) {
+      const it = (s.shipment_items ?? []).find((i: any) => i.id === r.shipment_item_id);
+      if (it) { item = it; ship = s; break; }
+    }
+    if (!item) continue;
+    const indicative = Number(item.final_cost_indicative ?? 0);
+    if (indicative <= 0) continue;
+    const saleUsd = toUsdPerKg(salePrice, r.sale_currency);
+    const diffPct = ((indicative - saleUsd) / indicative) * 100; // positive = below cost
+    if (diffPct < 10) continue;
+    const level: Level = diffPct >= 20 ? "red" : "blue";
+    out.push({
+      id: `lp-${r.id}`,
+      level,
+      code: level === "red" ? "APPROVED_PRICE_CRITICAL_LOSS" : "APPROVED_PRICE_LOSS",
+      title: level === "red" ? "Збиткова ціна затверджена (критично)" : "Збиткова ціна затверджена",
+      detail: `${item.product_name} · ${branchName(r.branch_id)} · ${palletsApproved}п · ${salePrice} ${(r.sale_currency || "UAH").toUpperCase()} (${saleUsd.toFixed(3)}$/кг) vs індикативна ${indicative.toFixed(3)}$/кг (-${Math.round(diffPct)}%)`,
+      context: `Менеджер: ${mgrName(shipMgr(ship))}`,
+    });
+  }
+
   return out;
 }
+
