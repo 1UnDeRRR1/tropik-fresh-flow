@@ -410,6 +410,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Філія домінує по позиції",
           detail: `${branchName(bid)} тримає ${Math.round((pal / total) * 100)}% «${product}»`,
           context: "Філія / Товар",
+          link: { to: "/branch-requests" },
         });
       }
     }
