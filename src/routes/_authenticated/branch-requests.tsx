@@ -145,6 +145,7 @@ function BranchRequestsPage() {
     [data, cutoff],
   );
   const [showArchive, setShowArchive] = useState(false);
+  useFocusHighlight([data]);
 
   const approve = async (r: Row, pallets: number) => {
     if (!r.shipmentItemId || !r.shipmentId) {
