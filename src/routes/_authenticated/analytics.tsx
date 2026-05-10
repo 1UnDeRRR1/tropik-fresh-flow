@@ -387,7 +387,7 @@ function Analytics() {
                         {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        {p.shipments} пост. · {p.positions} поз.
+                        {p.shipments} пост. · {formatPositions({ base: 1, total: p.positions })} поз.
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
