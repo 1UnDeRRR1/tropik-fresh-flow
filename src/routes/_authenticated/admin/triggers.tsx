@@ -481,7 +481,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Скачок закупівельної ціни",
         detail: `${it.product} (${it.country}) · ${it.price.toFixed(2)}$ vs середнє ${avg.toFixed(2)}$ (+${Math.round(((it.price - avg) / avg) * 100)}%)`,
         context: `${it.ship.code} · ${mgrName(shipMgr(it.ship))}`,
-        link: { to: "/shipments/$id", params: { id: it.ship.id } },
+        link: { to: "/shipments/$id", params: { id: it.ship.id }, search: { focus: `item:${(it as any).itemId ?? ""}`, level: "blue" } },
       });
     }
   }
