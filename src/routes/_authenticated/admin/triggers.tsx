@@ -116,7 +116,7 @@ function TriggersPage() {
   );
 }
 
-async function computeTriggers(): Promise<Trigger[]> {
+export async function computeTriggers(): Promise<Trigger[]> {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const isoDaysAgo = (n: number) =>
