@@ -370,6 +370,8 @@ function OpenVehiclesBlock() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={!isAdmin && !ownShipment}
+                    title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
                     onClick={(e) => {
                       e.stopPropagation();
                       closeVehicle(v.id);
