@@ -236,7 +236,10 @@ function Analytics() {
     () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
     [activeFlat],
   );
-  const totalPositions = activeFlat.length;
+  const positionsCount = useMemo(
+    () => countPositions(activeFlat, (f) => f.item.product_name),
+    [activeFlat],
+  );
   const totalShipments = useMemo(() => {
     const s = new Set<string>();
     for (const f of activeFlat) s.add(f.shipment.id);
