@@ -33,7 +33,7 @@ function ShipmentsList() {
         .select(`
           id, code, status, eta, country, import_manager_id,
           suppliers(name, country),
-          shipment_items(pallet_count),
+          shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
         `)
         .order("created_at", { ascending: false });
