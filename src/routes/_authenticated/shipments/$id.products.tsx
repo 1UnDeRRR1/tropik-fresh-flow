@@ -89,13 +89,23 @@ function ProductsFullscreen() {
     enabled: !loading && !!user,
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
-        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency").eq("id", id).single(),
+        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
-        return {
-        shipment: s.data as ShipmentRow | null,
-          items: (items.data ?? []) as ItemRow[],
+      const sh = s.data as { id: string; code: string; country: string | null; logistics_cost: number | null; logistics_cost_currency: string | null; vehicle_id: string | null } | null;
+      let vehicleOwnerId: string | null = null;
+      if (sh?.vehicle_id) {
+        const { data: v } = await supabase
+          .from("vehicles" as never)
+          .select("created_by")
+          .eq("id", sh.vehicle_id)
+          .single();
+        vehicleOwnerId = (v as { created_by: string | null } | null)?.created_by ?? null;
+      }
+      return {
+        shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId } as ShipmentRow) : null,
+        items: (items.data ?? []) as ItemRow[],
         products: (prods.data ?? []) as ProductRef[],
       };
     },
