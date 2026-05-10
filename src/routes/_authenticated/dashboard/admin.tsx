@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, Truck, Building2, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
+import { LoadingPlanManager } from "@/components/LoadingPlanManager";
 import { toUaCountry } from "@/lib/countries";
 import {
   Dialog,
@@ -259,18 +260,7 @@ function AdminDashboard() {
         </button>
       </div>
 
-      <SectionCard title="Master-data">
-        <div className="grid grid-cols-2 gap-2 text-sm font-medium md:grid-cols-4 lg:grid-cols-7">
-          <a href="/admin/branches" className="rounded-xl bg-secondary p-3">Філії</a>
-          <a href="/admin/managers" className="rounded-xl bg-secondary p-3">Менеджери</a>
-          <a href="/admin/suppliers" className="rounded-xl bg-secondary p-3">Постачальники</a>
-          <a href="/admin/products" className="rounded-xl bg-secondary p-3">Товари</a>
-          <a href="/admin/countries" className="rounded-xl bg-secondary p-3">Логістика</a>
-          <a href="/analytics" className="rounded-xl bg-secondary p-3">Аналітика</a>
-          <a href="/admin/triggers" className="rounded-xl bg-destructive/10 p-3 text-destructive">Тригери</a>
-          <a href="/admin/vacations" className="rounded-xl bg-warning/10 p-3">Відпустки</a>
-        </div>
-      </SectionCard>
+      <LoadingPlanManager />
 
       <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
