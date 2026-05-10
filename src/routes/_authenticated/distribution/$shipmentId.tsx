@@ -238,7 +238,7 @@ function DistributionMatrix() {
     <Button
       size="sm"
       onClick={onSaveClick}
-      disabled={saving || !dirty}
+      disabled={saving || !dirty || overflow}
       className="bg-brand text-brand-foreground hover:bg-brand/90"
     >
       {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
