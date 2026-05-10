@@ -171,7 +171,7 @@ function ProductsFullscreen() {
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
           <div className={cn("truncate text-[10px] uppercase tracking-wide", missingPriceCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-            {country} · {items.length} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
+            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
           </div>
         </div>
         <Button size="sm" onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
