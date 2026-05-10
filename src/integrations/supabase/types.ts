@@ -1302,6 +1302,30 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      loading_plan_items: {
+        Args: { _plan_id: string }
+        Returns: {
+          created_at: string
+          origin_country: string
+          pallet_count: number
+          product_name: string
+          shipment_code: string
+          shipment_country: string
+          shipment_created_at: string
+          shipment_eta: string
+          shipment_id: string
+          supplier_name: string
+          vehicle_code: string
+          vehicle_eta: string
+        }[]
+      }
+      loading_plan_loaded_totals: {
+        Args: never
+        Returns: {
+          loaded: number
+          plan_id: string
+        }[]
+      }
       next_vehicle_sequence: {
         Args: { p_country_code: string }
         Returns: number
