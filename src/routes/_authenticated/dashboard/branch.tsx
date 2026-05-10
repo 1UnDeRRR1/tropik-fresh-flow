@@ -44,21 +44,61 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
 
-  const { data } = useQuery({
-    queryKey: ["branch-incoming", branchId],
+  const { data: dists } = useQuery({
+    queryKey: ["branch-incoming-dists", branchId],
     enabled: !!branchId,
     queryFn: async () => {
-      const { data: dists, error } = await supabase
+      const { data, error } = await supabase
         .from("distributions")
-        .select(`
-          id,status,
-          shipments(id,code,eta,country),
-          distribution_items(pallets,qty, shipment_items(id,product_name,caliber,origin_country,final_cost_indicative,final_cost_invoice))
-        `)
+        .select(`id,status,shipment_id,distribution_items(pallets,qty,shipment_item_id)`)
         .eq("branch_id", branchId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return dists ?? [];
+      return (data ?? []) as Array<{
+        id: string; status: string; shipment_id: string;
+        distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string | null }> | null;
+      }>;
+    },
+  });
+
+  const itemIds = useMemo(
+    () => Array.from(new Set((dists ?? []).flatMap((d) => (d.distribution_items ?? []).map((di) => di.shipment_item_id).filter(Boolean) as string[]))),
+    [dists],
+  );
+  const shipmentIds = useMemo(
+    () => Array.from(new Set((dists ?? []).map((d) => d.shipment_id).filter(Boolean))),
+    [dists],
+  );
+
+  const { data: items } = useQuery({
+    queryKey: ["branch-incoming-items", itemIds.join(",")],
+    enabled: itemIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipment_items_branch")
+        .select("id,product_name,caliber,origin_country,final_cost_indicative,final_cost_invoice")
+        .in("id", itemIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; product_name: string; caliber: string | null;
+        origin_country: string | null;
+        final_cost_indicative: number | null; final_cost_invoice: number | null;
+      }>;
+    },
+  });
+
+  const { data: ships } = useQuery({
+    queryKey: ["branch-incoming-ships", shipmentIds.join(",")],
+    enabled: shipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipments_branch")
+        .select("id,code,eta,country")
+        .in("id", shipmentIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; code: string; eta: string | null; country: string | null;
+      }>;
     },
   });
 
@@ -100,33 +140,36 @@ function BranchDashboard() {
     return { pending: s.pending, accepted: s.accepted, free };
   };
 
-  const rows: Row[] = useMemo(
-    () =>
-      (data ?? []).flatMap((d) =>
-        (d.distribution_items ?? [])
-          .map((di) => {
-            const it = di.shipment_items;
-            if (!it) return null;
-            return {
-              key: `${d.id}-${it.id}`,
-              shipment_item_id: it.id,
-              distribution_id: d.id,
-              code: d.shipments?.code ?? "—",
-              eta: d.shipments?.eta ?? null,
-              status: d.status,
-              product: it.product_name,
-              country: it.origin_country ?? d.shipments?.country ?? null,
-              caliber: it.caliber ?? "—",
-              pallets: Number(di.pallets ?? 0),
-              weight: Number(di.qty ?? 0),
-              indicative: it.final_cost_indicative,
-              invoice: it.final_cost_invoice,
-            } as Row;
-          })
-          .filter(Boolean) as Row[],
-      ),
-    [data],
-  );
+  const rows: Row[] = useMemo(() => {
+    if (!dists) return [];
+    const iMap = new Map((items ?? []).map((i) => [i.id, i]));
+    const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
+    return dists.flatMap((d) =>
+      (d.distribution_items ?? [])
+        .map((di) => {
+          if (!di.shipment_item_id) return null;
+          const it = iMap.get(di.shipment_item_id);
+          if (!it) return null;
+          const s = sMap.get(d.shipment_id);
+          return {
+            key: `${d.id}-${it.id}`,
+            shipment_item_id: it.id,
+            distribution_id: d.id,
+            code: s?.code ?? "—",
+            eta: s?.eta ?? null,
+            status: d.status,
+            product: it.product_name,
+            country: it.origin_country ?? s?.country ?? null,
+            caliber: it.caliber ?? "—",
+            pallets: Number(di.pallets ?? 0),
+            weight: Number(di.qty ?? 0),
+            indicative: it.final_cost_indicative,
+            invoice: it.final_cost_invoice,
+          } as Row;
+        })
+        .filter(Boolean) as Row[],
+    );
+  }, [dists, items, ships]);
 
 
   const drillRows = useMemo(() => {
