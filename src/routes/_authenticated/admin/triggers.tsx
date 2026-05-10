@@ -448,6 +448,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Скачок ціни транспорту",
           detail: `${country}: ${cur.perPal.toFixed(1)}$/п vs попереднє ${prev.perPal.toFixed(1)}$/п (+${Math.round(((cur.perPal - prev.perPal) / prev.perPal) * 100)}%)`,
           context: "Авто",
+          link: { to: "/shipments" },
         });
       }
     }
