@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { countLoadedPallets } from "@/lib/loading-plan";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
   component: ManagerDashboard,
