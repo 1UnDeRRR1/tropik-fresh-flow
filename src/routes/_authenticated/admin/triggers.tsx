@@ -235,7 +235,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Нерозподілений товар перед прибуттям",
         detail: `${s.code} · ETA ${arrival} · ${undist}п не розподілено`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
-        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id } },
+        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id }, search: { focus: `ship:${s.id}`, level: "red" } },
       });
     }
   }
