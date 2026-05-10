@@ -402,10 +402,10 @@ function DistributionMatrix() {
       {/* Sticky save bar (mobile) — sits above bottom nav */}
       <div className="fixed inset-x-0 bottom-16 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur md:hidden pb-safe">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3">
-          <div className="text-[11px] text-muted-foreground">
-            {dirty ? "Незбережені зміни" : "Все збережено"}
+          <div className={cn("text-[11px]", overflow ? "font-semibold text-destructive" : "text-muted-foreground")}>
+            {overflow ? "Перевищено факт. кількість" : dirty ? "Незбережені зміни" : "Все збережено"}
           </div>
-          <Button onClick={onSaveClick} disabled={saving || !dirty} className="bg-brand text-brand-foreground hover:bg-brand/90">
+          <Button onClick={onSaveClick} disabled={saving || !dirty || overflow} className="bg-brand text-brand-foreground hover:bg-brand/90">
             {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
             {saving ? "Збереження…" : "Зберегти"}
           </Button>
