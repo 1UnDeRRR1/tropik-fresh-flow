@@ -1,45 +1,50 @@
-# Responsive Adaptation Plan — All Roles
+## Goal
 
-Goal: one unified app that feels native on phone, tablet, and desktop for every role (super_admin, admin, import_manager, branch). No "stretched mobile" on desktop — desktops get wider tables, more visible columns, multi-column layouts.
+Scope all import-manager data access to their own records — at both the database (RLS) and UI (queries) layers. Admins/super_admins keep full access. Branches keep current branch-scoped access.
 
-## Strategy
+## Ownership model
 
-1. **Global shell (`AppShell`)**
-   - Mobile (`<md`): keep current bottom navigation + top bar.
-   - Tablet/Desktop (`≥md`): add a left rail / sidebar with the same role-aware items, hide bottom nav, expand main content to a centered max-w-7xl container with proper paddings (`px-4 md:px-6 lg:px-10`).
-   - Role-aware nav items stay identical; only layout/placement changes.
+- **Shipment ownership** = `shipments.import_manager_id` mapped to a user via a new lookup, OR `shipments.created_by` if `import_manager_id` is null. To make this clean, I'll add a helper SQL function `is_shipment_owner(shipment_id, user_id)` that returns true if:
+  - user is admin/super_admin, OR
+  - `shipments.created_by = user_id`, OR
+  - `shipments.import_manager_id` matches a row in `import_managers` whose email equals the user's auth email (existing convention).
+- **Goods (shipment_items)** ownership = ownership of the parent shipment.
+- **Suppliers** ownership = `suppliers.import_manager_id` mapped the same way (admins see all).
+- **Distributions / distribution_items** ownership = ownership of the parent shipment.
+- **Branch requests** ownership = ownership of the referenced shipment; requests with no shipment stay visible to all managers (cannot scope).
+- **Vehicles** = shared. Visible to all staff. Closable only by:
+  - admins, OR
+  - `vehicles.created_by = user_id`, OR
+  - user owns at least one shipment currently attached to the vehicle.
 
-2. **Reusable responsive primitives**
-   - Add `ResponsiveTable` helper: renders stacked cards on mobile, real `<table>` on `md+` from the same row data.
-   - Add `PageContainer` wrapper enforcing consistent max-width + breakpoint paddings.
-   - Add `FilterBar` that becomes a horizontal toolbar on desktop and stacked dropdowns on mobile.
+## Database changes (migration)
 
-3. **Per-page adaptation** (Ukrainian UI preserved everywhere):
+1. Add `public.is_manager_for_shipment(_shipment_id uuid, _user_id uuid) returns boolean` (security definer).
+2. Add `public.is_manager_for_supplier(_supplier_id uuid, _user_id uuid) returns boolean`.
+3. Add `public.can_close_vehicle(_vehicle_id uuid, _user_id uuid) returns boolean`.
+4. Replace `shipments staff select` with: admin OR owner-of-shipment. Keep insert as `is_staff`. Update/delete already check `created_by` / admin.
+5. Replace `shipment_items staff select/update/delete` with checks against `is_manager_for_shipment(shipment_id, auth.uid())`. Insert: must own the parent shipment (or be admin).
+6. Replace `distributions staff all` and `distribution_items staff all` with manager-scoped policies (still allow branch read for own branch).
+7. Replace `branch_requests staff all` and `branch_request_items staff all` with: admin OR (shipment_id IS NULL) OR owner of `shipment_id`. Keep branch policies.
+8. Replace `suppliers read/write staff` with admin OR `is_manager_for_supplier`.
+9. `vehicles staff update` → admin OR `can_close_vehicle`. Keep `vehicles staff read` open to all staff so other managers can attach their goods.
 
-   - **Admin dashboard** (`dashboard/admin.tsx`, `dashboard/super-admin.tsx`): KPI tiles 1col → 2col (md) → 4col (lg); shortcut grid 2col → 4col → 6col.
-   - **Analytics** (`analytics.tsx`): tabs stay; on desktop show 2-column layout (list + detail panel side-by-side instead of dialog); product/owner rows render as table on `md+`.
-   - **Statistics** (`statistics.tsx`): filter bar inline on desktop (5 dropdowns in one row), stacked on mobile; results render as wide table on desktop.
-   - **Triggers** (`admin/triggers.tsx`): card list on mobile, table on desktop with all columns visible.
-   - **Calendar** (`calendar.tsx`): mobile = vertical day list (current); desktop = day list + selected-day detail panel side-by-side, with wider date headers.
-   - **Import manager dashboard** (`dashboard/manager.tsx`): KPI grid responsive; shipment list → table on desktop.
-   - **Shipment creation** (`shipments/new.tsx`): single-column form on mobile, 2-column form (label/inputs paired) on desktop with wider inputs.
-   - **Product entry** (`shipments/$id.products.tsx`): card-per-product on mobile, spreadsheet-style editable table on desktop.
-   - **Distribution matrix** (`distribution.tsx`, `distribution/$shipmentId.tsx`): vertical list on mobile, true matrix grid (products × branches) on `lg+` with sticky headers.
-   - **Branch page** (`dashboard/branch.tsx`): cards stack on mobile, 2-column dashboard on desktop.
-   - **Branch calendar**: same pattern as admin calendar.
-   - **Branch transfer offers** (`offers.tsx`, `transfers.tsx`): cards on mobile, table on desktop.
-   - **Requests** (`branch-requests.tsx`): cards on mobile, table on desktop with status/date columns.
+## UI / query changes
 
-4. **Breakpoints**
-   - `sm` 640, `md` 768 (tablet), `lg` 1024 (desktop), `xl` 1280 (wide desktop).
-   - Use Tailwind responsive classes only; no JS device detection except where needed for table↔card swap (use CSS via `hidden md:block` / `md:hidden`).
+- **Shipments list** (`shipments/index.tsx`): for `import_manager` role, filter by ownership. Admins unchanged.
+- **Distribution list** (`distribution.tsx`) and detail (`distribution/$shipmentId.tsx`): scope to current manager's shipments only.
+- **Suppliers** (`suppliers.tsx`, admin/suppliers): managers see only their own suppliers.
+- **Branch requests** (`branch-requests.tsx`): managers see only requests for their shipments + unassigned ones.
+- **Vehicles / loading plan** UI: show all vehicles to managers (so they can join), but disable "close" button when `can_close_vehicle` would deny.
+- Rely on RLS as the hard boundary; UI filters are belt-and-suspenders (and also drive correct empty states).
 
 ## Out of scope
-- No business logic changes.
-- No new features, no role permission changes.
-- No visual redesign — same tokens, same components.
 
-## Technical notes
-- All edits in `src/components/AppShell.tsx` and the listed route files.
-- New helpers: `src/components/ResponsiveTable.tsx`, `src/components/PageContainer.tsx`, `src/components/FilterBar.tsx`.
-- Verify with viewport at 390px, 820px, 1440px.
+- No changes to branch role visibility.
+- No data migration of existing `import_manager_id` fields — assume they're already correct or admin will fix.
+
+## Risk / verification
+
+- After migration runs, log in as `qa.manager@tropik.test` and `qa.manager2@tropik.test` and verify each sees only own shipments/goods/distributions and cannot mutate the other's records (RLS denies).
+- Verify admin still sees everything.
+- Verify branch role unchanged.

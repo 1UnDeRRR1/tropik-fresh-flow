@@ -291,7 +291,8 @@ type OpenVehicleRow = {
 };
 
 function OpenVehiclesBlock() {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole(["super_admin", "admin"]);
   const navigate = useNavigate();
   const { data, refetch } = useQuery({
     queryKey: ["open-vehicles-list"],
@@ -369,6 +370,8 @@ function OpenVehiclesBlock() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={!isAdmin && !ownShipment}
+                    title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
                     onClick={(e) => {
                       e.stopPropagation();
                       closeVehicle(v.id);
