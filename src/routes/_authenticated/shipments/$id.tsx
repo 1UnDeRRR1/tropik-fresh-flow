@@ -164,7 +164,7 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
             </thead>
             <tbody>
               {items.filter((it) => (it.product_name || "").trim() !== "" || Number(it.pallet_count ?? 0) > 0).map((it) => (
-                <tr key={it.id} className="border-b border-border/40">
+                <tr key={it.id} data-focus-id={`item:${it.id}`} className="border-b border-border/40">
                   <td className="py-1.5 px-1 font-medium">{it.product_name || "—"}</td>
                   <td className="py-1.5 px-1 text-muted-foreground">{it.variety || "—"}</td>
                   <td className="py-1.5 px-1 text-muted-foreground">{it.origin_country || fallbackCountry}</td>
