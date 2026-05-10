@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { LoadingPlanManager } from "@/components/LoadingPlanManager";
 import { toUaCountry } from "@/lib/countries";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 import { computeTriggers } from "@/routes/_authenticated/admin/triggers";
 import {
   Dialog,
