@@ -121,8 +121,7 @@ function LoadingPlanAdmin() {
   });
 
   function loadedFor(row: PlanRow): number {
-    if (!loaded) return 0;
-    return countLoadedPallets(row, loaded);
+    return loaded?.get(row.id) ?? 0;
   }
 
   return (
