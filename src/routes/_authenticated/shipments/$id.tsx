@@ -15,9 +15,14 @@ import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
 import { toUaCountry } from "@/lib/countries";
 import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
 import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
+import { useAuth } from "@/lib/auth";
+import { Lock } from "lucide-react";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
+
+const VEHICLE_MAX_PALLETS = 26;
+const VEHICLE_MAX_KG = 21500;
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: () => <StaffOnly><ShipmentDetail /></StaffOnly>,
