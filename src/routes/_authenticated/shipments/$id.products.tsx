@@ -141,28 +141,19 @@ function ProductsFullscreen() {
   };
 
   const addItem = async () => {
-    const productName = window.prompt("Вкажіть назву товару")?.trim() ?? "";
-    if (!productName) return toast.error("Назва товару обов'язкова");
-    const palletsRaw = window.prompt("Вкажіть кількість палет", "1");
-    if (palletsRaw == null) return;
-    const palletCount = Number(palletsRaw.replace(",", "."));
-    if (Number.isNaN(palletCount) || palletCount <= 0) {
-      return toast.error("Кількість має бути більшою за 0");
-    }
-    const match = products.find((p) => p.name.trim().toLowerCase() === productName.toLowerCase());
-    const palletWeight = Number(match?.default_pallet_weight ?? 0);
     const { error } = await supabase.from("shipment_items").insert({
       shipment_id: id,
-      product_name: productName,
-      qty: palletCount * palletWeight,
+      product_name: "Новий товар",
+      qty: 0,
       unit: "kg",
       unit_price: 0,
       price_currency: "EUR",
-      pallet_count: palletCount,
-      pallet_weight: palletWeight,
+      pallet_count: 1,
+      pallet_weight: 0,
     });
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] }); qc.invalidateQueries({ queryKey: ["shipment", id] });
+    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+    qc.invalidateQueries({ queryKey: ["shipment", id] });
   };
 
   return (
