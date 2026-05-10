@@ -766,11 +766,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 const EXPANDED = "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 const EXPANDED_RIGHT = "absolute right-0 left-auto top-[calc(100%+10px)] z-40 h-10 min-w-[120px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
 
-function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number }) {
+function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth, readOnly = false }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number; readOnly?: boolean }) {
   const [focused, setFocused] = useState(false);
   return (
     <Input
       value={value}
+      readOnly={readOnly}
       list={list}
       placeholder={focused ? "" : placeholder}
       autoComplete="off"
@@ -779,6 +780,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
+        if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
       }}
@@ -787,6 +789,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
         focused && EXPANDED,
+        readOnly && "cursor-default",
         className,
       )}
     />
@@ -794,7 +797,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
 }
 
 
-function NumCell({ value, onChange, step }: { value: number; onChange: (v: number) => void; step?: string }) {
+function NumCell({ value, onChange, step, readOnly = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
   // Only resync from prop when NOT focused, to avoid eating typed zeros (e.g. "1.0" → "1")
@@ -806,6 +809,7 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
   return (
     <Input
       type="text"
+      readOnly={readOnly}
       inputMode="decimal"
       step={step ?? "1"}
       value={text}
@@ -815,6 +819,7 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       autoCapitalize="off"
       spellCheck={false}
       onFocus={(e) => {
+        if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
       }}
@@ -835,15 +840,17 @@ function NumCell({ value, onChange, step }: { value: number; onChange: (v: numbe
       className={cn(
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
         focused && EXPANDED_RIGHT + " text-right",
+        readOnly && "cursor-default",
       )}
     />
   );
 }
 
-function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
+function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly = false }: {
   value: number; currency: "EUR" | "USD";
   onValueChange: (v: number) => void;
   onCurrencyChange: (c: "EUR" | "USD") => void;
+  readOnly?: boolean;
 }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
@@ -860,6 +867,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
     )}>
       <Input
         type="text"
+        readOnly={readOnly}
         inputMode="decimal"
         value={text}
         placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
@@ -867,7 +875,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        onFocus={(e) => { setFocused(true); e.currentTarget.select(); }}
+        onFocus={(e) => { if (readOnly) return; setFocused(true); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^\d.,-]/g, "");
@@ -884,12 +892,14 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange }: {
           "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
           isEmpty && "text-destructive placeholder:text-destructive font-semibold",
+          readOnly && "cursor-default",
         )}
       />
       <select
         value={currency}
+        disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
-        className="h-8 rounded border-transparent bg-transparent px-0.5 text-[10px] focus:border-input focus:bg-background"
+        className="h-8 rounded border-transparent bg-transparent px-0.5 text-[10px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="EUR">€</option>
         <option value="USD">$</option>
