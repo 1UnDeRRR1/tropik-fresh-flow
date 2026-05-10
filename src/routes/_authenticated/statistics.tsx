@@ -404,12 +404,12 @@ function StatisticsPage() {
             <div className="text-base font-bold">{totals.avgPrice.toFixed(2)}</div>
           </div>
           <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-muted-foreground">сер. інд.</div>
-            <div className="text-base font-bold">{totals.avgInd.toFixed(2)}</div>
+            <div className="text-[10px] uppercase text-success">сер. інд.</div>
+            <div className="text-base font-bold text-success">{totals.avgInd.toFixed(2)}</div>
           </div>
           <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-muted-foreground">сер. інв.</div>
-            <div className="text-base font-bold">{totals.avgInv.toFixed(2)}</div>
+            <div className="text-[10px] uppercase text-destructive">сер. інв.</div>
+            <div className="text-base font-bold text-destructive">{totals.avgInv.toFixed(2)}</div>
           </div>
         </div>
       </SectionCard>
