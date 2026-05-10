@@ -248,7 +248,7 @@ function DistributionMatrix() {
   );
 
   return (
-    <div className="space-y-4 pb-44 md:pb-28">
+    <div className="space-y-4 pb-44 md:pb-28" data-focus-id={`ship:${shipmentId}`}>
       <PageHeader
         title="Розподіл по філіях"
         subtitle={`Поставка ${data.shipment?.code ?? ""}${dirty ? " · є незбережені зміни" : ""}`}
