@@ -68,6 +68,8 @@ type ShipmentRow = {
   country: string | null;
   logistics_cost: number | null;
   logistics_cost_currency: string | null;
+  vehicle_id: string | null;
+  vehicle_owner_id: string | null;
 };
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
@@ -87,13 +89,23 @@ function ProductsFullscreen() {
     enabled: !loading && !!user,
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
-        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency").eq("id", id).single(),
+        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
-        return {
-        shipment: s.data as ShipmentRow | null,
-          items: (items.data ?? []) as ItemRow[],
+      const sh = s.data as { id: string; code: string; country: string | null; logistics_cost: number | null; logistics_cost_currency: string | null; vehicle_id: string | null } | null;
+      let vehicleOwnerId: string | null = null;
+      if (sh?.vehicle_id) {
+        const { data: v } = await supabase
+          .from("vehicles" as never)
+          .select("created_by")
+          .eq("id", sh.vehicle_id)
+          .single();
+        vehicleOwnerId = (v as { created_by: string | null } | null)?.created_by ?? null;
+      }
+      return {
+        shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId } as ShipmentRow) : null,
+        items: (items.data ?? []) as ItemRow[],
         products: (prods.data ?? []) as ProductRef[],
       };
     },
@@ -179,7 +191,7 @@ function ProductsFullscreen() {
         </Button>
       </header>
 
-      {sh && <TransportBar shipment={sh} />}
+      {sh && <TransportBar shipment={sh} currentUserId={user?.id ?? null} />}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {items.length === 0 ? (
@@ -238,7 +250,12 @@ function ProductsFullscreen() {
   );
 }
 
-function TransportBar({ shipment }: { shipment: ShipmentRow }) {
+function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; currentUserId: string | null }) {
+  const lockedByOwner =
+    !!shipment.vehicle_id &&
+    !!shipment.vehicle_owner_id &&
+    !!currentUserId &&
+    shipment.vehicle_owner_id !== currentUserId;
   const qc = useQueryClient();
   const [val, setVal] = useState<string>(
     shipment.logistics_cost == null || Number(shipment.logistics_cost) === 0 ? "" : String(shipment.logistics_cost),
@@ -269,6 +286,19 @@ function TransportBar({ shipment }: { shipment: ShipmentRow }) {
     }, 600);
     return () => clearTimeout(t);
   }, [val, cur, shipment.id, qc]);
+
+  if (lockedByOwner) {
+    return (
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Перевезення авто
+        </span>
+        <span className="flex-1 text-[12px] text-foreground">
+          Транспорт оплачує власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className={cn(
