@@ -80,6 +80,7 @@ function ProductsFullscreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, loading } = useAuth();
+  const cleanupReadyRef = useRef(false);
 
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
@@ -105,11 +106,18 @@ function ProductsFullscreen() {
   const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
   const hasRealPallets = items.length > 0;
 
-  // Auto-delete empty shipment when leaving (browser back, tab close, route change)
+  useEffect(() => {
+    if (sh) cleanupReadyRef.current = true;
+  }, [sh]);
+
+  // Auto-delete empty shipment only after the shipment itself is confirmed loaded.
+  // This avoids React dev/preview remount cleanup deleting a brand-new shipment
+  // before the user can add the first product row.
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
   useEffect(() => {
     return () => {
+      if (!cleanupReadyRef.current) return;
       const list = itemsRef.current;
       const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
       if (!real) void deleteShipmentIfEmpty(id);
@@ -117,6 +125,7 @@ function ProductsFullscreen() {
   }, [id]);
   useEffect(() => {
     const onUnload = () => {
+      if (!cleanupReadyRef.current) return;
       const list = itemsRef.current;
       const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
       if (!real) {
