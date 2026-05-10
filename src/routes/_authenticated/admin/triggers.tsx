@@ -319,6 +319,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Філія без популярної позиції",
           detail: `${b.name} не має «${product}» (є у ${set.size}/${totalBranches} філій)`,
           context: "Філія / Товар",
+          link: { to: "/branch-requests" },
         });
       }
     }
