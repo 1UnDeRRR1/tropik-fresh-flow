@@ -133,9 +133,16 @@ export function LoadingPlanManager() {
           <input
             className="input"
             placeholder="Товар (напр. Ківі)"
+            list="loading-plan-products"
+            autoComplete="off"
             value={form.product_name}
             onChange={(e) => setForm({ ...form, product_name: e.target.value })}
           />
+          <datalist id="loading-plan-products">
+            {(products ?? []).map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
           <div className="grid grid-cols-2 gap-2">
             <input
               className="input"
@@ -158,9 +165,10 @@ export function LoadingPlanManager() {
             className="input"
             type="number"
             min={0}
+            inputMode="numeric"
             placeholder="Запланована к-ть палет"
             value={form.planned_pallets}
-            onChange={(e) => setForm({ ...form, planned_pallets: Number(e.target.value) })}
+            onChange={(e) => setForm({ ...form, planned_pallets: e.target.value })}
           />
           <select
             className="input"
