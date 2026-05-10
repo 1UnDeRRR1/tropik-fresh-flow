@@ -80,7 +80,6 @@ function ProductsFullscreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, loading } = useAuth();
-  const cleanupReadyRef = useRef(false);
 
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
@@ -106,26 +105,11 @@ function ProductsFullscreen() {
   const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
   const hasRealPallets = items.length > 0;
 
-  useEffect(() => {
-    if (sh) cleanupReadyRef.current = true;
-  }, [sh]);
-
-  // Auto-delete empty shipment only after the shipment itself is confirmed loaded.
-  // This avoids React dev/preview remount cleanup deleting a brand-new shipment
-  // before the user can add the first product row.
+  // Keep the latest item list for real exit cleanup only.
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
   useEffect(() => {
-    return () => {
-      if (!cleanupReadyRef.current) return;
-      const list = itemsRef.current;
-      const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
-      if (!real) void deleteShipmentIfEmpty(id);
-    };
-  }, [id]);
-  useEffect(() => {
     const onUnload = () => {
-      if (!cleanupReadyRef.current) return;
       const list = itemsRef.current;
       const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
       if (!real) {
@@ -136,6 +120,13 @@ function ProductsFullscreen() {
     window.addEventListener("pagehide", onUnload);
     return () => window.removeEventListener("pagehide", onUnload);
   }, [id]);
+
+  const leaveProducts = async () => {
+    const list = itemsRef.current;
+    const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
+    if (!real) await deleteShipmentIfEmpty(id);
+    navigate({ to: "/shipments/$id", params: { id } });
+  };
 
   const blockExit = (e: React.MouseEvent) => {
     if (missingPriceCount > 0) {
@@ -175,7 +166,7 @@ function ProductsFullscreen() {
               toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
               return;
             }
-            navigate({ to: "/shipments/$id", params: { id } });
+            void leaveProducts();
           }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
@@ -229,7 +220,12 @@ function ProductsFullscreen() {
       </div>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <Link to="/shipments/$id" params={{ id }} className="block" onClick={blockExit}>
+        <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
+          blockExit(e);
+          if (e.defaultPrevented) return;
+          e.preventDefault();
+          void leaveProducts();
+        }}>
           <Button
             className={cn(
               "w-full",
