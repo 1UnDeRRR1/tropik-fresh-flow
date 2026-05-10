@@ -1,11 +1,22 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertOctagon, AlertTriangle, ChevronRight, Info } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ChevronRight, ExternalLink, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/triggers")({
   component: TriggersPage,
@@ -17,6 +28,12 @@ type LinkTarget = {
   params?: Record<string, string>;
   search?: Record<string, string>;
 };
+type Emphasis = "critical" | "warn" | "info" | "muted";
+type Highlight = {
+  label: string;
+  value: string;
+  emphasis?: Emphasis;
+};
 type Trigger = {
   id: string;
   level: Level;
@@ -25,8 +42,9 @@ type Trigger = {
   detail: string;
   context?: string;
   link?: LinkTarget;
+  reason: string;
+  highlights: Highlight[];
 };
-
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -35,9 +53,122 @@ function daysBetween(a: string | null | undefined, b: Date) {
   return (new Date(a).getTime() - b.getTime()) / DAY;
 }
 
+function emphasisCls(e: Emphasis | undefined) {
+  switch (e) {
+    case "critical":
+      return "bg-destructive/10 text-destructive border-destructive/30";
+    case "warn":
+      return "bg-warning/15 text-[oklch(0.55_0.18_75)] border-warning/40";
+    case "info":
+      return "bg-info/10 text-info border-info/30";
+    default:
+      return "bg-muted text-foreground border-border";
+  }
+}
+
+function levelHeaderCls(level: Level) {
+  if (level === "red") return "border-l-4 border-destructive bg-destructive/5";
+  if (level === "yellow") return "border-l-4 border-warning bg-warning/5";
+  return "border-l-4 border-info bg-info/5";
+}
+
+function levelTitleCls(level: Level) {
+  if (level === "red") return "text-destructive";
+  if (level === "yellow") return "text-[oklch(0.55_0.18_75)]";
+  return "text-info";
+}
+
+function TriggerSnapshotModal({
+  trigger,
+  open,
+  onClose,
+}: {
+  trigger: Trigger | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!trigger) return null;
+  const Icon = trigger.level === "red" ? AlertOctagon : trigger.level === "yellow" ? AlertTriangle : Info;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md p-0 overflow-hidden">
+        <div className={cn("p-4", levelHeaderCls(trigger.level))}>
+          <DialogHeader className="space-y-1.5 text-left">
+            <DialogTitle className={cn("flex items-center gap-2 text-base font-bold", levelTitleCls(trigger.level))}>
+              <Icon className="h-5 w-5 shrink-0" />
+              <span>{trigger.title}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs uppercase tracking-wide text-muted-foreground">
+              {trigger.code}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Причина
+            </div>
+            <div className="mt-1 text-sm">{trigger.reason}</div>
+          </div>
+
+          {trigger.highlights.length > 0 && (
+            <div>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Ключові значення
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {trigger.highlights.map((h, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "rounded-lg border px-2.5 py-2",
+                      emphasisCls(h.emphasis),
+                    )}
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                      {h.label}
+                    </div>
+                    <div className="mt-0.5 text-sm font-bold tabular-nums break-words">
+                      {h.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {trigger.context && (
+            <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+              {trigger.context}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 border-t bg-card p-3 sm:justify-between">
+          <DialogClose asChild>
+            <Button variant="outline" size="sm">
+              Закрити
+            </Button>
+          </DialogClose>
+          {trigger.link && (
+            <Button asChild size="sm" onClick={onClose}>
+              <Link {...(trigger.link as any)}>
+                <ExternalLink className="mr-1.5 h-4 w-4" />
+                Відкрити джерело
+              </Link>
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TriggersPage() {
   const { hasRole, loading } = useAuth();
   const [tab, setTab] = useState<Level>("red");
+  const [active, setActive] = useState<Trigger | null>(null);
 
   const { data: triggers = [], isLoading } = useQuery({
     queryKey: ["admin", "triggers"],
@@ -70,13 +201,13 @@ function TriggersPage() {
 
       <div className="grid grid-cols-3 gap-2">
         {tabsCfg.map((t) => {
-          const active = tab === t.key;
+          const isActive = tab === t.key;
           return (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`rounded-xl border p-3 text-left transition ${
-                active ? t.cls : `border-border bg-card text-foreground ${t.hoverCls}`
+                isActive ? t.cls : `border-border bg-card text-foreground ${t.hoverCls}`
               }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase">
@@ -97,46 +228,35 @@ function TriggersPage() {
         ) : (
           <ul className="space-y-2">
             {list.map((t) => {
-              const cls = `rounded-xl border p-3 ${
+              const cls = `w-full text-left rounded-xl border p-3 transition hover:brightness-95 active:scale-[0.99] ${
                 t.level === "red"
                   ? "border-destructive/30 bg-destructive/5"
                   : t.level === "yellow"
                     ? "border-warning/40 bg-warning/5"
                     : "border-info/30 bg-info/5"
               }`;
-              const inner = (
-                <>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="text-sm font-bold">{t.title}</div>
-                    {t.link && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{t.detail}</div>
-                  {t.context && (
-                    <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {t.context}
-                    </div>
-                  )}
-                </>
-              );
               return (
                 <li key={t.id}>
-                  {t.link ? (
-                    <Link
-                      {...(t.link as any)}
-                      className={`${cls} block transition hover:brightness-95 active:scale-[0.99]`}
-                    >
-                      {inner}
-                    </Link>
-                  ) : (
-                    <div className={cls}>{inner}</div>
-                  )}
+                  <button type="button" onClick={() => setActive(t)} className={cls}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-bold">{t.title}</div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{t.detail}</div>
+                    {t.context && (
+                      <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                        {t.context}
+                      </div>
+                    )}
+                  </button>
                 </li>
               );
             })}
           </ul>
-
         )}
       </SectionCard>
+
+      <TriggerSnapshotModal trigger={active} open={!!active} onClose={() => setActive(null)} />
     </div>
   );
 }
@@ -155,7 +275,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           "id,code,eta,arrived_at,status,country,loading_date,vehicle_id,supplier_id,import_manager_id,created_by,created_at,logistics_cost_usd,shipment_items(id,product_name,pallet_count,unit_price_usd,final_cost_indicative,origin_country,created_at)",
         )
         .limit(1000),
-      supabase.from("vehicles").select("id,country,country_code,loading_date,status,total_pallets,total_weight_kg,created_at"),
+      supabase.from("vehicles").select("id,code,country,country_code,loading_date,status,total_pallets,total_weight_kg,created_at"),
       supabase.from("branches").select("id,name,is_active").eq("is_active", true),
       supabase
         .from("branch_requests")
@@ -211,6 +331,13 @@ export async function computeTriggers(): Promise<Trigger[]> {
         detail: `${v.country} · завантаження ${v.loading_date ?? "—"} · ${v.total_pallets}п`,
         context: "Авто",
         link: { to: "/shipments", search: { focus: `v:${v.id}`, level: "red" } },
+        reason: "До дати завантаження залишилось ≤24 год, але авто все ще відкрите.",
+        highlights: [
+          { label: "Авто", value: (v as any).code ?? "—" },
+          { label: "Країна", value: v.country ?? "—" },
+          { label: "Завантаження", value: v.loading_date ?? "—", emphasis: "critical" },
+          { label: "Палет", value: `${Number(v.total_pallets ?? 0)}` },
+        ],
       });
     }
   }
@@ -236,6 +363,14 @@ export async function computeTriggers(): Promise<Trigger[]> {
         detail: `${s.code} · ETA ${arrival} · ${undist}п не розподілено`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
         link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id }, search: { focus: `ship:${s.id}`, level: "red" } },
+        reason: "До прибуття ≤24 год, частина палет ще не розподілена між філіями.",
+        highlights: [
+          { label: "Поставка", value: s.code },
+          { label: "ETA", value: arrival ?? "—" },
+          { label: "Не розподілено", value: `${undist} п`, emphasis: "critical" },
+          { label: "Заплановано", value: `${planned} п` },
+          { label: "Менеджер", value: mgrName(shipMgr(s)) },
+        ],
       });
     }
   }
@@ -255,6 +390,11 @@ export async function computeTriggers(): Promise<Trigger[]> {
         detail: `${b.name} — немає заявок з ціною за 14 днів`,
         context: "Філія",
         link: { to: "/branch-requests", search: { focus: `branch:${b.id}`, level: "red" } },
+        reason: "Філія не подавала заявок з вказаною ціною продажу понад 14 днів.",
+        highlights: [
+          { label: "Філія", value: b.name, emphasis: "critical" },
+          { label: "Період без заявок", value: "≥ 14 днів", emphasis: "critical" },
+        ],
       });
     }
   }
@@ -277,17 +417,21 @@ export async function computeTriggers(): Promise<Trigger[]> {
         detail: `${m.full_name} — не створював поставок за 7 днів`,
         context: "Менеджер",
         link: { to: "/admin/managers", search: { focus: `mgr:${m.id}`, level: "red" } },
+        reason: "Менеджер не створював жодної поставки понад 7 днів і не у відпустці.",
+        highlights: [
+          { label: "Менеджер", value: m.full_name, emphasis: "critical" },
+          { label: "Період без поставок", value: "≥ 7 днів", emphasis: "critical" },
+        ],
       });
     }
   }
 
   // ---------- YELLOW ----------
 
-  // 1. Branch missing common position (in ≥80% of branches over last 7 days, absent in this branch)
+  // 1. Branch missing common position
   const totalBranches = branches.length;
   if (totalBranches > 0) {
     const threshold = Math.ceil(totalBranches * 0.8);
-    // product => set(branch_id) over recent 7 days distributions
     const itemBranches = new Map<string, Set<string>>();
     for (const d of distributions) {
       const ship = ships.find((s) => s.id === d.shipment_id);
@@ -316,16 +460,21 @@ export async function computeTriggers(): Promise<Trigger[]> {
           detail: `${b.name} не має «${product}» (є у ${set.size}/${totalBranches} філій)`,
           context: "Філія / Товар",
           link: { to: "/branch-requests", search: { focus: `branch:${b.id}`, level: "yellow" } },
+          reason: `Товар наявний у ≥80% активних філій, але відсутній у «${b.name}».`,
+          highlights: [
+            { label: "Філія", value: b.name, emphasis: "warn" },
+            { label: "Товар", value: product, emphasis: "warn" },
+            { label: "Поширеність", value: `${set.size}/${totalBranches} філій` },
+          ],
         });
       }
     }
   }
 
-  // 2. Manager has 3+ open vehicles — vehicle has no manager direct field; aggregate by ship's manager
+  // 2. Manager has 3+ open vehicles
   const openVehiclesByMgr = new Map<string, number>();
   for (const v of vehicles) {
     if (v.status !== "open") continue;
-    // find managers from shipments on this vehicle
     const mids = new Set<string>();
     for (const s of ships) {
       if (s.vehicle_id !== v.id) continue;
@@ -344,6 +493,11 @@ export async function computeTriggers(): Promise<Trigger[]> {
         detail: `${mgrName(mid)} має ${n} відкритих авто одночасно`,
         context: "Менеджер",
         link: { to: "/shipments", search: { focus: `mgr:${mid}`, level: "yellow" } },
+        reason: "У менеджера одночасно ≥3 не закритих авто — ризик розпорошення уваги.",
+        highlights: [
+          { label: "Менеджер", value: mgrName(mid) },
+          { label: "Відкритих авто", value: `${n}`, emphasis: "warn" },
+        ],
       });
     }
   }
@@ -373,11 +527,19 @@ export async function computeTriggers(): Promise<Trigger[]> {
         detail: `${s.code} · ${Math.round(ratio * 100)}% не розподілено · transit ${Math.round(transit)} дн.`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
         link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id }, search: { focus: `ship:${s.id}`, level: "yellow" } },
+        reason: "До ETA ≤48 год, тривалий transit і ≥50% товару ще не розподілено.",
+        highlights: [
+          { label: "Поставка", value: s.code },
+          { label: "Не розподілено", value: `${Math.round(ratio * 100)}%`, emphasis: "warn" },
+          { label: "Transit", value: `${Math.round(transit)} дн.` },
+          { label: "ETA", value: arrival },
+          { label: "Менеджер", value: mgrName(shipMgr(s)) },
+        ],
       });
     }
   }
 
-  // 4. Branch dominates position — one branch holds ≥50% of distributed qty for a product
+  // 4. Branch dominates position
   const prodBranchPallets = new Map<string, Map<string, number>>();
   for (const d of distributions) {
     const ship = ships.find((s) => s.id === d.shipment_id);
@@ -399,14 +561,23 @@ export async function computeTriggers(): Promise<Trigger[]> {
     if (total <= 0) continue;
     for (const [bid, pal] of m.entries()) {
       if (pal / total >= 0.5 && m.size > 1) {
+        const share = Math.round((pal / total) * 100);
         out.push({
           id: `y4-${product}-${bid}`,
           level: "yellow",
           code: "BRANCH_DOMINATES",
           title: "Філія домінує по позиції",
-          detail: `${branchName(bid)} тримає ${Math.round((pal / total) * 100)}% «${product}»`,
+          detail: `${branchName(bid)} тримає ${share}% «${product}»`,
           context: "Філія / Товар",
           link: { to: "/branch-requests", search: { focus: `branch:${bid}`, level: "yellow" } },
+          reason: "Одна філія концентрує ≥50% усіх палет товару — дисбаланс розподілу.",
+          highlights: [
+            { label: "Філія", value: branchName(bid) },
+            { label: "Товар", value: product },
+            { label: "Частка філії", value: `${share}%`, emphasis: "warn" },
+            { label: "Палет філії", value: `${pal}` },
+            { label: "Усього палет", value: `${total}` },
+          ],
         });
       }
     }
@@ -414,7 +585,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
 
   // ---------- BLUE ----------
 
-  // 1. Transport price spike: same country, current vehicle vs previous (cost per pallet via shipment.logistics_cost_usd / total_pallets)
+  // 1. Transport price spike
   const vehiclesByCountry = new Map<string, any[]>();
   for (const v of vehicles) {
     const arr = vehiclesByCountry.get(v.country) ?? [];
@@ -437,20 +608,29 @@ export async function computeTriggers(): Promise<Trigger[]> {
       const cur = sorted[i];
       const prev = sorted[i - 1];
       if (cur.perPal >= prev.perPal * 1.3) {
+        const pct = Math.round(((cur.perPal - prev.perPal) / prev.perPal) * 100);
         out.push({
           id: `b1-${cur.v.id}`,
           level: "blue",
           code: "TRANSPORT_SPIKE",
           title: "Скачок ціни транспорту",
-          detail: `${country}: ${cur.perPal.toFixed(1)}$/п vs попереднє ${prev.perPal.toFixed(1)}$/п (+${Math.round(((cur.perPal - prev.perPal) / prev.perPal) * 100)}%)`,
+          detail: `${country}: ${cur.perPal.toFixed(1)}$/п vs попереднє ${prev.perPal.toFixed(1)}$/п (+${pct}%)`,
           context: "Авто",
           link: { to: "/shipments", search: { focus: `v:${cur.v.id}`, level: "blue" } },
+          reason: "Ціна транспорту за палету для цієї країни зросла ≥30% порівняно з попереднім авто.",
+          highlights: [
+            { label: "Країна", value: country },
+            { label: "Авто", value: cur.v.code ?? "—" },
+            { label: "Транспорт зараз", value: `${cur.perPal.toFixed(1)} $/п`, emphasis: "info" },
+            { label: "Попереднє авто", value: `${prev.perPal.toFixed(1)} $/п` },
+            { label: "Зміна", value: `+${pct}%`, emphasis: "info" },
+          ],
         });
       }
     }
   }
 
-  // 2. Purchase price spike vs avg over last 7 days for product+country
+  // 2. Purchase price spike
   const itemsFlat: Array<{ itemId: string; product: string; country: string; price: number; date: string; ship: any }> = [];
   for (const s of ships) {
     for (const it of s.shipment_items ?? []) {
@@ -474,19 +654,30 @@ export async function computeTriggers(): Promise<Trigger[]> {
     if (peers.length === 0) continue;
     const avg = peers.reduce((a, b) => a + b.price, 0) / peers.length;
     if (it.price >= avg * 1.3) {
+      const pct = Math.round(((it.price - avg) / avg) * 100);
       out.push({
         id: `b2-${it.ship.id}-${it.product}`,
         level: "blue",
         code: "PURCHASE_SPIKE",
         title: "Скачок закупівельної ціни",
-        detail: `${it.product} (${it.country}) · ${it.price.toFixed(2)}$ vs середнє ${avg.toFixed(2)}$ (+${Math.round(((it.price - avg) / avg) * 100)}%)`,
+        detail: `${it.product} (${it.country}) · ${it.price.toFixed(2)}$ vs середнє ${avg.toFixed(2)}$ (+${pct}%)`,
         context: `${it.ship.code} · ${mgrName(shipMgr(it.ship))}`,
         link: { to: "/shipments/$id", params: { id: it.ship.id }, search: { focus: `item:${it.itemId}`, level: "blue" } },
+        reason: "Закупівельна ціна позиції ≥30% вища за середню по країні за останні 14 днів.",
+        highlights: [
+          { label: "Товар", value: it.product },
+          { label: "Країна", value: it.country || "—" },
+          { label: "Ціна зараз", value: `${it.price.toFixed(2)} $/кг`, emphasis: "info" },
+          { label: "Середня (14 дн.)", value: `${avg.toFixed(2)} $/кг` },
+          { label: "Зміна", value: `+${pct}%`, emphasis: "info" },
+          { label: "Поставка", value: it.ship.code },
+          { label: "Менеджер", value: mgrName(shipMgr(it.ship)) },
+        ],
       });
     }
   }
 
-  // 3. Low branch price approved (≥3 requests, lowest accepted, ≥2 higher rejected)
+  // 3. Low branch price approved
   const reqByItem = new Map<string, typeof brReq>();
   for (const r of brReq) {
     if (!r.shipment_item_id) continue;
@@ -504,7 +695,6 @@ export async function computeTriggers(): Promise<Trigger[]> {
     if (higherRejected.length < 2) continue;
     const minPrice = Math.min(...reqs.map((r) => Number(r.sale_price ?? Infinity)));
     if (Number(accepted.sale_price) > minPrice) continue;
-    // find product
     let product = "—";
     for (const s of ships) {
       const it = (s.shipment_items ?? []).find((i: any) => i.id === itemId);
@@ -521,18 +711,24 @@ export async function computeTriggers(): Promise<Trigger[]> {
       detail: `${product} · прийнято ${accepted.sale_price}, відхилено ${higherRejected.length} вищих`,
       context: `Філія: ${branchName(accepted.branch_id)}`,
       link: { to: "/branch-requests", search: { focus: `req:${accepted.id}`, level: "blue" } },
+      reason: "Затверджено найнижчу заявку при наявності ≥2 відхилених з вищою ціною.",
+      highlights: [
+        { label: "Товар", value: product },
+        { label: "Філія", value: branchName(accepted.branch_id) },
+        { label: "Прийнята ціна", value: `${accepted.sale_price} ${(accepted.sale_currency || "UAH").toUpperCase()}`, emphasis: "info" },
+        { label: "Відхилено вищих", value: `${higherRejected.length}`, emphasis: "info" },
+        { label: "Усього заявок", value: `${reqs.length}` },
+      ],
     });
   }
 
-  // ---------- LOSS-MAKING APPROVED PRICE (BLUE ≥10%, RED ≥20%) ----------
-  // When an import manager approves at least 1 pallet for a branch at a sale price that
-  // (after FX conversion to USD) is critically below the indicative cost.
-  const UAH_PER_USD = 43.5; // approximate operational rate for trigger evaluation
+  // ---------- LOSS-MAKING APPROVED PRICE ----------
+  const UAH_PER_USD = 43.5;
   const toUsdPerKg = (price: number, currency: string | null | undefined) => {
     const c = (currency || "UAH").toUpperCase();
     if (c === "USD") return price;
     if (c === "EUR") return price * 1.08;
-    return price / UAH_PER_USD; // UAH default
+    return price / UAH_PER_USD;
   };
   for (const r of brReq) {
     if (r.status !== "approved") continue;
@@ -551,9 +747,10 @@ export async function computeTriggers(): Promise<Trigger[]> {
     const indicative = Number(item.final_cost_indicative ?? 0);
     if (indicative <= 0) continue;
     const saleUsd = toUsdPerKg(salePrice, r.sale_currency);
-    const diffPct = ((indicative - saleUsd) / indicative) * 100; // positive = below cost
+    const diffPct = ((indicative - saleUsd) / indicative) * 100;
     if (diffPct < 10) continue;
     const level: Level = diffPct >= 20 ? "red" : "blue";
+    const emph: Emphasis = level === "red" ? "critical" : "info";
     out.push({
       id: `lp-${r.id}`,
       level,
@@ -562,9 +759,19 @@ export async function computeTriggers(): Promise<Trigger[]> {
       detail: `${item.product_name} · ${branchName(r.branch_id)} · ${palletsApproved}п · ${salePrice} ${(r.sale_currency || "UAH").toUpperCase()} (${saleUsd.toFixed(3)}$/кг) vs індикативна ${indicative.toFixed(3)}$/кг (-${Math.round(diffPct)}%)`,
       context: `Менеджер: ${mgrName(shipMgr(ship))}`,
       link: { to: "/branch-requests", search: { focus: `req:${r.id}`, level } },
+      reason: `Менеджер затвердив ${palletsApproved} п. за ціною, що на ${Math.round(diffPct)}% нижча за індикативну собівартість.`,
+      highlights: [
+        { label: "Товар", value: item.product_name },
+        { label: "Філія", value: branchName(r.branch_id) },
+        { label: "Палет затверджено", value: `${palletsApproved}` },
+        { label: "Ціна продажу", value: `${salePrice} ${(r.sale_currency || "UAH").toUpperCase()}`, emphasis: emph },
+        { label: "У USD/кг", value: `${saleUsd.toFixed(3)} $`, emphasis: emph },
+        { label: "Індикативна с/в", value: `${indicative.toFixed(3)} $/кг` },
+        { label: "Різниця", value: `−${Math.round(diffPct)}%`, emphasis: emph },
+        { label: "Менеджер", value: mgrName(shipMgr(ship)) },
+      ],
     });
   }
 
   return out;
 }
-
