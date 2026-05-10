@@ -26,8 +26,20 @@ export function LoadingPlanManager() {
     product_name: "",
     caliber: "",
     country: "",
-    planned_pallets: 0,
+    planned_pallets: "" as string,
     count_existing: true,
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products", "active", "names"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
+      return (data ?? []).map((r) => r.name as string);
+    },
   });
 
   const { data: plan } = useQuery({
@@ -83,7 +95,7 @@ export function LoadingPlanManager() {
       }));
     },
     onSuccess: () => {
-      setForm({ product_name: "", caliber: "", country: "", planned_pallets: 0, count_existing: true });
+      setForm({ product_name: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
       qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] });
       toast.success("Позицію плану додано");
     },
@@ -121,9 +133,16 @@ export function LoadingPlanManager() {
           <input
             className="input"
             placeholder="Товар (напр. Ківі)"
+            list="loading-plan-products"
+            autoComplete="off"
             value={form.product_name}
             onChange={(e) => setForm({ ...form, product_name: e.target.value })}
           />
+          <datalist id="loading-plan-products">
+            {(products ?? []).map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
           <div className="grid grid-cols-2 gap-2">
             <input
               className="input"
@@ -146,9 +165,10 @@ export function LoadingPlanManager() {
             className="input"
             type="number"
             min={0}
+            inputMode="numeric"
             placeholder="Запланована к-ть палет"
             value={form.planned_pallets}
-            onChange={(e) => setForm({ ...form, planned_pallets: Number(e.target.value) })}
+            onChange={(e) => setForm({ ...form, planned_pallets: e.target.value })}
           />
           <select
             className="input"
@@ -160,7 +180,7 @@ export function LoadingPlanManager() {
           </select>
           <button
             className="btn w-full"
-            disabled={!form.product_name || !form.planned_pallets || create.isPending}
+            disabled={!form.product_name || !(Number(form.planned_pallets) > 0) || create.isPending}
             onClick={() => create.mutate()}
           >
             Додати в план
