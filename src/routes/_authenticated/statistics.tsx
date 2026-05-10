@@ -446,8 +446,8 @@ function StatisticsPage() {
                     <TableCell className="whitespace-nowrap">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</TableCell>
                     <TableCell className="text-right">{fmtNum(r.item.pallet_count, 0)}</TableCell>
                     <TableCell className="text-right">{fmtNum(r.item.unit_price)}</TableCell>
-                    <TableCell className="text-right">{fmtNum(r.item.final_cost_indicative)}</TableCell>
-                    <TableCell className="text-right">{fmtNum(r.item.final_cost_invoice)}</TableCell>
+                    <TableCell className="text-right font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</TableCell>
+                    <TableCell className="text-right font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
