@@ -546,72 +546,63 @@ function TransportBar({
   );
 }
 
-function SharedVehicleSummary({ vehicleContext, currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
+function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
+  const [open, setOpen] = useState(false);
   const totalPallets = Number(vehicleContext.vehicle.total_pallets ?? 0);
   const totalKg = Number(vehicleContext.vehicle.total_weight_kg ?? 0);
   const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
+  const tight = remainingPallets <= 1;
+  const count = vehicleContext.loadedItems.length;
 
   return (
-    <div className="border-b border-border bg-card/70 px-3 py-3">
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-md border border-border bg-muted/30 p-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Місткість авто</div>
-            <div className="mt-1 text-sm font-semibold text-foreground">{MAX_PALLETS} пал · {MAX_WEIGHT_KG} кг</div>
-          </div>
-          <div className="rounded-md border border-border bg-muted/30 p-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Завантажено</div>
-            <div className="mt-1 text-sm font-semibold text-foreground">{totalPallets} пал · {Math.round(totalKg)} кг</div>
-          </div>
-          <div className="rounded-md border border-border bg-muted/30 p-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Вільно</div>
-            <div className={cn("mt-1 text-sm font-semibold", remainingPallets <= 1 ? "text-destructive" : "text-foreground")}>{remainingPallets} пал · {Math.round(remainingKg)} кг</div>
-          </div>
-          <div className="rounded-md border border-border bg-muted/30 p-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Маршрут / країна</div>
-            <div className="mt-1 text-sm font-semibold text-foreground">{toUaCountry(vehicleContext.vehicle.country) || "—"}</div>
-          </div>
-        </div>
-
-        <div className="rounded-md border border-border bg-muted/20">
-          <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Уже завантажено в авто
-          </div>
-          <div className="max-h-52 overflow-y-auto">
-            {vehicleContext.loadedItems.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-muted-foreground">Поки що немає завантажених товарів</div>
-            ) : (
-              <ul className="divide-y divide-border/60">
-                {vehicleContext.loadedItems.map((loadedItem) => (
-                  <li key={loadedItem.id} className={cn("px-3 py-2", loadedItem.isCurrentShipment && "bg-brand/5") }>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {loadedItem.product_name || "—"}
-                          {loadedItem.variety ? ` · ${loadedItem.variety}` : ""}
-                        </div>
-                        <div className="mt-0.5 text-[11px] text-muted-foreground">
-                          {loadedItem.shipment_code} · {loadedItem.supplier_name || "Без постачальника"}
-                        </div>
-                        <div className="mt-0.5 text-[11px] text-muted-foreground">
-                          {loadedItem.owner_name}
-                          {loadedItem.isCurrentShipment ? " · ваша поставка" : " · чужий товар"}
-                          {loadedItem.origin_country ? ` · ${loadedItem.origin_country}` : ""}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right text-[11px] font-medium text-foreground">
-                        <div>{Number(loadedItem.pallet_count ?? 0)} пал</div>
-                        <div className="text-muted-foreground">{Math.round(Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0))} кг</div>
-                      </div>
+    <div className="border-b border-border bg-card/70">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-1 text-left"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Авто</span>
+        <span className="text-[11px] text-foreground">
+          <span className="font-semibold">{totalPallets}</span>
+          <span className="text-muted-foreground">/{MAX_PALLETS}п</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className="font-semibold">{Math.round(totalKg)}</span>
+          <span className="text-muted-foreground">/{MAX_WEIGHT_KG}кг</span>
+        </span>
+        <span className={cn("text-[11px] font-semibold", tight ? "text-destructive" : "text-emerald-600")}>
+          вільно {remainingPallets}п · {Math.round(remainingKg)}кг
+        </span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">
+          {count} поз.
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && (
+        <div className="max-h-52 overflow-y-auto border-t border-border">
+          {count === 0 ? (
+            <div className="px-3 py-2 text-[12px] text-muted-foreground">Поки що немає завантажених товарів</div>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {vehicleContext.loadedItems.map((loadedItem) => (
+                <li key={loadedItem.id} className={cn("flex items-center justify-between gap-2 px-3 py-1.5", loadedItem.isCurrentShipment && "bg-brand/5")}>
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-medium text-foreground">
+                      {loadedItem.product_name || "—"}{loadedItem.variety ? ` · ${loadedItem.variety}` : ""}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {loadedItem.shipment_code} · {loadedItem.owner_name}{loadedItem.isCurrentShipment ? " · ваша" : ""}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-[10px] font-medium text-foreground">
+                    {Number(loadedItem.pallet_count ?? 0)}п · {Math.round(Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0))}кг
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
