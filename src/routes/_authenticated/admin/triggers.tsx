@@ -100,27 +100,45 @@ function TriggersPage() {
           <EmptyState title="Тригерів немає" />
         ) : (
           <ul className="space-y-2">
-            {list.map((t) => (
-              <li
-                key={t.id}
-                className={`rounded-xl border p-3 ${
-                  t.level === "red"
-                    ? "border-destructive/30 bg-destructive/5"
-                    : t.level === "yellow"
-                      ? "border-warning/40 bg-warning/5"
-                      : "border-info/30 bg-info/5"
-                }`}
-              >
-                <div className="text-sm font-bold">{t.title}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{t.detail}</div>
-                {t.context && (
-                  <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {t.context}
+            {list.map((t) => {
+              const cls = `rounded-xl border p-3 ${
+                t.level === "red"
+                  ? "border-destructive/30 bg-destructive/5"
+                  : t.level === "yellow"
+                    ? "border-warning/40 bg-warning/5"
+                    : "border-info/30 bg-info/5"
+              }`;
+              const inner = (
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm font-bold">{t.title}</div>
+                    {t.link && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                   </div>
-                )}
-              </li>
-            ))}
+                  <div className="mt-0.5 text-xs text-muted-foreground">{t.detail}</div>
+                  {t.context && (
+                    <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {t.context}
+                    </div>
+                  )}
+                </>
+              );
+              return (
+                <li key={t.id}>
+                  {t.link ? (
+                    <Link
+                      {...(t.link as any)}
+                      className={`${cls} block transition hover:brightness-95 active:scale-[0.99]`}
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div className={cls}>{inner}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
+
         )}
       </SectionCard>
     </div>
