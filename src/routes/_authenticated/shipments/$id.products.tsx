@@ -410,21 +410,49 @@ function ProductsFullscreen() {
   );
 }
 
-function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; currentUserId: string | null }) {
+function TransportBar({
+  shipment,
+  currentUserId,
+  vehicleContext,
+  canEditTransport,
+}: {
+  shipment: ShipmentRow;
+  currentUserId: string | null;
+  vehicleContext: VehicleContext | null;
+  canEditTransport: boolean;
+}) {
   const lockedByOwner =
     !!shipment.vehicle_id &&
     !!shipment.vehicle_owner_id &&
     !!currentUserId &&
     shipment.vehicle_owner_id !== currentUserId;
   const qc = useQueryClient();
+  const transportShipment = vehicleContext?.ownerShipment?.id === shipment.id
+    ? shipment
+    : vehicleContext?.ownerShipment
+      ? {
+          logistics_cost: vehicleContext.ownerShipment.logistics_cost,
+          logistics_cost_currency: vehicleContext.ownerShipment.logistics_cost_currency,
+        }
+      : shipment;
   const [val, setVal] = useState<string>(
-    shipment.logistics_cost == null || Number(shipment.logistics_cost) === 0 ? "" : String(shipment.logistics_cost),
+    transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0 ? "" : String(transportShipment.logistics_cost),
   );
-  const [cur, setCur] = useState<string>(shipment.logistics_cost_currency ?? "EUR");
+  const [cur, setCur] = useState<string>(transportShipment.logistics_cost_currency ?? "EUR");
   const dirty = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isEmpty = val === "" || Number(val.replace(",", ".")) <= 0;
+
+  useEffect(() => {
+    if (dirty.current) return;
+    setVal(
+      transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0
+        ? ""
+        : String(transportShipment.logistics_cost),
+    );
+    setCur(transportShipment.logistics_cost_currency ?? "EUR");
+  }, [transportShipment.logistics_cost, transportShipment.logistics_cost_currency]);
 
   useEffect(() => {
     if (!dirty.current) return;
@@ -447,15 +475,26 @@ function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; curr
     return () => clearTimeout(t);
   }, [val, cur, shipment.id, qc]);
 
-  if (lockedByOwner) {
+  if (lockedByOwner || !canEditTransport) {
     return (
-      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Перевезення авто
-        </span>
-        <span className="flex-1 text-[12px] text-foreground">
-          Транспорт оплачує власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
-        </span>
+      <div className="border-b border-border bg-muted/40 px-3 py-2">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Перевезення авто
+            </div>
+            <div className="mt-1 text-sm font-semibold text-foreground">
+              {isEmpty ? "Не вказано" : `${val} ${cur}`}
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Маршрут: {toUaCountry(vehicleContext?.vehicle.country ?? shipment.country) || "—"}
+              {vehicleContext?.ownerName ? ` · власник: ${vehicleContext.ownerName}` : ""}
+            </div>
+          </div>
+          <div className="rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground">
+            лише перегляд
+          </div>
+        </div>
       </div>
     );
   }
@@ -510,10 +549,80 @@ function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; curr
   );
 }
 
+function SharedVehicleSummary({ vehicleContext, currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
+  const totalPallets = Number(vehicleContext.vehicle.total_pallets ?? 0);
+  const totalKg = Number(vehicleContext.vehicle.total_weight_kg ?? 0);
+  const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
+  const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
+
+  return (
+    <div className="border-b border-border bg-card/70 px-3 py-3">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Місткість авто</div>
+            <div className="mt-1 text-sm font-semibold text-foreground">{MAX_PALLETS} пал · {MAX_WEIGHT_KG} кг</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Завантажено</div>
+            <div className="mt-1 text-sm font-semibold text-foreground">{totalPallets} пал · {Math.round(totalKg)} кг</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Вільно</div>
+            <div className={cn("mt-1 text-sm font-semibold", remainingPallets <= 1 ? "text-destructive" : "text-foreground")}>{remainingPallets} пал · {Math.round(remainingKg)} кг</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Маршрут / країна</div>
+            <div className="mt-1 text-sm font-semibold text-foreground">{toUaCountry(vehicleContext.vehicle.country) || "—"}</div>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border bg-muted/20">
+          <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Уже завантажено в авто
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {vehicleContext.loadedItems.length === 0 ? (
+              <div className="px-3 py-3 text-sm text-muted-foreground">Поки що немає завантажених товарів</div>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {vehicleContext.loadedItems.map((loadedItem) => (
+                  <li key={loadedItem.id} className={cn("px-3 py-2", loadedItem.isCurrentShipment && "bg-brand/5") }>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {loadedItem.product_name || "—"}
+                          {loadedItem.variety ? ` · ${loadedItem.variety}` : ""}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {loadedItem.shipment_code} · {loadedItem.supplier_name || "Без постачальника"}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {loadedItem.owner_name}
+                          {loadedItem.isCurrentShipment ? " · ваша поставка" : " · чужий товар"}
+                          {loadedItem.origin_country ? ` · ${loadedItem.origin_country}` : ""}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right text-[11px] font-medium text-foreground">
+                        <div>{Number(loadedItem.pallet_count ?? 0)} пал</div>
+                        <div className="text-muted-foreground">{Math.round(Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0))} кг</div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 
-function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number }) {
+function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
@@ -528,6 +637,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
   });
   const dirtyRef = useRef(false);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+    if (readOnly) return;
     dirtyRef.current = true;
     setForm((f) => ({ ...f, [k]: v }));
   };
@@ -540,6 +650,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
 
   // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
   useEffect(() => {
+    if (readOnly) return;
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
       const trimmedProductName = form.product_name.trim();
@@ -567,9 +678,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id, qc]);
+  }, [form, palletWeight, item.id, qc, readOnly]);
 
   const remove = async () => {
+    if (readOnly) {
+      toast.error("Можна редагувати лише власні товари");
+      return;
+    }
     if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
@@ -587,10 +702,11 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           className="font-medium"
           expandedMinWidth={200}
           required={false}
+          readOnly={readOnly}
         />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} />
+        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
       <td className="relative px-0.5 py-0.5">
         <AutocompleteCell
@@ -600,17 +716,19 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
           aliases={COUNTRY_ALIASES}
           placeholder="Країна"
           expandedMinWidth={180}
+          readOnly={readOnly}
         />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} />
+        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
       <td className="relative px-0.5 py-0.5">
-        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} />
+        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
       <td className="relative px-0.5 py-0.5">
         <NumCell
           value={form.pallet_count}
+          readOnly={readOnly}
           onChange={(v) => {
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
@@ -628,6 +746,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
+          readOnly={readOnly}
           onValueChange={(v) => set("unit_price", v)}
           onCurrencyChange={(c) => set("price_currency", c)}
         />
@@ -636,7 +755,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
         <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="xs" />
       </td>
       <td className="px-0.5 py-0.5">
-        <button type="button" onClick={remove} className="p-1 text-muted-foreground hover:text-destructive">
+        <button type="button" onClick={remove} disabled={readOnly} className="p-1 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </td>
