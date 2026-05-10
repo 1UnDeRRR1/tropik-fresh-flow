@@ -186,7 +186,8 @@ function BranchFreeList() {
     }
     toast.success("Пропозицію відправлено імпорт-менеджеру");
     setPick(null);
-    qc.invalidateQueries({ queryKey: ["branch-free"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-items"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-ships"] });
     qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
   };
 
