@@ -224,6 +224,7 @@ function Analytics() {
       g.products.sort(
         (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
       );
+      g.basePositions = countPositionsFromGroups(g.products, (p) => p.product).base;
       for (const p of g.products) {
         p.shipments = prodShipSets.get(`${g.key}__${p.product}__${p.country}`)?.size ?? 0;
       }
