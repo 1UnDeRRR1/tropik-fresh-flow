@@ -37,7 +37,6 @@ const fmtEta = (eta: string | null) =>
 type FreeRow = {
   itemId: string;
   shipmentId: string;
-  importManagerId: string | null;
   code: string;
   eta: string | null;
   product: string;
@@ -59,21 +58,44 @@ function BranchFreeList() {
   const [currency, setCurrency] = useState("UAH");
   const [submitting, setSubmitting] = useState(false);
 
-  const { data } = useQuery({
-    queryKey: ["branch-free"],
+  // Read via branch-safe views — purchase prices are not exposed at all.
+  const { data: items } = useQuery({
+    queryKey: ["branch-free-items"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shipments")
-        .select(`
-          id,code,eta,country,import_manager_id,
-          shipment_items(id,product_name,caliber,origin_country,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
-          distributions(distribution_items(shipment_item_id,pallets))
-        `)
-        .neq("status", "cancelled")
-        .order("eta", { ascending: true, nullsFirst: false })
-        .limit(300);
+      const { data, error } = await (supabase as any)
+        .from("shipment_items_branch")
+        .select("id,shipment_id,product_name,caliber,origin_country,pallet_weight,final_cost_indicative,final_cost_invoice,free_pallets")
+        .gt("free_pallets", 0)
+        .limit(500);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as Array<{
+        id: string; shipment_id: string; product_name: string;
+        caliber: string | null; origin_country: string | null;
+        pallet_weight: number | null;
+        final_cost_indicative: number | null; final_cost_invoice: number | null;
+        free_pallets: number;
+      }>;
+    },
+  });
+
+  const shipmentIds = useMemo(
+    () => Array.from(new Set((items ?? []).map((i) => i.shipment_id))),
+    [items],
+  );
+
+  const { data: ships } = useQuery({
+    queryKey: ["branch-free-ships", shipmentIds.join(",")],
+    enabled: shipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipments_branch")
+        .select("id,code,eta,country,status")
+        .in("id", shipmentIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; code: string; eta: string | null;
+        country: string | null; status: string;
+      }>;
     },
   });
 
@@ -90,49 +112,39 @@ function BranchFreeList() {
   });
 
   const rows: FreeRow[] = useMemo(() => {
-    if (!data) return [];
-    const distMap = new Map<string, number>();
-    data.forEach((s: any) => {
-      (s.distributions ?? []).forEach((d: any) =>
-        (d.distribution_items ?? []).forEach((di: any) => {
-          if (!di.shipment_item_id) return;
-          distMap.set(di.shipment_item_id, (distMap.get(di.shipment_item_id) ?? 0) + Number(di.pallets ?? 0));
-        }),
-      );
-    });
+    if (!items) return [];
+    const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
     const pendMap = new Map<string, number>();
     (pendingReqs ?? []).forEach((r: any) => {
       if (!r.shipment_item_id) return;
       pendMap.set(r.shipment_item_id, (pendMap.get(r.shipment_item_id) ?? 0) + Number(r.pallets ?? 0));
     });
     const out: FreeRow[] = [];
-    data.forEach((s: any) => {
-      (s.shipment_items ?? []).forEach((it: any) => {
-        const planned = Number(it.pallet_count ?? 0);
-        const distributed = distMap.get(it.id) ?? 0;
-        const pending = pendMap.get(it.id) ?? 0;
-        const free = planned - distributed - pending;
-        if (free <= 0) return;
-        const palletWeight = Number(it.pallet_weight ?? 0);
-        out.push({
-          itemId: it.id,
-          shipmentId: s.id,
-          importManagerId: s.import_manager_id,
-          code: s.code,
-          eta: s.eta,
-          product: it.product_name,
-          country: it.origin_country ?? s.country ?? null,
-          caliber: it.caliber ?? "—",
-          palletWeight,
-          free,
-          weight: free * palletWeight,
-          indicative: it.final_cost_indicative,
-          invoice: it.final_cost_invoice,
-        });
+    items.forEach((it) => {
+      const s = sMap.get(it.shipment_id);
+      if (!s || s.status === "cancelled") return;
+      const pending = pendMap.get(it.id) ?? 0;
+      const free = Number(it.free_pallets ?? 0) - pending;
+      if (free <= 0) return;
+      const palletWeight = Number(it.pallet_weight ?? 0);
+      out.push({
+        itemId: it.id,
+        shipmentId: it.shipment_id,
+        code: s.code,
+        eta: s.eta,
+        product: it.product_name,
+        country: it.origin_country ?? s.country ?? null,
+        caliber: it.caliber ?? "—",
+        palletWeight,
+        free,
+        weight: free * palletWeight,
+        indicative: it.final_cost_indicative,
+        invoice: it.final_cost_invoice,
       });
     });
+    out.sort((a, b) => (a.eta ?? "9999").localeCompare(b.eta ?? "9999"));
     return out;
-  }, [data, pendingReqs]);
+  }, [items, ships, pendingReqs]);
 
   const openOffer = (r: FreeRow) => {
     setPick(r);
@@ -174,7 +186,8 @@ function BranchFreeList() {
     }
     toast.success("Пропозицію відправлено імпорт-менеджеру");
     setPick(null);
-    qc.invalidateQueries({ queryKey: ["branch-free"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-items"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-ships"] });
     qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
   };
 
