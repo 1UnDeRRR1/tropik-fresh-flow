@@ -260,7 +260,7 @@ function DistributionMatrix() {
 
       {overflow && (
         <div className="rounded-xl border border-destructive bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-          ⚠️ Розподілено більше, ніж Факт. Перевірте кількість палет.
+          ⚠️ Розподілено більше, ніж Факт. Зменшіть кількість палет, щоб зберегти.
         </div>
       )}
 
