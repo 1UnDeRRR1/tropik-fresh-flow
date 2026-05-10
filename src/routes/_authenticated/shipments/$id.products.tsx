@@ -143,7 +143,7 @@ function ProductsFullscreen() {
       unit: "kg",
       unit_price: 0,
       price_currency: "EUR",
-      pallet_count: 1,
+      pallet_count: 0,
       pallet_weight: 0,
     });
     if (error) return toast.error(error.message);
