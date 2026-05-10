@@ -178,7 +178,12 @@ export function LoadingPlanManager() {
           </select>
           <button
             className="btn w-full"
-            disabled={!form.product_name || !(Number(form.planned_pallets) > 0) || create.isPending}
+            disabled={
+              !form.product_name ||
+              !(products ?? []).some((n) => n.toLowerCase() === form.product_name.trim().toLowerCase()) ||
+              !(Number(form.planned_pallets) > 0) ||
+              create.isPending
+            }
             onClick={() => create.mutate()}
           >
             Додати в план
