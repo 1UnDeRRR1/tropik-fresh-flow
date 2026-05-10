@@ -45,11 +45,6 @@ function isoDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function fmtPrice(v: number | null | undefined, cur: string | null | undefined) {
-  if (v == null || isNaN(Number(v))) return "—";
-  const symbol = cur === "USD" ? "$" : cur === "EUR" ? "€" : (cur || "");
-  return `${symbol}${Number(v).toFixed(2)}`;
-}
 
 function CalendarPage() {
   const { user, hasRole } = useAuth();
