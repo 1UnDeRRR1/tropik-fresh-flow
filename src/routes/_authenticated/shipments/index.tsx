@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { CostPair } from "@/components/CostPair";
