@@ -343,6 +343,8 @@ function OpenVehiclesBlock() {
     refetch();
   };
 
+  useFocusHighlight([data]);
+
   if (!data?.length) return null;
 
   return (
