@@ -1280,6 +1280,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_close_vehicle: {
+        Args: { _user_id: string; _vehicle_id: string }
+        Returns: boolean
+      }
       ensure_shipment_fx_snapshot: {
         Args: { _shipment_id: string }
         Returns: number
@@ -1293,6 +1297,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_shipment_owner: {
+        Args: { _shipment_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       next_vehicle_sequence: {
         Args: { p_country_code: string }
