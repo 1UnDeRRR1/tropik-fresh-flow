@@ -124,7 +124,13 @@ function ProductsFullscreen() {
   const leaveProducts = async () => {
     const list = itemsRef.current;
     const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
-    if (!real) await deleteShipmentIfEmpty(id);
+    if (!real) {
+      const deleted = await deleteShipmentIfEmpty(id);
+      if (deleted) {
+        navigate({ to: "/shipments" });
+        return;
+      }
+    }
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
