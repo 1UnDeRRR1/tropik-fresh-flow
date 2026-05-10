@@ -432,8 +432,8 @@ function StatisticsPage() {
                   <TableHead>Менеджер</TableHead>
                   <TableHead className="text-right">Палет</TableHead>
                   <TableHead className="text-right">Закупка</TableHead>
-                  <TableHead className="text-right">Індикатив</TableHead>
-                  <TableHead className="text-right">Інвойс</TableHead>
+                  <TableHead className="text-right text-success">Індикатив</TableHead>
+                  <TableHead className="text-right text-destructive">Інвойс</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
