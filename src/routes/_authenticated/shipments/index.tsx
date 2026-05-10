@@ -291,7 +291,8 @@ type OpenVehicleRow = {
 };
 
 function OpenVehiclesBlock() {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole(["super_admin", "admin"]);
   const navigate = useNavigate();
   const { data, refetch } = useQuery({
     queryKey: ["open-vehicles-list"],
