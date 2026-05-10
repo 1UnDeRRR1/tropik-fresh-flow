@@ -249,13 +249,13 @@ function OffersPage() {
                     <StatusChip status={o.status} />
                   </div>
                   <div className="text-sm font-semibold">
-                    {o.shipment_items?.shipments?.code} · {o.shipment_items?.product_name}
-                    {o.shipment_items?.caliber ? ` · ${o.shipment_items.caliber}` : ""}
+                    {o.shipment_code ?? "—"} · {o.product_name ?? "—"}
+                    {o.caliber ? ` · ${o.caliber}` : ""}
                     {" · "}
                     <span className="text-primary">{o.offered_pallets}п</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground">
-                    ETA {fmtEta(o.shipment_items?.shipments?.eta)}
+                    ETA {fmtEta(o.shipment_eta)}
                     {o.accepted_pallets > 0 && (
                       <span className="ml-2 text-success">прийнято {o.accepted_pallets}п</span>
                     )}
