@@ -447,7 +447,7 @@ function NewShipment() {
         ) : (
           <>
             {supplierField}
-            {countryField}
+            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} /> : countryField}
             {vehicleField}
             {codeField}
             {etaField}
