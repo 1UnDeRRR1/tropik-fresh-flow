@@ -27,6 +27,8 @@ type ShipmentRow = {
     unit_price: number | null;
     price_currency: string | null;
     pallet_count: number | null;
+    final_cost_indicative: number | null;
+    final_cost_invoice: number | null;
   }>;
 };
 
