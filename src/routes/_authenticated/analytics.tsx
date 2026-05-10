@@ -303,7 +303,7 @@ function Analytics() {
                       {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      {g.shipments} пост. · {g.positions} поз.
+                      {g.shipments} пост. · {formatPositions({ base: 1, total: g.positions })} поз.
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
