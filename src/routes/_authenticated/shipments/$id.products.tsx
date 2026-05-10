@@ -250,7 +250,12 @@ function ProductsFullscreen() {
   );
 }
 
-function TransportBar({ shipment }: { shipment: ShipmentRow }) {
+function TransportBar({ shipment, currentUserId }: { shipment: ShipmentRow; currentUserId: string | null }) {
+  const lockedByOwner =
+    !!shipment.vehicle_id &&
+    !!shipment.vehicle_owner_id &&
+    !!currentUserId &&
+    shipment.vehicle_owner_id !== currentUserId;
   const qc = useQueryClient();
   const [val, setVal] = useState<string>(
     shipment.logistics_cost == null || Number(shipment.logistics_cost) === 0 ? "" : String(shipment.logistics_cost),
