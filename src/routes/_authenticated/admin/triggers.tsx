@@ -376,6 +376,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Багато нерозподіленого перед ETA",
         detail: `${s.code} · ${Math.round(ratio * 100)}% не розподілено · transit ${Math.round(transit)} дн.`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
+        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id } },
       });
     }
   }
