@@ -134,7 +134,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       supabase.from("branches").select("id,name,is_active").eq("is_active", true),
       supabase
         .from("branch_requests")
-        .select("id,branch_id,shipment_item_id,sale_price,status,created_at,decision_notes")
+        .select("id,branch_id,shipment_item_id,sale_price,sale_currency,pallets,approved_qty,status,created_at,decision_notes")
         .gte("created_at", isoDaysAgo(30)),
       supabase.from("import_managers").select("id,full_name,is_active"),
       supabase.from("manager_vacations").select("id,import_manager_id,start_date,end_date"),
