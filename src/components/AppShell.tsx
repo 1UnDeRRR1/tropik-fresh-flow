@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database } from "lucide-react";
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -28,10 +28,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     : [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/shipments", label: "Поставки", icon: Package },
-        { to: "/distribution", label: "Розподіл", icon: Truck },
+        ...(isAdmin ? [] : [{ to: "/distribution", label: "Розподіл", icon: Truck }]),
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
+        ...(isAdmin ? [{ to: "/master-data", label: "MASTER-DATA", icon: Database }] : []),
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
