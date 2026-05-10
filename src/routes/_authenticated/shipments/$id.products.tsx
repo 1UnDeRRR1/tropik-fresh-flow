@@ -12,6 +12,7 @@ import { toUaCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
+import { countPositions, formatPositions } from "@/lib/positions";
 
 import { StaffOnly } from "@/components/StaffOnly";
 
