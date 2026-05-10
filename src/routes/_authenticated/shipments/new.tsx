@@ -127,6 +127,9 @@ function NewShipment() {
     () => new Map((managerProfiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"])),
     [managerProfiles],
   );
+  const selectedVehicleOwnerName = selectedVehicle?.created_by
+    ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
+    : "Власник авто";
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
   useEffect(() => {
@@ -468,7 +471,7 @@ function NewShipment() {
         ) : (
           <>
             {supplierField}
-            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} /> : countryField}
+            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
             {vehicleField}
             {codeField}
             {etaField}
@@ -503,7 +506,7 @@ function ModeButton({ active, onClick, children }: { active: boolean; onClick: (
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
 
-function VehicleLockedInfo({ vehicle }: { vehicle: OpenVehicle }) {
+function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
   const loadedP = Number(vehicle.total_pallets ?? 0);
   const loadedKg = Number(vehicle.total_weight_kg ?? 0);
   const freeP = Math.max(0, VEHICLE_MAX_PALLETS - loadedP);
@@ -551,6 +554,9 @@ function VehicleLockedInfo({ vehicle }: { vehicle: OpenVehicle }) {
             Постачальники в авто: <span className="text-foreground">{sups}</span>
           </div>
         )}
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Власник авто: <span className="text-foreground">{ownerName}</span>
+        </div>
         <div className="mt-2 text-[11px] text-muted-foreground">
           Транспорт оплачує менеджер-власник авто. Для вашої поставки вартість транспорту вводити не потрібно.
         </div>
