@@ -69,7 +69,7 @@ function TriggersPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`rounded-xl border p-3 text-left transition ${
-                active ? t.cls : "border-border bg-card"
+                active ? t.cls : `border-border bg-card text-foreground ${t.hoverCls}`
               }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase">
