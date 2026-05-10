@@ -1,7 +1,7 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { AlertOctagon, AlertTriangle, Info } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ChevronRight, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
@@ -12,6 +12,15 @@ export const Route = createFileRoute("/_authenticated/admin/triggers")({
 });
 
 type Level = "red" | "yellow" | "blue";
+type LinkTarget =
+  | { to: "/shipments/$id"; params: { id: string } }
+  | { to: "/distribution/$shipmentId"; params: { shipmentId: string } }
+  | { to: "/branch-requests" }
+  | { to: "/transfers" }
+  | { to: "/admin/loading-plan" }
+  | { to: "/admin/managers" }
+  | { to: "/admin/branches" }
+  | { to: "/shipments" };
 type Trigger = {
   id: string;
   level: Level;
@@ -19,7 +28,9 @@ type Trigger = {
   title: string;
   detail: string;
   context?: string;
+  link?: LinkTarget;
 };
+
 
 const DAY = 24 * 60 * 60 * 1000;
 
