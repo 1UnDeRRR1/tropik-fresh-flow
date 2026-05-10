@@ -42,11 +42,11 @@ type OfferRow = {
   created_at: string;
   from_branch?: { name: string } | null;
   to_branch?: { name: string } | null;
-  shipment_items?: {
-    product_name: string;
-    caliber: string | null;
-    shipments?: { code: string; eta: string | null } | null;
-  } | null;
+  // hydrated client-side from branch views
+  product_name?: string;
+  caliber?: string | null;
+  shipment_code?: string;
+  shipment_eta?: string | null;
 };
 
 function fmtEta(eta: string | null | undefined) {
@@ -73,7 +73,7 @@ function OffersPage() {
     });
   }, [qc]);
 
-  const { data: sent } = useQuery({
+  const { data: sentRaw } = useQuery({
     queryKey: ["offers", "sent", branchId],
     enabled: !!branchId,
     queryFn: async () => {
@@ -81,8 +81,7 @@ function OffersPage() {
         .from("branch_transfer_offers")
         .select(`
           id,shipment_item_id,from_branch_id,to_branch_id,offered_pallets,accepted_pallets,status,created_at,
-          to_branch:branches!to_branch_id(name),
-          shipment_items(product_name,caliber, shipments(code,eta))
+          to_branch:branches!to_branch_id(name)
         `)
         .eq("from_branch_id", branchId!)
         .order("created_at", { ascending: false });
@@ -91,7 +90,7 @@ function OffersPage() {
     },
   });
 
-  const { data: received } = useQuery({
+  const { data: receivedRaw } = useQuery({
     queryKey: ["offers", "received", branchId],
     enabled: !!branchId,
     queryFn: async () => {
@@ -99,8 +98,7 @@ function OffersPage() {
         .from("branch_transfer_offers")
         .select(`
           id,shipment_item_id,from_branch_id,to_branch_id,offered_pallets,accepted_pallets,status,created_at,
-          from_branch:branches!from_branch_id(name),
-          shipment_items(product_name,caliber, shipments(code,eta))
+          from_branch:branches!from_branch_id(name)
         `)
         .eq("to_branch_id", branchId!)
         .order("created_at", { ascending: false });
@@ -109,14 +107,71 @@ function OffersPage() {
     },
   });
 
+  // Hydrate product/shipment info via branch-safe views (no purchase prices).
+  const itemIds = useMemo(
+    () => Array.from(new Set([...(sentRaw ?? []), ...(receivedRaw ?? [])].map((o) => o.shipment_item_id).filter(Boolean))),
+    [sentRaw, receivedRaw],
+  );
+
+  const { data: itemsInfo } = useQuery({
+    queryKey: ["offers-items", itemIds.join(",")],
+    enabled: itemIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipment_items_branch")
+        .select("id,shipment_id,product_name,caliber")
+        .in("id", itemIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null }>;
+    },
+  });
+
+  const shipmentIds = useMemo(
+    () => Array.from(new Set((itemsInfo ?? []).map((i) => i.shipment_id))),
+    [itemsInfo],
+  );
+
+  const { data: shipsInfo } = useQuery({
+    queryKey: ["offers-ships", shipmentIds.join(",")],
+    enabled: shipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipments_branch")
+        .select("id,code,eta")
+        .in("id", shipmentIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; code: string; eta: string | null }>;
+    },
+  });
+
+  const hydrate = (list: OfferRow[] | undefined): OfferRow[] => {
+    if (!list) return [];
+    const iMap = new Map((itemsInfo ?? []).map((i) => [i.id, i]));
+    const sMap = new Map((shipsInfo ?? []).map((s) => [s.id, s]));
+    return list.map((o) => {
+      const it = iMap.get(o.shipment_item_id);
+      const sh = it ? sMap.get(it.shipment_id) : null;
+      return {
+        ...o,
+        product_name: it?.product_name,
+        caliber: it?.caliber ?? null,
+        shipment_code: sh?.code,
+        shipment_eta: sh?.eta ?? null,
+      };
+    });
+  };
+
+  const sent = useMemo(() => hydrate(sentRaw), [sentRaw, itemsInfo, shipsInfo]);
+  const received = useMemo(() => hydrate(receivedRaw), [receivedRaw, itemsInfo, shipsInfo]);
+
   // Group sent offers by shipment+product
   const sentGroups = useMemo(() => {
     const map = new Map<string, { code: string; product: string; caliber?: string | null; rows: OfferRow[] }>();
-    for (const o of sent ?? []) {
-      const code = o.shipment_items?.shipments?.code ?? "—";
-      const product = o.shipment_items?.product_name ?? "—";
+    for (const o of sent) {
+      const code = o.shipment_code ?? "—";
+      const product = o.product_name ?? "—";
       const key = `${code}::${product}::${o.shipment_item_id}`;
-      if (!map.has(key)) map.set(key, { code, product, caliber: o.shipment_items?.caliber, rows: [] });
+      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, rows: [] });
       map.get(key)!.rows.push(o);
     }
     return [...map.values()];
