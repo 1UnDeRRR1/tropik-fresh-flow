@@ -347,6 +347,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Забагато відкритих авто",
         detail: `${mgrName(mid)} має ${n} відкритих авто одночасно`,
         context: "Менеджер",
+        link: { to: "/shipments" },
       });
     }
   }
