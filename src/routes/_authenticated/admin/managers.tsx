@@ -63,6 +63,8 @@ function ManagersAdmin() {
     onError: (e) => toast.error(translateError(e)),
   });
 
+  useFocusHighlight([data]);
+
   return (
     <div className="space-y-4">
       <PageHeader title="Менеджери імпорту" />
