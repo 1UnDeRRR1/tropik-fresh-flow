@@ -15,9 +15,14 @@ import { COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
 import { toUaCountry } from "@/lib/countries";
 import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
 import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
+import { useAuth } from "@/lib/auth";
+import { Lock } from "lucide-react";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
+
+const VEHICLE_MAX_PALLETS = 26;
+const VEHICLE_MAX_KG = 21500;
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: () => <StaffOnly><ShipmentDetail /></StaffOnly>,
@@ -284,6 +289,8 @@ function HistoryTab({ changes }: { changes: { id: string; field: string; old_val
 }
 
 function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentRow; shipmentId: string; qc: ReturnType<typeof useQueryClient>; items: Item[] }) {
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole(["super_admin", "admin"]);
   const [eta, setEta] = useState<string>("");
   const etaLocked = DISTRIBUTION_LOCKED_STATUSES.has(shipment.status);
   const currentEta = eta || shipment.eta || "";
@@ -306,16 +313,23 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
     qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
-  // Vehicle-wide transport: load sibling shipments & their items
+  // Vehicle-wide transport: load vehicle, sibling shipments & their items
   const { data: vehicleData } = useQuery({
     queryKey: ["vehicle-transport", shipment.vehicle_id, shipmentId],
     enabled: !!shipment.vehicle_id,
     queryFn: async () => {
-      const { data: sibs } = await supabase
-        .from("shipments")
-        .select("id,code,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,created_at")
-        .eq("vehicle_id", shipment.vehicle_id!)
-        .order("created_at", { ascending: true });
+      const [{ data: veh }, { data: sibs }] = await Promise.all([
+        supabase
+          .from("vehicles" as never)
+          .select("id,created_by,total_pallets,total_weight_kg,country,code")
+          .eq("id", shipment.vehicle_id!)
+          .single(),
+        supabase
+          .from("shipments")
+          .select("id,code,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,created_by,import_manager_id,created_at")
+          .eq("vehicle_id", shipment.vehicle_id!)
+          .order("created_at", { ascending: true }),
+      ]);
       const sibIds = (sibs ?? []).map((s) => s.id);
       const { data: sibItems } = sibIds.length
         ? await supabase
@@ -323,16 +337,21 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
             .select("id,shipment_id,pallet_count,pallet_weight,product_name")
             .in("shipment_id", sibIds)
         : { data: [] as { id: string; shipment_id: string; pallet_count: number | null; pallet_weight: number | null; product_name: string | null }[] };
-      return { siblings: sibs ?? [], allItems: sibItems ?? [] };
+      return { vehicle: veh as { id: string; created_by: string | null; total_pallets: number | null; total_weight_kg: number | null; country: string | null; code: string | null } | null, siblings: sibs ?? [], allItems: sibItems ?? [] };
     },
   });
 
+  const vehicle = vehicleData?.vehicle ?? null;
   const siblings = vehicleData?.siblings ?? [];
+  const sharedVehicle = !!vehicle && (siblings.length > 1 || (vehicle.created_by && vehicle.created_by !== user?.id));
+  const isVehicleOwner = !!vehicle && (!vehicle.created_by || vehicle.created_by === user?.id || isAdmin);
+  // Find the sibling whose owner is the vehicle creator (the one who pays transport)
+  const ownerShipment = siblings.find((s) => s.created_by === vehicle?.created_by) ?? siblings.find((s) => Number(s.logistics_cost ?? 0) > 0);
   const otherWithCost = siblings.find((s) => s.id !== shipmentId && Number(s.logistics_cost ?? 0) > 0);
-  const transportLocked = !!otherWithCost;
-  const inheritedCurrency = (otherWithCost?.logistics_cost_currency as Currency) ?? "EUR";
-  const inheritedAmount = Number(otherWithCost?.logistics_cost ?? 0);
-  const inheritedUsd = Number(otherWithCost?.logistics_cost_usd ?? convertToUsd(inheritedAmount, inheritedCurrency, otherWithCost?.eur_usd_rate));
+  const transportLocked = !isVehicleOwner || !!otherWithCost;
+  const inheritedCurrency = (ownerShipment?.logistics_cost_currency as Currency) ?? (otherWithCost?.logistics_cost_currency as Currency) ?? "EUR";
+  const inheritedAmount = Number(ownerShipment?.logistics_cost ?? otherWithCost?.logistics_cost ?? 0);
+  const inheritedUsd = Number(ownerShipment?.logistics_cost_usd ?? otherWithCost?.logistics_cost_usd ?? convertToUsd(inheritedAmount, inheritedCurrency, ownerShipment?.eur_usd_rate ?? otherWithCost?.eur_usd_rate));
 
   const savedCurrency = (shipment.logistics_cost_currency as Currency) ?? "EUR";
   const [transportCurrency, setTransportCurrency] = useState<Currency>(savedCurrency);
@@ -340,10 +359,16 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
   const totalTransport = transport === "" ? Number(shipment.logistics_cost ?? 0) : Number(transport.replace(",", "."));
   const totalTransportUsd = convertToUsd(totalTransport, transportCurrency, shipment.eur_usd_rate);
 
+  // Vehicle capacity / free space
+  const loadedP = Number(vehicle?.total_pallets ?? 0);
+  const loadedKg = Number(vehicle?.total_weight_kg ?? 0);
+  const freeP = Math.max(0, VEHICLE_MAX_PALLETS - loadedP);
+  const freeKg = Math.max(0, VEHICLE_MAX_KG - loadedKg);
+
   // Vehicle-wide totals for display & allocation
   const vehicleTotalUsd = siblings.length
     ? siblings.reduce((a, s) => {
-        if (s.id === shipmentId && transport !== "") return a + totalTransportUsd;
+        if (s.id === shipmentId && transport !== "" && !transportLocked) return a + totalTransportUsd;
         return a + Number(s.logistics_cost_usd ?? 0);
       }, 0)
     : totalTransportUsd;
@@ -379,17 +404,64 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
         </div>
       </SectionCard>
 
+      {sharedVehicle && vehicle && (
+        <SectionCard title={`Авто ${vehicle.code ?? ""} — спільне завантаження`}>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <StatCard label="Завантажено" value={`${loadedP} пал · ${Math.round(loadedKg)} кг`} />
+              <StatCard
+                label="Вільно"
+                value={`${freeP} пал · ${Math.round(freeKg)} кг`}
+                tone={freeP <= 1 ? "primary" : "brand"}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Місткість авто: {VEHICLE_MAX_PALLETS} пал · {VEHICLE_MAX_KG} кг.
+              {!isVehicleOwner && (
+                <> Країна та маршрут зафіксовані власником авто — змінити не можна.</>
+              )}
+            </p>
+            {siblings.length > 1 && (
+              <ul className="divide-y divide-border rounded-md border border-border bg-secondary/30 text-xs">
+                {siblings.map((s) => {
+                  const mine = s.id === shipmentId;
+                  const owner = s.created_by === vehicle.created_by;
+                  return (
+                    <li key={s.id} className="flex items-center justify-between px-3 py-1.5">
+                      <span className={cn("font-medium", mine && "text-brand")}>
+                        {s.code} {mine && "(ваш)"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {owner ? "власник авто" : "со-завантажувач"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
       <SectionCard title="Транспортні витрати — розподіл по товарах">
         <div className="space-y-3">
           {transportLocked ? (
             <div className="rounded-xl border border-dashed border-brand/40 bg-brand/5 p-3 text-sm">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Транспорт вже вказано для авто</div>
+              <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
+                <Lock className="h-3 w-3" /> {isVehicleOwner ? "Транспорт вже вказано для авто" : "Транспорт оплачує власник авто (тільки перегляд)"}
+              </div>
               <div className="mt-1 text-base font-semibold text-foreground">
-                {inheritedAmount.toFixed(2)} {inheritedCurrency}
-                {inheritedCurrency === "EUR" && <span className="ml-2 text-muted-foreground">≈ {fmtUSD(inheritedUsd)}</span>}
+                {inheritedAmount > 0 ? (
+                  <>
+                    {inheritedAmount.toFixed(2)} {inheritedCurrency}
+                    {inheritedCurrency === "EUR" && <span className="ml-2 text-muted-foreground">≈ {fmtUSD(inheritedUsd)}</span>}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Очікується від власника авто</span>
+                )}
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Вартість транспорту вводиться один раз на авто і розподіляється між усіма позиціями всіх постачальників.
+                Вартість транспорту вводиться один раз на авто і автоматично розподіляється між позиціями всіх постачальників пропорційно вазі.
               </p>
             </div>
           ) : (

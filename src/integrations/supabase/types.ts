@@ -1302,6 +1302,10 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_vehicle_coloader: {
+        Args: { _user_id: string; _vehicle_id: string }
+        Returns: boolean
+      }
       loading_plan_items: {
         Args: { _plan_id: string }
         Returns: {
