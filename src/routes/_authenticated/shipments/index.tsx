@@ -364,6 +364,7 @@ function OpenVehiclesBlock() {
           return (
             <div
               key={v.id}
+              data-focus-id={`v:${v.id} mgr:${ownShipment?.import_manager_id ?? ""}`}
               role="button"
               tabIndex={0}
               onClick={handleCardClick}
