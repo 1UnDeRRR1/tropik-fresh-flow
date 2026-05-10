@@ -107,7 +107,7 @@ function ManagersAdmin() {
               const merged = { ...m, ...e };
               const dirty = Object.keys(e).length > 0;
               return (
-                <li key={m.id} className="space-y-2 py-3">
+                <li key={m.id} data-focus-id={`mgr:${m.id}`} className="space-y-2 py-3">
                   <input
                     className="input"
                     value={merged.full_name}
