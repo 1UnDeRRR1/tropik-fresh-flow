@@ -85,11 +85,11 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
         ) : (
           <ul className="divide-y divide-border">
             {matches.map((m, idx) => {
-              const vehicleCode = m.shipments?.vehicles?.code ?? "";
-              const code = m.shipments?.code ?? "—";
-              const supplier = m.shipments?.suppliers?.name ?? "—";
-              const country = m.origin_country ?? m.shipments?.country ?? "";
-              const eta = formatEta(m.shipments?.eta ?? m.shipments?.vehicles?.eta ?? null);
+              const vehicleCode = m.vehicle_code ?? "";
+              const code = m.shipment_code ?? "—";
+              const supplier = m.supplier_name ?? "—";
+              const country = m.origin_country ?? m.shipment_country ?? "";
+              const eta = formatEta(m.shipment_eta ?? m.vehicle_eta ?? null);
               return (
                 <li key={`${m.shipment_id}-${idx}`} className="py-2.5">
                   <Link
