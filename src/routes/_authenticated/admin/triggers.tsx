@@ -210,7 +210,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Авто не закрите перед завантаженням",
         detail: `${v.country} · завантаження ${v.loading_date ?? "—"} · ${v.total_pallets}п`,
         context: "Авто",
-        link: { to: "/shipments" },
+        link: { to: "/shipments", search: { focus: `v:${v.id}`, level: "red" } },
       });
     }
   }
