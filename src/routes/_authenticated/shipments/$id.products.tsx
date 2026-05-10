@@ -92,7 +92,7 @@ function ProductsFullscreen() {
       ]);
         return {
         shipment: s.data as ShipmentRow | null,
-          items: ((items.data ?? []) as ItemRow[]).filter(isValidShipmentItem),
+          items: (items.data ?? []) as ItemRow[],
         products: (prods.data ?? []) as ProductRef[],
       };
     },
@@ -100,36 +100,25 @@ function ProductsFullscreen() {
 
   const sh = data?.shipment;
   const items = data?.items ?? [];
+  const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
   const country = toUaCountry(sh?.country) || "—";
-  const missingPriceCount = items.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
-  const hasRealPallets = items.length > 0;
+  const missingPriceCount = validItems.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
+  const hasRealPallets = validItems.length > 0;
 
-  // Keep the latest item list for real exit cleanup only.
-  const itemsRef = useRef(items);
-  useEffect(() => { itemsRef.current = items; }, [items]);
   useEffect(() => {
     const onUnload = () => {
-      const list = itemsRef.current;
-      const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
-      if (!real) {
-        // Best-effort cleanup; ignore promise
-        void deleteShipmentIfEmpty(id);
-      }
+      void deleteShipmentIfEmpty(id);
     };
     window.addEventListener("pagehide", onUnload);
     return () => window.removeEventListener("pagehide", onUnload);
   }, [id]);
 
   const leaveProducts = async () => {
-    const list = itemsRef.current;
-    const real = list.some((i) => Number(i.pallet_count ?? 0) > 0);
-    if (!real) {
-      const deleted = await deleteShipmentIfEmpty(id);
-      if (deleted) {
-        navigate({ to: "/shipments" });
-        return;
-      }
+    const deleted = await deleteShipmentIfEmpty(id);
+    if (deleted) {
+      navigate({ to: "/shipments" });
+      return;
     }
     navigate({ to: "/shipments/$id", params: { id } });
   };
@@ -365,19 +354,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
     const t = setTimeout(async () => {
       const trimmedProductName = form.product_name.trim();
       const palletCount = Number(form.pallet_count);
-      if (!trimmedProductName || palletCount <= 0) {
-        if (deletedRef.current) return;
-        deletedRef.current = true;
-        const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
-        if (error) {
-          deletedRef.current = false;
-          toast.error(error.message);
-        } else {
-          dirtyRef.current = false;
-          qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-        }
-        return;
-      }
       const totalKg = palletCount * palletWeight;
       const { error } = await supabase
         .from("shipment_items")
@@ -397,6 +373,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg }:
       if (error) toast.error(error.message);
       else {
         dirtyRef.current = false;
+        deletedRef.current = false;
         qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       }
     }, 600);
