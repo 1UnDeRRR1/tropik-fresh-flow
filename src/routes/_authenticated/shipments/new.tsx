@@ -26,8 +26,10 @@ export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string } => ({
     vehicleId: typeof search.vehicleId === "string" ? search.vehicleId : undefined,
   }),
-  component: NewShipment,
+  component: () => <StaffOnly><NewShipment /></StaffOnly>,
 });
+// eslint-disable-next-line react-refresh/only-export-components
+import { StaffOnly } from "@/components/StaffOnly";
 
 type Mode = "new" | "existing";
 
