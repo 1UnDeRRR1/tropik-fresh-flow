@@ -7,6 +7,7 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
