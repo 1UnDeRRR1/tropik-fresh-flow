@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toUaCountry } from "@/lib/countries";
 import { toast } from "sonner";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 export const Route = createFileRoute("/_authenticated/branch-requests")({
   component: BranchRequestsPage,
@@ -144,6 +145,7 @@ function BranchRequestsPage() {
     [data, cutoff],
   );
   const [showArchive, setShowArchive] = useState(false);
+  useFocusHighlight([data]);
 
   const approve = async (r: Row, pallets: number) => {
     if (!r.shipmentItemId || !r.shipmentId) {
@@ -385,7 +387,7 @@ function RequestList({
       {rows.map((r) => {
         const busy = busyId === r.id;
         return (
-          <li key={r.id} className="py-3 space-y-2">
+          <li key={r.id} data-focus-id={`req:${r.id} branch:${r.branchId}`} className="py-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">{r.branchName}</div>

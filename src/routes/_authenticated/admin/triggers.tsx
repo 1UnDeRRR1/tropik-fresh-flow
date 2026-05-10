@@ -12,15 +12,11 @@ export const Route = createFileRoute("/_authenticated/admin/triggers")({
 });
 
 type Level = "red" | "yellow" | "blue";
-type LinkTarget =
-  | { to: "/shipments/$id"; params: { id: string } }
-  | { to: "/distribution/$shipmentId"; params: { shipmentId: string } }
-  | { to: "/branch-requests" }
-  | { to: "/transfers" }
-  | { to: "/admin/loading-plan" }
-  | { to: "/admin/managers" }
-  | { to: "/admin/branches" }
-  | { to: "/shipments" };
+type LinkTarget = {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, string>;
+};
 type Trigger = {
   id: string;
   level: Level;
@@ -214,7 +210,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Авто не закрите перед завантаженням",
         detail: `${v.country} · завантаження ${v.loading_date ?? "—"} · ${v.total_pallets}п`,
         context: "Авто",
-        link: { to: "/shipments" },
+        link: { to: "/shipments", search: { focus: `v:${v.id}`, level: "red" } },
       });
     }
   }
@@ -239,7 +235,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Нерозподілений товар перед прибуттям",
         detail: `${s.code} · ETA ${arrival} · ${undist}п не розподілено`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
-        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id } },
+        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id }, search: { focus: `ship:${s.id}`, level: "red" } },
       });
     }
   }
@@ -258,7 +254,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Неактивна філія",
         detail: `${b.name} — немає заявок з ціною за 14 днів`,
         context: "Філія",
-        link: { to: "/branch-requests" },
+        link: { to: "/branch-requests", search: { focus: `branch:${b.id}`, level: "red" } },
       });
     }
   }
@@ -280,7 +276,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Неактивний менеджер",
         detail: `${m.full_name} — не створював поставок за 7 днів`,
         context: "Менеджер",
-        link: { to: "/admin/managers" },
+        link: { to: "/admin/managers", search: { focus: `mgr:${m.id}`, level: "red" } },
       });
     }
   }
@@ -319,7 +315,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Філія без популярної позиції",
           detail: `${b.name} не має «${product}» (є у ${set.size}/${totalBranches} філій)`,
           context: "Філія / Товар",
-          link: { to: "/branch-requests" },
+          link: { to: "/branch-requests", search: { focus: `branch:${b.id}`, level: "yellow" } },
         });
       }
     }
@@ -347,7 +343,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Забагато відкритих авто",
         detail: `${mgrName(mid)} має ${n} відкритих авто одночасно`,
         context: "Менеджер",
-        link: { to: "/shipments" },
+        link: { to: "/shipments", search: { focus: `mgr:${mid}`, level: "yellow" } },
       });
     }
   }
@@ -376,7 +372,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Багато нерозподіленого перед ETA",
         detail: `${s.code} · ${Math.round(ratio * 100)}% не розподілено · transit ${Math.round(transit)} дн.`,
         context: `Менеджер: ${mgrName(shipMgr(s))}`,
-        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id } },
+        link: { to: "/distribution/$shipmentId", params: { shipmentId: s.id }, search: { focus: `ship:${s.id}`, level: "yellow" } },
       });
     }
   }
@@ -410,7 +406,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Філія домінує по позиції",
           detail: `${branchName(bid)} тримає ${Math.round((pal / total) * 100)}% «${product}»`,
           context: "Філія / Товар",
-          link: { to: "/branch-requests" },
+          link: { to: "/branch-requests", search: { focus: `branch:${bid}`, level: "yellow" } },
         });
       }
     }
@@ -448,14 +444,14 @@ export async function computeTriggers(): Promise<Trigger[]> {
           title: "Скачок ціни транспорту",
           detail: `${country}: ${cur.perPal.toFixed(1)}$/п vs попереднє ${prev.perPal.toFixed(1)}$/п (+${Math.round(((cur.perPal - prev.perPal) / prev.perPal) * 100)}%)`,
           context: "Авто",
-          link: { to: "/shipments" },
+          link: { to: "/shipments", search: { focus: `v:${cur.v.id}`, level: "blue" } },
         });
       }
     }
   }
 
   // 2. Purchase price spike vs avg over last 7 days for product+country
-  const itemsFlat: Array<{ product: string; country: string; price: number; date: string; ship: any }> = [];
+  const itemsFlat: Array<{ itemId: string; product: string; country: string; price: number; date: string; ship: any }> = [];
   for (const s of ships) {
     for (const it of s.shipment_items ?? []) {
       const product = (it.product_name || "").trim();
@@ -463,7 +459,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       const price = Number(it.unit_price_usd ?? 0);
       if (price <= 0) continue;
       const country = it.origin_country || s.country || "";
-      itemsFlat.push({ product, country, price, date: it.created_at, ship: s });
+      itemsFlat.push({ itemId: it.id, product, country, price, date: it.created_at, ship: s });
     }
   }
   for (const it of itemsFlat) {
@@ -485,7 +481,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
         title: "Скачок закупівельної ціни",
         detail: `${it.product} (${it.country}) · ${it.price.toFixed(2)}$ vs середнє ${avg.toFixed(2)}$ (+${Math.round(((it.price - avg) / avg) * 100)}%)`,
         context: `${it.ship.code} · ${mgrName(shipMgr(it.ship))}`,
-        link: { to: "/shipments/$id", params: { id: it.ship.id } },
+        link: { to: "/shipments/$id", params: { id: it.ship.id }, search: { focus: `item:${it.itemId}`, level: "blue" } },
       });
     }
   }
@@ -524,7 +520,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       title: "Затверджено низьку ціну",
       detail: `${product} · прийнято ${accepted.sale_price}, відхилено ${higherRejected.length} вищих`,
       context: `Філія: ${branchName(accepted.branch_id)}`,
-      link: { to: "/branch-requests" },
+      link: { to: "/branch-requests", search: { focus: `req:${accepted.id}`, level: "blue" } },
     });
   }
 
@@ -565,7 +561,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       title: level === "red" ? "Збиткова ціна затверджена (критично)" : "Збиткова ціна затверджена",
       detail: `${item.product_name} · ${branchName(r.branch_id)} · ${palletsApproved}п · ${salePrice} ${(r.sale_currency || "UAH").toUpperCase()} (${saleUsd.toFixed(3)}$/кг) vs індикативна ${indicative.toFixed(3)}$/кг (-${Math.round(diffPct)}%)`,
       context: `Менеджер: ${mgrName(shipMgr(ship))}`,
-      link: { to: "/branch-requests" },
+      link: { to: "/branch-requests", search: { focus: `req:${r.id}`, level } },
     });
   }
 

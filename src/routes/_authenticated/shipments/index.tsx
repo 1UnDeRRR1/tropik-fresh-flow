@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { CostPair } from "@/components/CostPair";
@@ -92,6 +93,8 @@ function ShipmentsList() {
       return a.eta.localeCompare(b.eta);
     });
 
+  useFocusHighlight([filtered]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -147,7 +150,7 @@ function ShipmentsList() {
                         : "";
                   const isOwner = !!user && s.import_manager_id === user.id;
                   return (
-                    <tr key={s.id} className={cn("border-t border-border", tone)}>
+                    <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
                       <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
                         <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
                           {s.code}
@@ -340,6 +343,8 @@ function OpenVehiclesBlock() {
     refetch();
   };
 
+  useFocusHighlight([data]);
+
   if (!data?.length) return null;
 
   return (
@@ -363,6 +368,7 @@ function OpenVehiclesBlock() {
           return (
             <div
               key={v.id}
+              data-focus-id={`v:${v.id} ${(v.shipments ?? []).map((s) => `mgr:${s.import_manager_id ?? ""}`).join(" ")}`}
               role="button"
               tabIndex={0}
               onClick={handleCardClick}

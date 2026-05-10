@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { CostPair } from "@/components/CostPair";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 export const Route = createFileRoute("/_authenticated/distribution/$shipmentId")({
   component: () => <StaffOnly><DistributionMatrix /></StaffOnly>,
@@ -226,6 +227,8 @@ function DistributionMatrix() {
     void performSave();
   };
 
+  useFocusHighlight([data]);
+
   if (isLoading || !data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -247,7 +250,7 @@ function DistributionMatrix() {
   );
 
   return (
-    <div className="space-y-4 pb-44 md:pb-28">
+    <div className="space-y-4 pb-44 md:pb-28" data-focus-id={`ship:${shipmentId}`}>
       <PageHeader
         title="Розподіл по філіях"
         subtitle={`Поставка ${data.shipment?.code ?? ""}${dirty ? " · є незбережені зміни" : ""}`}

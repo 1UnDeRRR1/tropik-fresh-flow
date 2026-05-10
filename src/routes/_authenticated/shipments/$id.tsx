@@ -17,6 +17,7 @@ import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
 import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: () => <StaffOnly><ShipmentDetail /></StaffOnly>,
@@ -129,6 +130,7 @@ type ShipmentRow = {
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const fallbackCountry = toUaCountry(shipment.country) || "—";
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
+  useFocusHighlight([items]);
   return (
     <SectionCard
       title="Товари"
@@ -163,7 +165,7 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
             </thead>
             <tbody>
               {items.filter((it) => (it.product_name || "").trim() !== "" || Number(it.pallet_count ?? 0) > 0).map((it) => (
-                <tr key={it.id} className="border-b border-border/40">
+                <tr key={it.id} data-focus-id={`item:${it.id}`} className="border-b border-border/40">
                   <td className="py-1.5 px-1 font-medium">{it.product_name || "—"}</td>
                   <td className="py-1.5 px-1 text-muted-foreground">{it.variety || "—"}</td>
                   <td className="py-1.5 px-1 text-muted-foreground">{it.origin_country || fallbackCountry}</td>
@@ -438,7 +440,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
                     const r = alloc.rows[it.id];
                     if (!r) return null;
                     return (
-                      <tr key={it.id} className="border-b border-border/50">
+                      <tr key={it.id} data-focus-id={`item:${it.id}`} className="border-b border-border/50">
                         <td className="py-2 pr-2 font-medium">{it.product_name}</td>
                         <td className="py-2 text-right tabular-nums">{fmtKg(r.productTotalWeight)}</td>
                         <td className="py-2 text-right tabular-nums">{fmtPct(r.weightShare)}</td>
