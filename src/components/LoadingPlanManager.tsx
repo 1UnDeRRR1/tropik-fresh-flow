@@ -137,7 +137,7 @@ export function LoadingPlanManager() {
               onChange={(v) => setForm({ ...form, product_name: v })}
               options={products ?? []}
               placeholder="Товар (напр. Ківі)"
-              required={false}
+              required={true}
               className="!h-10 !text-sm !px-3 !border-input !bg-background"
             />
           </div>
