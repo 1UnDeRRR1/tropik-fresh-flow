@@ -127,7 +127,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       supabase
         .from("shipments")
         .select(
-          "id,code,eta,arrived_at,status,country,loading_date,vehicle_id,supplier_id,import_manager_id,created_by,created_at,logistics_cost_usd,shipment_items(id,product_name,pallet_count,unit_price_usd,origin_country,created_at)",
+          "id,code,eta,arrived_at,status,country,loading_date,vehicle_id,supplier_id,import_manager_id,created_by,created_at,logistics_cost_usd,shipment_items(id,product_name,pallet_count,unit_price_usd,final_cost_indicative,origin_country,created_at)",
         )
         .limit(1000),
       supabase.from("vehicles").select("id,country,country_code,loading_date,status,total_pallets,total_weight_kg,created_at"),
