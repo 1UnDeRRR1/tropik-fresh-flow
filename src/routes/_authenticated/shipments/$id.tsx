@@ -17,6 +17,7 @@ import { allocateTransport, fmtKg, fmtPct } from "@/lib/transport";
 import { CURRENCIES, type Currency, fmtUSD, fmtRate, convertToUsd } from "@/lib/currency";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { useFocusHighlight } from "@/lib/use-focus-highlight";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id")({
   component: () => <StaffOnly><ShipmentDetail /></StaffOnly>,
