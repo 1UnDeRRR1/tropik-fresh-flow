@@ -195,7 +195,7 @@ function Analytics() {
           : supMap.get(ownerId) ?? "— Без постачальника";
       const key = ownerId || `__none_${view}`;
       const og =
-        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, shipments: 0, products: [] };
+        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, basePositions: 0, shipments: 0, products: [] };
       const product = f.item.product_name.trim();
       const country = (f.item.origin_country || f.shipment.country || "").trim();
       const pallets = Number(f.item.pallet_count ?? 0);
