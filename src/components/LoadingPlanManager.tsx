@@ -131,19 +131,16 @@ export function LoadingPlanManager() {
     <div className="space-y-4">
       <SectionCard title="Додати позицію плану закупок">
         <div className="space-y-2">
-          <input
-            className="input"
-            placeholder="Товар (напр. Ківі)"
-            list="loading-plan-products"
-            autoComplete="off"
-            value={form.product_name}
-            onChange={(e) => setForm({ ...form, product_name: e.target.value })}
-          />
-          <datalist id="loading-plan-products">
-            {(products ?? []).map((n) => (
-              <option key={n} value={n} />
-            ))}
-          </datalist>
+          <div className="relative">
+            <AutocompleteCell
+              value={form.product_name}
+              onChange={(v) => setForm({ ...form, product_name: v })}
+              options={products ?? []}
+              placeholder="Товар (напр. Ківі)"
+              required={false}
+              className="!h-10 !text-sm !px-3 !border-input !bg-background"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <input
               className="input"
