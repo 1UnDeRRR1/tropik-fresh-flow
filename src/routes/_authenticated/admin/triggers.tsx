@@ -451,7 +451,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
   }
 
   // 2. Purchase price spike vs avg over last 7 days for product+country
-  const itemsFlat: Array<{ product: string; country: string; price: number; date: string; ship: any }> = [];
+  const itemsFlat: Array<{ itemId: string; product: string; country: string; price: number; date: string; ship: any }> = [];
   for (const s of ships) {
     for (const it of s.shipment_items ?? []) {
       const product = (it.product_name || "").trim();
@@ -459,7 +459,7 @@ export async function computeTriggers(): Promise<Trigger[]> {
       const price = Number(it.unit_price_usd ?? 0);
       if (price <= 0) continue;
       const country = it.origin_country || s.country || "";
-      itemsFlat.push({ product, country, price, date: it.created_at, ship: s });
+      itemsFlat.push({ itemId: it.id, product, country, price, date: it.created_at, ship: s });
     }
   }
   for (const it of itemsFlat) {
