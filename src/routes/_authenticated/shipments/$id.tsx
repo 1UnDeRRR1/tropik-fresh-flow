@@ -404,17 +404,64 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
         </div>
       </SectionCard>
 
+      {sharedVehicle && vehicle && (
+        <SectionCard title={`Авто ${vehicle.code ?? ""} — спільне завантаження`}>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <StatCard label="Завантажено" value={`${loadedP} пал · ${Math.round(loadedKg)} кг`} />
+              <StatCard
+                label="Вільно"
+                value={`${freeP} пал · ${Math.round(freeKg)} кг`}
+                tone={freeP <= 1 ? "primary" : "brand"}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Місткість авто: {VEHICLE_MAX_PALLETS} пал · {VEHICLE_MAX_KG} кг.
+              {!isVehicleOwner && (
+                <> Країна та маршрут зафіксовані власником авто — змінити не можна.</>
+              )}
+            </p>
+            {siblings.length > 1 && (
+              <ul className="divide-y divide-border rounded-md border border-border bg-secondary/30 text-xs">
+                {siblings.map((s) => {
+                  const mine = s.id === shipmentId;
+                  const owner = s.created_by === vehicle.created_by;
+                  return (
+                    <li key={s.id} className="flex items-center justify-between px-3 py-1.5">
+                      <span className={cn("font-medium", mine && "text-brand")}>
+                        {s.code} {mine && "(ваш)"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {owner ? "власник авто" : "со-завантажувач"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
       <SectionCard title="Транспортні витрати — розподіл по товарах">
         <div className="space-y-3">
           {transportLocked ? (
             <div className="rounded-xl border border-dashed border-brand/40 bg-brand/5 p-3 text-sm">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Транспорт вже вказано для авто</div>
+              <div className="flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
+                <Lock className="h-3 w-3" /> {isVehicleOwner ? "Транспорт вже вказано для авто" : "Транспорт оплачує власник авто (тільки перегляд)"}
+              </div>
               <div className="mt-1 text-base font-semibold text-foreground">
-                {inheritedAmount.toFixed(2)} {inheritedCurrency}
-                {inheritedCurrency === "EUR" && <span className="ml-2 text-muted-foreground">≈ {fmtUSD(inheritedUsd)}</span>}
+                {inheritedAmount > 0 ? (
+                  <>
+                    {inheritedAmount.toFixed(2)} {inheritedCurrency}
+                    {inheritedCurrency === "EUR" && <span className="ml-2 text-muted-foreground">≈ {fmtUSD(inheritedUsd)}</span>}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Очікується від власника авто</span>
+                )}
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Вартість транспорту вводиться один раз на авто і розподіляється між усіма позиціями всіх постачальників.
+                Вартість транспорту вводиться один раз на авто і автоматично розподіляється між позиціями всіх постачальників пропорційно вазі.
               </p>
             </div>
           ) : (
