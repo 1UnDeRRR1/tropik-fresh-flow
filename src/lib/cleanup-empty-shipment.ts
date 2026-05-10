@@ -9,9 +9,20 @@ export async function deleteShipmentIfEmpty(shipmentId: string): Promise<boolean
   if (!shipmentId) return false;
   const { data: items } = await supabase
     .from("shipment_items")
-    .select("pallet_count")
+    .select("id, product_name, pallet_count")
     .eq("shipment_id", shipmentId);
-  const hasReal = (items ?? []).some((i) => Number(i.pallet_count ?? 0) > 0);
+
+  const invalidIds = (items ?? [])
+    .filter((i) => (i.product_name ?? "").trim().length === 0 || Number(i.pallet_count ?? 0) <= 0)
+    .map((i) => i.id);
+
+  if (invalidIds.length > 0) {
+    await supabase.from("shipment_items").delete().in("id", invalidIds);
+  }
+
+  const hasReal = (items ?? []).some(
+    (i) => (i.product_name ?? "").trim().length > 0 && Number(i.pallet_count ?? 0) > 0,
+  );
   if (hasReal) return false;
 
   // Get vehicle_id before delete
