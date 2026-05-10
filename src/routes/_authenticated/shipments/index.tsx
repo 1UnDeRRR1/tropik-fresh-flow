@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
