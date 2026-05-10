@@ -289,6 +289,12 @@ function DistributionMatrix() {
                 </div>
               </div>
 
+              {t.remaining <= 0 && (
+                <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
+                  {t.remaining < 0 ? "Перевищено факт. кількість палет" : "Немає доступних палет для розподілу"}
+                </div>
+              )}
+
               <div className="mt-3 space-y-1.5">
                 {data.branches.map((b) => {
                   const v = Number(grid[it.id]?.[b.id] ?? 0);
