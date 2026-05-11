@@ -917,8 +917,8 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
   const isEmpty = !value || value <= 0;
   return (
     <div className={cn(
-      "flex items-center gap-0.5 rounded",
-      isEmpty && "ring-2 ring-destructive bg-destructive/15",
+      "flex items-center gap-0.5 rounded border border-transparent",
+      isEmpty && "border-destructive/70 ring-1 ring-destructive/40",
     )}>
       <Input
         type="text"
@@ -946,7 +946,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         className={cn(
           "h-10 w-full min-w-[60px] border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
-          isEmpty && "text-destructive placeholder:text-destructive font-semibold",
+          isEmpty && "placeholder:text-destructive/80",
           readOnly && "cursor-default",
         )}
       />
