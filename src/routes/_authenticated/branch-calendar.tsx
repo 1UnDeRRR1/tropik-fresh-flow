@@ -47,6 +47,7 @@ type Ship = {
   eta: string | null;
   arrived_at: string | null;
   country: string | null;
+  import_manager_name: string | null;
 };
 
 function BranchCalendarPage() {
@@ -100,7 +101,7 @@ function BranchCalendarPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta,arrived_at,country")
+        .select("id,code,eta,arrived_at,country,import_manager_name")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Ship[];
@@ -215,7 +216,10 @@ function BranchCalendarPage() {
                   {d.entries.map((e) => (
                     <li key={e.key} className="py-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-brand">{e.ship.code}</span>
+                        <span className="text-xs">
+                          <span className="font-mono font-bold text-brand">{e.ship.code}</span>
+                          <span className="font-normal text-muted-foreground"> ({e.ship.import_manager_name || "Оксана Сахарчук"})</span>
+                        </span>
                         <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="xs" />
                       </div>
                       <div className="mt-0.5 text-muted-foreground">

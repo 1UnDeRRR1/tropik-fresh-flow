@@ -1488,31 +1488,11 @@ export type Database = {
           created_at: string | null
           eta: string | null
           id: string | null
+          import_manager_id: string | null
+          import_manager_name: string | null
           loading_date: string | null
           status: Database["public"]["Enums"]["shipment_status"] | null
           updated_at: string | null
-        }
-        Insert: {
-          arrived_at?: string | null
-          code?: string | null
-          country?: string | null
-          created_at?: string | null
-          eta?: string | null
-          id?: string | null
-          loading_date?: string | null
-          status?: Database["public"]["Enums"]["shipment_status"] | null
-          updated_at?: string | null
-        }
-        Update: {
-          arrived_at?: string | null
-          code?: string | null
-          country?: string | null
-          created_at?: string | null
-          eta?: string | null
-          id?: string | null
-          loading_date?: string | null
-          status?: Database["public"]["Enums"]["shipment_status"] | null
-          updated_at?: string | null
         }
         Relationships: []
       }
