@@ -290,6 +290,109 @@ function HistoryTab({ changes }: { changes: { id: string; field: string; old_val
   );
 }
 
+function FxRateSection({ shipment, shipmentId, qc }: { shipment: ShipmentRow; shipmentId: string; qc: ReturnType<typeof useQueryClient> }) {
+  const { hasRole } = useAuth();
+  const canEdit = hasRole(["super_admin", "admin", "import_manager"]);
+  const isManual = !!shipment.eur_usd_rate_manual;
+  const currentRate = shipment.eur_usd_rate;
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const sourceLabel = shipment.eur_usd_rate_source === "frankfurter"
+    ? "ECB / Frankfurter"
+    : shipment.eur_usd_rate_source === "manual"
+      ? "Ручне значення"
+      : shipment.eur_usd_rate_source ?? (currentRate ? "—" : "не задано");
+
+  const saveManual = async () => {
+    const parsed = Number(draft.replace(",", "."));
+    if (!parsed || parsed <= 0) {
+      toast.error("Введіть коректний курс");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("shipments")
+      .update({
+        eur_usd_rate: parsed,
+        eur_usd_rate_manual: true,
+        eur_usd_rate_date: new Date().toISOString().slice(0, 10),
+      } as never)
+      .eq("id", shipmentId);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Ручний курс збережено");
+    setDraft("");
+    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+  };
+
+  const unlock = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("shipments")
+      .update({ eur_usd_rate_manual: false } as never)
+      .eq("id", shipmentId);
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Курс знову автоматичний (зі снапшота)");
+    qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+  };
+
+  return (
+    <SectionCard
+      title="Курс EUR/USD для поставки"
+      action={
+        isManual && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+            <Lock className="h-3 w-3" /> Ручний
+          </span>
+        )
+      }
+    >
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <div className="text-xs text-muted-foreground">Активний курс</div>
+          <div className="text-2xl font-black tabular-nums text-brand">{fmtRate(currentRate)}</div>
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          Джерело: <b className="text-foreground">{sourceLabel}</b>
+          {shipment.eur_usd_rate_date && <> · Дата: <b className="text-foreground">{shipment.eur_usd_rate_date}</b></>}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Курс зафіксовано для цієї поставки — митниця, транспорт та собівартість використовують саме це значення. Глобальні оновлення не змінюють історичні поставки.
+        </p>
+        {canEdit && (
+          <div className="space-y-2 rounded-md border border-dashed border-border bg-secondary/30 p-2">
+            <Label htmlFor="manual-fx" className="text-xs">Ручний курс EUR/USD</Label>
+            <div className="flex gap-2">
+              <Input
+                id="manual-fx"
+                type="text"
+                inputMode="decimal"
+                placeholder={currentRate ? String(currentRate) : "напр. 1.1765"}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value.replace(/[^\d.,]/g, ""))}
+                className="flex-1"
+              />
+              <Button type="button" onClick={saveManual} disabled={saving || !draft} className="bg-brand text-brand-foreground hover:bg-brand/90">
+                Зафіксувати
+              </Button>
+              {isManual && (
+                <Button type="button" variant="secondary" onClick={unlock} disabled={saving}>
+                  Скинути
+                </Button>
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Скидання поверне поставку на автоматичний курс із кешу ECB при наступному перерахунку.
+            </p>
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
 function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentRow; shipmentId: string; qc: ReturnType<typeof useQueryClient>; items: Item[] }) {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
