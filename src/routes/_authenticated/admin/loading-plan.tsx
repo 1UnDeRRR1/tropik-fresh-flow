@@ -5,7 +5,8 @@ import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { COUNTRIES } from "@/lib/arrival";
+import { COUNTRIES as FALLBACK_COUNTRIES } from "@/lib/arrival";
+import { useCountryOptions } from "@/hooks/useCountryOptions";
 
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { run, translateError } from "@/lib/mutation-helpers";
@@ -28,6 +29,8 @@ interface PlanRow {
 
 function LoadingPlanAdmin() {
   const qc = useQueryClient();
+  const countryOptions = useCountryOptions();
+  const COUNTRIES = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
   const [form, setForm] = useState({
     product_name: "",

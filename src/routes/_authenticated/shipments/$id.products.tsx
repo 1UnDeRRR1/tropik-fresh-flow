@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
+import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 import { countPositions, formatPositions } from "@/lib/positions";
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
-const COUNTRY_OPTIONS = [
+const FALLBACK_COUNTRY_OPTIONS = [
   "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
   "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
 ];
@@ -612,6 +613,8 @@ const MAX_WEIGHT_KG = 21500;
 
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
+  const dbCountries = useCountryOptions();
+  const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
     product_name: normalizedProductName,

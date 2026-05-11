@@ -24,8 +24,9 @@ import {
   type ManagerOfferTarget,
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useCountryOptions } from "@/hooks/useCountryOptions";
 
-const COUNTRY_OPTIONS = [
+const FALLBACK_COUNTRY_OPTIONS = [
   "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
   "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
 ];
@@ -568,6 +569,11 @@ function OfferEditor({
   onSaved: () => void;
 }) {
   const { user } = useAuth();
+  const dbCountries = useCountryOptions();
+  const COUNTRY_OPTIONS = useMemo(
+    () => Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS])),
+    [dbCountries],
+  );
   const [form, setForm] = useState({
     product_name: "",
     origin_country: "",

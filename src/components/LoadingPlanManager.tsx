@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { COUNTRIES } from "@/lib/arrival";
+import { COUNTRIES as FALLBACK_COUNTRIES } from "@/lib/arrival";
+import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ interface PlanRow {
 export function LoadingPlanManager() {
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
+  const countryOptions = useCountryOptions();
+  const COUNTRIES = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
   const [form, setForm] = useState({
     product_name: "",
     caliber: "",
