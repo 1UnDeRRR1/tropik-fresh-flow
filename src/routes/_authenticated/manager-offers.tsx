@@ -174,16 +174,21 @@ function ManagerOffersPage() {
             <EmptyState title="Немає пропозицій" hint="Натисніть «Створити», щоб додати першу" />
           )}
           {filtered.map((o) => {
-            const totalRequested = o.responses.reduce(
+            const inScope = (branchId: string) =>
+              o.target_mode === "all" || o.targetBranchIds.includes(branchId);
+            const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
+            const excludedResponses = o.responses.filter((r) => !inScope(r.branch_id));
+            const totalRequested = activeResponses.reduce(
               (s, r) => s + Number(r.requested_pallets || 0),
               0,
             );
-            const totalApproved = o.responses.reduce(
+            const totalApproved = activeResponses.reduce(
               (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
               0,
             );
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const isOpen = expanded[o.id] ?? false;
+            const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             return (
               <div
                 key={o.id}
@@ -219,8 +224,8 @@ function ManagerOffersPage() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 text-xs">
-                      <span className="text-muted-foreground">Цільові філії: </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Цільові філії:</span>
                       {o.target_mode === "all" ? (
                         <b>Всі філії</b>
                       ) : (
@@ -232,6 +237,16 @@ function ManagerOffersPage() {
                                 .map((id) => branchById[id] ?? id)
                                 .join(", ")}
                         </b>
+                      )}
+                      {canEditTargeting && o.status !== "draft" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setPublishOffer(o)}
+                        >
+                          <Pencil className="mr-1 h-3 w-3" /> Змінити
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -299,7 +314,8 @@ function ManagerOffersPage() {
                     ) : (
                       <ChevronDown className="h-4 w-4" />
                     )}
-                    Відгуки ({o.responses.length})
+                    Відгуки ({activeResponses.length}
+                    {excludedResponses.length > 0 && ` +${excludedResponses.length}`})
                   </Button>
                 </div>
 
@@ -317,26 +333,43 @@ function ManagerOffersPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {o.responses.map((r) => (
-                            <tr key={r.id} className="border-t border-border">
-                              <td className="py-1">{r.branch_name ?? r.branch_id}</td>
-                              <td className="py-1">{Number(r.requested_pallets)}</td>
-                              <td className="py-1">
-                                <Input
-                                  className="h-8 w-24"
-                                  type="number"
-                                  min={0}
-                                  defaultValue={r.approved_pallets ?? r.requested_pallets}
-                                  onBlur={(e) => {
-                                    const v = e.target.value === "" ? null : Number(e.target.value);
-                                    if (v !== r.approved_pallets) {
-                                      updateApproved.mutate({ id: r.id, approved: v });
-                                    }
-                                  }}
-                                />
-                              </td>
-                            </tr>
-                          ))}
+                          {[...activeResponses, ...excludedResponses].map((r) => {
+                            const excluded = !inScope(r.branch_id);
+                            return (
+                              <tr
+                                key={r.id}
+                                className={cn(
+                                  "border-t border-border",
+                                  excluded && "opacity-60",
+                                )}
+                              >
+                                <td className="py-1">
+                                  {r.branch_name ?? r.branch_id}
+                                  {excluded && (
+                                    <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                                      виключено з таргетингу
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-1">{Number(r.requested_pallets)}</td>
+                                <td className="py-1">
+                                  <Input
+                                    className="h-8 w-24"
+                                    type="number"
+                                    min={0}
+                                    disabled={excluded}
+                                    defaultValue={r.approved_pallets ?? r.requested_pallets}
+                                    onBlur={(e) => {
+                                      const v = e.target.value === "" ? null : Number(e.target.value);
+                                      if (v !== r.approved_pallets) {
+                                        updateApproved.mutate({ id: r.id, approved: v });
+                                      }
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
@@ -375,6 +408,7 @@ function ManagerOffersPage() {
           setPublishOffer(null);
           qc.invalidateQueries({ queryKey: ["manager-offers"] });
           qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+          qc.invalidateQueries({ queryKey: ["manager-offer-targets-edit"] });
         }}
       />
     </div>
@@ -649,16 +683,39 @@ function PublishOfferDialog({
   onClose: () => void;
   onPublished: () => void;
 }) {
+  const isDraft = offer?.status === "draft";
   const [mode, setMode] = useState<"all" | "selected">("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
-  // reset when opening for a new offer
+  // Load existing targets when opening for an offer that's already published
+  const { data: existingTargets } = useQuery({
+    queryKey: ["manager-offer-targets-edit", offer?.id],
+    enabled: !!offer,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offer_targets")
+        .select("branch_id")
+        .eq("offer_id", offer!.id);
+      if (error) throw error;
+      return (data ?? []).map((r) => r.branch_id as string);
+    },
+  });
+
+  // reset state when opening, then merge in existing targets once loaded
   useMemo(() => {
     if (offer) {
       setMode(offer.target_mode ?? "all");
       setSelected({});
     }
   }, [offer?.id]);
+
+  useMemo(() => {
+    if (offer && existingTargets) {
+      const m: Record<string, boolean> = {};
+      for (const id of existingTargets) m[id] = true;
+      setSelected(m);
+    }
+  }, [offer?.id, existingTargets]);
 
   const publish = useMutation({
     mutationFn: async () => {
@@ -687,28 +744,45 @@ function PublishOfferDialog({
         if (insErr) throw insErr;
       }
 
+      const update: { target_mode: "all" | "selected"; status?: ManagerOfferStatus } = {
+        target_mode: mode,
+      };
+      if (isDraft) update.status = "active";
       const { error } = await supabase
         .from("manager_offers")
-        .update({ target_mode: mode, status: "active" })
+        .update(update)
         .eq("id", offer.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Пропозицію опубліковано");
+      toast.success(isDraft ? "Пропозицію опубліковано" : "Цільові філії оновлено");
       onPublished();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
+  const allBranchIds = branches.map((b) => b.id);
+  const allSelected = allBranchIds.length > 0 && allBranchIds.every((id) => selected[id]);
 
   return (
     <Sheet open={!!offer} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Запропонувати всім філіям чи вибірково?</SheetTitle>
+          <SheetTitle>
+            {isDraft
+              ? "Запропонувати всім філіям чи вибірково?"
+              : "Змінити цільові філії"}
+          </SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-4">
+          {!isDraft && (
+            <p className="text-xs text-muted-foreground">
+              Зміни застосовуються миттєво. Філії, які буде вилучено, втратять доступ до
+              цієї пропозиції; їх відгуки збережуться як історія, але не враховуються в
+              підсумках.
+            </p>
+          )}
           <div className="flex gap-2">
             <Button
               variant={mode === "all" ? "default" : "outline"}
@@ -728,8 +802,24 @@ function PublishOfferDialog({
 
           {mode === "selected" && (
             <div className="space-y-2 rounded-lg border border-border p-3">
-              <div className="text-xs text-muted-foreground">
-                Виберіть філії ({selectedCount} обрано)
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  Виберіть філії ({selectedCount} обрано)
+                </span>
+                <button
+                  type="button"
+                  className="text-primary hover:underline"
+                  onClick={() => {
+                    if (allSelected) setSelected({});
+                    else {
+                      const m: Record<string, boolean> = {};
+                      for (const id of allBranchIds) m[id] = true;
+                      setSelected(m);
+                    }
+                  }}
+                >
+                  {allSelected ? "Зняти всі" : "Вибрати всі"}
+                </button>
               </div>
               {branches.map((b) => (
                 <label
@@ -756,7 +846,7 @@ function PublishOfferDialog({
               onClick={() => publish.mutate()}
               disabled={publish.isPending}
             >
-              Запропонувати
+              {isDraft ? "Запропонувати" : "Зберегти"}
             </Button>
           </div>
         </div>
