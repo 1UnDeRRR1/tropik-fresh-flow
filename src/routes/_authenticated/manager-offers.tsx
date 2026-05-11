@@ -158,6 +158,14 @@ type OfferWithResponses = ManagerOffer & {
   targetBranchIds: string[];
 };
 
+const EMPTY_TARGET_IDS: string[] = [];
+
+function toBranchSelection(branchIds: string[]) {
+  const next: Record<string, boolean> = {};
+  for (const branchId of branchIds) next[branchId] = true;
+  return next;
+}
+
 function ManagerOffersPage() {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
@@ -628,7 +636,7 @@ function OfferEditor({
     form.origin_country.trim() === "" ||
     !!resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
 
-  const { data: existingTargets = [] } = useQuery({
+  const { data: existingTargets = EMPTY_TARGET_IDS } = useQuery({
     queryKey: ["manager-offer-editor-targets", offer?.id],
     enabled: !!offer && open,
     queryFn: async () => {
@@ -649,9 +657,7 @@ function OfferEditor({
     }
 
     if (offer?.target_mode === "selected") {
-      const next: Record<string, boolean> = {};
-      for (const branchId of existingTargets) next[branchId] = true;
-      setSelectedBranches(next);
+      setSelectedBranches(toBranchSelection(existingTargets));
       return;
     }
 
@@ -1023,7 +1029,7 @@ function PublishOfferDialog({
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   // Load existing targets when opening for an offer that's already published
-  const { data: existingTargets } = useQuery({
+  const { data: existingTargets = EMPTY_TARGET_IDS } = useQuery({
     queryKey: ["manager-offer-targets-edit", offer?.id],
     enabled: !!offer,
     queryFn: async () => {
@@ -1037,19 +1043,25 @@ function PublishOfferDialog({
   });
 
   // reset state when opening, then merge in existing targets once loaded
-  useMemo(() => {
+  useEffect(() => {
     if (offer) {
       setMode(offer.target_mode ?? "all");
       setSelected({});
     }
   }, [offer?.id]);
 
-  useMemo(() => {
-    if (offer && existingTargets) {
-      const m: Record<string, boolean> = {};
-      for (const id of existingTargets) m[id] = true;
-      setSelected(m);
+  useEffect(() => {
+    if (!offer) {
+      setSelected({});
+      return;
     }
+
+    if (offer.target_mode === "selected") {
+      setSelected(toBranchSelection(existingTargets));
+      return;
+    }
+
+    setSelected({});
   }, [offer?.id, existingTargets]);
 
   const publish = useMutation({
