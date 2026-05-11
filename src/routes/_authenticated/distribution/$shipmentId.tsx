@@ -216,6 +216,11 @@ function DistributionMatrix() {
       toast.success("Розподіл збережено");
       qc.invalidateQueries({ queryKey: ["matrix", shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+      if (router.history.canGoBack()) {
+        router.history.back();
+      } else {
+        void router.navigate({ to: "/shipments/$id", params: { id: shipmentId } });
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
