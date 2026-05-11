@@ -238,9 +238,11 @@ function Analytics() {
     () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
     [activeFlat],
   );
+  // total = unique product+country combinations (matches the grouped rows shown below);
+  // base  = unique products ignoring country.
   const positionsCount = useMemo(
-    () => countPositions(activeFlat, (f) => f.item.product_name),
-    [activeFlat],
+    () => countPositionsFromGroups(groups, (g) => g.product),
+    [groups],
   );
   const totalShipments = useMemo(() => {
     const s = new Set<string>();
