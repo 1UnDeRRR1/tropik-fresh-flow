@@ -286,30 +286,37 @@ function BranchOffersPage() {
 
 function CostLine({
   label,
+  tone,
   curr,
   prev,
   delta,
 }: {
   label: string;
+  tone: "success" | "destructive";
   curr: number;
   prev: number | null;
   delta: number;
 }) {
   const changed = prev != null && delta !== 0;
+  const toneCls = tone === "success" ? "text-success" : "text-destructive";
   return (
-    <div>
-      <span className="text-muted-foreground">{label}: </span>
-      <b
-        className={cn(
-          changed && delta < 0 && "text-success",
-          changed && delta > 0 && "text-destructive",
-        )}
-      >
-        ${curr.toFixed(2)}
-      </b>
+    <div className={cn("font-semibold", toneCls)}>
+      <span>{label}: </span>
+      <b className="tabular-nums">${curr.toFixed(2)}</b>
       {changed && (
-        <span className="ml-1 text-[10px] text-muted-foreground line-through">
+        <span className="ml-1 text-[10px] font-normal text-muted-foreground line-through">
           ${Number(prev).toFixed(2)}
+        </span>
+      )}
+      {changed && (
+        <span
+          className={cn(
+            "ml-1 text-[10px] font-semibold",
+            delta < 0 ? "text-success" : "text-destructive",
+          )}
+        >
+          ({delta > 0 ? "+" : ""}
+          {delta.toFixed(2)})
         </span>
       )}
     </div>
