@@ -956,25 +956,111 @@ function OfferEditor({
               />
             </label>
           ))}
+          <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
+              Розрахунок собівартості (внутрішнє)
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Ціна за кг *</span>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  value={form.price_per_kg}
+                  placeholder="напр. 1.50"
+                  onChange={(e) => setForm((p) => ({ ...p, price_per_kg: e.target.value }))}
+                  className={cn(!priceValid && "border-destructive bg-destructive/10")}
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Валюта</span>
+                <select
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                  value={form.price_currency}
+                  onChange={(e) => setForm((p) => ({ ...p, price_currency: e.target.value as "EUR" | "USD" }))}
+                >
+                  <option value="EUR">€ EUR</option>
+                  <option value="USD">$ USD</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Фрахт *</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.freight_amount}
+                  placeholder="напр. 3500"
+                  onChange={(e) => setForm((p) => ({ ...p, freight_amount: e.target.value }))}
+                  className={cn(!freightValid && "border-destructive bg-destructive/10")}
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Валюта</span>
+                <select
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                  value={form.freight_currency}
+                  onChange={(e) => setForm((p) => ({ ...p, freight_currency: e.target.value as "EUR" | "USD" }))}
+                >
+                  <option value="EUR">€ EUR</option>
+                  <option value="USD">$ USD</option>
+                </select>
+              </label>
+            </div>
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Вага палети, кг *</span>
+              <Input
+                type="number"
+                step="0.1"
+                value={form.pallet_weight}
+                placeholder="напр. 750"
+                onChange={(e) => setForm((p) => ({ ...p, pallet_weight: e.target.value }))}
+                className={cn(!palletValid && "border-destructive bg-destructive/10")}
+              />
+            </label>
+
+            <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">FX EUR/USD</span>
+                <span className="tabular-nums">
+                  {fxRate ? fxRate.toFixed(4) : "—"}
+                  {fxRow?.date && <span className="ml-1 text-muted-foreground">({fxRow.date})</span>}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Митниця</span>
+                <span>{customsRef ? "знайдено" : (productCanonical && countryCanonical ? "не знайдено" : "—")}</span>
+              </div>
+              {calc && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Очік. палет / фура</span>
+                    <span className="tabular-nums">{calc.expectedPallets}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Транспорт, $/кг</span>
+                    <span className="tabular-nums">${calc.transportPerKg.toFixed(4)}</span>
+                  </div>
+                  <div className="mt-2 flex justify-between border-t border-border pt-2">
+                    <span className="font-semibold text-success">Індикативна</span>
+                    <span className="font-bold tabular-nums text-success">${calc.indicativeCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-destructive">Інвойсна</span>
+                    <span className="font-bold tabular-nums text-destructive">${calc.invoiceCost.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              {!calc && (
+                <div className="text-muted-foreground">
+                  Заповніть товар, країну, ціну, фрахт та вагу палети для розрахунку.
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">
-              <span className="mb-1 block text-muted-foreground">Індикативна, USD</span>
-              <Input
-                type="number"
-                step="0.01"
-                value={form.indicative_cost_usd}
-                onChange={(e) => setForm((p) => ({ ...p, indicative_cost_usd: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted-foreground">Інвойсна, USD</span>
-              <Input
-                type="number"
-                step="0.01"
-                value={form.invoice_cost_usd}
-                onChange={(e) => setForm((p) => ({ ...p, invoice_cost_usd: e.target.value }))}
-              />
-            </label>
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Палет (опціонально)</span>
               <Input
