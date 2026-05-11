@@ -334,6 +334,34 @@ function OpenVehiclesBlock() {
   });
 
   const closeVehicle = async (id: string) => {
+    // Validate all shipment items in this vehicle have required fields
+    const { data: ships } = await supabase
+      .from("shipments" as never)
+      .select("id")
+      .eq("vehicle_id", id);
+    const shipIds = ((ships ?? []) as { id: string }[]).map((s) => s.id);
+    if (shipIds.length > 0) {
+      const { data: items } = await supabase
+        .from("shipment_items" as never)
+        .select("product_name,origin_country,pallet_count,pallet_weight,unit_price")
+        .in("shipment_id", shipIds);
+      const rows = (items ?? []) as Array<{ product_name: string | null; origin_country: string | null; pallet_count: number | null; pallet_weight: number | null; unit_price: number | null }>;
+      const bad = rows.filter((r) => {
+        const pc = Number(r.pallet_count ?? 0);
+        const pw = Number(r.pallet_weight ?? 0);
+        return pc > 0 && (
+          !(r.product_name ?? "").trim() ||
+          (r.product_name ?? "") === "Новий товар" ||
+          !(r.origin_country ?? "").trim() ||
+          pc * pw <= 0 ||
+          !r.unit_price || Number(r.unit_price) <= 0
+        );
+      }).length;
+      if (bad > 0) {
+        toast.error(`Не можна закрити: ${bad} поз. з незаповн. полями (товар / країна / палети / вага / ціна)`);
+        return;
+      }
+    }
     const { error } = await supabase
       .from("vehicles" as never)
       .update({ status: "closed", closed_at: new Date().toISOString() } as never)

@@ -114,6 +114,20 @@ function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count"
   return (item.product_name ?? "").trim().length > 0 && Number(item.pallet_count ?? 0) > 0;
 }
 
+type RequiredField = "product_name" | "origin_country" | "pallet_count" | "total_weight" | "unit_price";
+
+function getMissingFields(item: ItemRow): RequiredField[] {
+  const missing: RequiredField[] = [];
+  if (!(item.product_name ?? "").trim() || item.product_name === "Новий товар") missing.push("product_name");
+  if (!(item.origin_country ?? "").trim()) missing.push("origin_country");
+  const pc = Number(item.pallet_count ?? 0);
+  if (pc <= 0) missing.push("pallet_count");
+  const totalW = pc * Number(item.pallet_weight ?? 0);
+  if (totalW <= 0) missing.push("total_weight");
+  if (!item.unit_price || Number(item.unit_price) <= 0) missing.push("unit_price");
+  return missing;
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -242,7 +256,9 @@ function ProductsFullscreen() {
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
   const country = toUaCountry(sh?.country) || "—";
-  const missingPriceCount = validItems.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
+  
+  const incompleteItems = items.filter((i) => Number(i.pallet_count ?? 0) > 0 && getMissingFields(i).length > 0);
+  const incompleteCount = incompleteItems.length;
   const hasRealPallets = validItems.length > 0;
   const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
   const currentShipmentEditable = !!user?.id && (!!isAdmin || currentShipmentOwnerId === user.id);
@@ -277,9 +293,9 @@ function ProductsFullscreen() {
   };
 
   const blockExit = (e: React.MouseEvent) => {
-    if (missingPriceCount > 0) {
+    if (incompleteCount > 0) {
       e.preventDefault();
-      toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
+      toast.error(`Заповніть всі обов'язкові поля (${incompleteCount} поз.)`);
       return;
     }
     if (!hasRealPallets) {
@@ -317,21 +333,15 @@ function ProductsFullscreen() {
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
-          onClick={() => {
-            if (missingPriceCount > 0) {
-              toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
-              return;
-            }
-            void leaveProducts();
-          }}
+          onClick={() => { void leaveProducts(); }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className={cn("truncate text-[10px] uppercase tracking-wide", missingPriceCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
+          <div className={cn("truncate text-[10px] uppercase tracking-wide", incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
+            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
           </div>
         </div>
         <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
@@ -391,20 +401,23 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          blockExit(e);
-          if (e.defaultPrevented) return;
+          if (!hasRealPallets) {
+            e.preventDefault();
+            toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
+            return;
+          }
           e.preventDefault();
           void leaveProducts();
         }}>
           <Button
             className={cn(
               "w-full",
-              missingPriceCount > 0
+              incompleteCount > 0
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
-            {missingPriceCount > 0 ? `Заповніть ціну (${missingPriceCount})` : "Готово"}
+            {incompleteCount > 0 ? `Заповніть обов'язкові поля (${incompleteCount})` : "Готово"}
           </Button>
         </Link>
       </footer>
@@ -616,10 +629,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
-  const defaultWeightFor = (name: string) => {
-    const match = products.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
-    return Number(match?.default_pallet_weight ?? 0);
-  };
   const [form, setForm] = useState({
     product_name: normalizedProductName,
     variety: item.variety ?? "",
@@ -627,7 +636,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
-    pallet_weight: Number(item.pallet_weight ?? 0) || defaultWeightFor(normalizedProductName),
+    pallet_weight: Number(item.pallet_weight ?? 0),
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
@@ -635,16 +644,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     if (readOnly) return;
     dirtyRef.current = true;
-    setForm((f) => {
-      const next = { ...f, [k]: v };
-      // Auto-fill pallet_weight when product changes and weight is empty
-      if (k === "product_name" && (!f.pallet_weight || f.pallet_weight <= 0)) {
-        const w = defaultWeightFor(String(v));
-        if (w > 0) next.pallet_weight = w;
-      }
-      return next;
-    });
+    setForm((f) => ({ ...f, [k]: v }));
   };
+
+  // Field-level validation
+  const palletCountNum = Number(form.pallet_count) || 0;
+  const palletWeightNum = Number(form.pallet_weight) || 0;
+  const totalWeightNum = palletCountNum * palletWeightNum;
+  const invalidProduct = !form.product_name.trim();
+  const invalidCountry = !form.origin_country.trim();
+  const invalidPallets = palletCountNum <= 0;
+  const invalidWeight = totalWeightNum <= 0;
+  const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
   const palletWeight = Number(form.pallet_weight) || 0;
 
@@ -696,13 +707,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   return (
     <>
     <tr className="border-b border-border/40">
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", invalidProduct && "bg-destructive/10 ring-1 ring-destructive/60")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
           options={products.map((p) => p.name)}
-          placeholder="Товар"
-          className="font-medium"
+          placeholder={invalidProduct ? "Товар*" : "Товар"}
+          className={cn("font-medium", invalidProduct && "text-destructive placeholder:text-destructive")}
           expandedMinWidth={200}
           required={false}
           readOnly={readOnly}
@@ -711,13 +722,14 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", invalidCountry && "bg-destructive/10 ring-1 ring-destructive/60")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
           options={COUNTRY_OPTIONS}
           aliases={COUNTRY_ALIASES}
-          placeholder="Країна"
+          placeholder={invalidCountry ? "Країна*" : "Країна"}
+          className={cn(invalidCountry && "text-destructive placeholder:text-destructive")}
           expandedMinWidth={180}
           readOnly={readOnly}
         />
@@ -728,10 +740,11 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", invalidPallets && "bg-destructive/10 ring-1 ring-destructive/60")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
+          invalid={invalidPallets}
           onChange={(v) => {
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
@@ -749,11 +762,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", invalidWeight && "bg-destructive/10 ring-1 ring-destructive/60")}>
         <NumCell
           value={Math.round(totalWeight)}
           readOnly={readOnly}
           step="1"
+          invalid={invalidWeight}
           onChange={(totalKgInput) => {
             const palletCount = Number(form.pallet_count) || 0;
             if (otherKg + totalKgInput > MAX_WEIGHT_KG) {
@@ -764,7 +778,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className="relative px-0.5 py-0.5 min-w-[96px]">
+      <td className={cn("relative px-0.5 py-0.5 min-w-[96px]", invalidPrice && "bg-destructive/10 ring-1 ring-destructive/60")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
@@ -827,7 +841,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
 }
 
 
-function NumCell({ value, onChange, step, readOnly = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean }) {
+function NumCell({ value, onChange, step, readOnly = false, invalid = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean; invalid?: boolean }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
   // Only resync from prop when NOT focused, to avoid eating typed zeros (e.g. "1.0" → "1")
@@ -871,6 +885,7 @@ function NumCell({ value, onChange, step, readOnly = false }: { value: number; o
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
         focused && EXPANDED_RIGHT + " text-right",
         readOnly && "cursor-default",
+        invalid && "text-destructive placeholder:text-destructive font-semibold",
       )}
     />
   );
