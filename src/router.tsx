@@ -47,7 +47,24 @@ function DefaultNotFoundComponent() {
 }
 
 export const getRouter = () => {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Keep last valid data visible during refetch / queryKey transitions
+        // (e.g. when auth token refreshes and user.id briefly flips).
+        placeholderData: keepPreviousData,
+        // Treat data as fresh for 30s — avoids aggressive background refetches
+        // that briefly render empty states on focus / network reconnect.
+        staleTime: 30_000,
+        gcTime: 10 * 60_000,
+        // Don't wipe-and-refetch on every tab focus; rely on realtime + manual invalidation.
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: "always",
+        retry: 2,
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+      },
+    },
+  });
 
   const router = createRouter({
     routeTree,
