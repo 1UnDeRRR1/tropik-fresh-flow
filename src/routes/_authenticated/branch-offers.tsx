@@ -189,15 +189,17 @@ function BranchOffersPage() {
                       .filter(Boolean)
                       .join(" • ")}
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="mt-2 space-y-0.5 text-xs">
                     <CostLine
                       label="Індикативна"
+                      tone="success"
                       curr={Number(o.indicative_cost_usd ?? 0)}
                       prev={o.prev_indicative_cost_usd}
                       delta={indDelta}
                     />
                     <CostLine
                       label="Інвойсна"
+                      tone="destructive"
                       curr={Number(o.invoice_cost_usd ?? 0)}
                       prev={o.prev_invoice_cost_usd}
                       delta={invDelta}
