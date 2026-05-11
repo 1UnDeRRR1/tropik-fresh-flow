@@ -759,7 +759,10 @@ function OfferEditor({
             <Button variant="outline" onClick={onClose}>
               Скасувати
             </Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            <Button
+              onClick={() => save.mutate()}
+              disabled={save.isPending || !productValid || !countryValid}
+            >
               Зберегти
             </Button>
           </div>
