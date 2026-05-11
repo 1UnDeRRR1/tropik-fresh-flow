@@ -707,13 +707,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   return (
     <>
     <tr className="border-b border-border/40">
-      <td className={cn("relative px-0.5 py-0.5", invalidProduct && "bg-destructive/10 ring-1 ring-destructive/60")}>
+      <td className="relative px-0.5 py-0.5">
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
           options={products.map((p) => p.name)}
           placeholder={invalidProduct ? "Товар*" : "Товар"}
-          className={cn("font-medium", invalidProduct && "text-destructive placeholder:text-destructive")}
+          className={cn("font-medium", invalidProduct && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={200}
           required={false}
           readOnly={readOnly}
@@ -722,14 +722,14 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", invalidCountry && "bg-destructive/10 ring-1 ring-destructive/60")}>
+      <td className="relative px-0.5 py-0.5">
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
           options={COUNTRY_OPTIONS}
           aliases={COUNTRY_ALIASES}
           placeholder={invalidCountry ? "Країна*" : "Країна"}
-          className={cn(invalidCountry && "text-destructive placeholder:text-destructive")}
+          className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={180}
           readOnly={readOnly}
         />
@@ -740,7 +740,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", invalidPallets && "bg-destructive/10 ring-1 ring-destructive/60")}>
+      <td className="relative px-0.5 py-0.5">
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
@@ -762,7 +762,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", invalidWeight && "bg-destructive/10 ring-1 ring-destructive/60")}>
+      <td className="relative px-0.5 py-0.5">
         <NumCell
           value={Math.round(totalWeight)}
           readOnly={readOnly}
@@ -778,7 +778,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className={cn("relative px-0.5 py-0.5 min-w-[96px]", invalidPrice && "bg-destructive/10 ring-1 ring-destructive/60")}>
+      <td className="relative px-0.5 py-0.5 min-w-[96px]">
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
