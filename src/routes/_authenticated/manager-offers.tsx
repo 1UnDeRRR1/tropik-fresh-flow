@@ -585,6 +585,7 @@ function OfferEditor({
     invoice_cost_usd: "",
     offered_pallets: "",
     expires_in_hours: "" as string,
+    expected_eta: "",
     notes: "",
   });
   const [selectiveOpen, setSelectiveOpen] = useState(false);
