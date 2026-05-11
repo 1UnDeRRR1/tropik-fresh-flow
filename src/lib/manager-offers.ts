@@ -20,10 +20,10 @@ export const STATUS_LABEL: Record<ManagerOfferStatus, string> = {
 };
 
 export const STATUS_CLASS: Record<ManagerOfferStatus, string> = {
-  draft: "bg-warning/15 text-warning",
+  draft: "bg-muted text-muted-foreground",
   active: "bg-success/15 text-success",
   in_work: "bg-info/15 text-info",
-  confirmed: "bg-success/15 text-success",
+  confirmed: "bg-warning/15 text-warning",
   linked: "bg-primary/15 text-primary",
   closed: "bg-muted text-muted-foreground",
   expired: "bg-destructive/15 text-destructive",
