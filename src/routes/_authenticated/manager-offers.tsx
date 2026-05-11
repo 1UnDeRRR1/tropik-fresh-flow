@@ -174,16 +174,21 @@ function ManagerOffersPage() {
             <EmptyState title="Немає пропозицій" hint="Натисніть «Створити», щоб додати першу" />
           )}
           {filtered.map((o) => {
-            const totalRequested = o.responses.reduce(
+            const inScope = (branchId: string) =>
+              o.target_mode === "all" || o.targetBranchIds.includes(branchId);
+            const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
+            const excludedResponses = o.responses.filter((r) => !inScope(r.branch_id));
+            const totalRequested = activeResponses.reduce(
               (s, r) => s + Number(r.requested_pallets || 0),
               0,
             );
-            const totalApproved = o.responses.reduce(
+            const totalApproved = activeResponses.reduce(
               (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
               0,
             );
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const isOpen = expanded[o.id] ?? false;
+            const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             return (
               <div
                 key={o.id}
