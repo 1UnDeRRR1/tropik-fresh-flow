@@ -744,6 +744,22 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         />
       </td>
       <td className="relative px-0.5 py-0.5">
+        <NumCell
+          value={form.pallet_weight}
+          readOnly={readOnly}
+          step="0.1"
+          onChange={(v) => {
+            // Re-check capacity given new per-pallet weight
+            const palletCount = Number(form.pallet_count) || 0;
+            const newKg = palletCount * v;
+            if (otherKg + newKg > MAX_WEIGHT_KG) {
+              toast.error(`Перевищено ліміт: макс ${MAX_WEIGHT_KG} кг на машину`);
+            }
+            set("pallet_weight", v);
+          }}
+        />
+      </td>
+      <td className="relative px-0.5 py-0.5 min-w-[96px]">
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
