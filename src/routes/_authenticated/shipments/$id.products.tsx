@@ -841,7 +841,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
 }
 
 
-function NumCell({ value, onChange, step, readOnly = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean }) {
+function NumCell({ value, onChange, step, readOnly = false, invalid = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean; invalid?: boolean }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
   // Only resync from prop when NOT focused, to avoid eating typed zeros (e.g. "1.0" → "1")
