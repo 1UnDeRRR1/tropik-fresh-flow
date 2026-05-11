@@ -19,6 +19,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOffersRouteImport } from './routes/_authenticated/offers'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
+import { Route as AuthenticatedManagerOffersRouteImport } from './routes/_authenticated/manager-offers'
 import { Route as AuthenticatedDistributionRouteImport } from './routes/_authenticated/distribution'
 import { Route as AuthenticatedCostsRouteImport } from './routes/_authenticated/costs'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
@@ -97,6 +98,12 @@ const AuthenticatedMasterDataRoute = AuthenticatedMasterDataRouteImport.update({
   path: '/master-data',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedManagerOffersRoute =
+  AuthenticatedManagerOffersRouteImport.update({
+    id: '/manager-offers',
+    path: '/manager-offers',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDistributionRoute =
   AuthenticatedDistributionRouteImport.update({
     id: '/distribution',
@@ -262,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/costs': typeof AuthenticatedCostsRoute
   '/distribution': typeof AuthenticatedDistributionRouteWithChildren
+  '/manager-offers': typeof AuthenticatedManagerOffersRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/offers': typeof AuthenticatedOffersRoute
@@ -298,6 +306,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/costs': typeof AuthenticatedCostsRoute
   '/distribution': typeof AuthenticatedDistributionRouteWithChildren
+  '/manager-offers': typeof AuthenticatedManagerOffersRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/offers': typeof AuthenticatedOffersRoute
@@ -338,6 +347,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/costs': typeof AuthenticatedCostsRoute
   '/_authenticated/distribution': typeof AuthenticatedDistributionRouteWithChildren
+  '/_authenticated/manager-offers': typeof AuthenticatedManagerOffersRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/offers': typeof AuthenticatedOffersRoute
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/costs'
     | '/distribution'
+    | '/manager-offers'
     | '/master-data'
     | '/notifications'
     | '/offers'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/costs'
     | '/distribution'
+    | '/manager-offers'
     | '/master-data'
     | '/notifications'
     | '/offers'
@@ -454,6 +466,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar'
     | '/_authenticated/costs'
     | '/_authenticated/distribution'
+    | '/_authenticated/manager-offers'
     | '/_authenticated/master-data'
     | '/_authenticated/notifications'
     | '/_authenticated/offers'
@@ -561,6 +574,13 @@ declare module '@tanstack/react-router' {
       path: '/master-data'
       fullPath: '/master-data'
       preLoaderRoute: typeof AuthenticatedMasterDataRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/manager-offers': {
+      id: '/_authenticated/manager-offers'
+      path: '/manager-offers'
+      fullPath: '/manager-offers'
+      preLoaderRoute: typeof AuthenticatedManagerOffersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/distribution': {
@@ -823,6 +843,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCostsRoute: typeof AuthenticatedCostsRoute
   AuthenticatedDistributionRoute: typeof AuthenticatedDistributionRouteWithChildren
+  AuthenticatedManagerOffersRoute: typeof AuthenticatedManagerOffersRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOffersRoute: typeof AuthenticatedOffersRoute
@@ -847,6 +868,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCostsRoute: AuthenticatedCostsRoute,
   AuthenticatedDistributionRoute: AuthenticatedDistributionRouteWithChildren,
+  AuthenticatedManagerOffersRoute: AuthenticatedManagerOffersRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOffersRoute: AuthenticatedOffersRoute,
