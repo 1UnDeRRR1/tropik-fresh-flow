@@ -3,6 +3,7 @@ import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineCh
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { FxRateBadge } from "@/components/FxRateBadge";
 import type { ReactNode } from "react";
 
 interface NavItem {
