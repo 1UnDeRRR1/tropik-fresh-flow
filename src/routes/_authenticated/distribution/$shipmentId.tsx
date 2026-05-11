@@ -42,6 +42,7 @@ type Grid = Record<string, Record<string, number>>;
 
 function DistributionMatrix() {
   const { shipmentId } = Route.useParams();
+  const router = useRouter();
   const qc = useQueryClient();
   const [grid, setGrid] = useState<Grid>({});
   const [initial, setInitial] = useState<Grid>({});
