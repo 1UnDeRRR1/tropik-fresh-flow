@@ -129,6 +129,8 @@ type ShipmentRow = {
   logistics_cost_currency: string | null;
   eur_usd_rate: number | null;
   eur_usd_rate_date: string | null;
+  eur_usd_rate_source: string | null;
+  eur_usd_rate_manual: boolean | null;
   vehicle_id: string | null;
 };
 
