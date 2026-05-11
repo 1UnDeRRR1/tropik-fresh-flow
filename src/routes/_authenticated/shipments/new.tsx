@@ -73,6 +73,8 @@ function NewShipment() {
   const [code, setCode] = useState<string>("");
   const [codeOverride, setCodeOverride] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [etaOverride, setEtaOverride] = useState<string>("");
+  const [etaTouched, setEtaTouched] = useState(false);
 
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
