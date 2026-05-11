@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, ChevronDown, ChevronUp, Link2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -510,16 +511,14 @@ function ManagerOffersPage() {
       <OfferEditor
         open={creating || !!editing}
         offer={editing}
+        branches={branches ?? []}
         onClose={() => {
           setCreating(false);
           setEditing(null);
         }}
-        onSaved={(saved, wasNew) => {
+        onSaved={() => {
           qc.invalidateQueries({ queryKey: ["manager-offers"] });
-          if (wasNew && saved) {
-            // Immediately ask targeting for the freshly-created draft
-            setPublishOffer(saved);
-          }
+          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
         }}
       />
 
