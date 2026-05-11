@@ -314,12 +314,14 @@ function CostLine({
   curr,
   prev,
   delta,
+  linked,
 }: {
   label: string;
   tone: "success" | "destructive";
   curr: number;
   prev: number | null;
   delta: number;
+  linked?: boolean;
 }) {
   const changed = prev != null && delta !== 0;
   const toneCls = tone === "success" ? "text-success" : "text-destructive";
@@ -327,21 +329,39 @@ function CostLine({
     <div className={cn("text-sm", toneCls)}>
       <span>{label}: </span>
       <b className="font-bold tabular-nums">${curr.toFixed(2)}</b>
-      {changed && (
-        <span className="ml-1 text-xs font-normal text-muted-foreground line-through">
-          ${Number(prev).toFixed(2)}
-        </span>
+      {changed && !linked && (
+        <>
+          <span className="ml-1 text-xs font-normal text-muted-foreground line-through">
+            ${Number(prev).toFixed(2)}
+          </span>
+          <span
+            className={cn(
+              "ml-1 text-xs font-bold",
+              delta < 0 ? "text-success" : "text-destructive",
+            )}
+          >
+            ({delta > 0 ? "+" : ""}
+            {delta.toFixed(2)})
+          </span>
+        </>
       )}
-      {changed && (
-        <span
+      {changed && linked && (
+        <div
           className={cn(
-            "ml-1 text-xs font-bold",
-            delta < 0 ? "text-success" : "text-destructive",
+            "mt-0.5 rounded-md px-2 py-1 text-xs font-normal",
+            delta > 0
+              ? "bg-destructive/10 text-destructive"
+              : "bg-success/10 text-success",
           )}
         >
-          ({delta > 0 ? "+" : ""}
-          {delta.toFixed(2)})
-        </span>
+          <b>Собівартість змінено:</b> було{" "}
+          <span className="line-through tabular-nums">${Number(prev).toFixed(2)}</span>{" "}
+          → стало <b className="tabular-nums">${curr.toFixed(2)}</b>{" "}
+          <b className="tabular-nums">
+            ({delta > 0 ? "+" : ""}
+            {delta.toFixed(2)})
+          </b>
+        </div>
       )}
     </div>
   );
