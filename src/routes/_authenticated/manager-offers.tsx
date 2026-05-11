@@ -620,6 +620,7 @@ function OfferEditor({
           invoice_cost_usd: "",
           offered_pallets: "",
           expires_in_hours: "",
+          expected_eta: "",
           notes: "",
         });
       }
