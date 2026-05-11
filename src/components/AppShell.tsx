@@ -25,6 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/distribution", label: "Вільно", icon: Package },
         { to: "/branch-offers", label: "Пропозиції ЗЕД", icon: Inbox },
+        { to: "/branch-calendar", label: "Календар", icon: CalendarDays },
         { to: "/offers", label: "Переказ", icon: Send },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
