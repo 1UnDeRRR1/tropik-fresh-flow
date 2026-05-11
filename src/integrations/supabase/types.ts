@@ -296,6 +296,7 @@ export type Database = {
           created_at: string
           customs_fee_percent: number
           euro1_markup_usd: number
+          euro1_percent: number
           id: string
           product_name: string
           threshold_price_usd: number
@@ -307,6 +308,7 @@ export type Database = {
           created_at?: string
           customs_fee_percent?: number
           euro1_markup_usd?: number
+          euro1_percent?: number
           id?: string
           product_name: string
           threshold_price_usd?: number
@@ -318,6 +320,7 @@ export type Database = {
           created_at?: string
           customs_fee_percent?: number
           euro1_markup_usd?: number
+          euro1_percent?: number
           id?: string
           product_name?: string
           threshold_price_usd?: number
@@ -1504,6 +1507,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_eu_country: { Args: { _country: string }; Returns: boolean }
       is_shipment_owner: {
         Args: { _shipment_id: string; _user_id: string }
         Returns: boolean
