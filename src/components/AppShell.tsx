@@ -3,6 +3,7 @@ import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineCh
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { FxRateBadge } from "@/components/FxRateBadge";
 import type { ReactNode } from "react";
 
 interface NavItem {
@@ -83,6 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            {!isBranch && <FxRateBadge />}
             {primaryRole && (
               <div className="text-right leading-tight">
                 <div className="text-sm font-semibold text-foreground">
