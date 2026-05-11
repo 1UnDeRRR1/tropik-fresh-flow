@@ -617,6 +617,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
+  const defaultWeightFor = (name: string) => {
+    const match = products.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    return Number(match?.default_pallet_weight ?? 0);
+  };
   const [form, setForm] = useState({
     product_name: normalizedProductName,
     variety: item.variety ?? "",
@@ -624,6 +628,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
+    pallet_weight: Number(item.pallet_weight ?? 0) || defaultWeightFor(normalizedProductName),
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
@@ -631,14 +636,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     if (readOnly) return;
     dirtyRef.current = true;
-    setForm((f) => ({ ...f, [k]: v }));
+    setForm((f) => {
+      const next = { ...f, [k]: v };
+      // Auto-fill pallet_weight when product changes and weight is empty
+      if (k === "product_name" && (!f.pallet_weight || f.pallet_weight <= 0)) {
+        const w = defaultWeightFor(String(v));
+        if (w > 0) next.pallet_weight = w;
+      }
+      return next;
+    });
   };
 
-  // Auto pallet weight from products table by name
-  const palletWeight = (() => {
-    const match = products.find((p) => p.name.trim().toLowerCase() === form.product_name.trim().toLowerCase());
-    return Number(match?.default_pallet_weight ?? item.pallet_weight ?? 0);
-  })();
+  const palletWeight = Number(form.pallet_weight) || 0;
 
   // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
   useEffect(() => {
