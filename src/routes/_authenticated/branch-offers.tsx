@@ -193,6 +193,7 @@ function BranchOffersPage() {
                   curr={Number(o.indicative_cost_usd ?? 0)}
                   prev={o.prev_indicative_cost_usd}
                   delta={indDelta}
+                  linked={o.status === "linked"}
                 />
                 <CostLine
                   label="Собівартість інвойсна"
@@ -200,6 +201,7 @@ function BranchOffersPage() {
                   curr={Number(o.invoice_cost_usd ?? 0)}
                   prev={o.prev_invoice_cost_usd}
                   delta={invDelta}
+                  linked={o.status === "linked"}
                 />
               </div>
 
@@ -211,6 +213,18 @@ function BranchOffersPage() {
                   {etaDate.plan && (
                     <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
                   )}
+                </div>
+              )}
+
+              {/* ETA change notice (after link) */}
+              {o.status === "linked" && (o as OfferWithEtaPrev).prev_expected_eta &&
+                (o as OfferWithEtaPrev).prev_expected_eta !== o.expected_eta && (
+                <div className="mt-1 rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                  <b>Дата заходу змінена:</b> було{" "}
+                  <span className="line-through tabular-nums">
+                    {fmtDate((o as OfferWithEtaPrev).prev_expected_eta)}
+                  </span>{" "}
+                  → стало <b className="tabular-nums">{fmtDate(o.expected_eta)}</b>
                 </div>
               )}
 
