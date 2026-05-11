@@ -1005,6 +1005,8 @@ export type Database = {
           eta: string | null
           eur_usd_rate: number | null
           eur_usd_rate_date: string | null
+          eur_usd_rate_manual: boolean
+          eur_usd_rate_source: string | null
           fx_rate: number | null
           id: string
           import_manager_id: string | null
@@ -1032,6 +1034,8 @@ export type Database = {
           eta?: string | null
           eur_usd_rate?: number | null
           eur_usd_rate_date?: string | null
+          eur_usd_rate_manual?: boolean
+          eur_usd_rate_source?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
@@ -1059,6 +1063,8 @@ export type Database = {
           eta?: string | null
           eur_usd_rate?: number | null
           eur_usd_rate_date?: string | null
+          eur_usd_rate_manual?: boolean
+          eur_usd_rate_source?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
