@@ -17,6 +17,11 @@ import {
   type ManagerOfferResponse,
 } from "@/lib/manager-offers";
 
+type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
+
+const fmtDate = (d: string | null | undefined) =>
+  d ? new Date(d).toLocaleDateString("uk-UA") : "—";
+
 export const Route = createFileRoute("/_authenticated/branch-offers")({
   component: BranchOffersPage,
 });
@@ -188,6 +193,7 @@ function BranchOffersPage() {
                   curr={Number(o.indicative_cost_usd ?? 0)}
                   prev={o.prev_indicative_cost_usd}
                   delta={indDelta}
+                  linked={o.status === "linked"}
                 />
                 <CostLine
                   label="Собівартість інвойсна"
@@ -195,6 +201,7 @@ function BranchOffersPage() {
                   curr={Number(o.invoice_cost_usd ?? 0)}
                   prev={o.prev_invoice_cost_usd}
                   delta={invDelta}
+                  linked={o.status === "linked"}
                 />
               </div>
 
@@ -206,6 +213,18 @@ function BranchOffersPage() {
                   {etaDate.plan && (
                     <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
                   )}
+                </div>
+              )}
+
+              {/* ETA change notice (after link) */}
+              {o.status === "linked" && (o as OfferWithEtaPrev).prev_expected_eta &&
+                (o as OfferWithEtaPrev).prev_expected_eta !== o.expected_eta && (
+                <div className="mt-1 rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                  <b>Дата заходу змінена:</b> було{" "}
+                  <span className="line-through tabular-nums">
+                    {fmtDate((o as OfferWithEtaPrev).prev_expected_eta)}
+                  </span>{" "}
+                  → стало <b className="tabular-nums">{fmtDate(o.expected_eta)}</b>
                 </div>
               )}
 
@@ -295,12 +314,14 @@ function CostLine({
   curr,
   prev,
   delta,
+  linked,
 }: {
   label: string;
   tone: "success" | "destructive";
   curr: number;
   prev: number | null;
   delta: number;
+  linked?: boolean;
 }) {
   const changed = prev != null && delta !== 0;
   const toneCls = tone === "success" ? "text-success" : "text-destructive";
@@ -308,21 +329,39 @@ function CostLine({
     <div className={cn("text-sm", toneCls)}>
       <span>{label}: </span>
       <b className="font-bold tabular-nums">${curr.toFixed(2)}</b>
-      {changed && (
-        <span className="ml-1 text-xs font-normal text-muted-foreground line-through">
-          ${Number(prev).toFixed(2)}
-        </span>
+      {changed && !linked && (
+        <>
+          <span className="ml-1 text-xs font-normal text-muted-foreground line-through">
+            ${Number(prev).toFixed(2)}
+          </span>
+          <span
+            className={cn(
+              "ml-1 text-xs font-bold",
+              delta < 0 ? "text-success" : "text-destructive",
+            )}
+          >
+            ({delta > 0 ? "+" : ""}
+            {delta.toFixed(2)})
+          </span>
+        </>
       )}
-      {changed && (
-        <span
+      {changed && linked && (
+        <div
           className={cn(
-            "ml-1 text-xs font-bold",
-            delta < 0 ? "text-success" : "text-destructive",
+            "mt-0.5 rounded-md px-2 py-1 text-xs font-normal",
+            delta > 0
+              ? "bg-destructive/10 text-destructive"
+              : "bg-success/10 text-success",
           )}
         >
-          ({delta > 0 ? "+" : ""}
-          {delta.toFixed(2)})
-        </span>
+          <b>Собівартість змінено:</b> було{" "}
+          <span className="line-through tabular-nums">${Number(prev).toFixed(2)}</span>{" "}
+          → стало <b className="tabular-nums">${curr.toFixed(2)}</b>{" "}
+          <b className="tabular-nums">
+            ({delta > 0 ? "+" : ""}
+            {delta.toFixed(2)})
+          </b>
+        </div>
       )}
     </div>
   );

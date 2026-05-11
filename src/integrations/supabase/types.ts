@@ -645,6 +645,7 @@ export type Database = {
           origin_country: string | null
           packaging: string | null
           pallet_weight: number | null
+          prev_expected_eta: string | null
           prev_indicative_cost_usd: number | null
           prev_invoice_cost_usd: number | null
           price_currency: string
@@ -676,6 +677,7 @@ export type Database = {
           origin_country?: string | null
           packaging?: string | null
           pallet_weight?: number | null
+          prev_expected_eta?: string | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
           price_currency?: string
@@ -707,6 +709,7 @@ export type Database = {
           origin_country?: string | null
           packaging?: string | null
           pallet_weight?: number | null
+          prev_expected_eta?: string | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
           price_currency?: string
