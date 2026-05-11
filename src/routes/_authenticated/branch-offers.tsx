@@ -157,7 +157,7 @@ function BranchOffersPage() {
                     >
                       {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
                     </span>
-                    {ship && (
+                    {ship ? (
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-success">
                         <span>
                           Поставка <b>{ship.code}</b>
@@ -174,7 +174,15 @@ function BranchOffersPage() {
                           </span>
                         ) : null}
                       </span>
-                    )}
+                    ) : o.expected_eta ? (
+                      <span className="text-xs text-muted-foreground">
+                        Очікувана дата:{" "}
+                        <b className="text-foreground">
+                          {new Date(o.expected_eta).toLocaleDateString("uk-UA")}
+                        </b>{" "}
+                        <span className="text-[10px] uppercase tracking-wide">(план)</span>
+                      </span>
+                    ) : null}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {[o.caliber, o.packaging, o.specification, o.variety]
