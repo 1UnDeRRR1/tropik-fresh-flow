@@ -325,7 +325,7 @@ function NewShipment() {
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
               <CommandGroup>
-                {COUNTRIES.map((c) => (
+                {(countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).map((c: string) => (
                   <CommandItem
                     key={c}
                     value={c}
