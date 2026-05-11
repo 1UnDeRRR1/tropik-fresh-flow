@@ -84,6 +84,19 @@ function ManagerOffersPage() {
     },
   });
 
+  const { data: targets } = useQuery({
+    queryKey: ["manager-offer-targets", offerIds],
+    enabled: offerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offer_targets")
+        .select("*")
+        .in("offer_id", offerIds);
+      if (error) throw error;
+      return (data ?? []) as ManagerOfferTarget[];
+    },
+  });
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
@@ -96,8 +109,11 @@ function ManagerOffersPage() {
       responses: (responses ?? [])
         .filter((r) => r.offer_id === o.id)
         .map((r) => ({ ...r, branch_name: branchById[r.branch_id] })),
+      targetBranchIds: (targets ?? [])
+        .filter((t) => t.offer_id === o.id)
+        .map((t) => t.branch_id),
     }));
-  }, [offers, responses, branchById]);
+  }, [offers, responses, targets, branchById]);
 
   const filtered = useMemo(() => {
     if (tab === "all") return merged;
