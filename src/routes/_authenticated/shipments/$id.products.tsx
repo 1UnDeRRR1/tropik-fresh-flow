@@ -691,7 +691,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
+  const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
+
   return (
+    <>
     <tr className="border-b border-border/40">
       <td className="relative px-0.5 py-0.5">
         <AutocompleteCell
