@@ -37,15 +37,15 @@ export function StatCard({
       <div className="flex items-center justify-between">
         <span
           className={cn(
-            "text-xs font-medium uppercase tracking-wide",
-            tone === "default" ? "text-muted-foreground" : "opacity-80",
+            "text-sm font-bold uppercase tracking-wide",
+            tone === "default" ? "text-muted-foreground" : "opacity-90",
           )}
         >
           {label}
         </span>
         {icon}
       </div>
-      <div className="mt-2 text-2xl font-black tracking-tight">{value}</div>
+      <div className="mt-2 text-2xl font-normal tracking-tight">{value}</div>
       {hint && (
         <div className={cn("mt-1 text-xs", tone === "default" ? "text-muted-foreground" : "opacity-80")}>
           {hint}
