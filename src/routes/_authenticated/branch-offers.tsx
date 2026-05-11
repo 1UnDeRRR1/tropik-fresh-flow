@@ -150,10 +150,12 @@ function BranchOffersPage() {
                     <span
                       className={cn(
                         "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                        STATUS_CLASS[o.status],
+                        o.status === "linked"
+                          ? "bg-success/15 text-success"
+                          : STATUS_CLASS[o.status],
                       )}
                     >
-                      {STATUS_LABEL[o.status]}
+                      {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
                     </span>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
