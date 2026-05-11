@@ -372,7 +372,8 @@ function ProductsFullscreen() {
                 <th className="px-1.5 py-2 text-left font-medium">Калібр</th>
                 <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
-                <th className="px-1.5 py-2 text-right font-medium">Ціна</th>
+                <th className="px-1.5 py-2 text-right font-medium">Вага</th>
+                <th className="px-1.5 py-2 text-right font-medium min-w-[92px]">Ціна</th>
                 <th className="px-1.5 py-2 text-right font-medium text-muted-foreground">Собів. $</th>
                 <th className="px-1.5 py-2"></th>
               </tr>
@@ -616,6 +617,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
+  const defaultWeightFor = (name: string) => {
+    const match = products.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    return Number(match?.default_pallet_weight ?? 0);
+  };
   const [form, setForm] = useState({
     product_name: normalizedProductName,
     variety: item.variety ?? "",
@@ -623,6 +628,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
+    pallet_weight: Number(item.pallet_weight ?? 0) || defaultWeightFor(normalizedProductName),
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
@@ -630,14 +636,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     if (readOnly) return;
     dirtyRef.current = true;
-    setForm((f) => ({ ...f, [k]: v }));
+    setForm((f) => {
+      const next = { ...f, [k]: v };
+      // Auto-fill pallet_weight when product changes and weight is empty
+      if (k === "product_name" && (!f.pallet_weight || f.pallet_weight <= 0)) {
+        const w = defaultWeightFor(String(v));
+        if (w > 0) next.pallet_weight = w;
+      }
+      return next;
+    });
   };
 
-  // Auto pallet weight from products table by name
-  const palletWeight = (() => {
-    const match = products.find((p) => p.name.trim().toLowerCase() === form.product_name.trim().toLowerCase());
-    return Number(match?.default_pallet_weight ?? item.pallet_weight ?? 0);
-  })();
+  const palletWeight = Number(form.pallet_weight) || 0;
 
   // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
   useEffect(() => {
@@ -734,6 +744,22 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         />
       </td>
       <td className="relative px-0.5 py-0.5">
+        <NumCell
+          value={form.pallet_weight}
+          readOnly={readOnly}
+          step="0.1"
+          onChange={(v) => {
+            // Re-check capacity given new per-pallet weight
+            const palletCount = Number(form.pallet_count) || 0;
+            const newKg = palletCount * v;
+            if (otherKg + newKg > MAX_WEIGHT_KG) {
+              toast.error(`Перевищено ліміт: макс ${MAX_WEIGHT_KG} кг на машину`);
+            }
+            set("pallet_weight", v);
+          }}
+        />
+      </td>
+      <td className="relative px-0.5 py-0.5 min-w-[96px]">
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
@@ -880,7 +906,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
           if (!Number.isNaN(n)) onValueChange(n);
         }}
         className={cn(
-          "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
+          "h-10 w-full min-w-[60px] border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
           isEmpty && "text-destructive placeholder:text-destructive font-semibold",
           readOnly && "cursor-default",
@@ -890,7 +916,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         value={currency}
         disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
-        className="h-8 rounded border-transparent bg-transparent px-0.5 text-[10px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-10 rounded border-transparent bg-transparent px-1 text-[11px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="EUR">€</option>
         <option value="USD">$</option>
