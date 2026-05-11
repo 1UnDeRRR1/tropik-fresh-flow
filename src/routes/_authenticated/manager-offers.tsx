@@ -879,6 +879,19 @@ function OfferEditor({
             </label>
           </div>
           <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">
+              Очікувана дата прибуття (ETA)
+            </span>
+            <Input
+              type="date"
+              value={form.expected_eta}
+              onChange={(e) => setForm((p) => ({ ...p, expected_eta: e.target.value }))}
+            />
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              Орієнтовна дата для філій. Після прив'язки до поставки використовується реальний ETA авто.
+            </span>
+          </label>
+          <label className="block text-sm">
             <span className="mb-1 block text-muted-foreground">Примітки</span>
             <Textarea
               value={form.notes}
