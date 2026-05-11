@@ -906,7 +906,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
           if (!Number.isNaN(n)) onValueChange(n);
         }}
         className={cn(
-          "h-8 w-full border-transparent bg-transparent px-1 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
+          "h-10 w-full min-w-[60px] border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus:border-input focus:bg-background",
           focused && EXPANDED_RIGHT + " text-right",
           isEmpty && "text-destructive placeholder:text-destructive font-semibold",
           readOnly && "cursor-default",
@@ -916,7 +916,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         value={currency}
         disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
-        className="h-8 rounded border-transparent bg-transparent px-0.5 text-[10px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-10 rounded border-transparent bg-transparent px-1 text-[11px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="EUR">€</option>
         <option value="USD">$</option>
