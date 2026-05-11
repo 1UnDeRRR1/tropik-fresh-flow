@@ -747,18 +747,19 @@ function OfferEditor({
           .single();
         if (createError) throw createError;
 
-        createdOfferId = createdOffer.id;
+        const newOfferId = createdOffer.id;
+        createdOfferId = newOfferId;
 
         if (mode === "selected") {
           const { error: targetError } = await supabase
             .from("manager_offer_targets")
-            .insert(branchIds.map((branch_id) => ({ offer_id: createdOfferId, branch_id })));
+            .insert(branchIds.map((branch_id) => ({ offer_id: newOfferId, branch_id })));
           if (targetError) throw targetError;
 
           const { error: activateError } = await supabase
             .from("manager_offers")
             .update({ status: "active", target_mode: "selected" })
-            .eq("id", createdOfferId);
+            .eq("id", newOfferId);
           if (activateError) throw activateError;
         }
       } catch (error) {
