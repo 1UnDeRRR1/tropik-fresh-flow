@@ -393,6 +393,24 @@ function ManagerOffersPage() {
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
+                      const realEta = ship?.arrived_at ?? ship?.eta ?? null;
+                      const showEta = realEta ?? o.expected_eta;
+                      if (!showEta) return null;
+                      const isReal = !!realEta;
+                      return (
+                        <div className="mt-1 text-xs">
+                          <span className="text-muted-foreground">{isReal ? "ETA поставки:" : "Очікувана дата:"}</span>{" "}
+                          <b className={isReal ? "text-success" : ""}>
+                            {new Date(showEta).toLocaleDateString("uk-UA")}
+                          </b>
+                          {!isReal && (
+                            <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">(план)</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-muted-foreground">Цільові філії:</span>
                       {o.target_mode === "all" ? (
