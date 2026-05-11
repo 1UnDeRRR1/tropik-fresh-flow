@@ -47,6 +47,7 @@ type Ship = {
   eta: string | null;
   arrived_at: string | null;
   country: string | null;
+  import_manager_name: string | null;
 };
 
 function BranchCalendarPage() {
