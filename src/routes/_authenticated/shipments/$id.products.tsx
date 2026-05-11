@@ -333,21 +333,15 @@ function ProductsFullscreen() {
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
-          onClick={() => {
-            if (missingPriceCount > 0) {
-              toast.error(`Заповніть ціну (${missingPriceCount} поз. без ціни)`);
-              return;
-            }
-            void leaveProducts();
-          }}
+          onClick={() => { void leaveProducts(); }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className={cn("truncate text-[10px] uppercase tracking-wide", missingPriceCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{missingPriceCount > 0 && ` · ${missingPriceCount} без ціни`}
+          <div className={cn("truncate text-[10px] uppercase tracking-wide", incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
+            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
           </div>
         </div>
         <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
@@ -407,8 +401,11 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          blockExit(e);
-          if (e.defaultPrevented) return;
+          if (!hasRealPallets) {
+            e.preventDefault();
+            toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
+            return;
+          }
           e.preventDefault();
           void leaveProducts();
         }}>
