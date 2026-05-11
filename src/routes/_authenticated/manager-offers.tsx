@@ -601,12 +601,37 @@ function OfferEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, offer?.id]);
 
+  const { data: productOptions = [] } = useQuery({
+    queryKey: ["products-active-names"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []).map((p) => p.name as string);
+    },
+  });
+
+  const productValid = !!resolveOption(form.product_name, productOptions);
+  const countryValid =
+    form.origin_country.trim() === "" ||
+    !!resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+
   const save = useMutation({
     mutationFn: async () => {
-      if (!form.product_name.trim()) throw new Error("Вкажіть товар");
+      const productCanonical = resolveOption(form.product_name, productOptions);
+      if (!productCanonical) throw new Error("Товар має відповідати базі");
+      const countryCanonical =
+        form.origin_country.trim() === ""
+          ? null
+          : resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+      if (form.origin_country.trim() !== "" && !countryCanonical)
+        throw new Error("Країна має відповідати базі");
       const payload = {
-        product_name: form.product_name.trim(),
-        origin_country: form.origin_country.trim() || null,
+        product_name: productCanonical,
+        origin_country: countryCanonical,
         caliber: form.caliber.trim() || null,
         packaging: form.packaging.trim() || null,
         specification: form.specification.trim() || null,
