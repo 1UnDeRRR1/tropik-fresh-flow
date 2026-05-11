@@ -138,97 +138,100 @@ function BranchOffersPage() {
           const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
           const palletDelta = apprQty != null ? apprQty - reqQty : 0;
 
+          const etaDate = ship?.arrived_at
+            ? { label: "Дата прибуття", value: new Date(ship.arrived_at).toLocaleDateString("uk-UA") }
+            : ship?.eta
+            ? { label: "Очікувана дата", value: new Date(ship.eta).toLocaleDateString("uk-UA") }
+            : o.expected_eta
+            ? { label: "Очікувана дата", value: new Date(o.expected_eta).toLocaleDateString("uk-UA"), plan: true }
+            : null;
+
+          const details = [o.variety, o.caliber, o.packaging, o.specification]
+            .filter(Boolean)
+            .join(" • ");
+
           return (
             <div key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-base font-bold">{o.product_name}</span>
-                    {o.origin_country && (
-                      <span className="text-sm text-muted-foreground">{o.origin_country}</span>
-                    )}
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                        o.status === "linked"
-                          ? "bg-success/15 text-success"
-                          : STATUS_CLASS[o.status],
-                      )}
-                    >
-                      {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
-                    </span>
-                    {ship ? (
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-success">
-                        <span>
-                          Поставка <b>{ship.code}</b>
-                        </span>
-                        {ship.arrived_at ? (
-                          <span>
-                            Дата прибуття:{" "}
-                            <b>{new Date(ship.arrived_at).toLocaleDateString("uk-UA")}</b>
-                          </span>
-                        ) : ship.eta ? (
-                          <span>
-                            Очікувана дата:{" "}
-                            <b>{new Date(ship.eta).toLocaleDateString("uk-UA")}</b>
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : o.expected_eta ? (
-                      <span className="text-xs text-muted-foreground">
-                        Очікувана дата:{" "}
-                        <b className="text-foreground">
-                          {new Date(o.expected_eta).toLocaleDateString("uk-UA")}
-                        </b>{" "}
-                        <span className="text-[10px] uppercase tracking-wide">(план)</span>
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {[o.caliber, o.packaging, o.specification, o.variety]
-                      .filter(Boolean)
-                      .join(" • ")}
-                  </div>
-                  <div className="mt-2 space-y-0.5 text-xs">
-                    <CostLine
-                      label="Індикативна"
-                      tone="success"
-                      curr={Number(o.indicative_cost_usd ?? 0)}
-                      prev={o.prev_indicative_cost_usd}
-                      delta={indDelta}
-                    />
-                    <CostLine
-                      label="Інвойсна"
-                      tone="destructive"
-                      curr={Number(o.invoice_cost_usd ?? 0)}
-                      prev={o.prev_invoice_cost_usd}
-                      delta={invDelta}
-                    />
-                  </div>
-                  {o.expires_at && (
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Залишок: {formatRemaining(o.expires_at)}
-                    </div>
+              {/* Header: product (country) + status */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-base font-bold">{o.product_name}</span>
+                {o.origin_country && (
+                  <span className="text-sm text-muted-foreground">({o.origin_country})</span>
+                )}
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                    o.status === "linked"
+                      ? "bg-success/15 text-success"
+                      : STATUS_CLASS[o.status],
                   )}
-                </div>
-                <div className="text-right">
-                  {o.offered_pallets != null && (
-                    <div className="text-xs text-muted-foreground">
-                      Пропоновано: <b>{o.offered_pallets}</b> палет
-                    </div>
-                  )}
-                </div>
+                >
+                  {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
+                </span>
+                {ship && (
+                  <span className="text-sm text-success">
+                    Поставка <b>{ship.code}</b>
+                  </span>
+                )}
               </div>
 
+              {/* Details line */}
+              {details && (
+                <div className="mt-1 text-sm text-muted-foreground">{details}</div>
+              )}
+
+              {/* Costs */}
+              <div className="mt-2 space-y-0.5">
+                <CostLine
+                  label="Собівартість індикативна"
+                  tone="success"
+                  curr={Number(o.indicative_cost_usd ?? 0)}
+                  prev={o.prev_indicative_cost_usd}
+                  delta={indDelta}
+                />
+                <CostLine
+                  label="Собівартість інвойсна"
+                  tone="destructive"
+                  curr={Number(o.invoice_cost_usd ?? 0)}
+                  prev={o.prev_invoice_cost_usd}
+                  delta={invDelta}
+                />
+              </div>
+
+              {/* Expected date */}
+              {etaDate && (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {etaDate.label}:{" "}
+                  <b className="text-foreground tabular-nums">{etaDate.value}</b>
+                  {etaDate.plan && (
+                    <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
+                  )}
+                </div>
+              )}
+
+              {/* Available quantity */}
+              {o.offered_pallets != null && (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Доступна кількість: <b className="text-foreground tabular-nums">{o.offered_pallets}</b> палет
+                </div>
+              )}
+
+              {o.expires_at && (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Залишок: <b className="text-foreground">{formatRemaining(o.expires_at)}</b>
+                </div>
+              )}
+
+              {/* Desired quantity input */}
               <div className="mt-3 flex flex-wrap items-end gap-2">
                 {o.status !== "linked" ? (
                   <>
-                    <label className="text-xs">
-                      <span className="mb-1 block text-muted-foreground">Бажана к-сть, палет</span>
+                    <label className="text-sm">
+                      <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
                       <Input
                         type="number"
                         min={0}
-                        className="h-9 w-32"
+                        className="h-9 w-32 font-bold tabular-nums"
                         value={draft}
                         onChange={(e) => setDrafts((p) => ({ ...p, [o.id]: e.target.value }))}
                       />
@@ -250,17 +253,19 @@ function BranchOffersPage() {
                 ) : null}
 
                 {r && (
-                  <div className="ml-auto text-right text-xs">
-                    <div>
-                      Запит: <b>{reqQty}</b>
+                  <div className="ml-auto text-right text-sm">
+                    <div className="text-muted-foreground">
+                      Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
                     </div>
                     {apprQty != null && (
-                      <div>
+                      <div className="text-muted-foreground">
                         Підтв.:{" "}
                         <b
                           className={cn(
+                            "tabular-nums",
                             palletDelta < 0 && "text-destructive",
                             palletDelta > 0 && "text-success",
+                            palletDelta === 0 && "text-foreground",
                           )}
                         >
                           {apprQty}
