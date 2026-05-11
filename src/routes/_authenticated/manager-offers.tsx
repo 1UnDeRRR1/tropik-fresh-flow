@@ -24,6 +24,130 @@ import {
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const COUNTRY_OPTIONS = [
+  "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
+  "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
+];
+const COUNTRY_ALIASES: Record<string, string> = {
+  greece: "Греція", gr: "Греція",
+  italy: "Італія", it: "Італія",
+  spain: "Іспанія", es: "Іспанія",
+  netherlands: "Нідерланди", holland: "Нідерланди", nl: "Нідерланди",
+  belgium: "Бельгія", be: "Бельгія",
+  poland: "Польща", pl: "Польща",
+  moldova: "Молдова", md: "Молдова",
+  albania: "Албанія", al: "Албанія",
+  macedonia: "Македонія", "north macedonia": "Македонія", mk: "Македонія",
+  turkey: "Туреччина", tr: "Туреччина",
+  france: "Франція", fr: "Франція",
+  germany: "Німеччина", de: "Німеччина",
+  portugal: "Португалія", pt: "Португалія",
+  romania: "Румунія", ro: "Румунія",
+  serbia: "Сербія", rs: "Сербія",
+  georgia: "Грузія", ge: "Грузія",
+  egypt: "Єгипет", eg: "Єгипет",
+  morocco: "Марокко", ma: "Марокко",
+};
+
+function resolveOption(
+  value: string,
+  options: string[],
+  aliases?: Record<string, string>,
+): string | null {
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+  const direct = options.find((o) => o.toLowerCase() === v);
+  if (direct) return direct;
+  if (aliases && aliases[v]) return aliases[v];
+  return null;
+}
+
+function ValidatedAutocomplete({
+  value,
+  onChange,
+  options,
+  aliases,
+  placeholder,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  aliases?: Record<string, string>;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  const canonical = resolveOption(trimmed, options, aliases);
+  const isInvalid = trimmed.length > 0 && !canonical;
+  const showRequired = required && trimmed.length === 0;
+
+  const suggestions =
+    trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
+      ? Array.from(
+          new Set([
+            ...options.filter((o) => o.toLowerCase().startsWith(lower)),
+            ...(aliases
+              ? Object.entries(aliases)
+                  .filter(([k]) => k.startsWith(lower))
+                  .map(([, v]) => v)
+              : []),
+          ]),
+        ).slice(0, 8)
+      : [];
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          // auto-normalize alias to canonical
+          const c = resolveOption(trimmed, options, aliases);
+          if (c && c !== trimmed) onChange(c);
+          setTimeout(() => setFocused(false), 150);
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === "Tab") && suggestions[0]) {
+            e.preventDefault();
+            onChange(suggestions[0]);
+            (e.currentTarget as HTMLInputElement).blur();
+          }
+        }}
+        className={cn(
+          (isInvalid || showRequired) &&
+            "border-destructive bg-destructive/10 focus-visible:ring-destructive",
+        )}
+      />
+      {focused && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-64 overflow-auto rounded-md border border-border bg-popover shadow-xl">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(s);
+              }}
+              className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      {isInvalid && (
+        <div className="mt-1 text-xs text-destructive">Значення відсутнє в базі</div>
+      )}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/manager-offers")({
   component: ManagerOffersPage,
 });
@@ -477,12 +601,37 @@ function OfferEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, offer?.id]);
 
+  const { data: productOptions = [] } = useQuery({
+    queryKey: ["products-active-names"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []).map((p) => p.name as string);
+    },
+  });
+
+  const productValid = !!resolveOption(form.product_name, productOptions);
+  const countryValid =
+    form.origin_country.trim() === "" ||
+    !!resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+
   const save = useMutation({
     mutationFn: async () => {
-      if (!form.product_name.trim()) throw new Error("Вкажіть товар");
+      const productCanonical = resolveOption(form.product_name, productOptions);
+      if (!productCanonical) throw new Error("Товар має відповідати базі");
+      const countryCanonical =
+        form.origin_country.trim() === ""
+          ? null
+          : resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+      if (form.origin_country.trim() !== "" && !countryCanonical)
+        throw new Error("Країна має відповідати базі");
       const payload = {
-        product_name: form.product_name.trim(),
-        origin_country: form.origin_country.trim() || null,
+        product_name: productCanonical,
+        origin_country: countryCanonical,
         caliber: form.caliber.trim() || null,
         packaging: form.packaging.trim() || null,
         specification: form.specification.trim() || null,
@@ -526,10 +675,28 @@ function OfferEditor({
           <SheetTitle>{offer ? "Редагувати пропозицію" : "Нова пропозиція"}</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-3">
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Товар *</span>
+            <ValidatedAutocomplete
+              value={form.product_name}
+              onChange={(v) => setForm((p) => ({ ...p, product_name: v }))}
+              options={productOptions}
+              placeholder="Почніть вводити назву товару"
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Країна походження</span>
+            <ValidatedAutocomplete
+              value={form.origin_country}
+              onChange={(v) => setForm((p) => ({ ...p, origin_country: v }))}
+              options={COUNTRY_OPTIONS}
+              aliases={COUNTRY_ALIASES}
+              placeholder="Почніть вводити країну"
+            />
+          </label>
           {(
             [
-              ["product_name", "Товар *"],
-              ["origin_country", "Країна походження"],
               ["caliber", "Калібр"],
               ["packaging", "Упаковка"],
               ["specification", "Специфікація"],
@@ -592,7 +759,10 @@ function OfferEditor({
             <Button variant="outline" onClick={onClose}>
               Скасувати
             </Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            <Button
+              onClick={() => save.mutate()}
+              disabled={save.isPending || !productValid || !countryValid}
+            >
               Зберегти
             </Button>
           </div>
