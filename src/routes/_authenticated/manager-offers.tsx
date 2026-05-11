@@ -20,7 +20,9 @@ import {
   type ManagerOffer,
   type ManagerOfferResponse,
   type ManagerOfferStatus,
+  type ManagerOfferTarget,
 } from "@/lib/manager-offers";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/manager-offers")({
   component: ManagerOffersPage,
