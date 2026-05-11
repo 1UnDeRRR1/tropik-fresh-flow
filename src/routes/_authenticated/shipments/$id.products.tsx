@@ -789,6 +789,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         </div>
       </td>
     </tr>
+    </>
   );
 }
 
