@@ -930,13 +930,14 @@ function OfferEditor({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-muted-foreground">Країна походження</span>
+            <span className="mb-1 block text-muted-foreground">Країна походження *</span>
             <ValidatedAutocomplete
               value={form.origin_country}
               onChange={(v) => setForm((p) => ({ ...p, origin_country: v }))}
               options={COUNTRY_OPTIONS}
               aliases={COUNTRY_ALIASES}
               placeholder="Почніть вводити країну"
+              required
             />
           </label>
           {(
