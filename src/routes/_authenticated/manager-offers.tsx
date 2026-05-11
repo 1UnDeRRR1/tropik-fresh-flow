@@ -637,3 +637,130 @@ function LinkShipmentDialog({
     </Sheet>
   );
 }
+
+function PublishOfferDialog({
+  offer,
+  branches,
+  onClose,
+  onPublished,
+}: {
+  offer: ManagerOffer | null;
+  branches: { id: string; name: string }[];
+  onClose: () => void;
+  onPublished: () => void;
+}) {
+  const [mode, setMode] = useState<"all" | "selected">("all");
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  // reset when opening for a new offer
+  useMemo(() => {
+    if (offer) {
+      setMode(offer.target_mode ?? "all");
+      setSelected({});
+    }
+  }, [offer?.id]);
+
+  const publish = useMutation({
+    mutationFn: async () => {
+      if (!offer) return;
+      const branchIds =
+        mode === "selected"
+          ? Object.entries(selected)
+              .filter(([, v]) => v)
+              .map(([k]) => k)
+          : [];
+      if (mode === "selected" && branchIds.length === 0) {
+        throw new Error("Виберіть хоча б одну філію");
+      }
+
+      // Reset existing targets for this offer
+      const { error: delErr } = await supabase
+        .from("manager_offer_targets")
+        .delete()
+        .eq("offer_id", offer.id);
+      if (delErr) throw delErr;
+
+      if (mode === "selected" && branchIds.length > 0) {
+        const { error: insErr } = await supabase
+          .from("manager_offer_targets")
+          .insert(branchIds.map((branch_id) => ({ offer_id: offer.id, branch_id })));
+        if (insErr) throw insErr;
+      }
+
+      const { error } = await supabase
+        .from("manager_offers")
+        .update({ target_mode: mode, status: "active" })
+        .eq("id", offer.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Пропозицію опубліковано");
+      onPublished();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  return (
+    <Sheet open={!!offer} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Запропонувати всім філіям чи вибірково?</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4 space-y-4">
+          <div className="flex gap-2">
+            <Button
+              variant={mode === "all" ? "default" : "outline"}
+              onClick={() => setMode("all")}
+              className="flex-1"
+            >
+              Всім
+            </Button>
+            <Button
+              variant={mode === "selected" ? "default" : "outline"}
+              onClick={() => setMode("selected")}
+              className="flex-1"
+            >
+              Вибірково
+            </Button>
+          </div>
+
+          {mode === "selected" && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <div className="text-xs text-muted-foreground">
+                Виберіть філії ({selectedCount} обрано)
+              </div>
+              {branches.map((b) => (
+                <label
+                  key={b.id}
+                  className="flex cursor-pointer items-center gap-2 py-1 text-sm"
+                >
+                  <Checkbox
+                    checked={!!selected[b.id]}
+                    onCheckedChange={(v) =>
+                      setSelected((p) => ({ ...p, [b.id]: !!v }))
+                    }
+                  />
+                  <span>{b.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>
+              Скасувати
+            </Button>
+            <Button
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending}
+            >
+              Запропонувати
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
