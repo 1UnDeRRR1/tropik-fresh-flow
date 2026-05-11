@@ -1,50 +1,92 @@
-## Goal
+# Пропозиції менеджерів ЗЕД філіям
 
-Scope all import-manager data access to their own records — at both the database (RLS) and UI (queries) layers. Admins/super_admins keep full access. Branches keep current branch-scoped access.
+Новий процес збору попиту до створення поставки. Існуючі потоки (заявки філій на нерозподілений товар, переказ між філіями, розподіл поставок) лишаються без змін.
 
-## Ownership model
+## 1. База даних (нова міграція)
 
-- **Shipment ownership** = `shipments.import_manager_id` mapped to a user via a new lookup, OR `shipments.created_by` if `import_manager_id` is null. To make this clean, I'll add a helper SQL function `is_shipment_owner(shipment_id, user_id)` that returns true if:
-  - user is admin/super_admin, OR
-  - `shipments.created_by = user_id`, OR
-  - `shipments.import_manager_id` matches a row in `import_managers` whose email equals the user's auth email (existing convention).
-- **Goods (shipment_items)** ownership = ownership of the parent shipment.
-- **Suppliers** ownership = `suppliers.import_manager_id` mapped the same way (admins see all).
-- **Distributions / distribution_items** ownership = ownership of the parent shipment.
-- **Branch requests** ownership = ownership of the referenced shipment; requests with no shipment stay visible to all managers (cannot scope).
-- **Vehicles** = shared. Visible to all staff. Closable only by:
-  - admins, OR
-  - `vehicles.created_by = user_id`, OR
-  - user owns at least one shipment currently attached to the vehicle.
+**Таблиця `manager_offers`** (пропозиції менеджера):
+- `id`, `created_at`, `updated_at`
+- `created_by` (uuid → auth.users) — власник-менеджер
+- `import_manager_id` (uuid → import_managers, для відображення)
+- `product_name`, `origin_country`, `caliber`, `packaging`, `specification`, `variety`
+- `indicative_cost_usd` (numeric, manual), `invoice_cost_usd` (numeric, manual)
+- `prev_indicative_cost_usd`, `prev_invoice_cost_usd` (для підсвітки змін)
+- `offered_pallets` (numeric, nullable)
+- `expires_at` (timestamptz, nullable) — таймер
+- `status` enum `manager_offer_status`: `draft|active|in_work|confirmed|linked|closed|expired|deleted`
+- `linked_shipment_id` (uuid → shipments, nullable)
+- `notes`
 
-## Database changes (migration)
+**Таблиця `manager_offer_responses`** (відгуки філій):
+- `id`, `created_at`, `updated_at`
+- `offer_id` (uuid → manager_offers)
+- `branch_id` (uuid → branches)
+- `requested_pallets` (numeric) — те, що ввела філія
+- `approved_pallets` (numeric, nullable) — коригування менеджера
+- `prev_approved_pallets` (numeric, nullable) — для підсвітки
+- UNIQUE (offer_id, branch_id)
 
-1. Add `public.is_manager_for_shipment(_shipment_id uuid, _user_id uuid) returns boolean` (security definer).
-2. Add `public.is_manager_for_supplier(_supplier_id uuid, _user_id uuid) returns boolean`.
-3. Add `public.can_close_vehicle(_vehicle_id uuid, _user_id uuid) returns boolean`.
-4. Replace `shipments staff select` with: admin OR owner-of-shipment. Keep insert as `is_staff`. Update/delete already check `created_by` / admin.
-5. Replace `shipment_items staff select/update/delete` with checks against `is_manager_for_shipment(shipment_id, auth.uid())`. Insert: must own the parent shipment (or be admin).
-6. Replace `distributions staff all` and `distribution_items staff all` with manager-scoped policies (still allow branch read for own branch).
-7. Replace `branch_requests staff all` and `branch_request_items staff all` with: admin OR (shipment_id IS NULL) OR owner of `shipment_id`. Keep branch policies.
-8. Replace `suppliers read/write staff` with admin OR `is_manager_for_supplier`.
-9. `vehicles staff update` → admin OR `can_close_vehicle`. Keep `vehicles staff read` open to all staff so other managers can attach their goods.
+**Enum + RLS:**
+- Менеджер бачить/редагує лише свої offers (`created_by = auth.uid()` або admin).
+- Філія бачить активні offers (status `active|in_work|confirmed|linked`) та власні `manager_offer_responses`.
+- Філія створює/оновлює лише свій `response` (branch_id = user_branch_id).
+- Менеджер бачить усі responses до власних offers; admin/super_admin — всі.
 
-## UI / query changes
+**Функція `expire_manager_offers()`** — переводить `active` → `expired` коли `expires_at < now()`.
 
-- **Shipments list** (`shipments/index.tsx`): for `import_manager` role, filter by ownership. Admins unchanged.
-- **Distribution list** (`distribution.tsx`) and detail (`distribution/$shipmentId.tsx`): scope to current manager's shipments only.
-- **Suppliers** (`suppliers.tsx`, admin/suppliers): managers see only their own suppliers.
-- **Branch requests** (`branch-requests.tsx`): managers see only requests for their shipments + unassigned ones.
-- **Vehicles / loading plan** UI: show all vehicles to managers (so they can join), but disable "close" button when `can_close_vehicle` would deny.
-- Rely on RLS as the hard boundary; UI filters are belt-and-suspenders (and also drive correct empty states).
+**Тригер для авто-розподілу при linking:**
+Коли offer переходить у `linked` зі заповненим `linked_shipment_id`, для кожного response з `approved_pallets > 0` створюється/оновлюється `distributions` + `distribution_items` для відповідної філії та `shipment_item` (за match-логікою product+country+caliber+packaging+specification+variety).
 
-## Out of scope
+## 2. Маршрути (нові route-файли)
 
-- No changes to branch role visibility.
-- No data migration of existing `import_manager_id` fields — assume they're already correct or admin will fix.
+- `src/routes/_authenticated/manager-offers.tsx` — сторінка менеджера ЗЕД «Запропонувати»
+  - Список власних offers з фільтрами по статусу
+  - Кнопка «Створити пропозицію» → діалог з усіма полями
+  - Кожен offer розгортається: список відгуків філій з можливістю редагувати approved_pallets
+  - Кнопки переходу статусу: Активувати, Взяти в роботу, Підтвердити, Закрити, Видалити
+  - Підсвітка перевищення попиту: `offered/total` червоним, якщо total > offered
+- `src/routes/_authenticated/branch-offers.tsx` — сторінка філії «Пропозиції»
+  - Список активних offers від усіх менеджерів
+  - Інпут «запитати палети» + Send
+  - Колонка статусу з власним requested/approved + дельта (червоне/зелене)
+  - Підсвітка зміни вартості: old → new з кольором
+  - ETA, якщо linked
 
-## Risk / verification
+**Меню (`AppShell`):**
+- import_manager → додати пункт «Запропонувати» (`/manager-offers`)
+- branch → додати пункт «Пропозиції» (`/branch-offers`)
+- admin/super_admin → пункт «Пропозиції (всі)» що веде на `/manager-offers` (бачить всі)
 
-- After migration runs, log in as `qa.manager@tropik.test` and `qa.manager2@tropik.test` and verify each sees only own shipments/goods/distributions and cannot mutate the other's records (RLS denies).
-- Verify admin still sees everything.
-- Verify branch role unchanged.
+## 3. Інтеграція з поставкою
+
+В `src/routes/_authenticated/shipments/$id.products.tsx` (чи де додаються позиції):
+- Після введення product/country/caliber/packaging/specification/variety виконується query `manager_offers` зі статусом `active|in_work|confirmed` і відповідними полями.
+- Якщо знайдено match → діалог: «Створити як новий товар чи прив’язати до існуючої пропозиції?» з кнопками «Створити як новий» і «Прив’язати».
+- При «Прив’язати»: оновити offer.status='linked', offer.linked_shipment_id, прив’язати offer.id до shipment_item (нова nullable колонка `shipment_items.linked_offer_id`). Тригер створює розподіли.
+
+## 4. Логіка підсвітки
+
+- Кошти: порівнюємо `indicative_cost_usd` vs `prev_indicative_cost_usd` — нижче=зелене, вище=червоне.
+- Палети: `approved_pallets` vs `requested_pallets` — нижче=червоне, вище=зелене.
+- Сумарний попит: `SUM(approved_pallets) > offered_pallets` → червона підсвітка `20/27`.
+
+## 5. Файли, що змінюються/створюються
+
+Створюються:
+- supabase migration (таблиці, enum, RLS, функції, тригери)
+- `src/routes/_authenticated/manager-offers.tsx`
+- `src/routes/_authenticated/branch-offers.tsx`
+- `src/components/ManagerOfferDialog.tsx` (форма create/edit)
+- `src/components/OfferShipmentLinkDialog.tsx` (діалог prompt при додаванні товару)
+
+Редагуються:
+- `src/components/AppShell.tsx` — пункти меню за роллю
+- `src/routes/_authenticated/shipments/$id.products.tsx` — детект match + prompt
+
+## 6. Обмеження
+
+- Закупівельні ціни постачальника філіям не показуємо — на сторінці філії лише `indicative_cost_usd`/`invoice_cost_usd`.
+- Філія бачить лише свій response.
+- Існуючі `branch_requests`, `branch_transfer_offers`, `distributions` залишаються незмінними.
+
+Після затвердження плану я виконаю міграцію БД першим кроком, потім UI.

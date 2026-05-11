@@ -501,6 +501,116 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_offer_responses: {
+        Row: {
+          approved_pallets: number | null
+          branch_id: string
+          created_at: string
+          id: string
+          offer_id: string
+          prev_approved_pallets: number | null
+          requested_pallets: number
+          updated_at: string
+        }
+        Insert: {
+          approved_pallets?: number | null
+          branch_id: string
+          created_at?: string
+          id?: string
+          offer_id: string
+          prev_approved_pallets?: number | null
+          requested_pallets?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_pallets?: number | null
+          branch_id?: string
+          created_at?: string
+          id?: string
+          offer_id?: string
+          prev_approved_pallets?: number | null
+          requested_pallets?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_offer_responses_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_offers: {
+        Row: {
+          caliber: string | null
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          import_manager_id: string | null
+          indicative_cost_usd: number | null
+          invoice_cost_usd: number | null
+          linked_shipment_id: string | null
+          notes: string | null
+          offered_pallets: number | null
+          origin_country: string | null
+          packaging: string | null
+          prev_indicative_cost_usd: number | null
+          prev_invoice_cost_usd: number | null
+          product_name: string
+          specification: string | null
+          status: Database["public"]["Enums"]["manager_offer_status"]
+          updated_at: string
+          variety: string | null
+        }
+        Insert: {
+          caliber?: string | null
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          import_manager_id?: string | null
+          indicative_cost_usd?: number | null
+          invoice_cost_usd?: number | null
+          linked_shipment_id?: string | null
+          notes?: string | null
+          offered_pallets?: number | null
+          origin_country?: string | null
+          packaging?: string | null
+          prev_indicative_cost_usd?: number | null
+          prev_invoice_cost_usd?: number | null
+          product_name: string
+          specification?: string | null
+          status?: Database["public"]["Enums"]["manager_offer_status"]
+          updated_at?: string
+          variety?: string | null
+        }
+        Update: {
+          caliber?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          import_manager_id?: string | null
+          indicative_cost_usd?: number | null
+          invoice_cost_usd?: number | null
+          linked_shipment_id?: string | null
+          notes?: string | null
+          offered_pallets?: number | null
+          origin_country?: string | null
+          packaging?: string | null
+          prev_indicative_cost_usd?: number | null
+          prev_invoice_cost_usd?: number | null
+          product_name?: string
+          specification?: string | null
+          status?: Database["public"]["Enums"]["manager_offer_status"]
+          updated_at?: string
+          variety?: string | null
+        }
+        Relationships: []
+      }
       manager_vacations: {
         Row: {
           created_at: string
@@ -703,6 +813,7 @@ export type Database = {
           id: string
           indicative_price: number | null
           invoice_price: number | null
+          linked_offer_id: string | null
           origin_country: string | null
           pallet_count: number | null
           pallet_weight: number | null
@@ -730,6 +841,7 @@ export type Database = {
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
+          linked_offer_id?: string | null
           origin_country?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
@@ -757,6 +869,7 @@ export type Database = {
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
+          linked_offer_id?: string | null
           origin_country?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
@@ -772,6 +885,13 @@ export type Database = {
           weight_kg?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shipment_items_linked_offer_id_fkey"
+            columns: ["linked_offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipment_items_shipment_id_fkey"
             columns: ["shipment_id"]
@@ -1289,6 +1409,7 @@ export type Database = {
         Returns: number
       }
       expire_branch_transfer_offers: { Args: never; Returns: number }
+      expire_manager_offers: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1367,6 +1488,15 @@ export type Database = {
         | "fulfilled"
         | "cancelled"
       distribution_status: "planned" | "dispatched" | "received" | "cancelled"
+      manager_offer_status:
+        | "draft"
+        | "active"
+        | "in_work"
+        | "confirmed"
+        | "linked"
+        | "closed"
+        | "expired"
+        | "deleted"
       shipment_status:
         | "draft"
         | "loading"
@@ -1527,6 +1657,16 @@ export const Constants = {
         "cancelled",
       ],
       distribution_status: ["planned", "dispatched", "received", "cancelled"],
+      manager_offer_status: [
+        "draft",
+        "active",
+        "in_work",
+        "confirmed",
+        "linked",
+        "closed",
+        "expired",
+        "deleted",
+      ],
       shipment_status: [
         "draft",
         "loading",
