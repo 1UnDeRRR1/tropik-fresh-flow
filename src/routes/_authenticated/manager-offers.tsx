@@ -366,6 +366,17 @@ function ManagerOffersPage() {
           qc.invalidateQueries({ queryKey: ["manager-offers"] });
         }}
       />
+
+      <PublishOfferDialog
+        offer={publishOffer}
+        branches={branches ?? []}
+        onClose={() => setPublishOffer(null)}
+        onPublished={() => {
+          setPublishOffer(null);
+          qc.invalidateQueries({ queryKey: ["manager-offers"] });
+          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+        }}
+      />
     </div>
   );
 }
