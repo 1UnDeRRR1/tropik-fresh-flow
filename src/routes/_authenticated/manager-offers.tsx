@@ -514,7 +514,13 @@ function ManagerOffersPage() {
           setCreating(false);
           setEditing(null);
         }}
-        onSaved={() => qc.invalidateQueries({ queryKey: ["manager-offers"] })}
+        onSaved={(saved, wasNew) => {
+          qc.invalidateQueries({ queryKey: ["manager-offers"] });
+          if (wasNew && saved) {
+            // Immediately ask targeting for the freshly-created draft
+            setPublishOffer(saved);
+          }
+        }}
       />
 
       <LinkShipmentDialog
