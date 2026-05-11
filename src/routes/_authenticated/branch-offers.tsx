@@ -17,6 +17,11 @@ import {
   type ManagerOfferResponse,
 } from "@/lib/manager-offers";
 
+type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
+
+const fmtDate = (d: string | null | undefined) =>
+  d ? new Date(d).toLocaleDateString("uk-UA") : "—";
+
 export const Route = createFileRoute("/_authenticated/branch-offers")({
   component: BranchOffersPage,
 });
