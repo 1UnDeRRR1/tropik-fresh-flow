@@ -569,6 +569,11 @@ function OfferEditor({
   onSaved: () => void;
 }) {
   const { user } = useAuth();
+  const dbCountries = useCountryOptions();
+  const COUNTRY_OPTIONS = useMemo(
+    () => Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS])),
+    [dbCountries],
+  );
   const [form, setForm] = useState({
     product_name: "",
     origin_country: "",
