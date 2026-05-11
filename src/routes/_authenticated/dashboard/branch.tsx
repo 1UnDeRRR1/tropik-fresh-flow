@@ -198,7 +198,7 @@ function BranchDashboard() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Філія" subtitle="Призначені вам товари" />
+      <PageHeader title="Філія" subtitle="Підтверджений товар" />
 
       {!branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
@@ -207,9 +207,9 @@ function BranchDashboard() {
       )}
 
       {!rows.length ? (
-        <EmptyState title="Поки немає вхідних поставок" />
+        <EmptyState title="Поки немає підтвердженого товару" />
       ) : (
-        <SectionCard title="Вхідні позиції">
+        <SectionCard title="Підтверджений товар">
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[720px] text-xs">
               <thead>
