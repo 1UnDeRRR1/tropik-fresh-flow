@@ -24,6 +24,130 @@ import {
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const COUNTRY_OPTIONS = [
+  "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
+  "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
+];
+const COUNTRY_ALIASES: Record<string, string> = {
+  greece: "Греція", gr: "Греція",
+  italy: "Італія", it: "Італія",
+  spain: "Іспанія", es: "Іспанія",
+  netherlands: "Нідерланди", holland: "Нідерланди", nl: "Нідерланди",
+  belgium: "Бельгія", be: "Бельгія",
+  poland: "Польща", pl: "Польща",
+  moldova: "Молдова", md: "Молдова",
+  albania: "Албанія", al: "Албанія",
+  macedonia: "Македонія", "north macedonia": "Македонія", mk: "Македонія",
+  turkey: "Туреччина", tr: "Туреччина",
+  france: "Франція", fr: "Франція",
+  germany: "Німеччина", de: "Німеччина",
+  portugal: "Португалія", pt: "Португалія",
+  romania: "Румунія", ro: "Румунія",
+  serbia: "Сербія", rs: "Сербія",
+  georgia: "Грузія", ge: "Грузія",
+  egypt: "Єгипет", eg: "Єгипет",
+  morocco: "Марокко", ma: "Марокко",
+};
+
+function resolveOption(
+  value: string,
+  options: string[],
+  aliases?: Record<string, string>,
+): string | null {
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+  const direct = options.find((o) => o.toLowerCase() === v);
+  if (direct) return direct;
+  if (aliases && aliases[v]) return aliases[v];
+  return null;
+}
+
+function ValidatedAutocomplete({
+  value,
+  onChange,
+  options,
+  aliases,
+  placeholder,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  aliases?: Record<string, string>;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  const canonical = resolveOption(trimmed, options, aliases);
+  const isInvalid = trimmed.length > 0 && !canonical;
+  const showRequired = required && trimmed.length === 0;
+
+  const suggestions =
+    trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
+      ? Array.from(
+          new Set([
+            ...options.filter((o) => o.toLowerCase().startsWith(lower)),
+            ...(aliases
+              ? Object.entries(aliases)
+                  .filter(([k]) => k.startsWith(lower))
+                  .map(([, v]) => v)
+              : []),
+          ]),
+        ).slice(0, 8)
+      : [];
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          // auto-normalize alias to canonical
+          const c = resolveOption(trimmed, options, aliases);
+          if (c && c !== trimmed) onChange(c);
+          setTimeout(() => setFocused(false), 150);
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === "Tab") && suggestions[0]) {
+            e.preventDefault();
+            onChange(suggestions[0]);
+            (e.currentTarget as HTMLInputElement).blur();
+          }
+        }}
+        className={cn(
+          (isInvalid || showRequired) &&
+            "border-destructive bg-destructive/10 focus-visible:ring-destructive",
+        )}
+      />
+      {focused && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-64 overflow-auto rounded-md border border-border bg-popover shadow-xl">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(s);
+              }}
+              className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      {isInvalid && (
+        <div className="mt-1 text-xs text-destructive">Значення відсутнє в базі</div>
+      )}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/manager-offers")({
   component: ManagerOffersPage,
 });
