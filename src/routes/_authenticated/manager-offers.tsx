@@ -289,6 +289,7 @@ function ManagerOffersPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="active">Активні</TabsTrigger>
+          <TabsTrigger value="drafts">Чернетки</TabsTrigger>
           <TabsTrigger value="linked">Прив'язані</TabsTrigger>
           <TabsTrigger value="archive">Архів</TabsTrigger>
           <TabsTrigger value="all">Усі</TabsTrigger>
