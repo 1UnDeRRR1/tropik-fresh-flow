@@ -24,6 +24,8 @@ interface PlanRow {
 export function LoadingPlanManager() {
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
+  const countryOptions = useCountryOptions();
+  const COUNTRIES = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
   const [form, setForm] = useState({
     product_name: "",
     caliber: "",
