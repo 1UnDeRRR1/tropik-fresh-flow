@@ -114,6 +114,20 @@ function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count"
   return (item.product_name ?? "").trim().length > 0 && Number(item.pallet_count ?? 0) > 0;
 }
 
+type RequiredField = "product_name" | "origin_country" | "pallet_count" | "total_weight" | "unit_price";
+
+function getMissingFields(item: ItemRow): RequiredField[] {
+  const missing: RequiredField[] = [];
+  if (!(item.product_name ?? "").trim() || item.product_name === "Новий товар") missing.push("product_name");
+  if (!(item.origin_country ?? "").trim()) missing.push("origin_country");
+  const pc = Number(item.pallet_count ?? 0);
+  if (pc <= 0) missing.push("pallet_count");
+  const totalW = pc * Number(item.pallet_weight ?? 0);
+  if (totalW <= 0) missing.push("total_weight");
+  if (!item.unit_price || Number(item.unit_price) <= 0) missing.push("unit_price");
+  return missing;
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
