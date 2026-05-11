@@ -168,7 +168,7 @@ export function AutocompleteCell({
         className={cn(
           "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
           focused && EXPANDED,
-          invalid && "!border-destructive !bg-destructive/15 ring-2 ring-destructive/60",
+          invalid && "border-destructive/70 ring-1 ring-destructive/40",
           readOnly && "cursor-default",
           className,
         )}
