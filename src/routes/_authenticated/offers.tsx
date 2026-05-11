@@ -120,10 +120,10 @@ function OffersPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,shipment_id,product_name,caliber")
+        .select("id,shipment_id,product_name,caliber,origin_country")
         .in("id", itemIds);
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null }>;
+      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null; origin_country: string | null }>;
     },
   });
 
