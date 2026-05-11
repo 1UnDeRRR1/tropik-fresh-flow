@@ -392,6 +392,8 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
 
   return (
     <div className="space-y-4">
+      <FxRateSection shipment={shipment} shipmentId={shipmentId} qc={qc} />
+
       <SectionCard title="Дата прибуття">
         <div className="space-y-2">
           <Label htmlFor="eta">{etaLocked ? "Розподіл розпочато — редагування заблоковано" : "Можна редагувати до старту розподілу"}</Label>
