@@ -145,11 +145,19 @@ function NewShipment() {
   }, [selectedSupplier, mode, countryTouched, country]);
 
   const days = country ? COUNTRY_DAYS[country] ?? 0 : 0;
-  const computedEta = useMemo(() => {
+  const autoEta = useMemo(() => {
     if (mode === "existing" && selectedVehicle?.eta) return selectedVehicle.eta;
     if (!loadingDate || !country || !days) return "";
     return toDateInputValue(calcArrivalDate(loadingDate, days));
   }, [mode, selectedVehicle, loadingDate, country, days]);
+
+  const computedEta = etaTouched && etaOverride ? etaOverride : autoEta;
+
+  // Reset manual override if mode/vehicle changes substantially
+  useEffect(() => {
+    setEtaOverride("");
+    setEtaTouched(false);
+  }, [mode, selectedVehicle?.id]);
 
   // Preview next sequence per country
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
