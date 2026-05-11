@@ -675,10 +675,28 @@ function OfferEditor({
           <SheetTitle>{offer ? "Редагувати пропозицію" : "Нова пропозиція"}</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-3">
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Товар *</span>
+            <ValidatedAutocomplete
+              value={form.product_name}
+              onChange={(v) => setForm((p) => ({ ...p, product_name: v }))}
+              options={productOptions}
+              placeholder="Почніть вводити назву товару"
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Країна походження</span>
+            <ValidatedAutocomplete
+              value={form.origin_country}
+              onChange={(v) => setForm((p) => ({ ...p, origin_country: v }))}
+              options={COUNTRY_OPTIONS}
+              aliases={COUNTRY_ALIASES}
+              placeholder="Почніть вводити країну"
+            />
+          </label>
           {(
             [
-              ["product_name", "Товар *"],
-              ["origin_country", "Країна походження"],
               ["caliber", "Калібр"],
               ["packaging", "Упаковка"],
               ["specification", "Специфікація"],
