@@ -220,7 +220,7 @@ function BranchDashboard() {
                   <th className="px-2 py-2 font-medium">Країна</th>
                   <th className="px-2 py-2 font-medium">Калібр</th>
                   <th className="px-2 py-2 text-right font-medium">Палет</th>
-                  <th className="px-2 py-2 text-right font-medium">Вага</th>
+                  <th className="px-2 py-2 text-right font-normal">Вага</th>
                   <th className="px-2 py-2 text-right font-medium">Ціна</th>
                   <th className="w-6" />
                 </tr>
