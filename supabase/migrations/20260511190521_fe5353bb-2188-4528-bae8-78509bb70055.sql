@@ -1,0 +1,2 @@
+ALTER TABLE public.manager_offers ADD COLUMN IF NOT EXISTS expected_eta date;
+COMMENT ON COLUMN public.manager_offers.expected_eta IS 'Manually planned expected arrival date set by manager when no real shipment exists yet';

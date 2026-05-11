@@ -231,6 +231,39 @@ function ManagerOffersPage() {
     },
   });
 
+  const linkedShipmentIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (offers ?? [])
+            .map((o) => o.linked_shipment_id)
+            .filter((v): v is string => !!v),
+        ),
+      ),
+    [offers],
+  );
+
+  const { data: linkedShipments } = useQuery({
+    queryKey: ["manager-offer-linked-shipments", linkedShipmentIds],
+    enabled: linkedShipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .select("id,code,eta,arrived_at")
+        .in("id", linkedShipmentIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const shipmentEtaById = useMemo(() => {
+    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
+    for (const s of linkedShipments ?? []) {
+      m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
+    }
+    return m;
+  }, [linkedShipments]);
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
@@ -360,6 +393,24 @@ function ManagerOffersPage() {
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
+                      const realEta = ship?.arrived_at ?? ship?.eta ?? null;
+                      const showEta = realEta ?? o.expected_eta;
+                      if (!showEta) return null;
+                      const isReal = !!realEta;
+                      return (
+                        <div className="mt-1 text-xs">
+                          <span className="text-muted-foreground">{isReal ? "ETA поставки:" : "Очікувана дата:"}</span>{" "}
+                          <b className={isReal ? "text-success" : ""}>
+                            {new Date(showEta).toLocaleDateString("uk-UA")}
+                          </b>
+                          {!isReal && (
+                            <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">(план)</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-muted-foreground">Цільові філії:</span>
                       {o.target_mode === "all" ? (
@@ -585,6 +636,7 @@ function OfferEditor({
     invoice_cost_usd: "",
     offered_pallets: "",
     expires_in_hours: "" as string,
+    expected_eta: "",
     notes: "",
   });
   const [selectiveOpen, setSelectiveOpen] = useState(false);
@@ -604,6 +656,7 @@ function OfferEditor({
           invoice_cost_usd: String(offer.invoice_cost_usd ?? ""),
           offered_pallets: offer.offered_pallets != null ? String(offer.offered_pallets) : "",
           expires_in_hours: "",
+          expected_eta: offer.expected_eta ?? "",
           notes: offer.notes ?? "",
         });
       } else {
@@ -618,6 +671,7 @@ function OfferEditor({
           invoice_cost_usd: "",
           offered_pallets: "",
           expires_in_hours: "",
+          expected_eta: "",
           notes: "",
         });
       }
@@ -698,6 +752,7 @@ function OfferEditor({
         form.expires_in_hours === ""
           ? offer?.expires_at ?? null
           : new Date(Date.now() + Number(form.expires_in_hours) * 3600_000).toISOString(),
+      expected_eta: form.expected_eta || null,
       notes: form.notes.trim() || null,
     };
   };
@@ -874,6 +929,19 @@ function OfferEditor({
               />
             </label>
           </div>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">
+              Очікувана дата прибуття (ETA)
+            </span>
+            <Input
+              type="date"
+              value={form.expected_eta}
+              onChange={(e) => setForm((p) => ({ ...p, expected_eta: e.target.value }))}
+            />
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              Орієнтовна дата для філій. Після прив'язки до поставки використовується реальний ETA авто.
+            </span>
+          </label>
           <label className="block text-sm">
             <span className="mb-1 block text-muted-foreground">Примітки</span>
             <Textarea

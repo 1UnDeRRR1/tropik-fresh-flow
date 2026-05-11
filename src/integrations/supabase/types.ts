@@ -629,6 +629,7 @@ export type Database = {
           caliber: string | null
           created_at: string
           created_by: string
+          expected_eta: string | null
           expires_at: string | null
           id: string
           import_manager_id: string | null
@@ -652,6 +653,7 @@ export type Database = {
           caliber?: string | null
           created_at?: string
           created_by: string
+          expected_eta?: string | null
           expires_at?: string | null
           id?: string
           import_manager_id?: string | null
@@ -675,6 +677,7 @@ export type Database = {
           caliber?: string | null
           created_at?: string
           created_by?: string
+          expected_eta?: string | null
           expires_at?: string | null
           id?: string
           import_manager_id?: string | null
