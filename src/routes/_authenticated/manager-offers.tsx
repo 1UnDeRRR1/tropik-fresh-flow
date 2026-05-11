@@ -241,9 +241,10 @@ function ManagerOffersPage() {
 
   const filtered = useMemo(() => {
     if (tab === "all") return merged;
+    if (tab === "drafts") return merged.filter((o) => o.status === "draft");
     if (tab === "active")
       return merged.filter((o) =>
-        ["draft", "active", "in_work", "confirmed"].includes(o.status),
+        ["active", "in_work", "confirmed"].includes(o.status),
       );
     if (tab === "linked") return merged.filter((o) => o.status === "linked");
     if (tab === "archive")
