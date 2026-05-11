@@ -224,8 +224,8 @@ function ManagerOffersPage() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 text-xs">
-                      <span className="text-muted-foreground">Цільові філії: </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Цільові філії:</span>
                       {o.target_mode === "all" ? (
                         <b>Всі філії</b>
                       ) : (
@@ -237,6 +237,16 @@ function ManagerOffersPage() {
                                 .map((id) => branchById[id] ?? id)
                                 .join(", ")}
                         </b>
+                      )}
+                      {canEditTargeting && o.status !== "draft" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setPublishOffer(o)}
+                        >
+                          <Pencil className="mr-1 h-3 w-3" /> Змінити
+                        </Button>
                       )}
                     </div>
                   </div>
