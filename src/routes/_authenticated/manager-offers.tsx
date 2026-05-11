@@ -605,6 +605,7 @@ function OfferEditor({
           invoice_cost_usd: String(offer.invoice_cost_usd ?? ""),
           offered_pallets: offer.offered_pallets != null ? String(offer.offered_pallets) : "",
           expires_in_hours: "",
+          expected_eta: offer.expected_eta ?? "",
           notes: offer.notes ?? "",
         });
       } else {
