@@ -219,6 +219,21 @@ function ManagerOffersPage() {
                         </span>
                       )}
                     </div>
+                    <div className="mt-1 text-xs">
+                      <span className="text-muted-foreground">Цільові філії: </span>
+                      {o.target_mode === "all" ? (
+                        <b>Всі філії</b>
+                      ) : (
+                        <b>
+                          Вибірково:{" "}
+                          {o.targetBranchIds.length === 0
+                            ? "—"
+                            : o.targetBranchIds
+                                .map((id) => branchById[id] ?? id)
+                                .join(", ")}
+                        </b>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className={cn("text-sm font-semibold", over && "text-destructive")}>
