@@ -412,12 +412,12 @@ function ProductsFullscreen() {
           <Button
             className={cn(
               "w-full",
-              missingPriceCount > 0
+              incompleteCount > 0
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
-            {missingPriceCount > 0 ? `Заповніть ціну (${missingPriceCount})` : "Готово"}
+            {incompleteCount > 0 ? `Заповніть обов'язкові поля (${incompleteCount})` : "Готово"}
           </Button>
         </Link>
       </footer>
