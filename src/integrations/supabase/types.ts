@@ -542,6 +542,42 @@ export type Database = {
           },
         ]
       }
+      manager_offer_targets: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          offer_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          offer_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          offer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_offer_targets_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_offer_targets_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_offers: {
         Row: {
           caliber: string | null
@@ -562,6 +598,7 @@ export type Database = {
           product_name: string
           specification: string | null
           status: Database["public"]["Enums"]["manager_offer_status"]
+          target_mode: Database["public"]["Enums"]["manager_offer_target_mode"]
           updated_at: string
           variety: string | null
         }
@@ -584,6 +621,7 @@ export type Database = {
           product_name: string
           specification?: string | null
           status?: Database["public"]["Enums"]["manager_offer_status"]
+          target_mode?: Database["public"]["Enums"]["manager_offer_target_mode"]
           updated_at?: string
           variety?: string | null
         }
@@ -606,6 +644,7 @@ export type Database = {
           product_name?: string
           specification?: string | null
           status?: Database["public"]["Enums"]["manager_offer_status"]
+          target_mode?: Database["public"]["Enums"]["manager_offer_target_mode"]
           updated_at?: string
           variety?: string | null
         }
@@ -1497,6 +1536,7 @@ export type Database = {
         | "closed"
         | "expired"
         | "deleted"
+      manager_offer_target_mode: "all" | "selected"
       shipment_status:
         | "draft"
         | "loading"
@@ -1667,6 +1707,7 @@ export const Constants = {
         "expired",
         "deleted",
       ],
+      manager_offer_target_mode: ["all", "selected"],
       shipment_status: [
         "draft",
         "loading",

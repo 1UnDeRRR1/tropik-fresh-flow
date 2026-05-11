@@ -20,7 +20,9 @@ import {
   type ManagerOffer,
   type ManagerOfferResponse,
   type ManagerOfferStatus,
+  type ManagerOfferTarget,
 } from "@/lib/manager-offers";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/manager-offers")({
   component: ManagerOffersPage,
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/manager-offers")({
 
 type OfferWithResponses = ManagerOffer & {
   responses: (ManagerOfferResponse & { branch_name?: string })[];
+  targetBranchIds: string[];
 };
 
 function ManagerOffersPage() {
@@ -39,6 +42,7 @@ function ManagerOffersPage() {
   const [tab, setTab] = useState<string>("active");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
+  const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
 
   const { data: branches } = useQuery({
     queryKey: ["branches-min"],
@@ -80,6 +84,19 @@ function ManagerOffersPage() {
     },
   });
 
+  const { data: targets } = useQuery({
+    queryKey: ["manager-offer-targets", offerIds],
+    enabled: offerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offer_targets")
+        .select("*")
+        .in("offer_id", offerIds);
+      if (error) throw error;
+      return (data ?? []) as ManagerOfferTarget[];
+    },
+  });
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
@@ -92,8 +109,11 @@ function ManagerOffersPage() {
       responses: (responses ?? [])
         .filter((r) => r.offer_id === o.id)
         .map((r) => ({ ...r, branch_name: branchById[r.branch_id] })),
+      targetBranchIds: (targets ?? [])
+        .filter((t) => t.offer_id === o.id)
+        .map((t) => t.branch_id),
     }));
-  }, [offers, responses, branchById]);
+  }, [offers, responses, targets, branchById]);
 
   const filtered = useMemo(() => {
     if (tab === "all") return merged;
@@ -199,6 +219,21 @@ function ManagerOffersPage() {
                         </span>
                       )}
                     </div>
+                    <div className="mt-1 text-xs">
+                      <span className="text-muted-foreground">Цільові філії: </span>
+                      {o.target_mode === "all" ? (
+                        <b>Всі філії</b>
+                      ) : (
+                        <b>
+                          Вибірково:{" "}
+                          {o.targetBranchIds.length === 0
+                            ? "—"
+                            : o.targetBranchIds
+                                .map((id) => branchById[id] ?? id)
+                                .join(", ")}
+                        </b>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className={cn("text-sm font-semibold", over && "text-destructive")}>
@@ -214,8 +249,8 @@ function ManagerOffersPage() {
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {o.status === "draft" && (
-                    <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: "active" })}>
-                      Активувати
+                    <Button size="sm" onClick={() => setPublishOffer(o)}>
+                      Запропонувати
                     </Button>
                   )}
                   {o.status === "active" && (
@@ -329,6 +364,17 @@ function ManagerOffersPage() {
         onLinked={() => {
           setLinkOffer(null);
           qc.invalidateQueries({ queryKey: ["manager-offers"] });
+        }}
+      />
+
+      <PublishOfferDialog
+        offer={publishOffer}
+        branches={branches ?? []}
+        onClose={() => setPublishOffer(null)}
+        onPublished={() => {
+          setPublishOffer(null);
+          qc.invalidateQueries({ queryKey: ["manager-offers"] });
+          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
         }}
       />
     </div>
@@ -586,6 +632,133 @@ function LinkShipmentDialog({
               </div>
             </button>
           ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function PublishOfferDialog({
+  offer,
+  branches,
+  onClose,
+  onPublished,
+}: {
+  offer: ManagerOffer | null;
+  branches: { id: string; name: string }[];
+  onClose: () => void;
+  onPublished: () => void;
+}) {
+  const [mode, setMode] = useState<"all" | "selected">("all");
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  // reset when opening for a new offer
+  useMemo(() => {
+    if (offer) {
+      setMode(offer.target_mode ?? "all");
+      setSelected({});
+    }
+  }, [offer?.id]);
+
+  const publish = useMutation({
+    mutationFn: async () => {
+      if (!offer) return;
+      const branchIds =
+        mode === "selected"
+          ? Object.entries(selected)
+              .filter(([, v]) => v)
+              .map(([k]) => k)
+          : [];
+      if (mode === "selected" && branchIds.length === 0) {
+        throw new Error("Виберіть хоча б одну філію");
+      }
+
+      // Reset existing targets for this offer
+      const { error: delErr } = await supabase
+        .from("manager_offer_targets")
+        .delete()
+        .eq("offer_id", offer.id);
+      if (delErr) throw delErr;
+
+      if (mode === "selected" && branchIds.length > 0) {
+        const { error: insErr } = await supabase
+          .from("manager_offer_targets")
+          .insert(branchIds.map((branch_id) => ({ offer_id: offer.id, branch_id })));
+        if (insErr) throw insErr;
+      }
+
+      const { error } = await supabase
+        .from("manager_offers")
+        .update({ target_mode: mode, status: "active" })
+        .eq("id", offer.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Пропозицію опубліковано");
+      onPublished();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  return (
+    <Sheet open={!!offer} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Запропонувати всім філіям чи вибірково?</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4 space-y-4">
+          <div className="flex gap-2">
+            <Button
+              variant={mode === "all" ? "default" : "outline"}
+              onClick={() => setMode("all")}
+              className="flex-1"
+            >
+              Всім
+            </Button>
+            <Button
+              variant={mode === "selected" ? "default" : "outline"}
+              onClick={() => setMode("selected")}
+              className="flex-1"
+            >
+              Вибірково
+            </Button>
+          </div>
+
+          {mode === "selected" && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <div className="text-xs text-muted-foreground">
+                Виберіть філії ({selectedCount} обрано)
+              </div>
+              {branches.map((b) => (
+                <label
+                  key={b.id}
+                  className="flex cursor-pointer items-center gap-2 py-1 text-sm"
+                >
+                  <Checkbox
+                    checked={!!selected[b.id]}
+                    onCheckedChange={(v) =>
+                      setSelected((p) => ({ ...p, [b.id]: !!v }))
+                    }
+                  />
+                  <span>{b.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>
+              Скасувати
+            </Button>
+            <Button
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending}
+            >
+              Запропонувати
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
