@@ -19,10 +19,12 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOffersRouteImport } from './routes/_authenticated/offers'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
+import { Route as AuthenticatedManagerOffersRouteImport } from './routes/_authenticated/manager-offers'
 import { Route as AuthenticatedDistributionRouteImport } from './routes/_authenticated/distribution'
 import { Route as AuthenticatedCostsRouteImport } from './routes/_authenticated/costs'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBranchRequestsRouteImport } from './routes/_authenticated/branch-requests'
+import { Route as AuthenticatedBranchOffersRouteImport } from './routes/_authenticated/branch-offers'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedShipmentsIndexRouteImport } from './routes/_authenticated/shipments/index'
@@ -97,6 +99,12 @@ const AuthenticatedMasterDataRoute = AuthenticatedMasterDataRouteImport.update({
   path: '/master-data',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedManagerOffersRoute =
+  AuthenticatedManagerOffersRouteImport.update({
+    id: '/manager-offers',
+    path: '/manager-offers',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDistributionRoute =
   AuthenticatedDistributionRouteImport.update({
     id: '/distribution',
@@ -117,6 +125,12 @@ const AuthenticatedBranchRequestsRoute =
   AuthenticatedBranchRequestsRouteImport.update({
     id: '/branch-requests',
     path: '/branch-requests',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedBranchOffersRoute =
+  AuthenticatedBranchOffersRouteImport.update({
+    id: '/branch-offers',
+    path: '/branch-offers',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
@@ -258,10 +272,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/branch-offers': typeof AuthenticatedBranchOffersRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/costs': typeof AuthenticatedCostsRoute
   '/distribution': typeof AuthenticatedDistributionRouteWithChildren
+  '/manager-offers': typeof AuthenticatedManagerOffersRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/offers': typeof AuthenticatedOffersRoute
@@ -294,10 +310,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/branch-offers': typeof AuthenticatedBranchOffersRoute
   '/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/costs': typeof AuthenticatedCostsRoute
   '/distribution': typeof AuthenticatedDistributionRouteWithChildren
+  '/manager-offers': typeof AuthenticatedManagerOffersRoute
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/offers': typeof AuthenticatedOffersRoute
@@ -334,10 +352,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/branch-offers': typeof AuthenticatedBranchOffersRoute
   '/_authenticated/branch-requests': typeof AuthenticatedBranchRequestsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/costs': typeof AuthenticatedCostsRoute
   '/_authenticated/distribution': typeof AuthenticatedDistributionRouteWithChildren
+  '/_authenticated/manager-offers': typeof AuthenticatedManagerOffersRoute
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/offers': typeof AuthenticatedOffersRoute
@@ -375,10 +395,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/analytics'
+    | '/branch-offers'
     | '/branch-requests'
     | '/calendar'
     | '/costs'
     | '/distribution'
+    | '/manager-offers'
     | '/master-data'
     | '/notifications'
     | '/offers'
@@ -411,10 +433,12 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/analytics'
+    | '/branch-offers'
     | '/branch-requests'
     | '/calendar'
     | '/costs'
     | '/distribution'
+    | '/manager-offers'
     | '/master-data'
     | '/notifications'
     | '/offers'
@@ -450,10 +474,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
+    | '/_authenticated/branch-offers'
     | '/_authenticated/branch-requests'
     | '/_authenticated/calendar'
     | '/_authenticated/costs'
     | '/_authenticated/distribution'
+    | '/_authenticated/manager-offers'
     | '/_authenticated/master-data'
     | '/_authenticated/notifications'
     | '/_authenticated/offers'
@@ -563,6 +589,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMasterDataRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/manager-offers': {
+      id: '/_authenticated/manager-offers'
+      path: '/manager-offers'
+      fullPath: '/manager-offers'
+      preLoaderRoute: typeof AuthenticatedManagerOffersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/distribution': {
       id: '/_authenticated/distribution'
       path: '/distribution'
@@ -589,6 +622,13 @@ declare module '@tanstack/react-router' {
       path: '/branch-requests'
       fullPath: '/branch-requests'
       preLoaderRoute: typeof AuthenticatedBranchRequestsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/branch-offers': {
+      id: '/_authenticated/branch-offers'
+      path: '/branch-offers'
+      fullPath: '/branch-offers'
+      preLoaderRoute: typeof AuthenticatedBranchOffersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/analytics': {
@@ -819,10 +859,12 @@ const AuthenticatedShipmentsIdRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedBranchOffersRoute: typeof AuthenticatedBranchOffersRoute
   AuthenticatedBranchRequestsRoute: typeof AuthenticatedBranchRequestsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCostsRoute: typeof AuthenticatedCostsRoute
   AuthenticatedDistributionRoute: typeof AuthenticatedDistributionRouteWithChildren
+  AuthenticatedManagerOffersRoute: typeof AuthenticatedManagerOffersRoute
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOffersRoute: typeof AuthenticatedOffersRoute
@@ -843,10 +885,12 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedBranchOffersRoute: AuthenticatedBranchOffersRoute,
   AuthenticatedBranchRequestsRoute: AuthenticatedBranchRequestsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCostsRoute: AuthenticatedCostsRoute,
   AuthenticatedDistributionRoute: AuthenticatedDistributionRouteWithChildren,
+  AuthenticatedManagerOffersRoute: AuthenticatedManagerOffersRoute,
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOffersRoute: AuthenticatedOffersRoute,
@@ -876,13 +920,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox } from "lucide-react";
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -18,17 +18,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isBranch = primaryRole === "branch";
   const isAdmin = hasRole(["admin", "super_admin"]);
+  const isManager = primaryRole === "import_manager";
   const items: NavItem[] = isBranch
     ? [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/distribution", label: "Вільно", icon: Package },
-        { to: "/offers", label: "Пропозиції", icon: Send },
+        { to: "/branch-offers", label: "Пропозиції ЗЕД", icon: Inbox },
+        { to: "/offers", label: "Переказ", icon: Send },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
     : [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/shipments", label: "Поставки", icon: Package },
         ...(isAdmin ? [] : [{ to: "/distribution", label: "Розподіл", icon: Truck }]),
+        ...(isManager || isAdmin
+          ? [{ to: "/manager-offers", label: "Запропонувати", icon: Megaphone }]
+          : []),
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
