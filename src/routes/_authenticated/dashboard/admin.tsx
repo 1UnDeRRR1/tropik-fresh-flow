@@ -259,14 +259,36 @@ function AdminDashboard() {
             <span className="font-normal text-info">{trigCounts?.blue ?? 0}</span>
           </div>
         </Link>
-        <button type="button" onClick={() => setDetail("transit")} className="h-full text-left">
-          <StatCard
-            label="В дорозі"
-            value={`${data?.transit.count ?? 0}(${data?.transit.pallets ?? 0}п)`}
-            hint="Активні поставки"
-            icon={<Truck className="h-5 w-5" />}
-            tone="success"
-          />
+        <button
+          type="button"
+          onClick={() => setDetail("transit")}
+          className="h-full rounded-2xl border-transparent bg-success p-4 text-left text-foreground shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold uppercase tracking-wide">В дорозі</span>
+            <Truck className="h-5 w-5" />
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 text-base font-bold">
+            <span>Поставок</span>
+            <span className="font-normal">{data?.transit.count ?? 0}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-base font-bold">
+            <span>Позицій</span>
+            <span className="font-normal">
+              {(() => {
+                const list = data?.transit.list ?? [];
+                const base = new Set(list.map((r) => r.product.trim().toLowerCase()).filter(Boolean));
+                const total = new Set(
+                  list.map((r) => `${r.product.trim().toLowerCase()}|${(r.country ?? "").trim().toLowerCase()}`).filter((k) => k.split("|")[0]),
+                );
+                return `${base.size}/${total.size}`;
+              })()}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-base font-bold">
+            <span>Палет</span>
+            <span className="font-normal">{data?.transit.pallets ?? 0}</span>
+          </div>
         </button>
         <button type="button" onClick={() => setDetail("branches")} className="h-full text-left">
           <StatCard
