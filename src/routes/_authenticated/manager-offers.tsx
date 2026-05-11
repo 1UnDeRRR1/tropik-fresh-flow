@@ -333,26 +333,43 @@ function ManagerOffersPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {o.responses.map((r) => (
-                            <tr key={r.id} className="border-t border-border">
-                              <td className="py-1">{r.branch_name ?? r.branch_id}</td>
-                              <td className="py-1">{Number(r.requested_pallets)}</td>
-                              <td className="py-1">
-                                <Input
-                                  className="h-8 w-24"
-                                  type="number"
-                                  min={0}
-                                  defaultValue={r.approved_pallets ?? r.requested_pallets}
-                                  onBlur={(e) => {
-                                    const v = e.target.value === "" ? null : Number(e.target.value);
-                                    if (v !== r.approved_pallets) {
-                                      updateApproved.mutate({ id: r.id, approved: v });
-                                    }
-                                  }}
-                                />
-                              </td>
-                            </tr>
-                          ))}
+                          {[...activeResponses, ...excludedResponses].map((r) => {
+                            const excluded = !inScope(r.branch_id);
+                            return (
+                              <tr
+                                key={r.id}
+                                className={cn(
+                                  "border-t border-border",
+                                  excluded && "opacity-60",
+                                )}
+                              >
+                                <td className="py-1">
+                                  {r.branch_name ?? r.branch_id}
+                                  {excluded && (
+                                    <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                                      виключено з таргетингу
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-1">{Number(r.requested_pallets)}</td>
+                                <td className="py-1">
+                                  <Input
+                                    className="h-8 w-24"
+                                    type="number"
+                                    min={0}
+                                    disabled={excluded}
+                                    defaultValue={r.approved_pallets ?? r.requested_pallets}
+                                    onBlur={(e) => {
+                                      const v = e.target.value === "" ? null : Number(e.target.value);
+                                      if (v !== r.approved_pallets) {
+                                        updateApproved.mutate({ id: r.id, approved: v });
+                                      }
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
