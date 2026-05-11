@@ -556,7 +556,7 @@ function OfferEditor({
   open: boolean;
   offer: ManagerOffer | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: ManagerOffer | null, wasNew: boolean) => void;
 }) {
   const { user } = useAuth();
   const [form, setForm] = useState({
