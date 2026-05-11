@@ -156,6 +156,7 @@ function OffersPage() {
         ...o,
         product_name: it?.product_name,
         caliber: it?.caliber ?? null,
+        origin_country: it?.origin_country ?? sh?.country ?? null,
         shipment_code: sh?.code,
         shipment_eta: sh?.eta ?? null,
       };
