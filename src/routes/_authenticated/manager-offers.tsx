@@ -387,8 +387,9 @@ function ManagerOffersPage() {
                         .join(" • ")}
                     </div>
                     <div className="mt-1 text-xs">
-                      Інд: <b>${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</b> · Інв:{" "}
-                      <b>${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</b>
+                      <span className="text-success">Інд: <b>${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</b></span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-destructive">Інв: <b>${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</b></span>
                       {o.expires_at && (
                         <span className="ml-2 text-muted-foreground">
                           Залишок: {formatRemaining(o.expires_at)}
