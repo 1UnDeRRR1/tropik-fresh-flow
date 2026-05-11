@@ -49,8 +49,15 @@ export type ManagerOffer = {
   status: ManagerOfferStatus;
   linked_shipment_id: string | null;
   notes: string | null;
+  target_mode: "all" | "selected";
   created_at: string;
   updated_at: string;
+};
+
+export type ManagerOfferTarget = {
+  id: string;
+  offer_id: string;
+  branch_id: string;
 };
 
 export type ManagerOfferResponse = {
