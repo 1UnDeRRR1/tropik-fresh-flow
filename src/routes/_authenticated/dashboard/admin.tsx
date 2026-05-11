@@ -238,23 +238,25 @@ function AdminDashboard() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link
           to="/admin/triggers"
-          className="block rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-left shadow-sm"
+          className="block rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-left shadow-card"
         >
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground">
-            <AlertTriangle className="h-4 w-4" />
-            Тригери
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold uppercase tracking-wide text-foreground">
+              Тригери
+            </span>
+            <AlertTriangle className="h-5 w-5" />
           </div>
-          <div className="flex items-center justify-between gap-3 text-base font-bold">
+          <div className="mt-2 flex items-center justify-between gap-3 text-base font-bold">
             <span className="text-destructive">Червоні</span>
-            <span className="text-destructive">{trigCounts?.red ?? 0}</span>
+            <span className="font-normal text-destructive">{trigCounts?.red ?? 0}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
             <span className="text-warning">Жовті</span>
-            <span className="text-warning">{trigCounts?.yellow ?? 0}</span>
+            <span className="font-normal text-warning">{trigCounts?.yellow ?? 0}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
             <span className="text-info">Сині</span>
-            <span className="text-info">{trigCounts?.blue ?? 0}</span>
+            <span className="font-normal text-info">{trigCounts?.blue ?? 0}</span>
           </div>
         </Link>
         <button type="button" onClick={() => setDetail("transit")} className="text-left">
