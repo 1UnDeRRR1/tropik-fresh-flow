@@ -634,8 +634,11 @@ function OfferEditor({
     packaging: "",
     specification: "",
     variety: "",
-    indicative_cost_usd: "",
-    invoice_cost_usd: "",
+    price_per_kg: "",
+    price_currency: "EUR" as "EUR" | "USD",
+    freight_amount: "",
+    freight_currency: "EUR" as "EUR" | "USD",
+    pallet_weight: "",
     offered_pallets: "",
     expires_in_hours: "" as string,
     expected_eta: "",
@@ -647,19 +650,29 @@ function OfferEditor({
   useEffect(() => {
     if (open) {
       if (offer) {
+        const o = offer as ManagerOffer & {
+          price_per_kg?: number | null;
+          price_currency?: "EUR" | "USD" | null;
+          freight_amount?: number | null;
+          freight_currency?: "EUR" | "USD" | null;
+          pallet_weight?: number | null;
+        };
         setForm({
-          product_name: offer.product_name ?? "",
-          origin_country: offer.origin_country ?? "",
-          caliber: offer.caliber ?? "",
-          packaging: offer.packaging ?? "",
-          specification: offer.specification ?? "",
-          variety: offer.variety ?? "",
-          indicative_cost_usd: String(offer.indicative_cost_usd ?? ""),
-          invoice_cost_usd: String(offer.invoice_cost_usd ?? ""),
-          offered_pallets: offer.offered_pallets != null ? String(offer.offered_pallets) : "",
+          product_name: o.product_name ?? "",
+          origin_country: o.origin_country ?? "",
+          caliber: o.caliber ?? "",
+          packaging: o.packaging ?? "",
+          specification: o.specification ?? "",
+          variety: o.variety ?? "",
+          price_per_kg: o.price_per_kg != null ? String(o.price_per_kg) : "",
+          price_currency: (o.price_currency ?? "EUR") as "EUR" | "USD",
+          freight_amount: o.freight_amount != null ? String(o.freight_amount) : "",
+          freight_currency: (o.freight_currency ?? "EUR") as "EUR" | "USD",
+          pallet_weight: o.pallet_weight != null ? String(o.pallet_weight) : "",
+          offered_pallets: o.offered_pallets != null ? String(o.offered_pallets) : "",
           expires_in_hours: "",
-          expected_eta: offer.expected_eta ?? "",
-          notes: offer.notes ?? "",
+          expected_eta: o.expected_eta ?? "",
+          notes: o.notes ?? "",
         });
       } else {
         setForm({
@@ -669,8 +682,11 @@ function OfferEditor({
           packaging: "",
           specification: "",
           variety: "",
-          indicative_cost_usd: "",
-          invoice_cost_usd: "",
+          price_per_kg: "",
+          price_currency: "EUR",
+          freight_amount: "",
+          freight_currency: "EUR",
+          pallet_weight: "",
           offered_pallets: "",
           expires_in_hours: "",
           expected_eta: "",
@@ -693,10 +709,51 @@ function OfferEditor({
     },
   });
 
-  const productValid = !!resolveOption(form.product_name, productOptions);
-  const countryValid =
-    form.origin_country.trim() === "" ||
-    !!resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+  const productCanonical = resolveOption(form.product_name, productOptions);
+  const productValid = !!productCanonical;
+  const countryCanonical = resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+  const countryValid = !!countryCanonical;
+
+  const priceNum = Number(form.price_per_kg);
+  const freightNum = Number(form.freight_amount);
+  const palletWeightNum = Number(form.pallet_weight);
+  const priceValid = form.price_per_kg !== "" && Number.isFinite(priceNum) && priceNum > 0;
+  const freightValid = form.freight_amount !== "" && Number.isFinite(freightNum) && freightNum > 0;
+  const palletValid = form.pallet_weight !== "" && Number.isFinite(palletWeightNum) && palletWeightNum > 0;
+
+  // Live FX (EUR/USD) — snapshot taken on publish, fresh while editing draft.
+  const { data: fxRow } = useQuery({
+    queryKey: ["latest-eur-usd-rate"],
+    queryFn: () => getLatestEurUsdRate(),
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const fxRate = fxRow?.rate ?? null;
+
+  // Customs reference for selected product+country
+  const { data: customsRef } = useQuery<CustomsRefRow | null>({
+    queryKey: ["offer-customs-ref", productCanonical, countryCanonical],
+    enabled: open && !!productCanonical && !!countryCanonical,
+    queryFn: () => fetchCustomsRef(productCanonical!, countryCanonical!),
+  });
+
+  const calc = useMemo(() => {
+    if (!priceValid || !freightValid || !palletValid || !countryCanonical) return null;
+    return computeOfferCost({
+      pricePerKg: priceNum,
+      priceCurrency: form.price_currency,
+      freight: freightNum,
+      freightCurrency: form.freight_currency,
+      palletWeight: palletWeightNum,
+      fxRate,
+      country: countryCanonical,
+      ref: customsRef ?? null,
+    });
+  }, [
+    priceValid, freightValid, palletValid, countryCanonical,
+    priceNum, form.price_currency, freightNum, form.freight_currency,
+    palletWeightNum, fxRate, customsRef,
+  ]);
 
   const { data: existingTargets = EMPTY_TARGET_IDS } = useQuery({
     queryKey: ["manager-offer-editor-targets", offer?.id],
@@ -726,19 +783,16 @@ function OfferEditor({
     setSelectedBranches({});
   }, [open, offer?.id, offer?.target_mode, existingTargets]);
 
-  const canSubmit = productValid && countryValid;
+  const canSubmit =
+    productValid && countryValid && priceValid && freightValid && palletValid && !!calc;
 
   const buildPayload = () => {
-    const productCanonical = resolveOption(form.product_name, productOptions);
     if (!productCanonical) throw new Error("Товар має відповідати базі");
-
-    const countryCanonical =
-      form.origin_country.trim() === ""
-        ? null
-        : resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
-    if (form.origin_country.trim() !== "" && !countryCanonical) {
-      throw new Error("Країна має відповідати базі");
-    }
+    if (!countryCanonical) throw new Error("Країна обовʼязкова та має відповідати базі");
+    if (!priceValid) throw new Error("Введіть ціну за кг");
+    if (!freightValid) throw new Error("Введіть фрахт");
+    if (!palletValid) throw new Error("Введіть вагу палети");
+    if (!calc) throw new Error("Не вдалося розрахувати собівартість");
 
     return {
       product_name: productCanonical,
@@ -747,8 +801,15 @@ function OfferEditor({
       packaging: form.packaging.trim() || null,
       specification: form.specification.trim() || null,
       variety: form.variety.trim() || null,
-      indicative_cost_usd: form.indicative_cost_usd === "" ? 0 : Number(form.indicative_cost_usd),
-      invoice_cost_usd: form.invoice_cost_usd === "" ? 0 : Number(form.invoice_cost_usd),
+      price_per_kg: priceNum,
+      price_currency: form.price_currency,
+      freight_amount: freightNum,
+      freight_currency: form.freight_currency,
+      pallet_weight: palletWeightNum,
+      fx_rate_snapshot: fxRate,
+      fx_rate_date: fxRow?.date ?? null,
+      indicative_cost_usd: Number(calc.indicativeCost.toFixed(4)),
+      invoice_cost_usd: Number(calc.invoiceCost.toFixed(4)),
       offered_pallets: form.offered_pallets === "" ? null : Number(form.offered_pallets),
       expires_at:
         form.expires_in_hours === ""
