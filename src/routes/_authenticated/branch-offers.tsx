@@ -56,7 +56,7 @@ function BranchOffersPage() {
   const { data: shipments } = useQuery({
     queryKey: ["branch-offer-shipments"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("shipments").select("id,code,eta");
+      const { data, error } = await supabase.from("shipments").select("id,code,eta,arrived_at");
       if (error) throw error;
       return data ?? [];
     },
@@ -69,8 +69,8 @@ function BranchOffersPage() {
   }, [myResponses]);
 
   const shipmentById = useMemo(() => {
-    const m: Record<string, { code: string; eta: string | null }> = {};
-    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta };
+    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
+    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
     return m;
   }, [shipments]);
 
