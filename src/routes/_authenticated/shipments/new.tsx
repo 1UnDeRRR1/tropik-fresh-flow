@@ -76,6 +76,7 @@ function NewShipment() {
 
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
+  const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
 
   const { data: managerProfiles } = useQuery({
