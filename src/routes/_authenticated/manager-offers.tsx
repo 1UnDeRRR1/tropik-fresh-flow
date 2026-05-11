@@ -231,6 +231,39 @@ function ManagerOffersPage() {
     },
   });
 
+  const linkedShipmentIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (offers ?? [])
+            .map((o) => o.linked_shipment_id)
+            .filter((v): v is string => !!v),
+        ),
+      ),
+    [offers],
+  );
+
+  const { data: linkedShipments } = useQuery({
+    queryKey: ["manager-offer-linked-shipments", linkedShipmentIds],
+    enabled: linkedShipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .select("id,code,eta,arrived_at")
+        .in("id", linkedShipmentIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const shipmentEtaById = useMemo(() => {
+    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
+    for (const s of linkedShipments ?? []) {
+      m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
+    }
+    return m;
+  }, [linkedShipments]);
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
