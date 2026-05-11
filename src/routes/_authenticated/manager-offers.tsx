@@ -408,6 +408,7 @@ function ManagerOffersPage() {
           setPublishOffer(null);
           qc.invalidateQueries({ queryKey: ["manager-offers"] });
           qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+          qc.invalidateQueries({ queryKey: ["manager-offer-targets-edit"] });
         }}
       />
     </div>
