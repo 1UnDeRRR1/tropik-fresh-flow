@@ -30,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/manager-offers")({
 
 type OfferWithResponses = ManagerOffer & {
   responses: (ManagerOfferResponse & { branch_name?: string })[];
+  targetBranchIds: string[];
 };
 
 function ManagerOffersPage() {
@@ -41,6 +42,7 @@ function ManagerOffersPage() {
   const [tab, setTab] = useState<string>("active");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
+  const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
 
   const { data: branches } = useQuery({
     queryKey: ["branches-min"],
