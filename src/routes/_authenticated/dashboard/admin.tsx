@@ -235,10 +235,10 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-4">
         <Link
           to="/admin/triggers"
-          className="block rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-left shadow-card"
+          className="block h-full rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-left shadow-card"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide text-foreground">
@@ -259,7 +259,7 @@ function AdminDashboard() {
             <span className="font-normal text-info">{trigCounts?.blue ?? 0}</span>
           </div>
         </Link>
-        <button type="button" onClick={() => setDetail("transit")} className="text-left">
+        <button type="button" onClick={() => setDetail("transit")} className="h-full text-left">
           <StatCard
             label="В дорозі"
             value={`${data?.transit.count ?? 0}(${data?.transit.pallets ?? 0}п)`}
@@ -268,7 +268,7 @@ function AdminDashboard() {
             tone="success"
           />
         </button>
-        <button type="button" onClick={() => setDetail("branches")} className="text-left">
+        <button type="button" onClick={() => setDetail("branches")} className="h-full text-left">
           <StatCard
             label="Філія товари"
             value={data?.branchCount ?? 0}
@@ -277,7 +277,7 @@ function AdminDashboard() {
             tone="warning"
           />
         </button>
-        <button type="button" onClick={() => setDetail("products")} className="text-left">
+        <button type="button" onClick={() => setDetail("products")} className="h-full text-left">
           <StatCard
             label="Товари по філіям"
             value={formatPositions(countPositionsFromGroups(data?.products ?? [], (p) => p.product))}
