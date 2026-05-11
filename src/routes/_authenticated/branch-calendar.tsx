@@ -101,7 +101,7 @@ function BranchCalendarPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta,arrived_at,country")
+        .select("id,code,eta,arrived_at,country,import_manager_name")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Ship[];
