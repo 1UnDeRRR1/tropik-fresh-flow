@@ -301,6 +301,8 @@ export type Database = {
           id: string
           pallets: number | null
           qty: number
+          reserved_offer_id: string | null
+          reserved_pallets: number
           shipment_item_id: string
           unit_cost: number | null
         }
@@ -309,6 +311,8 @@ export type Database = {
           id?: string
           pallets?: number | null
           qty?: number
+          reserved_offer_id?: string | null
+          reserved_pallets?: number
           shipment_item_id: string
           unit_cost?: number | null
         }
@@ -317,6 +321,8 @@ export type Database = {
           id?: string
           pallets?: number | null
           qty?: number
+          reserved_offer_id?: string | null
+          reserved_pallets?: number
           shipment_item_id?: string
           unit_cost?: number | null
         }
@@ -326,6 +332,13 @@ export type Database = {
             columns: ["distribution_id"]
             isOneToOne: false
             referencedRelation: "distributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_items_reserved_offer_id_fkey"
+            columns: ["reserved_offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
             referencedColumns: ["id"]
           },
           {
@@ -1517,6 +1530,10 @@ export type Database = {
       shipment_item_free_pallets: {
         Args: { _item_id: string }
         Returns: number
+      }
+      sync_manager_offer_distribution: {
+        Args: { _offer_id: string }
+        Returns: undefined
       }
       user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
