@@ -184,7 +184,14 @@ function BranchOffersPage() {
                   )}
                   {ship && (
                     <div className="mt-1 text-xs">
-                      Поставка <b>{ship.code}</b> · ETA {ship.eta ?? "—"}
+                      <div>
+                        Поставка <b>{ship.code}</b>
+                      </div>
+                      {ship.eta && (
+                        <div className="text-success">
+                          Очікувана дата прибуття: <b>{new Date(ship.eta).toLocaleDateString("uk-UA")}</b>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
