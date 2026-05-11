@@ -25,6 +25,8 @@ import {
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
+import { getLatestEurUsdRate } from "@/lib/currency";
 
 const FALLBACK_COUNTRY_OPTIONS = [
   "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
