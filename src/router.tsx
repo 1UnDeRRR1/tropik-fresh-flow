@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, keepPreviousData } from "@tanstack/react-query";
 import { createRouter, Link, useRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { translateError } from "@/lib/mutation-helpers";
