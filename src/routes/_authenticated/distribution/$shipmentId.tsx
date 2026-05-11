@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useBlocker } from "@tanstack/react-router";
+import { createFileRoute, Link, useBlocker, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Minus, Plus, RotateCcw, Save } from "lucide-react";
@@ -42,6 +42,7 @@ type Grid = Record<string, Record<string, number>>;
 
 function DistributionMatrix() {
   const { shipmentId } = Route.useParams();
+  const router = useRouter();
   const qc = useQueryClient();
   const [grid, setGrid] = useState<Grid>({});
   const [initial, setInitial] = useState<Grid>({});
@@ -215,6 +216,11 @@ function DistributionMatrix() {
       toast.success("Розподіл збережено");
       qc.invalidateQueries({ queryKey: ["matrix", shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+      if (router.history.canGoBack()) {
+        router.history.back();
+      } else {
+        void router.navigate({ to: "/shipments/$id", params: { id: shipmentId } });
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
