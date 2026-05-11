@@ -25,6 +25,8 @@ import {
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
+import { getLatestEurUsdRate } from "@/lib/currency";
 
 const FALLBACK_COUNTRY_OPTIONS = [
   "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
@@ -632,8 +634,11 @@ function OfferEditor({
     packaging: "",
     specification: "",
     variety: "",
-    indicative_cost_usd: "",
-    invoice_cost_usd: "",
+    price_per_kg: "",
+    price_currency: "EUR" as "EUR" | "USD",
+    freight_amount: "",
+    freight_currency: "EUR" as "EUR" | "USD",
+    pallet_weight: "",
     offered_pallets: "",
     expires_in_hours: "" as string,
     expected_eta: "",
@@ -645,19 +650,29 @@ function OfferEditor({
   useEffect(() => {
     if (open) {
       if (offer) {
+        const o = offer as ManagerOffer & {
+          price_per_kg?: number | null;
+          price_currency?: "EUR" | "USD" | null;
+          freight_amount?: number | null;
+          freight_currency?: "EUR" | "USD" | null;
+          pallet_weight?: number | null;
+        };
         setForm({
-          product_name: offer.product_name ?? "",
-          origin_country: offer.origin_country ?? "",
-          caliber: offer.caliber ?? "",
-          packaging: offer.packaging ?? "",
-          specification: offer.specification ?? "",
-          variety: offer.variety ?? "",
-          indicative_cost_usd: String(offer.indicative_cost_usd ?? ""),
-          invoice_cost_usd: String(offer.invoice_cost_usd ?? ""),
-          offered_pallets: offer.offered_pallets != null ? String(offer.offered_pallets) : "",
+          product_name: o.product_name ?? "",
+          origin_country: o.origin_country ?? "",
+          caliber: o.caliber ?? "",
+          packaging: o.packaging ?? "",
+          specification: o.specification ?? "",
+          variety: o.variety ?? "",
+          price_per_kg: o.price_per_kg != null ? String(o.price_per_kg) : "",
+          price_currency: (o.price_currency ?? "EUR") as "EUR" | "USD",
+          freight_amount: o.freight_amount != null ? String(o.freight_amount) : "",
+          freight_currency: (o.freight_currency ?? "EUR") as "EUR" | "USD",
+          pallet_weight: o.pallet_weight != null ? String(o.pallet_weight) : "",
+          offered_pallets: o.offered_pallets != null ? String(o.offered_pallets) : "",
           expires_in_hours: "",
-          expected_eta: offer.expected_eta ?? "",
-          notes: offer.notes ?? "",
+          expected_eta: o.expected_eta ?? "",
+          notes: o.notes ?? "",
         });
       } else {
         setForm({
@@ -667,8 +682,11 @@ function OfferEditor({
           packaging: "",
           specification: "",
           variety: "",
-          indicative_cost_usd: "",
-          invoice_cost_usd: "",
+          price_per_kg: "",
+          price_currency: "EUR",
+          freight_amount: "",
+          freight_currency: "EUR",
+          pallet_weight: "",
           offered_pallets: "",
           expires_in_hours: "",
           expected_eta: "",
@@ -691,10 +709,51 @@ function OfferEditor({
     },
   });
 
-  const productValid = !!resolveOption(form.product_name, productOptions);
-  const countryValid =
-    form.origin_country.trim() === "" ||
-    !!resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+  const productCanonical = resolveOption(form.product_name, productOptions);
+  const productValid = !!productCanonical;
+  const countryCanonical = resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+  const countryValid = !!countryCanonical;
+
+  const priceNum = Number(form.price_per_kg);
+  const freightNum = Number(form.freight_amount);
+  const palletWeightNum = Number(form.pallet_weight);
+  const priceValid = form.price_per_kg !== "" && Number.isFinite(priceNum) && priceNum > 0;
+  const freightValid = form.freight_amount !== "" && Number.isFinite(freightNum) && freightNum > 0;
+  const palletValid = form.pallet_weight !== "" && Number.isFinite(palletWeightNum) && palletWeightNum > 0;
+
+  // Live FX (EUR/USD) — snapshot taken on publish, fresh while editing draft.
+  const { data: fxRow } = useQuery({
+    queryKey: ["latest-eur-usd-rate"],
+    queryFn: () => getLatestEurUsdRate(),
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const fxRate = fxRow?.rate ?? null;
+
+  // Customs reference for selected product+country
+  const { data: customsRef } = useQuery<CustomsRefRow | null>({
+    queryKey: ["offer-customs-ref", productCanonical, countryCanonical],
+    enabled: open && !!productCanonical && !!countryCanonical,
+    queryFn: () => fetchCustomsRef(productCanonical!, countryCanonical!),
+  });
+
+  const calc = useMemo(() => {
+    if (!priceValid || !freightValid || !palletValid || !countryCanonical) return null;
+    return computeOfferCost({
+      pricePerKg: priceNum,
+      priceCurrency: form.price_currency,
+      freight: freightNum,
+      freightCurrency: form.freight_currency,
+      palletWeight: palletWeightNum,
+      fxRate,
+      country: countryCanonical,
+      ref: customsRef ?? null,
+    });
+  }, [
+    priceValid, freightValid, palletValid, countryCanonical,
+    priceNum, form.price_currency, freightNum, form.freight_currency,
+    palletWeightNum, fxRate, customsRef,
+  ]);
 
   const { data: existingTargets = EMPTY_TARGET_IDS } = useQuery({
     queryKey: ["manager-offer-editor-targets", offer?.id],
@@ -724,19 +783,16 @@ function OfferEditor({
     setSelectedBranches({});
   }, [open, offer?.id, offer?.target_mode, existingTargets]);
 
-  const canSubmit = productValid && countryValid;
+  const canSubmit =
+    productValid && countryValid && priceValid && freightValid && palletValid && !!calc;
 
   const buildPayload = () => {
-    const productCanonical = resolveOption(form.product_name, productOptions);
     if (!productCanonical) throw new Error("Товар має відповідати базі");
-
-    const countryCanonical =
-      form.origin_country.trim() === ""
-        ? null
-        : resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
-    if (form.origin_country.trim() !== "" && !countryCanonical) {
-      throw new Error("Країна має відповідати базі");
-    }
+    if (!countryCanonical) throw new Error("Країна обовʼязкова та має відповідати базі");
+    if (!priceValid) throw new Error("Введіть ціну за кг");
+    if (!freightValid) throw new Error("Введіть фрахт");
+    if (!palletValid) throw new Error("Введіть вагу палети");
+    if (!calc) throw new Error("Не вдалося розрахувати собівартість");
 
     return {
       product_name: productCanonical,
@@ -745,8 +801,15 @@ function OfferEditor({
       packaging: form.packaging.trim() || null,
       specification: form.specification.trim() || null,
       variety: form.variety.trim() || null,
-      indicative_cost_usd: form.indicative_cost_usd === "" ? 0 : Number(form.indicative_cost_usd),
-      invoice_cost_usd: form.invoice_cost_usd === "" ? 0 : Number(form.invoice_cost_usd),
+      price_per_kg: priceNum,
+      price_currency: form.price_currency,
+      freight_amount: freightNum,
+      freight_currency: form.freight_currency,
+      pallet_weight: palletWeightNum,
+      fx_rate_snapshot: fxRate,
+      fx_rate_date: fxRow?.date ?? null,
+      indicative_cost_usd: Number(calc.indicativeCost.toFixed(4)),
+      invoice_cost_usd: Number(calc.invoiceCost.toFixed(4)),
       offered_pallets: form.offered_pallets === "" ? null : Number(form.offered_pallets),
       expires_at:
         form.expires_in_hours === ""
@@ -867,13 +930,14 @@ function OfferEditor({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-muted-foreground">Країна походження</span>
+            <span className="mb-1 block text-muted-foreground">Країна походження *</span>
             <ValidatedAutocomplete
               value={form.origin_country}
               onChange={(v) => setForm((p) => ({ ...p, origin_country: v }))}
               options={COUNTRY_OPTIONS}
               aliases={COUNTRY_ALIASES}
               placeholder="Почніть вводити країну"
+              required
             />
           </label>
           {(
@@ -892,25 +956,111 @@ function OfferEditor({
               />
             </label>
           ))}
+          <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
+              Розрахунок собівартості (внутрішнє)
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Ціна за кг *</span>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  value={form.price_per_kg}
+                  placeholder="напр. 1.50"
+                  onChange={(e) => setForm((p) => ({ ...p, price_per_kg: e.target.value }))}
+                  className={cn(!priceValid && "border-destructive bg-destructive/10")}
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Валюта</span>
+                <select
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                  value={form.price_currency}
+                  onChange={(e) => setForm((p) => ({ ...p, price_currency: e.target.value as "EUR" | "USD" }))}
+                >
+                  <option value="EUR">€ EUR</option>
+                  <option value="USD">$ USD</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Фрахт *</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.freight_amount}
+                  placeholder="напр. 3500"
+                  onChange={(e) => setForm((p) => ({ ...p, freight_amount: e.target.value }))}
+                  className={cn(!freightValid && "border-destructive bg-destructive/10")}
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-muted-foreground">Валюта</span>
+                <select
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                  value={form.freight_currency}
+                  onChange={(e) => setForm((p) => ({ ...p, freight_currency: e.target.value as "EUR" | "USD" }))}
+                >
+                  <option value="EUR">€ EUR</option>
+                  <option value="USD">$ USD</option>
+                </select>
+              </label>
+            </div>
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Вага палети, кг *</span>
+              <Input
+                type="number"
+                step="0.1"
+                value={form.pallet_weight}
+                placeholder="напр. 750"
+                onChange={(e) => setForm((p) => ({ ...p, pallet_weight: e.target.value }))}
+                className={cn(!palletValid && "border-destructive bg-destructive/10")}
+              />
+            </label>
+
+            <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">FX EUR/USD</span>
+                <span className="tabular-nums">
+                  {fxRate ? fxRate.toFixed(4) : "—"}
+                  {fxRow?.date && <span className="ml-1 text-muted-foreground">({fxRow.date})</span>}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Митниця</span>
+                <span>{customsRef ? "знайдено" : (productCanonical && countryCanonical ? "не знайдено" : "—")}</span>
+              </div>
+              {calc && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Очік. палет / фура</span>
+                    <span className="tabular-nums">{calc.expectedPallets}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Транспорт, $/кг</span>
+                    <span className="tabular-nums">${calc.transportPerKg.toFixed(4)}</span>
+                  </div>
+                  <div className="mt-2 flex justify-between border-t border-border pt-2">
+                    <span className="font-semibold text-success">Індикативна</span>
+                    <span className="font-bold tabular-nums text-success">${calc.indicativeCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-destructive">Інвойсна</span>
+                    <span className="font-bold tabular-nums text-destructive">${calc.invoiceCost.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              {!calc && (
+                <div className="text-muted-foreground">
+                  Заповніть товар, країну, ціну, фрахт та вагу палети для розрахунку.
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">
-              <span className="mb-1 block text-muted-foreground">Індикативна, USD</span>
-              <Input
-                type="number"
-                step="0.01"
-                value={form.indicative_cost_usd}
-                onChange={(e) => setForm((p) => ({ ...p, indicative_cost_usd: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-muted-foreground">Інвойсна, USD</span>
-              <Input
-                type="number"
-                step="0.01"
-                value={form.invoice_cost_usd}
-                onChange={(e) => setForm((p) => ({ ...p, invoice_cost_usd: e.target.value }))}
-              />
-            </label>
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Палет (опціонально)</span>
               <Input

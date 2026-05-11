@@ -631,6 +631,10 @@ export type Database = {
           created_by: string
           expected_eta: string | null
           expires_at: string | null
+          freight_amount: number | null
+          freight_currency: string
+          fx_rate_date: string | null
+          fx_rate_snapshot: number | null
           id: string
           import_manager_id: string | null
           indicative_cost_usd: number | null
@@ -640,8 +644,11 @@ export type Database = {
           offered_pallets: number | null
           origin_country: string | null
           packaging: string | null
+          pallet_weight: number | null
           prev_indicative_cost_usd: number | null
           prev_invoice_cost_usd: number | null
+          price_currency: string
+          price_per_kg: number | null
           product_name: string
           specification: string | null
           status: Database["public"]["Enums"]["manager_offer_status"]
@@ -655,6 +662,10 @@ export type Database = {
           created_by: string
           expected_eta?: string | null
           expires_at?: string | null
+          freight_amount?: number | null
+          freight_currency?: string
+          fx_rate_date?: string | null
+          fx_rate_snapshot?: number | null
           id?: string
           import_manager_id?: string | null
           indicative_cost_usd?: number | null
@@ -664,8 +675,11 @@ export type Database = {
           offered_pallets?: number | null
           origin_country?: string | null
           packaging?: string | null
+          pallet_weight?: number | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
+          price_currency?: string
+          price_per_kg?: number | null
           product_name: string
           specification?: string | null
           status?: Database["public"]["Enums"]["manager_offer_status"]
@@ -679,6 +693,10 @@ export type Database = {
           created_by?: string
           expected_eta?: string | null
           expires_at?: string | null
+          freight_amount?: number | null
+          freight_currency?: string
+          fx_rate_date?: string | null
+          fx_rate_snapshot?: number | null
           id?: string
           import_manager_id?: string | null
           indicative_cost_usd?: number | null
@@ -688,8 +706,11 @@ export type Database = {
           offered_pallets?: number | null
           origin_country?: string | null
           packaging?: string | null
+          pallet_weight?: number | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
+          price_currency?: string
+          price_per_kg?: number | null
           product_name?: string
           specification?: string | null
           status?: Database["public"]["Enums"]["manager_offer_status"]
