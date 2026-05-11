@@ -158,6 +158,14 @@ type OfferWithResponses = ManagerOffer & {
   targetBranchIds: string[];
 };
 
+const EMPTY_TARGET_IDS: string[] = [];
+
+function toBranchSelection(branchIds: string[]) {
+  const next: Record<string, boolean> = {};
+  for (const branchId of branchIds) next[branchId] = true;
+  return next;
+}
+
 function ManagerOffersPage() {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
