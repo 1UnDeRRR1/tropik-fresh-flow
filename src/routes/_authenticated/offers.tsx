@@ -138,10 +138,10 @@ function OffersPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta")
+        .select("id,code,eta,country")
         .in("id", shipmentIds);
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; code: string; eta: string | null }>;
+      return (data ?? []) as Array<{ id: string; code: string; eta: string | null; country: string | null }>;
     },
   });
 
