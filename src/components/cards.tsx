@@ -53,7 +53,7 @@ export function StatCard({
       )}
     </div>
   );
-  return to ? <Link to={to} hash={hash}>{body}</Link> : body;
+  return to ? <Link to={to} hash={hash} className="block h-full">{body}</Link> : body;
 }
 
 export function SectionCard({
