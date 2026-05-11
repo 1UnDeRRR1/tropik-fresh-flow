@@ -391,12 +391,39 @@ function NewShipment() {
   );
 
   const etaField = (
-    <div className="rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-sm">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">Розрахункова дата прибуття</div>
-      <div className="mt-1 text-base font-semibold text-foreground">
-        {computedEta
-          ? new Date(computedEta).toLocaleDateString("uk-UA", { weekday: "short", day: "2-digit", month: "long", year: "numeric" })
-          : "Заповніть країну та дату завантаження"}
+    <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
+      <Label htmlFor="eta-new" className="text-xs uppercase tracking-wider text-muted-foreground">
+        Дата прибуття (ETA)
+      </Label>
+      <Input
+        id="eta-new"
+        type="date"
+        value={computedEta}
+        onChange={(e) => {
+          setEtaOverride(e.target.value);
+          setEtaTouched(true);
+        }}
+      />
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>
+          {etaTouched && etaOverride
+            ? "Ручне налаштування"
+            : autoEta
+              ? "Автоматично з країни та дати завантаження"
+              : "Заповніть країну та дату завантаження"}
+        </span>
+        {etaTouched && (
+          <button
+            type="button"
+            className="text-primary hover:underline"
+            onClick={() => {
+              setEtaOverride("");
+              setEtaTouched(false);
+            }}
+          >
+            Скинути до авто
+          </button>
+        )}
       </div>
     </div>
   );
