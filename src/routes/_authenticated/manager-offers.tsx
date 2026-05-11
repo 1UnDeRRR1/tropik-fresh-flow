@@ -701,6 +701,7 @@ function OfferEditor({
         form.expires_in_hours === ""
           ? offer?.expires_at ?? null
           : new Date(Date.now() + Number(form.expires_in_hours) * 3600_000).toISOString(),
+      expected_eta: form.expected_eta || null,
       notes: form.notes.trim() || null,
     };
   };
