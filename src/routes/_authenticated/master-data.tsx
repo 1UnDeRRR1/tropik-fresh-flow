@@ -21,6 +21,7 @@ function MasterDataPage() {
           <Link to="/admin/managers" className="rounded-xl bg-secondary p-3">Менеджери</Link>
           <Link to="/admin/suppliers" className="rounded-xl bg-secondary p-3">Постачальники</Link>
           <Link to="/admin/products" className="rounded-xl bg-secondary p-3">Товари</Link>
+          <Link to="/admin/countries-master" className="rounded-xl bg-secondary p-3">Країни</Link>
           <Link to="/admin/countries" className="rounded-xl bg-secondary p-3">Логістика</Link>
           <Link to="/analytics" className="rounded-xl bg-secondary p-3">Аналітика</Link>
           <Link to="/admin/triggers" className="rounded-xl bg-destructive/10 p-3 text-destructive">Тригери</Link>

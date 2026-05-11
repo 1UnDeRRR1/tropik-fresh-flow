@@ -44,6 +44,7 @@ import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminManagersRouteImport } from './routes/_authenticated/admin/managers'
 import { Route as AuthenticatedAdminLoadingPlanRouteImport } from './routes/_authenticated/admin/loading-plan'
 import { Route as AuthenticatedAdminCustomsRouteImport } from './routes/_authenticated/admin/customs'
+import { Route as AuthenticatedAdminCountriesMasterRouteImport } from './routes/_authenticated/admin/countries-master'
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
@@ -243,6 +244,12 @@ const AuthenticatedAdminCustomsRoute =
     path: '/customs',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminCountriesMasterRoute =
+  AuthenticatedAdminCountriesMasterRouteImport.update({
+    id: '/countries-master',
+    path: '/countries-master',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCountriesRoute =
   AuthenticatedAdminCountriesRouteImport.update({
     id: '/countries',
@@ -287,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/transfers': typeof AuthenticatedTransfersRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
+  '/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
   '/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
@@ -326,6 +334,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
+  '/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
   '/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
@@ -368,6 +377,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/countries': typeof AuthenticatedAdminCountriesRoute
+  '/_authenticated/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
   '/_authenticated/admin/customs': typeof AuthenticatedAdminCustomsRoute
   '/_authenticated/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/_authenticated/admin/managers': typeof AuthenticatedAdminManagersRoute
@@ -410,6 +420,7 @@ export interface FileRouteTypes {
     | '/transfers'
     | '/admin/branches'
     | '/admin/countries'
+    | '/admin/countries-master'
     | '/admin/customs'
     | '/admin/loading-plan'
     | '/admin/managers'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/branches'
     | '/admin/countries'
+    | '/admin/countries-master'
     | '/admin/customs'
     | '/admin/loading-plan'
     | '/admin/managers'
@@ -490,6 +502,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/countries'
+    | '/_authenticated/admin/countries-master'
     | '/_authenticated/admin/customs'
     | '/_authenticated/admin/loading-plan'
     | '/_authenticated/admin/managers'
@@ -764,6 +777,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCustomsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/countries-master': {
+      id: '/_authenticated/admin/countries-master'
+      path: '/countries-master'
+      fullPath: '/admin/countries-master'
+      preLoaderRoute: typeof AuthenticatedAdminCountriesMasterRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/countries': {
       id: '/_authenticated/admin/countries'
       path: '/countries'
@@ -798,6 +818,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminCountriesRoute: typeof AuthenticatedAdminCountriesRoute
+  AuthenticatedAdminCountriesMasterRoute: typeof AuthenticatedAdminCountriesMasterRoute
   AuthenticatedAdminCustomsRoute: typeof AuthenticatedAdminCustomsRoute
   AuthenticatedAdminLoadingPlanRoute: typeof AuthenticatedAdminLoadingPlanRoute
   AuthenticatedAdminManagersRoute: typeof AuthenticatedAdminManagersRoute
@@ -812,6 +833,8 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminCountriesRoute: AuthenticatedAdminCountriesRoute,
+  AuthenticatedAdminCountriesMasterRoute:
+    AuthenticatedAdminCountriesMasterRoute,
   AuthenticatedAdminCustomsRoute: AuthenticatedAdminCustomsRoute,
   AuthenticatedAdminLoadingPlanRoute: AuthenticatedAdminLoadingPlanRoute,
   AuthenticatedAdminManagersRoute: AuthenticatedAdminManagersRoute,
