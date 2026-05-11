@@ -885,6 +885,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
         "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
         focused && EXPANDED_RIGHT + " text-right",
         readOnly && "cursor-default",
+        invalid && "text-destructive placeholder:text-destructive font-semibold",
       )}
     />
   );
