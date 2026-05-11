@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             {!isBranch && (
-              <div className="self-end -mb-px">
+              <div className="self-end mb-1.5">
                 <FxRateBadge />
               </div>
             )}
