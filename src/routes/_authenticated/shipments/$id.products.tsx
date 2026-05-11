@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
-const COUNTRY_OPTIONS = [
+const FALLBACK_COUNTRY_OPTIONS = [
   "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
   "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
 ];
