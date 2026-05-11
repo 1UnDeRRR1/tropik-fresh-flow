@@ -24,13 +24,13 @@ export function StatCard({
   const body = (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card p-4 shadow-card transition active:scale-[0.98]",
+        "h-full rounded-2xl border border-border bg-card p-4 shadow-card transition active:scale-[0.98]",
         tone === "brand" && "border-transparent bg-brand text-brand-foreground",
         tone === "primary" && "border-transparent bg-primary text-primary-foreground",
         tone === "danger" && "border-transparent bg-destructive text-destructive-foreground shadow-lg",
         tone === "warning" && "border-transparent bg-warning text-foreground shadow-lg",
-        tone === "success" && "border-transparent bg-success text-brand-foreground shadow-lg",
-        tone === "info" && "border-transparent bg-info text-brand-foreground shadow-lg",
+        tone === "success" && "border-transparent bg-success text-foreground shadow-lg",
+        tone === "info" && "border-transparent bg-info text-foreground shadow-lg",
         pulse && "animate-pulse",
       )}
     >
