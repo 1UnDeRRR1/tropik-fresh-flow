@@ -654,23 +654,31 @@ function OfferEditor({
         notes: form.notes.trim() || null,
       };
       if (offer) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("manager_offers")
           .update(payload)
-          .eq("id", offer.id);
+          .eq("id", offer.id)
+          .select()
+          .single();
         if (error) throw error;
+        return { saved: data as ManagerOffer, wasNew: false };
       } else {
-        const { error } = await supabase.from("manager_offers").insert({
-          ...payload,
-          created_by: user!.id,
-          status: "draft",
-        });
+        const { data, error } = await supabase
+          .from("manager_offers")
+          .insert({
+            ...payload,
+            created_by: user!.id,
+            status: "draft",
+          })
+          .select()
+          .single();
         if (error) throw error;
+        return { saved: data as ManagerOffer, wasNew: true };
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Збережено");
-      onSaved();
+      onSaved(result?.saved ?? null, result?.wasNew ?? false);
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
