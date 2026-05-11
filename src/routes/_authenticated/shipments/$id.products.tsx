@@ -629,10 +629,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
-  const defaultWeightFor = (name: string) => {
-    const match = products.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
-    return Number(match?.default_pallet_weight ?? 0);
-  };
   const [form, setForm] = useState({
     product_name: normalizedProductName,
     variety: item.variety ?? "",
@@ -640,7 +636,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
-    pallet_weight: Number(item.pallet_weight ?? 0) || defaultWeightFor(normalizedProductName),
+    pallet_weight: Number(item.pallet_weight ?? 0),
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
@@ -648,16 +644,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     if (readOnly) return;
     dirtyRef.current = true;
-    setForm((f) => {
-      const next = { ...f, [k]: v };
-      // Auto-fill pallet_weight when product changes and weight is empty
-      if (k === "product_name" && (!f.pallet_weight || f.pallet_weight <= 0)) {
-        const w = defaultWeightFor(String(v));
-        if (w > 0) next.pallet_weight = w;
-      }
-      return next;
-    });
+    setForm((f) => ({ ...f, [k]: v }));
   };
+
+  // Field-level validation
+  const palletCountNum = Number(form.pallet_count) || 0;
+  const palletWeightNum = Number(form.pallet_weight) || 0;
+  const totalWeightNum = palletCountNum * palletWeightNum;
+  const invalidProduct = !form.product_name.trim();
+  const invalidCountry = !form.origin_country.trim();
+  const invalidPallets = palletCountNum <= 0;
+  const invalidWeight = totalWeightNum <= 0;
+  const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
   const palletWeight = Number(form.pallet_weight) || 0;
 
