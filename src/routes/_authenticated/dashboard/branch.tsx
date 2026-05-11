@@ -250,7 +250,7 @@ function BranchDashboard() {
                         );
                       })()}
                     </td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
+                    <td className="px-2 py-2 text-right font-normal tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
                     <td className="px-2 py-2 text-right">
                       <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
                     </td>
