@@ -305,18 +305,18 @@ function CostLine({
   const changed = prev != null && delta !== 0;
   const toneCls = tone === "success" ? "text-success" : "text-destructive";
   return (
-    <div className={cn("font-semibold", toneCls)}>
+    <div className={cn("text-sm", toneCls)}>
       <span>{label}: </span>
-      <b className="tabular-nums">${curr.toFixed(2)}</b>
+      <b className="font-bold tabular-nums">${curr.toFixed(2)}</b>
       {changed && (
-        <span className="ml-1 text-[10px] font-normal text-muted-foreground line-through">
+        <span className="ml-1 text-xs font-normal text-muted-foreground line-through">
           ${Number(prev).toFixed(2)}
         </span>
       )}
       {changed && (
         <span
           className={cn(
-            "ml-1 text-[10px] font-semibold",
+            "ml-1 text-xs font-bold",
             delta < 0 ? "text-success" : "text-destructive",
           )}
         >
