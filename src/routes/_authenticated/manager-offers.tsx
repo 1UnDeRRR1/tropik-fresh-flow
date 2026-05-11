@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, ChevronDown, ChevronUp, Link2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -510,16 +511,14 @@ function ManagerOffersPage() {
       <OfferEditor
         open={creating || !!editing}
         offer={editing}
+        branches={branches ?? []}
         onClose={() => {
           setCreating(false);
           setEditing(null);
         }}
-        onSaved={(saved, wasNew) => {
+        onSaved={() => {
           qc.invalidateQueries({ queryKey: ["manager-offers"] });
-          if (wasNew && saved) {
-            // Immediately ask targeting for the freshly-created draft
-            setPublishOffer(saved);
-          }
+          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
         }}
       />
 
@@ -550,13 +549,15 @@ function ManagerOffersPage() {
 function OfferEditor({
   open,
   offer,
+  branches,
   onClose,
   onSaved,
 }: {
   open: boolean;
   offer: ManagerOffer | null;
+  branches: { id: string; name: string }[];
   onClose: () => void;
-  onSaved: (saved: ManagerOffer | null, wasNew: boolean) => void;
+  onSaved: () => void;
 }) {
   const { user } = useAuth();
   const [form, setForm] = useState({
@@ -572,9 +573,10 @@ function OfferEditor({
     expires_in_hours: "" as string,
     notes: "",
   });
+  const [selectiveOpen, setSelectiveOpen] = useState(false);
+  const [selectedBranches, setSelectedBranches] = useState<Record<string, boolean>>({});
 
-  // Sync when opening
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       if (offer) {
         setForm({
@@ -606,7 +608,6 @@ function OfferEditor({
         });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, offer?.id]);
 
   const { data: productOptions = [] } = useQuery({
@@ -627,58 +628,155 @@ function OfferEditor({
     form.origin_country.trim() === "" ||
     !!resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
 
-  const save = useMutation({
-    mutationFn: async () => {
-      const productCanonical = resolveOption(form.product_name, productOptions);
-      if (!productCanonical) throw new Error("Товар має відповідати базі");
-      const countryCanonical =
-        form.origin_country.trim() === ""
-          ? null
-          : resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
-      if (form.origin_country.trim() !== "" && !countryCanonical)
-        throw new Error("Країна має відповідати базі");
-      const payload = {
-        product_name: productCanonical,
-        origin_country: countryCanonical,
-        caliber: form.caliber.trim() || null,
-        packaging: form.packaging.trim() || null,
-        specification: form.specification.trim() || null,
-        variety: form.variety.trim() || null,
-        indicative_cost_usd: form.indicative_cost_usd === "" ? 0 : Number(form.indicative_cost_usd),
-        invoice_cost_usd: form.invoice_cost_usd === "" ? 0 : Number(form.invoice_cost_usd),
-        offered_pallets: form.offered_pallets === "" ? null : Number(form.offered_pallets),
-        expires_at:
-          form.expires_in_hours === ""
-            ? offer?.expires_at ?? null
-            : new Date(Date.now() + Number(form.expires_in_hours) * 3600_000).toISOString(),
-        notes: form.notes.trim() || null,
-      };
+  const { data: existingTargets = [] } = useQuery({
+    queryKey: ["manager-offer-editor-targets", offer?.id],
+    enabled: !!offer && open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offer_targets")
+        .select("branch_id")
+        .eq("offer_id", offer!.id);
+      if (error) throw error;
+      return (data ?? []).map((item) => item.branch_id as string);
+    },
+  });
+
+  useEffect(() => {
+    if (!open) {
+      setSelectiveOpen(false);
+      setSelectedBranches({});
+      return;
+    }
+
+    if (offer?.target_mode === "selected") {
+      const next: Record<string, boolean> = {};
+      for (const branchId of existingTargets) next[branchId] = true;
+      setSelectedBranches(next);
+      return;
+    }
+
+    setSelectedBranches({});
+  }, [open, offer?.id, offer?.target_mode, existingTargets]);
+
+  const canSubmit = productValid && countryValid;
+
+  const buildPayload = () => {
+    const productCanonical = resolveOption(form.product_name, productOptions);
+    if (!productCanonical) throw new Error("Товар має відповідати базі");
+
+    const countryCanonical =
+      form.origin_country.trim() === ""
+        ? null
+        : resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+    if (form.origin_country.trim() !== "" && !countryCanonical) {
+      throw new Error("Країна має відповідати базі");
+    }
+
+    return {
+      product_name: productCanonical,
+      origin_country: countryCanonical,
+      caliber: form.caliber.trim() || null,
+      packaging: form.packaging.trim() || null,
+      specification: form.specification.trim() || null,
+      variety: form.variety.trim() || null,
+      indicative_cost_usd: form.indicative_cost_usd === "" ? 0 : Number(form.indicative_cost_usd),
+      invoice_cost_usd: form.invoice_cost_usd === "" ? 0 : Number(form.invoice_cost_usd),
+      offered_pallets: form.offered_pallets === "" ? null : Number(form.offered_pallets),
+      expires_at:
+        form.expires_in_hours === ""
+          ? offer?.expires_at ?? null
+          : new Date(Date.now() + Number(form.expires_in_hours) * 3600_000).toISOString(),
+      notes: form.notes.trim() || null,
+    };
+  };
+
+  const publish = useMutation({
+    mutationFn: async ({
+      mode,
+      branchIds,
+    }: {
+      mode: "all" | "selected";
+      branchIds: string[];
+    }) => {
+      if (!user) throw new Error("Користувача не знайдено");
+      if (mode === "selected" && branchIds.length === 0) {
+        throw new Error("Виберіть хоча б одну філію");
+      }
+
+      const payload = buildPayload();
+
       if (offer) {
-        const { data, error } = await supabase
+        const { error: offerError } = await supabase
           .from("manager_offers")
-          .update(payload)
-          .eq("id", offer.id)
-          .select()
-          .single();
-        if (error) throw error;
-        return { saved: data as ManagerOffer, wasNew: false };
-      } else {
-        const { data, error } = await supabase
+          .update({
+            ...payload,
+            status: "active",
+            target_mode: mode,
+          })
+          .eq("id", offer.id);
+        if (offerError) throw offerError;
+
+        const { error: deleteError } = await supabase
+          .from("manager_offer_targets")
+          .delete()
+          .eq("offer_id", offer.id);
+        if (deleteError) throw deleteError;
+
+        if (mode === "selected") {
+          const { error: targetError } = await supabase
+            .from("manager_offer_targets")
+            .insert(branchIds.map((branch_id) => ({ offer_id: offer.id, branch_id })));
+          if (targetError) throw targetError;
+        }
+
+        return;
+      }
+
+      let createdOfferId: string | null = null;
+      try {
+        const initialStatus = mode === "all" ? "active" : "draft";
+        const { data: createdOffer, error: createError } = await supabase
           .from("manager_offers")
           .insert({
             ...payload,
-            created_by: user!.id,
-            status: "draft",
+            created_by: user.id,
+            status: initialStatus,
+            target_mode: mode,
           })
-          .select()
+          .select("id")
           .single();
-        if (error) throw error;
-        return { saved: data as ManagerOffer, wasNew: true };
+        if (createError) throw createError;
+
+        const newOfferId = createdOffer.id;
+        createdOfferId = newOfferId;
+
+        if (mode === "selected") {
+          const { error: targetError } = await supabase
+            .from("manager_offer_targets")
+            .insert(branchIds.map((branch_id) => ({ offer_id: newOfferId, branch_id })));
+          if (targetError) throw targetError;
+
+          const { error: activateError } = await supabase
+            .from("manager_offers")
+            .update({ status: "active", target_mode: "selected" })
+            .eq("id", newOfferId);
+          if (activateError) throw activateError;
+        }
+      } catch (error) {
+        if (createdOfferId) {
+          await supabase.from("manager_offers").delete().eq("id", createdOfferId);
+        }
+        throw error;
       }
     },
-    onSuccess: (result) => {
-      toast.success("Збережено");
-      onSaved(result?.saved ?? null, result?.wasNew ?? false);
+    onSuccess: (_result, variables) => {
+      toast.success(
+        variables.mode === "all"
+          ? "Пропозицію відправлено всім філіям"
+          : "Пропозицію відправлено вибраним філіям",
+      );
+      onSaved();
+      setSelectiveOpen(false);
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -771,19 +869,70 @@ function OfferEditor({
               onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
             />
           </label>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose}>
-              Скасувати
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
+              disabled={publish.isPending || !canSubmit}
+            >
+              Відправити всім
             </Button>
             <Button
-              onClick={() => save.mutate()}
-              disabled={save.isPending || !productValid || !countryValid}
+              variant="outline"
+              onClick={() => setSelectiveOpen(true)}
+              disabled={publish.isPending || !canSubmit}
             >
-              Зберегти
+              Відправити вибірково
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Скасувати
             </Button>
           </div>
         </div>
       </SheetContent>
+
+      <Dialog open={selectiveOpen} onOpenChange={setSelectiveOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Виберіть філії для пропозиції</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+              {branches.map((branch) => (
+                <label key={branch.id} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={!!selectedBranches[branch.id]}
+                    onCheckedChange={(checked) =>
+                      setSelectedBranches((prev) => ({
+                        ...prev,
+                        [branch.id]: !!checked,
+                      }))
+                    }
+                  />
+                  <span>{branch.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSelectiveOpen(false)}>
+                Скасувати
+              </Button>
+              <Button
+                onClick={() =>
+                  publish.mutate({
+                    mode: "selected",
+                    branchIds: Object.entries(selectedBranches)
+                      .filter(([, checked]) => checked)
+                      .map(([branchId]) => branchId),
+                  })
+                }
+                disabled={publish.isPending}
+              >
+                Відправити вибірково
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

@@ -1439,6 +1439,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_manager_offer: {
+        Args: { _branch_id: string; _offer_id: string }
+        Returns: boolean
+      }
       can_close_vehicle: {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
@@ -1493,6 +1497,10 @@ export type Database = {
       next_vehicle_sequence: {
         Args: { p_country_code: string }
         Returns: number
+      }
+      owns_manager_offer: {
+        Args: { _offer_id: string; _user_id: string }
+        Returns: boolean
       }
       recompute_vehicle_item_costs: {
         Args: { _shipment_id: string; _vehicle_id: string }
