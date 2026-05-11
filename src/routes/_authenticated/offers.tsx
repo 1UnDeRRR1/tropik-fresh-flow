@@ -168,12 +168,12 @@ function OffersPage() {
 
   // Group sent offers by shipment+product
   const sentGroups = useMemo(() => {
-    const map = new Map<string, { code: string; product: string; caliber?: string | null; rows: OfferRow[] }>();
+    const map = new Map<string, { code: string; product: string; caliber?: string | null; origin_country?: string | null; rows: OfferRow[] }>();
     for (const o of sent) {
       const code = o.shipment_code ?? "—";
       const product = o.product_name ?? "—";
       const key = `${code}::${product}::${o.shipment_item_id}`;
-      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, rows: [] });
+      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, origin_country: o.origin_country ?? null, rows: [] });
       map.get(key)!.rows.push(o);
     }
     return [...map.values()];
