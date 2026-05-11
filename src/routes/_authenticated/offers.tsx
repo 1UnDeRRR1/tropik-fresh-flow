@@ -251,7 +251,7 @@ function OffersPage() {
                     <StatusChip status={o.status} />
                   </div>
                   <div className="text-sm font-semibold">
-                    {o.shipment_code ?? "—"} · {o.product_name ?? "—"}
+                    {o.shipment_code ?? "—"} · {o.product_name ?? "—"}{o.origin_country ? ` (${o.origin_country})` : ""}
                     {o.caliber ? ` · ${o.caliber}` : ""}
                     {" · "}
                     <span className="text-primary">{o.offered_pallets}п</span>
