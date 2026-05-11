@@ -311,7 +311,7 @@ function OffersPage() {
             <div className="mt-4 space-y-4">
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
                 <div className="font-semibold">
-                  {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}
+                  {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}{actioning.origin_country ? ` (${actioning.origin_country})` : ""}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_eta)}
