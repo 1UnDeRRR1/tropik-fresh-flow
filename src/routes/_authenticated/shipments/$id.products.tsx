@@ -141,7 +141,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
       const sh = s.data as {
