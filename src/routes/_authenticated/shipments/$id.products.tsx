@@ -372,9 +372,8 @@ function ProductsFullscreen() {
                 <th className="px-1.5 py-2 text-left font-medium">Калібр</th>
                 <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
-                <th className="px-1.5 py-2 text-right font-medium">Вага</th>
+                <th className="px-1.5 py-2 text-right font-medium">Вага, кг</th>
                 <th className="px-1.5 py-2 text-right font-medium min-w-[92px]">Ціна</th>
-                <th className="px-1.5 py-2 text-right font-medium text-muted-foreground">Собів. $</th>
                 <th className="px-1.5 py-2"></th>
               </tr>
             </thead>
@@ -692,7 +691,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
+  const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
+
   return (
+    <>
     <tr className="border-b border-border/40">
       <td className="relative px-0.5 py-0.5">
         <AutocompleteCell
@@ -734,28 +736,31 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
+            const nextCount = v > max ? max : v;
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
-              set("pallet_count", max);
-            } else {
-              set("pallet_count", v);
             }
+            // Keep TOTAL weight constant: recompute per-pallet weight
+            const currentTotal = (Number(form.pallet_count) || 0) * palletWeight;
+            const newPerPallet = nextCount > 0 ? currentTotal / nextCount : 0;
+            if (readOnly) return;
+            dirtyRef.current = true;
+            setForm((f) => ({ ...f, pallet_count: nextCount, pallet_weight: newPerPallet }));
           }}
         />
       </td>
       <td className="relative px-0.5 py-0.5">
         <NumCell
-          value={form.pallet_weight}
+          value={Math.round(totalWeight)}
           readOnly={readOnly}
-          step="0.1"
-          onChange={(v) => {
-            // Re-check capacity given new per-pallet weight
+          step="1"
+          onChange={(totalKgInput) => {
             const palletCount = Number(form.pallet_count) || 0;
-            const newKg = palletCount * v;
-            if (otherKg + newKg > MAX_WEIGHT_KG) {
+            if (otherKg + totalKgInput > MAX_WEIGHT_KG) {
               toast.error(`Перевищено ліміт: макс ${MAX_WEIGHT_KG} кг на машину`);
             }
-            set("pallet_weight", v);
+            const newPerPallet = palletCount > 0 ? totalKgInput / palletCount : totalKgInput;
+            set("pallet_weight", newPerPallet);
           }}
         />
       </td>
@@ -768,15 +773,23 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-1.5 py-0.5 text-right">
-        <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="xs" />
-      </td>
       <td className="px-0.5 py-0.5">
         <button type="button" onClick={remove} disabled={readOnly} className="p-1 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </td>
     </tr>
+    <tr className="border-b border-border">
+      <td colSpan={9} className="bg-muted/30 px-3 py-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Собівартість $/кг
+          </span>
+          <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
+        </div>
+      </td>
+    </tr>
+    </>
   );
 }
 
