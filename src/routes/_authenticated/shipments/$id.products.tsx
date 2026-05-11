@@ -256,7 +256,7 @@ function ProductsFullscreen() {
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
   const country = toUaCountry(sh?.country) || "—";
-  const missingPriceCount = validItems.filter((i) => !i.unit_price || Number(i.unit_price) <= 0).length;
+  const incompleteFromValid = validItems.filter((i) => getMissingFields(i).length > 0).length;
   const incompleteItems = items.filter((i) => Number(i.pallet_count ?? 0) > 0 && getMissingFields(i).length > 0);
   const incompleteCount = incompleteItems.length;
   const hasRealPallets = validItems.length > 0;
