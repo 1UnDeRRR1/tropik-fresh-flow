@@ -276,7 +276,7 @@ function OffersPage() {
               {sentGroups.map((g, i) => (
                 <li key={i} className="rounded-xl border border-border bg-card p-3">
                   <div className="text-sm font-semibold">
-                    {g.code} · {g.product}
+                    {g.code} · {g.product}{g.origin_country ? ` (${g.origin_country})` : ""}
                     {g.caliber ? ` · ${g.caliber}` : ""}
                   </div>
                   <ul className="mt-2 space-y-1">
