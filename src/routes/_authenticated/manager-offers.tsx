@@ -249,8 +249,8 @@ function ManagerOffersPage() {
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {o.status === "draft" && (
-                    <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: "active" })}>
-                      Активувати
+                    <Button size="sm" onClick={() => setPublishOffer(o)}>
+                      Запропонувати
                     </Button>
                   )}
                   {o.status === "active" && (
