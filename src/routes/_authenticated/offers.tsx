@@ -45,6 +45,7 @@ type OfferRow = {
   // hydrated client-side from branch views
   product_name?: string;
   caliber?: string | null;
+  origin_country?: string | null;
   shipment_code?: string;
   shipment_eta?: string | null;
 };
@@ -119,10 +120,10 @@ function OffersPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,shipment_id,product_name,caliber")
+        .select("id,shipment_id,product_name,caliber,origin_country")
         .in("id", itemIds);
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null }>;
+      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null; origin_country: string | null }>;
     },
   });
 
@@ -137,10 +138,10 @@ function OffersPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta")
+        .select("id,code,eta,country")
         .in("id", shipmentIds);
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; code: string; eta: string | null }>;
+      return (data ?? []) as Array<{ id: string; code: string; eta: string | null; country: string | null }>;
     },
   });
 
@@ -155,6 +156,7 @@ function OffersPage() {
         ...o,
         product_name: it?.product_name,
         caliber: it?.caliber ?? null,
+        origin_country: it?.origin_country ?? sh?.country ?? null,
         shipment_code: sh?.code,
         shipment_eta: sh?.eta ?? null,
       };
@@ -166,12 +168,12 @@ function OffersPage() {
 
   // Group sent offers by shipment+product
   const sentGroups = useMemo(() => {
-    const map = new Map<string, { code: string; product: string; caliber?: string | null; rows: OfferRow[] }>();
+    const map = new Map<string, { code: string; product: string; caliber?: string | null; origin_country?: string | null; rows: OfferRow[] }>();
     for (const o of sent) {
       const code = o.shipment_code ?? "—";
       const product = o.product_name ?? "—";
       const key = `${code}::${product}::${o.shipment_item_id}`;
-      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, rows: [] });
+      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, origin_country: o.origin_country ?? null, rows: [] });
       map.get(key)!.rows.push(o);
     }
     return [...map.values()];
@@ -249,7 +251,7 @@ function OffersPage() {
                     <StatusChip status={o.status} />
                   </div>
                   <div className="text-sm font-semibold">
-                    {o.shipment_code ?? "—"} · {o.product_name ?? "—"}
+                    {o.shipment_code ?? "—"} · {o.product_name ?? "—"}{o.origin_country ? ` (${o.origin_country})` : ""}
                     {o.caliber ? ` · ${o.caliber}` : ""}
                     {" · "}
                     <span className="text-primary">{o.offered_pallets}п</span>
@@ -274,7 +276,7 @@ function OffersPage() {
               {sentGroups.map((g, i) => (
                 <li key={i} className="rounded-xl border border-border bg-card p-3">
                   <div className="text-sm font-semibold">
-                    {g.code} · {g.product}
+                    {g.code} · {g.product}{g.origin_country ? ` (${g.origin_country})` : ""}
                     {g.caliber ? ` · ${g.caliber}` : ""}
                   </div>
                   <ul className="mt-2 space-y-1">
@@ -309,7 +311,7 @@ function OffersPage() {
             <div className="mt-4 space-y-4">
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
                 <div className="font-semibold">
-                  {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}
+                  {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}{actioning.origin_country ? ` (${actioning.origin_country})` : ""}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_eta)}
