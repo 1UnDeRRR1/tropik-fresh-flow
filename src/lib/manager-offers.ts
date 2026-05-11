@@ -46,6 +46,7 @@ export type ManagerOffer = {
   prev_invoice_cost_usd: number | null;
   offered_pallets: number | null;
   expires_at: string | null;
+  expected_eta: string | null;
   status: ManagerOfferStatus;
   linked_shipment_id: string | null;
   notes: string | null;
