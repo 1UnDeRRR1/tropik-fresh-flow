@@ -142,7 +142,7 @@ function BranchOffersPage() {
             <div key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-base font-bold">{o.product_name}</span>
                     {o.origin_country && (
                       <span className="text-sm text-muted-foreground">{o.origin_country}</span>
@@ -157,6 +157,24 @@ function BranchOffersPage() {
                     >
                       {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
                     </span>
+                    {ship && (
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-success">
+                        <span>
+                          Поставка <b>{ship.code}</b>
+                        </span>
+                        {ship.arrived_at ? (
+                          <span>
+                            Дата прибуття:{" "}
+                            <b>{new Date(ship.arrived_at).toLocaleDateString("uk-UA")}</b>
+                          </span>
+                        ) : ship.eta ? (
+                          <span>
+                            Очікувана дата:{" "}
+                            <b>{new Date(ship.eta).toLocaleDateString("uk-UA")}</b>
+                          </span>
+                        ) : null}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {[o.caliber, o.packaging, o.specification, o.variety]
@@ -180,18 +198,6 @@ function BranchOffersPage() {
                   {o.expires_at && (
                     <div className="mt-1 text-xs text-muted-foreground">
                       Залишок: {formatRemaining(o.expires_at)}
-                    </div>
-                  )}
-                  {ship && (
-                    <div className="mt-1 text-xs">
-                      <div>
-                        Поставка <b>{ship.code}</b>
-                      </div>
-                      {ship.eta && (
-                        <div className="text-success">
-                          Очікувана дата прибуття: <b>{new Date(ship.eta).toLocaleDateString("uk-UA")}</b>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
