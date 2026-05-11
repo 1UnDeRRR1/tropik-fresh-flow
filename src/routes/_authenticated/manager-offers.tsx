@@ -314,7 +314,8 @@ function ManagerOffersPage() {
                     ) : (
                       <ChevronDown className="h-4 w-4" />
                     )}
-                    Відгуки ({o.responses.length})
+                    Відгуки ({activeResponses.length}
+                    {excludedResponses.length > 0 && ` +${excludedResponses.length}`})
                   </Button>
                 </div>
 
