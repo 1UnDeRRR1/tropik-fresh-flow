@@ -799,7 +799,17 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Собівартість $/кг
           </span>
-          <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
+          <div className="flex items-center gap-2">
+            {!(item as any).customs_match_id ? (
+              <span
+                title="Митна ставка не знайдена для цього товару/країни — мито = 0"
+                className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"
+              >
+                ⚠ без мита
+              </span>
+            ) : null}
+            <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
+          </div>
         </div>
       </td>
     </tr>
