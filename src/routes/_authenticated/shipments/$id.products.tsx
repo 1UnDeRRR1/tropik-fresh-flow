@@ -141,7 +141,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id").eq("shipment_id", id).order("created_at"),
         supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
       ]);
       const sh = s.data as {
@@ -799,7 +799,17 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Собівартість $/кг
           </span>
-          <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
+          <div className="flex items-center gap-2">
+            {!(item as any).customs_match_id ? (
+              <span
+                title="Митна ставка не знайдена для цього товару/країни — мито = 0"
+                className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"
+              >
+                ⚠ без мита
+              </span>
+            ) : null}
+            <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
+          </div>
         </div>
       </td>
     </tr>
