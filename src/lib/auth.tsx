@@ -321,7 +321,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     dataLoaded,
     signOut: async () => {
-      await supabase.auth.signOut();
+      signingOutRef.current = true;
+      try {
+        persistSessionBackup(null);
+        await supabase.auth.signOut();
+      } finally {
+        // Reset shortly after so future sessions can persist again.
+        setTimeout(() => { signingOutRef.current = false; }, 1000);
+      }
     },
     refresh: async () => {
       if (user) await loadUserData(user.id);
