@@ -89,6 +89,12 @@ function SuppliersAdmin() {
             onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input" placeholder="Країна" value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input" placeholder="Код-база (Nava)" value={form.code_base}
+              onChange={(e) => setForm({ ...form, code_base: e.target.value })} />
+            <input className="input" placeholder="ISO3 (ITA)" maxLength={3} value={form.iso3}
+              onChange={(e) => setForm({ ...form, iso3: e.target.value.toUpperCase() })} />
+          </div>
           <select className="input" value={form.import_manager_id}
             onChange={(e) => setForm({ ...form, import_manager_id: e.target.value })}>
             <option value="">— менеджер імпорту —</option>
