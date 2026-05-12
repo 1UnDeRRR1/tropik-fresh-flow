@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSystem } from "@/lib/system-log";
@@ -133,6 +133,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // like a logout/reset on iOS resume. We flip to `false` immediately in an
   // effect when a cached session exists, so the splash does not visibly flash.
   const [loading, setLoading] = useState(true);
+  const sessionRef = useRef<Session | null>(cached.session);
+  const userRef = useRef<User | null>(cached.user);
+  const profileRef = useRef<Profile | null>(null);
+
+  const applyIdentity = (nextSession: Session | null, nextUser: User | null) => {
+    sessionRef.current = nextSession;
+    userRef.current = nextUser;
+    setSession(nextSession);
+    setUser(nextUser);
+  };
+
+  const applyProfile = (nextProfile: Profile | null) => {
+    profileRef.current = nextProfile;
+    setProfile(nextProfile);
+  };
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
@@ -155,11 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           timestamp: new Date().toISOString(),
         },
       });
-      setDataLoaded((prev) => prev || !!user);
+      setDataLoaded((prev) => prev || !!userRef.current);
       return;
     }
 
-    setProfile((prof as Profile | null) ?? profile);
+    applyProfile((prof as Profile | null) ?? profileRef.current);
     setRoles(nextRoles);
     setDataLoaded(true);
   };
@@ -176,11 +191,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // wipe roles and flash empty pages on mobile resume).
     let currentUid: string | null = cached.user?.id ?? null;
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
-      persistSessionBackup(s);
-      setSession(s);
-      if (s?.user) setUser(s.user);
       const nextUid = s?.user?.id ?? null;
       if (nextUid) {
+        persistSessionBackup(s);
+        applyIdentity(s, s?.user ?? null);
         // Only reload profile/roles when the user identity actually changes
         // (initial sign-in or account switch). TOKEN_REFRESHED / USER_UPDATED
         // events keep the same uid — do NOT reset dataLoaded or wipe roles,
@@ -190,6 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           currentUid = nextUid;
           setDataLoaded(false);
           setTimeout(() => loadUserData(nextUid), 0);
+        } else {
+          setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
         const fallback = readCachedSession();
@@ -204,17 +220,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               timestamp: new Date().toISOString(),
             },
           });
-          setSession(fallback.session);
-          setUser(fallback.user);
-          setLoading(true);
+          applyIdentity(fallback.session, fallback.user);
+          setLoading(false);
           return;
         }
+        persistSessionBackup(null);
         currentUid = null;
-        setUser(null);
-        setSession(null);
-        setProfile(null);
+        applyIdentity(null, null);
+        applyProfile(null);
         setRoles([]);
         setDataLoaded(true);
+        setLoading(false);
+      } else if (sessionRef.current || userRef.current) {
+        void logSystem({
+          level: "warning",
+          message: "Ignored transient empty auth event to preserve active app state",
+          module: "auth",
+          action: "transient_empty_auth_event_guard",
+          context: {
+            event,
+            current_user_id: userRef.current?.id ?? null,
+            timestamp: new Date().toISOString(),
+          },
+        });
       }
     });
     // If we have a cached user, fetch profile/roles in the background so that
@@ -248,10 +276,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nextSession = restored.session ?? null;
       }
 
-      persistSessionBackup(nextSession);
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
       if (nextSession?.user) {
+        persistSessionBackup(nextSession);
+        applyIdentity(nextSession, nextSession.user);
         if (currentUid !== nextSession.user.id) {
           currentUid = nextSession.user.id;
           await loadUserData(nextSession.user.id);
@@ -259,8 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         const fallback = readCachedSession();
         if (fallback.user && fallback.session) {
-          setSession(fallback.session);
-          setUser(fallback.user);
+          applyIdentity(fallback.session, fallback.user);
           if (currentUid !== fallback.user.id) {
             currentUid = fallback.user.id;
             await loadUserData(fallback.user.id);
@@ -276,6 +302,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
           });
         } else if (!currentUid) {
+          persistSessionBackup(null);
+          applyIdentity(null, null);
           setDataLoaded(true);
         }
       }
