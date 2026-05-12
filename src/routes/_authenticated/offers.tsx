@@ -332,7 +332,21 @@ function OffersPage() {
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
                 <div className="font-semibold">
                   {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}{actioning.origin_country ? ` (${actioning.origin_country})` : ""}
+                  {actioning.caliber ? ` · ${actioning.caliber}` : ""}
+                  {actioning.variety ? ` · ${actioning.variety}` : ""}
                 </div>
+                {(actioning.final_cost_indicative != null || actioning.final_cost_invoice != null) && (
+                  <div className="mt-1 text-xs">
+                    Собівартість:{" "}
+                    <span className="text-success font-semibold tabular-nums">
+                      ${Number(actioning.final_cost_indicative ?? 0).toFixed(2)}
+                    </span>
+                    <span className="mx-1 text-muted-foreground">/</span>
+                    <span className="text-destructive font-semibold tabular-nums">
+                      ${Number(actioning.final_cost_invoice ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="text-xs text-muted-foreground">
                   Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_eta)}
                 </div>
