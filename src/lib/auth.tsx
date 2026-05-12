@@ -167,6 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
+    // Immediately drop the splash on resume / reload when we already have a
+    // cached session — getSession() will reconcile in the background.
+    if (cached.user) setLoading(false);
     // Seed currentUid from the synchronously-restored session so that the
     // SIGNED_IN event fired right after re-hydration is treated as a no-op
     // instead of triggering a full profile/roles reload (which would briefly
