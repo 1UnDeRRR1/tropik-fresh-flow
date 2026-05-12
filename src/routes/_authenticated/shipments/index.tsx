@@ -449,21 +449,36 @@ function VehicleCard({
   const [showDelete, setShowDelete] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
+  const startPos = useRef<{ x: number; y: number } | null>(null);
 
-  const startLongPress = () => {
+  const startLongPress = (e: React.MouseEvent | React.TouchEvent) => {
     if (!ownShipment) return;
+    // ignore clicks/touches that originated on inner interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, [role='button']:not([data-vehicle-card])")) return;
     longPressFired.current = false;
+    const pt = "touches" in e ? e.touches[0] : (e as React.MouseEvent);
+    startPos.current = pt ? { x: pt.clientX, y: pt.clientY } : null;
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
       if ("vibrate" in navigator) navigator.vibrate?.(40);
       setShowDelete(true);
-    }, 550);
+    }, 500);
   };
   const cancelLongPress = () => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+    startPos.current = null;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!longPressTimer.current || !startPos.current) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - startPos.current.x);
+    const dy = Math.abs(t.clientY - startPos.current.y);
+    if (dx > 10 || dy > 10) cancelLongPress();
   };
   const handleClickGuarded = () => {
     if (longPressFired.current) {
@@ -501,7 +516,7 @@ function VehicleCard({
       onTouchStart={startLongPress}
       onTouchEnd={cancelLongPress}
       onTouchCancel={cancelLongPress}
-      onTouchMove={cancelLongPress}
+      onTouchMove={handleTouchMove}
       onContextMenu={(e) => {
         if (ownShipment) {
           e.preventDefault();
