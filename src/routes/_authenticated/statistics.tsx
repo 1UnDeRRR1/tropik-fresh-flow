@@ -41,7 +41,7 @@ type ShipmentRow = {
 };
 
 type Supplier = { id: string; name: string };
-type Manager = { id: string; full_name: string };
+type Manager = { id: string; user_id: string | null; full_name: string };
 
 function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
 function toISO(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
