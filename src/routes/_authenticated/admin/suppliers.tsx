@@ -125,6 +125,12 @@ function SuppliersAdmin() {
                       {managers?.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
                     </select>
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="input" placeholder="Код-база" value={merged.code_base ?? ""}
+                      onChange={(ev) => setEdit({ ...edit, [s.id]: { ...e, code_base: ev.target.value } })} />
+                    <input className="input" placeholder="ISO3" maxLength={3} value={merged.iso3 ?? ""}
+                      onChange={(ev) => setEdit({ ...edit, [s.id]: { ...e, iso3: ev.target.value.toUpperCase() } })} />
+                  </div>
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 text-xs">
                       <input type="checkbox" checked={merged.is_active}
