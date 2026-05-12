@@ -73,7 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
-    let currentUid: string | null = null;
+    // Seed currentUid from the synchronously-restored session so that the
+    // SIGNED_IN event fired right after re-hydration is treated as a no-op
+    // instead of triggering a full profile/roles reload (which would briefly
+    // wipe roles and flash empty pages on mobile resume).
+    let currentUid: string | null = cached.user?.id ?? null;
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
