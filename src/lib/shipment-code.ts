@@ -11,39 +11,57 @@ const CYR_TO_LAT: Record<string, string> = {
 
 function transliterate(input: string): string {
   let out = "";
-  for (const ch of input.toLowerCase()) {
-    out += CYR_TO_LAT[ch] ?? ch;
+  for (const ch of input) {
+    const lower = ch.toLowerCase();
+    const mapped = CYR_TO_LAT[lower];
+    if (mapped !== undefined) {
+      out += ch === lower ? mapped : (mapped ? mapped[0].toUpperCase() + mapped.slice(1) : "");
+    } else {
+      out += ch;
+    }
   }
   return out;
 }
 
-/** 3-letter UPPER code from supplier name (Latin-only). */
+/**
+ * Build a PascalCase supplier code base from a free-form name (max 10 chars).
+ * Used as a fallback when supplier.code_base is not set. Examples:
+ *   "Nava"               → "Nava"
+ *   "BRACIA BRACIK GRUPA" → "BraciaBrac"
+ *   "Bury"                → "Bury"
+ */
 export function buildSupplierCode(name: string): string {
-  if (!name) return "XXX";
-  const lat = transliterate(name).replace(/[^a-z]/g, "");
+  if (!name) return "Supplier";
+  const words = transliterate(name)
+    .replace(/[^a-zA-Z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+  const joined = words.join("") || "Supplier";
+  return joined.slice(0, 10);
+}
+
+/** ISO3 code from Ukrainian country name. Falls back to 3 first letters. */
+export function getCountryCode(uaCountry?: string | null): string {
+  if (!uaCountry) return "XXX";
+  const direct = COUNTRY_CODE[uaCountry];
+  if (direct) return direct;
+  const lat = transliterate(uaCountry).replace(/[^a-zA-Z]/g, "");
   return (lat.slice(0, 3) || "XXX").toUpperCase();
 }
 
-/** Country code from Ukrainian country name. Falls back to 2 first letters. */
-export function getCountryCode(uaCountry?: string | null): string {
-  if (!uaCountry) return "XX";
-  const direct = COUNTRY_CODE[uaCountry];
-  if (direct) return direct;
-  const lat = transliterate(uaCountry).replace(/[^a-z]/g, "");
-  return (lat.slice(0, 2) || "XX").toUpperCase();
-}
-
+/** Vehicle code: `${seq02}-${ISO3}` e.g. "01-ITA". */
 export function formatVehicleCode(countryCode: string, sequenceNo: number): string {
-  return `${countryCode}${String(sequenceNo).padStart(2, "0")}`;
+  return `${String(sequenceNo).padStart(2, "0")}-${countryCode}`;
 }
 
+/** Shipment code: `${supplierBase}${vehicleCode}` e.g. "Nava01-ITA". */
 export function formatShipmentCode(vehicleCode: string, supplierCode: string): string {
-  return `${vehicleCode}-${supplierCode}`;
+  return `${supplierCode}${vehicleCode}`;
 }
 
 /** Reads next sequence_no for a country code via DB. */
 export async function fetchNextVehicleSequence(countryCode: string): Promise<number> {
-  // RPC not yet in generated types
   const { data, error } = await (supabase.rpc as unknown as (
     name: string,
     args: Record<string, unknown>,

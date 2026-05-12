@@ -95,7 +95,12 @@ function NewShipment() {
     queryKey: ["suppliers-select", user?.id],
     enabled: !loading && !!user && isStaff,
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id,name,country").order("name");
+      // RLS already restricts managers to their own suppliers; admins see all.
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id,name,country,code_base,iso3,import_manager_id")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -170,13 +175,15 @@ function NewShipment() {
   // Auto-generate code preview
   useEffect(() => {
     if (codeOverride) return;
-    const supplierCode = selectedSupplier ? buildSupplierCode(selectedSupplier.name) : "";
+    const supplierCode = selectedSupplier
+      ? (selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name))
+      : "";
     if (mode === "existing" && selectedVehicle && supplierCode) {
       setCode(formatShipmentCode(selectedVehicle.code, supplierCode));
     } else if (mode === "new" && country && supplierCode) {
-      const cc = getCountryCode(country);
+      const cc = selectedSupplier?.iso3?.trim() || getCountryCode(country);
       const seqStr = previewSeq ? String(previewSeq).padStart(2, "0") : "··";
-      setCode(formatShipmentCode(`${cc}${seqStr}`, supplierCode));
+      setCode(formatShipmentCode(`${seqStr}-${cc}`, supplierCode));
     } else {
       setCode("");
     }
@@ -198,7 +205,7 @@ function NewShipment() {
       if (mode === "new") {
         if (!country) throw new Error("Виберіть країну завантаження");
         if (!loadingDate) throw new Error("Вкажіть дату завантаження");
-        const cc = getCountryCode(country);
+        const cc = selectedSupplier.iso3?.trim() || getCountryCode(country);
         const seq = await fetchNextVehicleSequence(cc);
         vCode = formatVehicleCode(cc, seq);
         const { data: vRow, error: vErr } = await supabase
@@ -227,7 +234,7 @@ function NewShipment() {
           : (COUNTRY_DAYS[selectedVehicle.country] ?? 0);
       }
 
-      const supplierCode = buildSupplierCode(selectedSupplier.name);
+      const supplierCode = selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name);
       const finalCode = codeOverride && code.trim()
         ? code.trim()
         : formatShipmentCode(vCode, supplierCode);

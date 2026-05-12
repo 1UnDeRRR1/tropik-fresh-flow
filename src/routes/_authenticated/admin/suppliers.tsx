@@ -17,12 +17,14 @@ interface Sup {
   country: string | null;
   is_active: boolean;
   import_manager_id: string | null;
+  code_base: string | null;
+  iso3: string | null;
 }
 interface IM { id: string; full_name: string; is_active: boolean }
 
 function SuppliersAdmin() {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: "", country: "", import_manager_id: "" });
+  const [form, setForm] = useState({ name: "", country: "", import_manager_id: "", code_base: "", iso3: "" });
   const [edit, setEdit] = useState<Record<string, Partial<Sup>>>({});
 
   const { data: sups } = useQuery({
@@ -30,7 +32,7 @@ function SuppliersAdmin() {
     queryFn: async () => {
       const { data } = await supabase
         .from("suppliers")
-        .select("id,name,country,is_active,import_manager_id")
+        .select("id,name,country,is_active,import_manager_id,code_base,iso3")
         .order("name");
       return (data ?? []) as Sup[];
     },
@@ -54,10 +56,12 @@ function SuppliersAdmin() {
         name: form.name,
         country: form.country || null,
         import_manager_id: form.import_manager_id || null,
+        code_base: form.code_base || null,
+        iso3: form.iso3 ? form.iso3.toUpperCase() : null,
       }));
     },
     onSuccess: () => {
-      setForm({ name: "", country: "", import_manager_id: "" });
+      setForm({ name: "", country: "", import_manager_id: "", code_base: "", iso3: "" });
       qc.invalidateQueries({ queryKey: ["admin", "suppliers"] });
       toast.success("Постачальника додано");
     },
@@ -85,6 +89,12 @@ function SuppliersAdmin() {
             onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input" placeholder="Країна" value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input" placeholder="Код-база (Nava)" value={form.code_base}
+              onChange={(e) => setForm({ ...form, code_base: e.target.value })} />
+            <input className="input" placeholder="ISO3 (ITA)" maxLength={3} value={form.iso3}
+              onChange={(e) => setForm({ ...form, iso3: e.target.value.toUpperCase() })} />
+          </div>
           <select className="input" value={form.import_manager_id}
             onChange={(e) => setForm({ ...form, import_manager_id: e.target.value })}>
             <option value="">— менеджер імпорту —</option>
@@ -114,6 +124,12 @@ function SuppliersAdmin() {
                       <option value="">— менеджер —</option>
                       {managers?.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
                     </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="input" placeholder="Код-база" value={merged.code_base ?? ""}
+                      onChange={(ev) => setEdit({ ...edit, [s.id]: { ...e, code_base: ev.target.value } })} />
+                    <input className="input" placeholder="ISO3" maxLength={3} value={merged.iso3 ?? ""}
+                      onChange={(ev) => setEdit({ ...edit, [s.id]: { ...e, iso3: ev.target.value.toUpperCase() } })} />
                   </div>
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 text-xs">

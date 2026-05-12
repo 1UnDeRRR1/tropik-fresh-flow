@@ -484,6 +484,7 @@ export type Database = {
           is_active: boolean
           phone: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -493,6 +494,7 @@ export type Database = {
           is_active?: boolean
           phone?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -502,6 +504,7 @@ export type Database = {
           is_active?: boolean
           phone?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1130,6 +1133,7 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          code_base: string | null
           contact: string | null
           country: string | null
           created_at: string
@@ -1137,12 +1141,14 @@ export type Database = {
           id: string
           import_manager_id: string | null
           is_active: boolean
+          iso3: string | null
           name: string
           notes: string | null
           phone: string | null
           rating: number | null
         }
         Insert: {
+          code_base?: string | null
           contact?: string | null
           country?: string | null
           created_at?: string
@@ -1150,12 +1156,14 @@ export type Database = {
           id?: string
           import_manager_id?: string | null
           is_active?: boolean
+          iso3?: string | null
           name: string
           notes?: string | null
           phone?: string | null
           rating?: number | null
         }
         Update: {
+          code_base?: string | null
           contact?: string | null
           country?: string | null
           created_at?: string
@@ -1163,6 +1171,7 @@ export type Database = {
           id?: string
           import_manager_id?: string | null
           is_active?: boolean
+          iso3?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -1560,6 +1569,7 @@ export type Database = {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
+      current_import_manager_id: { Args: never; Returns: string }
       ensure_shipment_fx_snapshot: {
         Args: { _shipment_id: string }
         Returns: number
