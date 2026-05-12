@@ -41,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
         ...(isAdmin ? [{ to: "/master-data", label: "Master", icon: Database }] : []),
+        ...(isSuper ? [{ to: "/super-admin", label: "Супер", icon: Shield }] : []),
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
