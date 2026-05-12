@@ -11,6 +11,8 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { useEffect } from "react";
+import { installGlobalErrorLogger, logSystem } from "@/lib/system-log";
 
 function NotFoundComponent() {
   return (
@@ -36,6 +38,15 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
+  useEffect(() => {
+    void logSystem({
+      level: "critical",
+      message: error.message,
+      module: typeof window !== "undefined" ? window.location.pathname : "ssr",
+      action: "route_error",
+      context: { stack: error.stack?.slice(0, 2000) },
+    });
+  }, [error]);
   const router = useRouter();
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
@@ -118,6 +129,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    installGlobalErrorLogger();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

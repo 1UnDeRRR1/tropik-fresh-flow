@@ -847,6 +847,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_active: boolean
           phone: string | null
           updated_at: string
         }
@@ -856,6 +857,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          is_active?: boolean
           phone?: string | null
           updated_at?: string
         }
@@ -865,6 +867,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_active?: boolean
           phone?: string | null
           updated_at?: string
         }
@@ -1174,6 +1177,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_logs: {
+        Row: {
+          action: string | null
+          branch_id: string | null
+          context: Json | null
+          created_at: string
+          distribution_id: string | null
+          id: string
+          level: string
+          message: string
+          module: string | null
+          offer_id: string | null
+          shipment_id: string | null
+          user_id: string | null
+          user_role: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          branch_id?: string | null
+          context?: Json | null
+          created_at?: string
+          distribution_id?: string | null
+          id?: string
+          level?: string
+          message: string
+          module?: string | null
+          offer_id?: string | null
+          shipment_id?: string | null
+          user_id?: string | null
+          user_role?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          branch_id?: string | null
+          context?: Json | null
+          created_at?: string
+          distribution_id?: string | null
+          id?: string
+          level?: string
+          message?: string
+          module?: string | null
+          offer_id?: string | null
+          shipment_id?: string | null
+          user_id?: string | null
+          user_role?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: []
       }
       transfer_request_items: {
         Row: {
@@ -1526,6 +1580,7 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_vehicle_coloader: {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean

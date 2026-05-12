@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield } from "lucide-react";
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isBranch = primaryRole === "branch";
   const isAdmin = hasRole(["admin", "super_admin"]);
+  const isSuper = hasRole("super_admin");
   const isManager = primaryRole === "import_manager";
   const items: NavItem[] = isBranch
     ? [
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
         ...(isAdmin ? [{ to: "/master-data", label: "Master", icon: Database }] : []),
+        ...(isSuper ? [{ to: "/super-admin", label: "Супер", icon: Shield }] : []),
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
