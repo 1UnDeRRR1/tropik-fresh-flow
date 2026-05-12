@@ -92,7 +92,15 @@ function Analytics() {
     },
   });
 
-  const mgrMap = useMemo(() => new Map((data?.managers ?? []).map((m) => [m.id, m.full_name])), [data]);
+  const mgrMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mgr of data?.managers ?? []) {
+      // Shipments store auth user_id in import_manager_id; fall back to row id for safety.
+      if (mgr.user_id) m.set(mgr.user_id, mgr.full_name);
+      m.set(mgr.id, mgr.full_name);
+    }
+    return m;
+  }, [data]);
   const supMap = useMemo(() => new Map((data?.suppliers ?? []).map((s) => [s.id, s.name])), [data]);
   const brMap = useMemo(() => new Map((data?.branches ?? []).map((b) => [b.id, b.name])), [data]);
 
