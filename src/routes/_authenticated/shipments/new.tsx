@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { COUNTRIES as FALLBACK_COUNTRIES, COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
-import { toUaCountry } from "@/lib/countries";
+import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import {
   buildSupplierCode,
   fetchNextVehicleSequence,
@@ -253,7 +253,7 @@ function NewShipment() {
         .insert({
           code: finalCode,
           supplier_id: supplierId,
-          country: useCountry,
+          country: normalizeCountry(useCountry),
           loading_date: useLoadingDate || null,
           logistics_days: useDays,
           eta: useEta || null,

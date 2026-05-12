@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { toUaCountry } from "@/lib/countries";
+import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
@@ -664,7 +664,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         .update({
           product_name: trimmedProductName,
           variety: form.variety || null,
-          origin_country: form.origin_country || null,
+          origin_country: normalizeCountry(form.origin_country) || null,
           caliber: form.caliber || null,
           sku: form.sku || null,
           pallet_count: palletCount,

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CostPair } from "@/components/CostPair";
 import { useAuth } from "@/lib/auth";
 import { useStableQueryData } from "@/lib/query-stability";
+import { toUaCountry } from "@/lib/countries";
 
 interface ActiveOverviewRow {
   shipment_id: string;
@@ -350,7 +351,7 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
   const shipSets = new Map<string, Set<string>>();
   for (const r of rows) {
     const product = (r.product_name || "").trim();
-    const country = (r.country || "").trim();
+    const country = toUaCountry(r.country);
     const key = `${product}__${country}`;
     let g = groups.get(key);
     if (!g) {

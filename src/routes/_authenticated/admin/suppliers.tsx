@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { run, translateError } from "@/lib/mutation-helpers";
+import { normalizeCountry } from "@/lib/countries";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/suppliers")({
@@ -54,7 +55,7 @@ function SuppliersAdmin() {
     mutationFn: async () => {
       await run(supabase.from("suppliers").insert({
         name: form.name,
-        country: form.country || null,
+        country: normalizeCountry(form.country) || null,
         import_manager_id: form.import_manager_id || null,
         code_base: form.code_base || null,
         iso3: form.iso3 ? form.iso3.toUpperCase() : null,
@@ -70,7 +71,9 @@ function SuppliersAdmin() {
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Sup> }) => {
-      await run(supabase.from("suppliers").update(patch).eq("id", id));
+      const normalized: Partial<Sup> = { ...patch };
+      if ("country" in patch) normalized.country = normalizeCountry(patch.country ?? "") || null;
+      await run(supabase.from("suppliers").update(normalized).eq("id", id));
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "suppliers"] });
