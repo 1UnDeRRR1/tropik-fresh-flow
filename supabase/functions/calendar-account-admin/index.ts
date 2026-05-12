@@ -168,6 +168,19 @@ Deno.serve(async (req) => {
         });
         if (ie) throw ie;
 
+        await admin.from("user_roles").delete().eq("user_id", uid).eq("role", "branch");
+        const { data: finalRoles, error: finalRolesError } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", uid);
+        if (finalRolesError) throw finalRolesError;
+        if (!(finalRoles ?? []).some((r) => r.role === role)) {
+          const { error: restoreRoleError } = await admin
+            .from("user_roles")
+            .insert({ user_id: uid, role });
+          if (restoreRoleError) throw restoreRoleError;
+        }
+
         return json({ ok: true, username, password, user_id: uid });
       }
 
