@@ -294,15 +294,41 @@ function Analytics() {
         </div>
       )}
 
-      {view === "product" && (
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={
+          view === "manager"
+            ? "Пошук менеджера…"
+            : view === "supplier"
+              ? "Пошук постачальника…"
+              : "Пошук товару або країни…"
+        }
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+      />
+
+      {view === "product" && (() => {
+        const filtered = searchLower
+          ? groups.filter(
+              (g) =>
+                g.product.toLowerCase().includes(searchLower) ||
+                g.country.toLowerCase().includes(searchLower),
+            )
+          : groups;
+        return (
       <SectionCard title="Товар · країна · палети">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
-        ) : !groups.length ? (
-          <EmptyState title="Немає активних товарів" hint="Товари зникають з аналітики наступного дня після прибуття." />
+        ) : !filtered.length ? (
+          <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} hint={searchLower ? undefined : "Товари зникають з аналітики наступного дня після прибуття."} />
         ) : (
           <ul className="divide-y divide-border">
-            {groups.map((g) => (
+            {filtered.map((g) => (
               <li key={g.key}>
                 <button
                   type="button"
@@ -328,17 +354,22 @@ function Analytics() {
           </ul>
         )}
       </SectionCard>
-      )}
+        );
+      })()}
 
-      {view !== "product" && (
+      {view !== "product" && (() => {
+        const filtered = searchLower
+          ? ownerGroups.filter((og) => og.name.toLowerCase().includes(searchLower))
+          : ownerGroups;
+        return (
         <SectionCard title={view === "manager" ? "Менеджер · палети" : "Постачальник · палети"}>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Завантаження…</p>
-          ) : !ownerGroups.length ? (
-            <EmptyState title="Немає активних товарів" />
+          ) : !filtered.length ? (
+            <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} />
           ) : (
             <ul className="divide-y divide-border">
-              {ownerGroups.map((og) => (
+              {filtered.map((og) => (
                 <li key={og.key}>
                   <button
                     type="button"
@@ -361,7 +392,8 @@ function Analytics() {
             </ul>
           )}
         </SectionCard>
-      )}
+        );
+      })()}
 
       {/* Owner detail dialog */}
       <Dialog open={!!openOwner} onOpenChange={(o) => !o && setOpenOwner(null)}>
