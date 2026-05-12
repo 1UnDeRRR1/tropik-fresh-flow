@@ -139,7 +139,10 @@ function StatisticsPage() {
   const suppliers = data?.suppliers ?? [];
   const managers = data?.managers ?? [];
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
-  const managerMap = useMemo(() => Object.fromEntries(managers.map(m => [m.id, m.full_name])), [managers]);
+  const managerMap = useMemo(
+    () => Object.fromEntries(managers.map((m) => [m.user_id ?? m.id, m.full_name])),
+    [managers],
+  );
 
   type Flat = {
     item: ItemRow;
