@@ -75,8 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
-      if (data.session?.user) await loadUserData(data.session.user.id);
-      else setDataLoaded(true);
+      if (data.session?.user) {
+        currentUid = data.session.user.id;
+        await loadUserData(data.session.user.id);
+      } else {
+        setDataLoaded(true);
+      }
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
