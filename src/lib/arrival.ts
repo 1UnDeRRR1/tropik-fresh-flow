@@ -11,17 +11,23 @@ export const COUNTRY_DAYS: Record<string, number> = {
   Македонія: 3,
 };
 
-// Country (Ukrainian) → 2-letter code for shipment numbering
+// Country (Ukrainian) → ISO3 code for shipment numbering
 export const COUNTRY_CODE: Record<string, string> = {
-  Греція: "GR",
-  Італія: "IT",
-  Іспанія: "ES",
-  Нідерланди: "NL",
-  Бельгія: "BE",
-  Польща: "PL",
-  Молдова: "MD",
-  Албанія: "AL",
-  Македонія: "MK",
+  Греція: "GRC",
+  Італія: "ITA",
+  Іспанія: "ESP",
+  Нідерланди: "NLD",
+  Бельгія: "BEL",
+  Польща: "POL",
+  Молдова: "MDA",
+  Албанія: "ALB",
+  Македонія: "MKD",
+  Сербія: "SRB",
+  Туреччина: "TUR",
+  Азербайджан: "AZE",
+  Грузія: "GEO",
+  Єгипет: "EGY",
+  Перу: "PER",
 };
 
 export const COUNTRIES = Object.keys(COUNTRY_DAYS);
