@@ -31,7 +31,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
     : [
-        { to: dashHref, label: "Головна", icon: Home },
+        ...(isSuper
+          ? [
+              { to: "/dashboard/super-admin", label: "Головна SA", icon: Shield },
+              { to: "/dashboard/admin", label: "Головна", icon: Home },
+            ]
+          : [{ to: dashHref, label: "Головна", icon: Home }]),
         { to: "/shipments", label: "Поставки", icon: Package },
         ...(isAdmin ? [] : [{ to: "/distribution", label: "Розподіл", icon: Truck }]),
         ...(isManager || isAdmin
