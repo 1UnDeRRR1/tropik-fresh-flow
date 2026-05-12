@@ -9,6 +9,7 @@ import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/Loadi
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
+import { normalizeCountry } from "@/lib/countries";
 
 interface PlanRow {
   id: string;
