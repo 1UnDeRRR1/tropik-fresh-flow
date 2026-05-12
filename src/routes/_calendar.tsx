@@ -20,20 +20,6 @@ function CalendarLayout() {
   const { user, loading, dataLoaded, profile, primaryRole, signOut } = useAuth();
   const router = useRouter();
 
-  if (loading || (user && !dataLoaded)) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-6">
-        <Logo size={220} className="animate-pulse" />
-      </div>
-    );
-  }
-  if (!user) return <Navigate to="/login" />;
-
-  const onLogout = async () => {
-    await signOut();
-    router.navigate({ to: "/login" });
-  };
-
   // Conservative expiry check: every 10 minutes ask the server whether this
   // calendar account is still active. Only sign out on an explicit `false`
   // — never on network errors, RLS hiccups, or transient mobile sleep — so
@@ -65,6 +51,20 @@ function CalendarLayout() {
       window.clearInterval(id);
     };
   }, [user, primaryRole, signOut, router]);
+
+  if (loading || (user && !dataLoaded)) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background px-6">
+        <Logo size={220} className="animate-pulse" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" />;
+
+  const onLogout = async () => {
+    await signOut();
+    router.navigate({ to: "/login" });
+  };
 
 
   return (
