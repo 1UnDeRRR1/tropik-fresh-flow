@@ -205,7 +205,7 @@ function NewShipment() {
       if (mode === "new") {
         if (!country) throw new Error("Виберіть країну завантаження");
         if (!loadingDate) throw new Error("Вкажіть дату завантаження");
-        const cc = getCountryCode(country);
+        const cc = selectedSupplier.iso3?.trim() || getCountryCode(country);
         const seq = await fetchNextVehicleSequence(cc);
         vCode = formatVehicleCode(cc, seq);
         const { data: vRow, error: vErr } = await supabase
