@@ -119,6 +119,15 @@ function ProductsFullscreen() {
   const qc = useQueryClient();
   const { user, loading, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !loading && !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
@@ -253,6 +262,7 @@ function ProductsFullscreen() {
     !!isAdmin
     || sh?.created_by === user.id
     || sh?.import_manager_id === user.id
+    || sh?.import_manager_id === currentManagerId
   );
   const capacityItems = vehicleContext?.loadedItems ?? items.map((item) => ({
     id: item.id,
