@@ -49,13 +49,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    let currentUid: string | null = null;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) {
-        setDataLoaded(false);
-        setTimeout(() => loadUserData(s.user.id), 0);
+      const nextUid = s?.user?.id ?? null;
+      if (nextUid) {
+        // Only reload profile/roles when the user identity actually changes
+        // (initial sign-in or account switch). TOKEN_REFRESHED / USER_UPDATED
+        // events keep the same uid — do NOT reset dataLoaded or wipe roles,
+        // otherwise UI gated on dataLoaded/roles flashes empty every ~50 min
+        // when Supabase silently rotates the access token.
+        if (nextUid !== currentUid) {
+          currentUid = nextUid;
+          setDataLoaded(false);
+          setTimeout(() => loadUserData(nextUid), 0);
+        }
       } else {
+        currentUid = null;
         setProfile(null);
         setRoles([]);
         setDataLoaded(true);
@@ -64,8 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
-      if (data.session?.user) await loadUserData(data.session.user.id);
-      else setDataLoaded(true);
+      if (data.session?.user) {
+        currentUid = data.session.user.id;
+        await loadUserData(data.session.user.id);
+      } else {
+        setDataLoaded(true);
+      }
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
