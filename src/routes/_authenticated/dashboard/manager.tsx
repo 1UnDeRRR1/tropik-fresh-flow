@@ -351,7 +351,7 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
   const shipSets = new Map<string, Set<string>>();
   for (const r of rows) {
     const product = (r.product_name || "").trim();
-    const country = (r.country || "").trim();
+    const country = toUaCountry(r.country);
     const key = `${product}__${country}`;
     let g = groups.get(key);
     if (!g) {
