@@ -121,7 +121,7 @@ function NewShipment() {
     queryFn: async () => {
       let q = supabase
         .from("vehicles" as never)
-        .select("id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(logistics_cost,logistics_cost_currency,created_by,suppliers(name))")
+        .select("id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(id,code,logistics_cost,logistics_cost_currency,created_by,suppliers(name),shipment_items(id,product_name,variety,caliber,pallet_count))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (country) q = q.eq("country", country);
