@@ -32,11 +32,15 @@ function SuperAdminDashboard() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Супер-адмін" subtitle="Повний контроль системи" />
+      <PageHeader title="Головна SA" subtitle="Повний контроль системи" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Користувачів" value={data?.userCount ?? 0} icon={<Users className="h-4 w-4" />} tone="primary" />
-        <StatCard label="Ролей призначено" value={data?.roleCount ?? 0} icon={<Shield className="h-4 w-4" />} tone="brand" />
+        <Link to="/super-admin/users" className="block">
+          <StatCard label="Користувачів" value={data?.userCount ?? 0} icon={<Users className="h-4 w-4" />} tone="primary" />
+        </Link>
+        <Link to="/super-admin/users" className="block">
+          <StatCard label="Ролей призначено" value={data?.roleCount ?? 0} icon={<Shield className="h-4 w-4" />} tone="brand" />
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

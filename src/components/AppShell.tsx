@@ -31,7 +31,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
     : [
-        { to: dashHref, label: "Головна", icon: Home },
+        ...(isSuper
+          ? [
+              { to: "/dashboard/super-admin", label: "Головна SA", icon: Shield },
+              { to: "/dashboard/admin", label: "Головна", icon: Home },
+            ]
+          : [{ to: dashHref, label: "Головна", icon: Home }]),
         { to: "/shipments", label: "Поставки", icon: Package },
         ...(isAdmin ? [] : [{ to: "/distribution", label: "Розподіл", icon: Truck }]),
         ...(isManager || isAdmin
@@ -45,10 +50,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/settings", label: "Профіль", icon: Settings },
       ];
 
-  const isActive = (to: string, label: string) =>
-    pathname === to ||
-    (to !== "/" && pathname.startsWith(to)) ||
-    (label === "Головна" && pathname.startsWith("/dashboard"));
+  const isActive = (to: string, label: string) => {
+    if (label === "Головна SA") return pathname === "/dashboard/super-admin";
+    if (label === "Головна" && isSuper) return pathname === "/dashboard/admin";
+    return (
+      pathname === to ||
+      (to !== "/" && pathname.startsWith(to)) ||
+      (label === "Головна" && pathname.startsWith("/dashboard"))
+    );
+  };
 
   return (
     <div className="min-h-dvh bg-background">
