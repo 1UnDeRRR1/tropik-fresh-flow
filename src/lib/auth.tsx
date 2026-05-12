@@ -3,7 +3,13 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSystem } from "@/lib/system-log";
 
-export type AppRole = "super_admin" | "admin" | "import_manager" | "branch";
+export type AppRole =
+  | "super_admin"
+  | "admin"
+  | "import_manager"
+  | "branch"
+  | "calendar_branch"
+  | "calendar_tropik";
 
 export interface Profile {
   id: string;
@@ -28,7 +34,14 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
-const ROLE_PRIORITY: AppRole[] = ["super_admin", "admin", "import_manager", "branch"];
+const ROLE_PRIORITY: AppRole[] = [
+  "super_admin",
+  "admin",
+  "import_manager",
+  "branch",
+  "calendar_branch",
+  "calendar_tropik",
+];
 const AUTH_BACKUP_KEY = "tropik-auth-backup";
 
 function parseStoredSession(raw: string | null): { session: Session | null; user: User | null; hasToken: boolean } {
