@@ -71,16 +71,11 @@ function ValidatedAutocomplete({
 
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
-      ? Array.from(
-          new Set([
-            ...options.filter((o) => o.toLowerCase().startsWith(lower)),
-            ...(aliases
-              ? Object.entries(aliases)
-                  .filter(([k]) => k.startsWith(lower))
-                  .map(([, v]) => v)
-              : []),
-          ]),
-        ).slice(0, 8)
+      ? aliases
+        ? suggestCountries(trimmed, options, aliases, 8)
+        : Array.from(
+            new Set(options.filter((o) => o.toLowerCase().includes(lower))),
+          ).slice(0, 8)
       : [];
 
   return (
