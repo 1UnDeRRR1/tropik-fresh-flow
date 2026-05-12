@@ -29,8 +29,10 @@ import { Route as AuthenticatedBranchOffersRouteImport } from './routes/_authent
 import { Route as AuthenticatedBranchCalendarRouteImport } from './routes/_authenticated/branch-calendar'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedSuperAdminIndexRouteImport } from './routes/_authenticated/super-admin/index'
 import { Route as AuthenticatedShipmentsIndexRouteImport } from './routes/_authenticated/shipments/index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedSuperAdminUsersRouteImport } from './routes/_authenticated/super-admin/users'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
 import { Route as AuthenticatedDistributionShipmentIdRouteImport } from './routes/_authenticated/distribution/$shipmentId'
@@ -157,6 +159,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSuperAdminIndexRoute =
+  AuthenticatedSuperAdminIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSuperAdminRoute,
+  } as any)
 const AuthenticatedShipmentsIndexRoute =
   AuthenticatedShipmentsIndexRouteImport.update({
     id: '/shipments/',
@@ -168,6 +176,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedSuperAdminUsersRoute =
+  AuthenticatedSuperAdminUsersRouteImport.update({
+    id: '/users',
+    path: '/users',
+    getParentRoute: () => AuthenticatedSuperAdminRoute,
+  } as any)
 const AuthenticatedShipmentsNewRoute =
   AuthenticatedShipmentsNewRouteImport.update({
     id: '/shipments/new',
@@ -304,7 +318,7 @@ export interface FileRoutesByFullPath {
   '/offers': typeof AuthenticatedOffersRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statistics': typeof AuthenticatedStatisticsRoute
-  '/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
@@ -325,8 +339,10 @@ export interface FileRoutesByFullPath {
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
+  '/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
   '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
@@ -345,7 +361,6 @@ export interface FileRoutesByTo {
   '/offers': typeof AuthenticatedOffersRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statistics': typeof AuthenticatedStatisticsRoute
-  '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
   '/': typeof AuthenticatedIndexRoute
@@ -367,8 +382,10 @@ export interface FileRoutesByTo {
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
+  '/super-admin': typeof AuthenticatedSuperAdminIndexRoute
   '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
@@ -390,7 +407,7 @@ export interface FileRoutesById {
   '/_authenticated/offers': typeof AuthenticatedOffersRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/statistics': typeof AuthenticatedStatisticsRoute
-  '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
+  '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -412,8 +429,10 @@ export interface FileRoutesById {
   '/_authenticated/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/_authenticated/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
+  '/_authenticated/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
   '/_authenticated/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
@@ -457,8 +476,10 @@ export interface FileRouteTypes {
     | '/distribution/$shipmentId'
     | '/shipments/$id'
     | '/shipments/new'
+    | '/super-admin/users'
     | '/admin/'
     | '/shipments/'
+    | '/super-admin/'
     | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   fileRoutesByTo: FileRoutesByTo
@@ -477,7 +498,6 @@ export interface FileRouteTypes {
     | '/offers'
     | '/settings'
     | '/statistics'
-    | '/super-admin'
     | '/suppliers'
     | '/transfers'
     | '/'
@@ -499,8 +519,10 @@ export interface FileRouteTypes {
     | '/distribution/$shipmentId'
     | '/shipments/$id'
     | '/shipments/new'
+    | '/super-admin/users'
     | '/admin'
     | '/shipments'
+    | '/super-admin'
     | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   id:
@@ -543,8 +565,10 @@ export interface FileRouteTypes {
     | '/_authenticated/distribution/$shipmentId'
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
+    | '/_authenticated/super-admin/users'
     | '/_authenticated/admin/'
     | '/_authenticated/shipments/'
+    | '/_authenticated/super-admin/'
     | '/_authenticated/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   fileRoutesById: FileRoutesById
@@ -697,6 +721,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/super-admin/': {
+      id: '/_authenticated/super-admin/'
+      path: '/'
+      fullPath: '/super-admin/'
+      preLoaderRoute: typeof AuthenticatedSuperAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedSuperAdminRoute
+    }
     '/_authenticated/shipments/': {
       id: '/_authenticated/shipments/'
       path: '/shipments'
@@ -710,6 +741,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/super-admin/users': {
+      id: '/_authenticated/super-admin/users'
+      path: '/users'
+      fullPath: '/super-admin/users'
+      preLoaderRoute: typeof AuthenticatedSuperAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedSuperAdminRoute
     }
     '/_authenticated/shipments/new': {
       id: '/_authenticated/shipments/new'
@@ -903,6 +941,22 @@ const AuthenticatedDistributionRouteWithChildren =
     AuthenticatedDistributionRouteChildren,
   )
 
+interface AuthenticatedSuperAdminRouteChildren {
+  AuthenticatedSuperAdminUsersRoute: typeof AuthenticatedSuperAdminUsersRoute
+  AuthenticatedSuperAdminIndexRoute: typeof AuthenticatedSuperAdminIndexRoute
+}
+
+const AuthenticatedSuperAdminRouteChildren: AuthenticatedSuperAdminRouteChildren =
+  {
+    AuthenticatedSuperAdminUsersRoute: AuthenticatedSuperAdminUsersRoute,
+    AuthenticatedSuperAdminIndexRoute: AuthenticatedSuperAdminIndexRoute,
+  }
+
+const AuthenticatedSuperAdminRouteWithChildren =
+  AuthenticatedSuperAdminRoute._addFileChildren(
+    AuthenticatedSuperAdminRouteChildren,
+  )
+
 interface AuthenticatedShipmentsIdRouteChildren {
   AuthenticatedShipmentsIdProductsRoute: typeof AuthenticatedShipmentsIdProductsRoute
 }
@@ -933,7 +987,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOffersRoute: typeof AuthenticatedOffersRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatisticsRoute: typeof AuthenticatedStatisticsRoute
-  AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
+  AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRouteWithChildren
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
   AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -961,7 +1015,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOffersRoute: AuthenticatedOffersRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatisticsRoute: AuthenticatedStatisticsRoute,
-  AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
+  AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRouteWithChildren,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
   AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
@@ -986,3 +1040,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
