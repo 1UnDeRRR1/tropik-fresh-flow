@@ -183,11 +183,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={it.to}
                 to={it.to}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
+                  "relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
                   active ? "text-brand" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
+                <span className="relative">
+                  <Icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
+                  {it.badge && it.badge > 0 ? (
+                    <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
+                      {it.badge > 99 ? "99+" : it.badge}
+                    </span>
+                  ) : null}
+                </span>
                 <span>{it.label}</span>
               </Link>
             );
