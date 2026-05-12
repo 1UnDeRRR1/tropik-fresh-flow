@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { useAuth } from "@/lib/auth";
+import { useStableQueryData } from "@/lib/query-stability";
 
 interface ActiveOverviewRow {
   shipment_id: string;
@@ -80,7 +81,7 @@ function ManagerDashboard() {
     };
   }, [qc, user?.id]);
 
-  const { data: active } = useQuery({
+  const activeQuery = useQuery({
     queryKey: ["dash-manager", "active-overview"],
     queryFn: async () => {
       const { data } = await supabase.rpc("active_shipments_overview");
@@ -104,7 +105,7 @@ function ManagerDashboard() {
     };
   }, [qc]);
 
-  const { data } = useQuery({
+  const summaryQuery = useQuery({
     enabled: !!user?.id,
     queryKey: ["dash-manager", user?.id],
     queryFn: async () => {
@@ -177,6 +178,22 @@ function ManagerDashboard() {
       };
     },
   });
+  const { data: active } = useStableQueryData({
+    data: activeQuery.data,
+    isSuccess: activeQuery.isSuccess,
+    isFetching: activeQuery.isFetching,
+    isError: activeQuery.isError,
+    module: "manager-active-overview",
+    countRows: (rows) => rows.length,
+  });
+  const { data } = useStableQueryData({
+    data: summaryQuery.data,
+    isSuccess: summaryQuery.isSuccess,
+    isFetching: summaryQuery.isFetching,
+    isError: summaryQuery.isError,
+    module: "manager-dashboard-summary",
+    countRows: (value) => (value.plan?.length ?? 0) + (value.urgent?.list?.length ?? 0) + (value.notDist?.list?.length ?? 0) + (value.distributed?.list?.length ?? 0),
+  });
 
   return (
     <div className="space-y-5">
@@ -242,7 +259,11 @@ function ManagerDashboard() {
         <TabsContent value="plan">
           <SectionCard title="План завантажень">
             {!data?.plan?.length ? (
+              summaryQuery.isFetching || !summaryQuery.isSuccess ? (
+                <p className="text-sm text-muted-foreground">Оновлення даних…</p>
+              ) : (
               <EmptyState title="План порожній" hint="Адміністратор ще не додав позиції плану" />
+              )
             ) : (
               <ul className="divide-y divide-border">
                 {data.plan.map((p) => {
@@ -295,7 +316,7 @@ function ManagerDashboard() {
             <p className="-mt-1 mb-2 text-[11px] text-muted-foreground">
               Товар · країна · палети. Зникає в день заходу поставки.
             </p>
-            <ActiveOverviewList rows={active ?? []} />
+             {(!active?.length && (activeQuery.isFetching || !activeQuery.isSuccess)) ? <p className="text-sm text-muted-foreground">Оновлення даних…</p> : <ActiveOverviewList rows={active ?? []} />}
           </SectionCard>
         </TabsContent>
       </Tabs>
