@@ -295,10 +295,10 @@ function ManagerDashboard() {
         </TabsContent>
 
         <TabsContent value="active">
-          <SectionCard
-            title="Активні поставки"
-            subtitle="Сума по всіх імпорт-менеджерах. Зникає, коли настає дата заходу"
-          >
+          <SectionCard title="Активні поставки">
+            <p className="-mt-1 mb-2 text-[11px] text-muted-foreground">
+              Сума по всіх імпорт-менеджерах. Зникає, коли настає дата заходу.
+            </p>
             <ActiveOverviewList rows={active ?? []} />
           </SectionCard>
         </TabsContent>
