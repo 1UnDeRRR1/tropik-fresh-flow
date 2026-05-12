@@ -26,6 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isManager = primaryRole === "import_manager";
 
   const branchId = profile?.branch_id ?? null;
+  const userId = profile?.id ?? null;
   const qc = useQueryClient();
   const { data: pendingOffers = 0 } = useQuery({
     queryKey: ["nav-pending-incoming-offers", branchId],
@@ -36,6 +37,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         .select("id", { count: "exact", head: true })
         .eq("to_branch_id", branchId!)
         .eq("status", "pending");
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: pendingManagerResponses = 0 } = useQuery({
+    queryKey: ["nav-pending-manager-responses", userId],
+    enabled: (isManager || isAdmin) && !!userId,
+    queryFn: async () => {
+      const { data: offers } = await (supabase as any)
+        .from("manager_offers")
+        .select("id")
+        .eq("created_by", userId!)
+        .eq("status", "active");
+      const ids = (offers ?? []).map((o: any) => o.id);
+      if (!ids.length) return 0;
+      const { count } = await (supabase as any)
+        .from("manager_offer_responses")
+        .select("id", { count: "exact", head: true })
+        .in("offer_id", ids)
+        .is("approved_pallets", null);
       return count ?? 0;
     },
     refetchInterval: 30000,
@@ -58,6 +80,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       supabase.removeChannel(ch);
     };
   }, [isBranch, branchId, qc]);
+
+  useEffect(() => {
+    if (!(isManager || isAdmin) || !userId) return;
+    const ch = supabase
+      .channel(`mor-nav-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manager_offer_responses" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses", userId] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [isManager, isAdmin, userId, qc]);
 
   const items: NavItem[] = isBranch
     ? [
