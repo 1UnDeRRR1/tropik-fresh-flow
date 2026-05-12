@@ -248,10 +248,11 @@ function DistributionMatrix() {
   }
 
   const ship = data.shipment as { created_by?: string | null; import_manager_id?: string | null; code?: string } | null;
+  const managerId = data.currentManagerId as string | null | undefined;
   const isOwner =
     !!user &&
     !!ship &&
-    (ship.created_by === user.id || ship.import_manager_id === user.id);
+    (ship.created_by === user.id || (!!managerId && ship.import_manager_id === managerId));
   if (!isAdmin && !isOwner) {
     return (
       <div className="space-y-3">
