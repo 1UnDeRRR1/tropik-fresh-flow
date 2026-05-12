@@ -179,7 +179,7 @@ function ShipmentsList() {
                       : s.isSoon
                         ? "bg-warning/5"
                         : "";
-                  const isOwner = !!user && s.import_manager_id === user.id;
+                  const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                   return (
                     <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
                       <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
@@ -344,10 +344,10 @@ type OpenVehicleRow = {
   eta: string | null;
   total_pallets: number;
   total_weight_kg: number;
-  shipments: { id: string; import_manager_id: string | null; suppliers: { name: string | null } | null }[] | null;
+  shipments: { id: string; import_manager_id: string | null; created_by?: string | null; suppliers: { name: string | null } | null }[] | null;
 };
 
-function OpenVehiclesBlock() {
+function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | null }) {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
   const navigate = useNavigate();
