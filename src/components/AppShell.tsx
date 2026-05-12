@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isBranch = primaryRole === "branch";
   const isAdmin = hasRole(["admin", "super_admin"]);
+  const isSuper = hasRole("super_admin");
   const isManager = primaryRole === "import_manager";
   const items: NavItem[] = isBranch
     ? [
