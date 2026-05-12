@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CostPair } from "@/components/CostPair";
 import { useAuth } from "@/lib/auth";
 import { useStableQueryData } from "@/lib/query-stability";
+import { toUaCountry } from "@/lib/countries";
 
 interface ActiveOverviewRow {
   shipment_id: string;
