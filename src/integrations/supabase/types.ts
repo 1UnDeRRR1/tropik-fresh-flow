@@ -232,6 +232,59 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_accounts: {
+        Row: {
+          access_type: string
+          branch_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          updated_at: string
+          user_id: string
+          username: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          access_type: string
+          branch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+          username: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          access_type?: string
+          branch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_accounts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       countries: {
         Row: {
           code: string | null
@@ -1603,6 +1656,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_calendar_active: { Args: { _user_id: string }; Returns: boolean }
       is_eu_country: { Args: { _country: string }; Returns: boolean }
       is_shipment_owner: {
         Args: { _shipment_id: string; _user_id: string }
@@ -1638,6 +1692,7 @@ export type Database = {
           plan_id: string
         }[]
       }
+      next_calendar_username_seq: { Args: { _prefix: string }; Returns: number }
       next_vehicle_sequence: {
         Args: { p_country_code: string }
         Returns: number
@@ -1666,7 +1721,31 @@ export type Database = {
         Args: { _offer_id: string }
         Returns: undefined
       }
+      tropik_calendar_aggregate: {
+        Args: never
+        Returns: {
+          product_name: string
+          shipment_count: number
+          total_pallets: number
+        }[]
+      }
+      tropik_calendar_shipments: {
+        Args: { _product: string }
+        Returns: {
+          caliber: string
+          eta: string
+          final_cost_indicative: number
+          final_cost_invoice: number
+          manager_name: string
+          origin_country: string
+          pallets: number
+          shipment_code: string
+          shipment_id: string
+          status: string
+        }[]
+      }
       user_branch_id: { Args: { _user_id: string }; Returns: string }
+      user_calendar_branch: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
       app_role:
