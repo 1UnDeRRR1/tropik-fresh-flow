@@ -7,7 +7,31 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth";
+
+interface ActiveOverviewRow {
+  shipment_id: string;
+  shipment_code: string | null;
+  status: string;
+  eta: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
+  product_name: string;
+  caliber: string | null;
+  country: string | null;
+  pallet_count: number;
+  pallet_weight: number;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "в роботі",
+  loading: "завантаж.",
+  in_transit: "в дорозі",
+  customs: "митниця",
+  distributing: "розподіл",
+  delayed: "затримка",
+};
 
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
@@ -59,6 +83,30 @@ function ManagerDashboard() {
       supabase.removeChannel(channel);
     };
   }, [qc, user?.id]);
+
+  const { data: active } = useQuery({
+    queryKey: ["dash-manager", "active-overview"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("active_shipments_overview");
+      return (data ?? []) as ActiveOverviewRow[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("active-overview")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipments" }, () =>
+        qc.invalidateQueries({ queryKey: ["dash-manager", "active-overview"] }),
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipment_items" }, () =>
+        qc.invalidateQueries({ queryKey: ["dash-manager", "active-overview"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   const { data } = useQuery({
     enabled: !!user?.id,
@@ -189,54 +237,72 @@ function ManagerDashboard() {
         />
       </div>
 
-      <SectionCard title="План завантажень">
-        {!data?.plan?.length ? (
-          <EmptyState title="План порожній" hint="Адміністратор ще не додав позиції плану" />
-        ) : (
-          <ul className="divide-y divide-border">
-            {data.plan.map((p) => {
-              const done = p.remaining <= 0;
-              return (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedPlan({
-                        id: p.id,
-                        product_name: p.product_name,
-                        country: p.country,
-                        caliber: p.caliber,
-                        planned_pallets: Number(p.planned_pallets),
-                        count_existing: p.count_existing,
-                        created_at: p.created_at,
-                      })
-                    }
-                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition active:scale-[0.99]"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">
-                        {p.product_name}
-                        {p.caliber ? ` ${p.caliber}` : ""}
-                        {p.country ? ` · ${p.country}` : ""}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        план {Number(p.planned_pallets)}п · завантажено {p.loaded}п
-                      </div>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        done ? "bg-emerald-500/15 text-emerald-600" : "bg-brand/15 text-brand"
-                      }`}
-                    >
-                      {done ? "0п" : `${p.remaining}п`}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </SectionCard>
+      <Tabs defaultValue="plan" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="plan">План завантаження</TabsTrigger>
+          <TabsTrigger value="active">Активні поставки</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="plan">
+          <SectionCard title="План завантажень">
+            {!data?.plan?.length ? (
+              <EmptyState title="План порожній" hint="Адміністратор ще не додав позиції плану" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {data.plan.map((p) => {
+                  const done = p.remaining <= 0;
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedPlan({
+                            id: p.id,
+                            product_name: p.product_name,
+                            country: p.country,
+                            caliber: p.caliber,
+                            planned_pallets: Number(p.planned_pallets),
+                            count_existing: p.count_existing,
+                            created_at: p.created_at,
+                          })
+                        }
+                        className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition active:scale-[0.99]"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">
+                            {p.product_name}
+                            {p.caliber ? ` ${p.caliber}` : ""}
+                            {p.country ? ` · ${p.country}` : ""}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            план {Number(p.planned_pallets)}п · завантажено {p.loaded}п
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                            done ? "bg-emerald-500/15 text-emerald-600" : "bg-brand/15 text-brand"
+                          }`}
+                        >
+                          {done ? "0п" : `${p.remaining}п`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="active">
+          <SectionCard title="Активні поставки">
+            <p className="-mt-1 mb-2 text-[11px] text-muted-foreground">
+              Сума по всіх імпорт-менеджерах. Зникає, коли настає дата заходу.
+            </p>
+            <ActiveOverviewList rows={active ?? []} />
+          </SectionCard>
+        </TabsContent>
+      </Tabs>
 
       <LoadingPlanDetailDialog
         plan={selectedPlan}
@@ -244,6 +310,100 @@ function ManagerDashboard() {
         onOpenChange={(o) => !o && setSelectedPlan(null)}
       />
     </div>
+  );
+}
+
+function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
+  if (!rows.length) {
+    return <EmptyState title="Немає активних поставок" hint="Усі поставки вже прибули або відсутні в роботі" />;
+  }
+
+  type Group = {
+    key: string;
+    product_name: string;
+    caliber: string | null;
+    country: string | null;
+    pallets: number;
+    weight: number;
+    managers: Map<string, number>;
+    statuses: Map<string, number>;
+    minEta: string | null;
+    maxEta: string | null;
+  };
+
+  const groups = new Map<string, Group>();
+  for (const r of rows) {
+    const key = `${r.product_name}|${r.caliber ?? ""}|${r.country ?? ""}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = {
+        key,
+        product_name: r.product_name,
+        caliber: r.caliber,
+        country: r.country,
+        pallets: 0,
+        weight: 0,
+        managers: new Map(),
+        statuses: new Map(),
+        minEta: null,
+        maxEta: null,
+      };
+      groups.set(key, g);
+    }
+    const pallets = Number(r.pallet_count) || 0;
+    const weight = pallets * (Number(r.pallet_weight) || 0);
+    g.pallets += pallets;
+    g.weight += weight;
+    const mname = r.manager_name ?? "—";
+    g.managers.set(mname, (g.managers.get(mname) ?? 0) + pallets);
+    const sl = STATUS_LABEL[r.status] ?? r.status;
+    g.statuses.set(sl, (g.statuses.get(sl) ?? 0) + pallets);
+    if (r.eta) {
+      if (!g.minEta || r.eta < g.minEta) g.minEta = r.eta;
+      if (!g.maxEta || r.eta > g.maxEta) g.maxEta = r.eta;
+    }
+  }
+
+  const list = Array.from(groups.values()).sort((a, b) => b.pallets - a.pallets);
+
+  return (
+    <ul className="divide-y divide-border">
+      {list.map((g) => (
+        <li key={g.key} className="py-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold">
+                {g.product_name}
+                {g.caliber ? ` ${g.caliber}` : ""}
+                {g.country ? ` · ${g.country}` : ""}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {Array.from(g.managers.entries())
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([n, p]) => `${n} ${p}п`)
+                  .join(", ")}
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {Array.from(g.statuses.entries())
+                  .map(([s, p]) => `${s} ${p}п`)
+                  .join(" · ")}
+                {g.minEta
+                  ? ` · ETA ${g.minEta}${g.maxEta && g.maxEta !== g.minEta ? `…${g.maxEta}` : ""}`
+                  : ""}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-bold text-brand">
+                {g.pallets}п
+              </div>
+              {g.weight > 0 ? (
+                <div className="mt-1 text-[10px] text-muted-foreground">{Math.round(g.weight)} кг</div>
+              ) : null}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
