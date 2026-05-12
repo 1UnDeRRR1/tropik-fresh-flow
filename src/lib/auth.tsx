@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setDataLoaded(false);
           setTimeout(() => loadUserData(nextUid), 0);
         }
-      } else if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+      } else if (event === "SIGNED_OUT") {
         currentUid = null;
         setUser(null);
         setSession(null);
