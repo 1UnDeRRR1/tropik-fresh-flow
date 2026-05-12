@@ -84,6 +84,30 @@ function ManagerDashboard() {
     };
   }, [qc, user?.id]);
 
+  const { data: active } = useQuery({
+    queryKey: ["dash-manager", "active-overview"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("active_shipments_overview");
+      return (data ?? []) as ActiveOverviewRow[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("active-overview")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipments" }, () =>
+        qc.invalidateQueries({ queryKey: ["dash-manager", "active-overview"] }),
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipment_items" }, () =>
+        qc.invalidateQueries({ queryKey: ["dash-manager", "active-overview"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
   const { data } = useQuery({
     enabled: !!user?.id,
     queryKey: ["dash-manager", user?.id],
