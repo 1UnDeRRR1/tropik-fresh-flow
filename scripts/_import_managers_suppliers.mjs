@@ -90,11 +90,15 @@ async function main() {
   }
 
   // 2. Suppliers
+  const norm = (s) => String(s).normalize("NFC").replace(/\s+/g, "").toLowerCase();
+  const byNorm = {};
+  for (const [n, id] of Object.entries(managerIdByName)) byNorm[norm(n)] = id;
+
   let count = 0;
   for (const row of rows) {
     const [managerName, supplierName, code] = row;
     if (!managerName || !supplierName || !code) continue;
-    const imId = managerIdByName[managerName.trim()];
+    const imId = byNorm[norm(managerName)];
     if (!imId) { console.warn(`! Unknown manager: ${managerName}`); continue; }
     const { base, iso3 } = parseCode(String(code));
     await upsertSupplier(supplierName.trim(), base, iso3, imId);
