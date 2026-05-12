@@ -53,6 +53,15 @@ function DistributionMatrix() {
 
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user && !isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["matrix", shipmentId],
@@ -248,11 +257,10 @@ function DistributionMatrix() {
   }
 
   const ship = data.shipment as { created_by?: string | null; import_manager_id?: string | null; code?: string } | null;
-  const managerId = data.currentManagerId as string | null | undefined;
   const isOwner =
     !!user &&
     !!ship &&
-    (ship.created_by === user.id || (!!managerId && ship.import_manager_id === managerId));
+    (ship.created_by === user.id || (!!currentManagerId && ship.import_manager_id === currentManagerId));
   if (!isAdmin && !isOwner) {
     return (
       <div className="space-y-3">
