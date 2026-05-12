@@ -5,6 +5,16 @@ import { ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -666,14 +676,16 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     return () => clearTimeout(t);
   }, [form, palletWeight, item.id, qc, readOnly]);
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const remove = async () => {
     if (readOnly) {
       toast.error("Можна редагувати лише власні товари");
       return;
     }
-    if (!confirm("Видалити позицію?")) return;
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
+    setConfirmOpen(false);
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
@@ -762,16 +774,45 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="sticky right-0 z-20 bg-card px-0.5 py-0.5 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]">
-        <button
-          type="button"
-          onClick={remove}
-          disabled={readOnly}
-          aria-label="Видалити рядок"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 touch-manipulation"
-        >
-          <Trash2 className="h-5 w-5" />
-        </button>
+      <td className="sticky right-0 z-30 w-12 min-w-12 bg-card px-1 py-0.5 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.22)]">
+        <div className="flex justify-center">
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <button
+              type="button"
+              onClick={() => {
+                if (readOnly) {
+                  toast.error("Можна редагувати лише власні товари");
+                  return;
+                }
+                setConfirmOpen(true);
+              }}
+              disabled={readOnly}
+              aria-label="Видалити рядок"
+              className="relative z-10 inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+            <AlertDialogContent className="max-w-[calc(100vw-2rem)] rounded-lg">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Видалити позицію?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Рядок товару буде видалено з поставки без можливості швидкого відновлення.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    void remove();
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Видалити
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </td>
     </tr>
     <tr className="border-b border-border">
