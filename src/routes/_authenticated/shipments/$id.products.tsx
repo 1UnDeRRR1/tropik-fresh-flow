@@ -359,7 +359,7 @@ function ProductsFullscreen() {
                 <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
                 <th className="px-1.5 py-2 text-right font-medium">Вага, кг</th>
                 <th className="px-1.5 py-2 text-right font-medium min-w-[92px]">Ціна</th>
-                <th className="px-1.5 py-2"></th>
+                <th className="sticky right-0 z-20 bg-card px-1.5 py-2"></th>
               </tr>
             </thead>
             <tbody>
