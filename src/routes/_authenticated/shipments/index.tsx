@@ -422,7 +422,6 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           const weightPct = Math.min(100, (weight / 21500) * 100);
           // If current user owns one of the shipments in this vehicle → go straight to that shipment's products
           const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
-          const canSwipeDelete = !!ownShipment || (!!user?.id && v.created_by === user.id);
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
@@ -440,7 +439,6 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
               palletsPct={palletsPct}
               weightPct={weightPct}
               ownShipment={ownShipment}
-              canSwipeDelete={canSwipeDelete}
               isAdmin={isAdmin}
               onCardClick={handleCardClick}
               onAddSupplier={() => navigate({ to: "/shipments/new", search: { vehicleId: v.id } })}
