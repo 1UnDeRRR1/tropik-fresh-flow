@@ -21,32 +21,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
-const FALLBACK_COUNTRY_OPTIONS = [
-  "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
-  "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
-];
-
-// Lowercase EN (and ISO) -> canonical UA names. Lets users type English and have it normalized.
-const COUNTRY_ALIASES: Record<string, string> = {
-  greece: "Греція", gr: "Греція",
-  italy: "Італія", it: "Італія",
-  spain: "Іспанія", es: "Іспанія",
-  netherlands: "Нідерланди", holland: "Нідерланди", nl: "Нідерланди",
-  belgium: "Бельгія", be: "Бельгія",
-  poland: "Польща", pl: "Польща",
-  moldova: "Молдова", md: "Молдова",
-  albania: "Албанія", al: "Албанія",
-  macedonia: "Македонія", "north macedonia": "Македонія", mk: "Македонія",
-  turkey: "Туреччина", tr: "Туреччина",
-  france: "Франція", fr: "Франція",
-  germany: "Німеччина", de: "Німеччина",
-  portugal: "Португалія", pt: "Португалія",
-  romania: "Румунія", ro: "Румунія",
-  serbia: "Сербія", rs: "Сербія",
-  georgia: "Грузія", ge: "Грузія",
-  egypt: "Єгипет", eg: "Єгипет",
-  morocco: "Марокко", ma: "Марокко",
-};
+import { COUNTRY_ALIASES } from "@/lib/country-search";
 
 type ItemRow = {
   id: string;
@@ -627,7 +602,7 @@ const MAX_WEIGHT_KG = 21500;
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
-  const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
+  const COUNTRY_OPTIONS = dbCountries;
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
     product_name: normalizedProductName,

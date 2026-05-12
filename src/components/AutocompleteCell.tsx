@@ -26,14 +26,14 @@ function latToUa(s: string) {
   return s.toLowerCase().split("").map((ch) => LAT_UA[ch] ?? ch).join("");
 }
 
-function startsWithAny(option: string, query: string) {
+function matchesQuery(option: string, query: string) {
   if (!query) return false;
   const o = option.toLowerCase();
   const q = query.toLowerCase();
-  if (o.startsWith(q)) return true;
-  if (o.startsWith(uaToLat(q))) return true;
-  if (o.startsWith(latToUa(q))) return true;
-  if (uaToLat(o).startsWith(uaToLat(q))) return true;
+  if (o.includes(q)) return true;
+  if (o.includes(uaToLat(q))) return true;
+  if (o.includes(latToUa(q))) return true;
+  if (uaToLat(o).includes(uaToLat(q))) return true;
   return false;
 }
 
@@ -76,27 +76,39 @@ export function AutocompleteCell({
     if (!l) return null;
     const direct = options.find((o) => o.toLowerCase() === l);
     if (direct) return direct;
-    if (aliases && aliases[l]) return aliases[l];
+    if (aliases && aliases[l]) {
+      const target = aliases[l].toLowerCase();
+      const aliased = options.find((o) => o.toLowerCase() === target);
+      if (aliased) return aliased;
+      return aliases[l];
+    }
+    // Unique substring fallback (e.g. "македонія" → "ПІВНІЧНА МАКЕДОНІЯ")
+    const subs = options.filter((o) => o.toLowerCase().includes(l));
+    if (subs.length === 1) return subs[0];
     return null;
   };
 
   const canonical = resolveCanonical(trimmed);
   const isExactMatch = !trimmed || !!canonical;
 
-  // Suggestions: match canonical options by query, OR by alias keys whose value maps to an option.
+  // Suggestions: match canonical options by query (substring),
+  // OR by alias keys whose value maps to an option.
   const aliasMatchedCanonicals = aliases
     ? Object.entries(aliases)
-        .filter(([k]) => k.startsWith(lower) && lower.length >= 2)
-        .map(([, v]) => v)
+        .filter(([k]) => k.includes(lower) && lower.length >= 2)
+        .map(([, v]) => {
+          const t = v.toLowerCase();
+          return options.find((o) => o.toLowerCase() === t) ?? v;
+        })
     : [];
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
       ? Array.from(
           new Set([
-            ...options.filter((o) => startsWithAny(o, trimmed)),
+            ...options.filter((o) => matchesQuery(o, trimmed)),
             ...aliasMatchedCanonicals,
           ]),
-        ).slice(0, 6)
+        ).slice(0, 8)
       : [];
 
   useEffect(() => {

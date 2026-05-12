@@ -27,31 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
-
-const FALLBACK_COUNTRY_OPTIONS = [
-  "Греція", "Італія", "Іспанія", "Нідерланди", "Бельгія", "Польща", "Молдова", "Албанія", "Македонія",
-  "Туреччина", "Франція", "Німеччина", "Португалія", "Румунія", "Сербія", "Грузія", "Єгипет", "Марокко",
-];
-const COUNTRY_ALIASES: Record<string, string> = {
-  greece: "Греція", gr: "Греція",
-  italy: "Італія", it: "Італія",
-  spain: "Іспанія", es: "Іспанія",
-  netherlands: "Нідерланди", holland: "Нідерланди", nl: "Нідерланди",
-  belgium: "Бельгія", be: "Бельгія",
-  poland: "Польща", pl: "Польща",
-  moldova: "Молдова", md: "Молдова",
-  albania: "Албанія", al: "Албанія",
-  macedonia: "Македонія", "north macedonia": "Македонія", mk: "Македонія",
-  turkey: "Туреччина", tr: "Туреччина",
-  france: "Франція", fr: "Франція",
-  germany: "Німеччина", de: "Німеччина",
-  portugal: "Португалія", pt: "Португалія",
-  romania: "Румунія", ro: "Румунія",
-  serbia: "Сербія", rs: "Сербія",
-  georgia: "Грузія", ge: "Грузія",
-  egypt: "Єгипет", eg: "Єгипет",
-  morocco: "Марокко", ma: "Марокко",
-};
+import { COUNTRY_ALIASES, resolveCountry, suggestCountries } from "@/lib/country-search";
 
 function resolveOption(
   value: string,
@@ -62,7 +38,12 @@ function resolveOption(
   if (!v) return null;
   const direct = options.find((o) => o.toLowerCase() === v);
   if (direct) return direct;
-  if (aliases && aliases[v]) return aliases[v];
+  if (aliases && aliases[v]) {
+    const target = aliases[v].toLowerCase();
+    const aliased = options.find((o) => o.toLowerCase() === target);
+    if (aliased) return aliased;
+    return aliases[v];
+  }
   return null;
 }
 
@@ -90,16 +71,11 @@ function ValidatedAutocomplete({
 
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
-      ? Array.from(
-          new Set([
-            ...options.filter((o) => o.toLowerCase().startsWith(lower)),
-            ...(aliases
-              ? Object.entries(aliases)
-                  .filter(([k]) => k.startsWith(lower))
-                  .map(([, v]) => v)
-              : []),
-          ]),
-        ).slice(0, 8)
+      ? aliases
+        ? suggestCountries(trimmed, options, aliases, 8)
+        : Array.from(
+            new Set(options.filter((o) => o.toLowerCase().includes(lower))),
+          ).slice(0, 8)
       : [];
 
   return (
@@ -624,10 +600,7 @@ function OfferEditor({
 }) {
   const { user } = useAuth();
   const dbCountries = useCountryOptions();
-  const COUNTRY_OPTIONS = useMemo(
-    () => Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS])),
-    [dbCountries],
-  );
+  const COUNTRY_OPTIONS = useMemo(() => dbCountries, [dbCountries]);
   const [form, setForm] = useState({
     product_name: "",
     origin_country: "",
@@ -712,7 +685,7 @@ function OfferEditor({
 
   const productCanonical = resolveOption(form.product_name, productOptions);
   const productValid = !!productCanonical;
-  const countryCanonical = resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+  const countryCanonical = resolveCountry(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
   const countryValid = !!countryCanonical;
 
   const priceNum = Number(form.price_per_kg);
