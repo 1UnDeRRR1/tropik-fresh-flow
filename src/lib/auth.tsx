@@ -128,11 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(cached.user);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  // Keep the very first render deterministic across SSR and client hydration.
-  // iPhone rotation can recreate the webview; if client-side storage makes the
-  // client render AppShell while SSR rendered the splash, React throws a
-  // hydration mismatch and remounts the tree, which looks like a logout/reset.
-  const [loading, setLoading] = useState(true);
+  // When iOS Safari restores the tab from background, we want the
+  // authenticated shell to paint instantly from the cached session instead
+  // of flashing the full-screen splash (which the user perceives as a reload
+  // / white screen). Start `loading: false` whenever we already have a
+  // persisted user; the in-flight getSession() call still runs and will
+  // reconcile in the background.
+  const [loading, setLoading] = useState(() => !cached.user);
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
