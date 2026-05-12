@@ -83,20 +83,24 @@ export function AutocompleteCell({
   const canonical = resolveCanonical(trimmed);
   const isExactMatch = !trimmed || !!canonical;
 
-  // Suggestions: match canonical options by query, OR by alias keys whose value maps to an option.
+  // Suggestions: match canonical options by query (substring),
+  // OR by alias keys whose value maps to an option.
   const aliasMatchedCanonicals = aliases
     ? Object.entries(aliases)
-        .filter(([k]) => k.startsWith(lower) && lower.length >= 2)
-        .map(([, v]) => v)
+        .filter(([k]) => k.includes(lower) && lower.length >= 2)
+        .map(([, v]) => {
+          const t = v.toLowerCase();
+          return options.find((o) => o.toLowerCase() === t) ?? v;
+        })
     : [];
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
       ? Array.from(
           new Set([
-            ...options.filter((o) => startsWithAny(o, trimmed)),
+            ...options.filter((o) => matchesQuery(o, trimmed)),
             ...aliasMatchedCanonicals,
           ]),
-        ).slice(0, 6)
+        ).slice(0, 8)
       : [];
 
   useEffect(() => {
