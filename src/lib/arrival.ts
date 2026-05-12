@@ -9,6 +9,12 @@ export const COUNTRY_DAYS: Record<string, number> = {
   Бельгія: 4,
   Албанія: 3,
   Македонія: 3,
+  Сербія: 3,
+  Туреччина: 5,
+  Азербайджан: 7,
+  Грузія: 6,
+  Єгипет: 10,
+  Перу: 30,
 };
 
 // Country (Ukrainian) → ISO3 code for shipment numbering
