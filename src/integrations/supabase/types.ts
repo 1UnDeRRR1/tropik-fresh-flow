@@ -1561,6 +1561,22 @@ export type Database = {
       }
     }
     Functions: {
+      active_shipments_overview: {
+        Args: never
+        Returns: {
+          caliber: string
+          country: string
+          eta: string
+          manager_id: string
+          manager_name: string
+          pallet_count: number
+          pallet_weight: number
+          product_name: string
+          shipment_code: string
+          shipment_id: string
+          status: string
+        }[]
+      }
       can_access_manager_offer: {
         Args: { _branch_id: string; _offer_id: string }
         Returns: boolean
