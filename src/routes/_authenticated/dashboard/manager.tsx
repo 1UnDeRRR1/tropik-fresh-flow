@@ -413,11 +413,12 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold truncate">
-                          {r.shipment_code ?? "—"}
-                          {r.caliber ? <span className="text-muted-foreground"> · {r.caliber}</span> : null}
+                          ETA {r.eta ?? "—"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          ETA {r.eta ?? "—"} · {r.manager_name ?? "—"}
+                          {r.shipment_code ?? "—"}
+                          {r.caliber ? <span> · {r.caliber}</span> : null}
+                          {" · "}{r.manager_name ?? "—"}
                         </div>
                         <div className="mt-1">
                           <CostPair
