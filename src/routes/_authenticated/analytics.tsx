@@ -170,6 +170,8 @@ function Analytics() {
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [openItem, setOpenItem] = useState<Flat | null>(null);
   const [view, setView] = useState<"product" | "manager" | "supplier">("product");
+  const [search, setSearch] = useState("");
+  const searchLower = search.trim().toLowerCase();
 
   // Grouping by manager / supplier (admins only)
   type ProdSub = {
