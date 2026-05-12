@@ -128,13 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(cached.user);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  // When iOS Safari restores the tab from background, we want the
-  // authenticated shell to paint instantly from the cached session instead
-  // of flashing the full-screen splash (which the user perceives as a reload
-  // / white screen). Start `loading: false` whenever we already have a
-  // persisted user; the in-flight getSession() call still runs and will
-  // reconcile in the background.
-  const [loading, setLoading] = useState(() => !cached.user);
+  // Must match SSR (no storage on the server) on the very first client render
+  // to avoid a hydration mismatch that would remount the entire tree and look
+  // like a logout/reset on iOS resume. We flip to `false` immediately in an
+  // effect when a cached session exists, so the splash does not visibly flash.
+  const [loading, setLoading] = useState(true);
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
@@ -169,6 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
+    // Immediately drop the splash on resume / reload when we already have a
+    // cached session — getSession() will reconcile in the background.
+    if (cached.user) setLoading(false);
     // Seed currentUid from the synchronously-restored session so that the
     // SIGNED_IN event fired right after re-hydration is treated as a no-op
     // instead of triggering a full profile/roles reload (which would briefly
