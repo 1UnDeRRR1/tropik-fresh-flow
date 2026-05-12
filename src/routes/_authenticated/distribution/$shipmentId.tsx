@@ -51,11 +51,14 @@ function DistributionMatrix() {
   const [confirmOpen, setConfirmOpen] = useState<null | "save-overflow" | "reset" | "leave">(null);
   const pendingNavRef = useRef<null | (() => void)>(null);
 
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole(["admin", "super_admin"]);
+
   const { data, isLoading } = useQuery({
     queryKey: ["matrix", shipmentId],
     queryFn: async () => {
       const [shRes, itemsRes, branchesRes, distRes] = await Promise.all([
-        supabase.from("shipments").select("id,code,status").eq("id", shipmentId).single(),
+        supabase.from("shipments").select("id,code,status,created_by,import_manager_id").eq("id", shipmentId).single(),
         supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
         supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase
