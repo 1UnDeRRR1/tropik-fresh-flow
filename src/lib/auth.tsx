@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSystem } from "@/lib/system-log";
@@ -133,6 +133,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // like a logout/reset on iOS resume. We flip to `false` immediately in an
   // effect when a cached session exists, so the splash does not visibly flash.
   const [loading, setLoading] = useState(true);
+  const sessionRef = useRef<Session | null>(cached.session);
+  const userRef = useRef<User | null>(cached.user);
+  const profileRef = useRef<Profile | null>(null);
+
+  const applyIdentity = (nextSession: Session | null, nextUser: User | null) => {
+    sessionRef.current = nextSession;
+    userRef.current = nextUser;
+    setSession(nextSession);
+    setUser(nextUser);
+  };
+
+  const applyProfile = (nextProfile: Profile | null) => {
+    profileRef.current = nextProfile;
+    setProfile(nextProfile);
+  };
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
@@ -155,11 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           timestamp: new Date().toISOString(),
         },
       });
-      setDataLoaded((prev) => prev || !!user);
+      setDataLoaded((prev) => prev || !!userRef.current);
       return;
     }
 
-    setProfile((prof as Profile | null) ?? profile);
+    applyProfile((prof as Profile | null) ?? profileRef.current);
     setRoles(nextRoles);
     setDataLoaded(true);
   };
