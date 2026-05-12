@@ -315,6 +315,8 @@ export const ROLE_LABEL_UK: Record<AppRole, string> = {
   admin: "Адміністратор",
   import_manager: "Менеджер ЗЕД",
   branch: "Філія",
+  calendar_branch: "Календар філії",
+  calendar_tropik: "Календар Tropik",
 };
 
 export function defaultRoutePerRole(role: AppRole | null): string {
@@ -327,6 +329,10 @@ export function defaultRoutePerRole(role: AppRole | null): string {
       return "/dashboard/manager";
     case "branch":
       return "/dashboard/branch";
+    case "calendar_branch":
+      return "/calendar/branch";
+    case "calendar_tropik":
+      return "/calendar/tropik";
     default:
       return "/dashboard/branch";
   }
