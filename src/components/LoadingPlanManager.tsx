@@ -151,16 +151,16 @@ export function LoadingPlanManager() {
               value={form.caliber}
               onChange={(e) => setForm({ ...form, caliber: e.target.value })}
             />
-            <select
-              className="input"
-              value={form.country}
-              onChange={(e) => setForm({ ...form, country: e.target.value })}
-            >
-              <option value="">Країна (будь-яка)</option>
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <AutocompleteCell
+                value={form.country}
+                onChange={(v) => setForm({ ...form, country: v })}
+                options={COUNTRIES}
+                placeholder="Країна (будь-яка)"
+                required={false}
+                className="!h-10 !text-sm !px-3 !border-input !bg-background"
+              />
+            </div>
           </div>
           <input
             className="input"

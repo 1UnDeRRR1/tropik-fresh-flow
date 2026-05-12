@@ -40,7 +40,7 @@ type ShipmentRow = {
   shipment_items: ItemRow[];
 };
 
-type Manager = { id: string; full_name: string };
+type Manager = { id: string; full_name: string; user_id: string | null };
 type Supplier = { id: string; name: string };
 type Branch = { id: string; name: string };
 type DistItem = { shipment_item_id: string; pallets: number | null };
@@ -76,7 +76,7 @@ function Analytics() {
       if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
       const [shRes, mgrRes, supRes, brRes, distRes] = await Promise.all([
         q,
-        supabase.from("import_managers").select("id,full_name"),
+        supabase.from("import_managers").select("id,full_name,user_id"),
         supabase.from("suppliers").select("id,name"),
         supabase.from("branches").select("id,name").eq("is_active", true),
         supabase.from("distributions").select("branch_id, shipment_id, distribution_items(shipment_item_id,pallets)"),
@@ -92,7 +92,15 @@ function Analytics() {
     },
   });
 
-  const mgrMap = useMemo(() => new Map((data?.managers ?? []).map((m) => [m.id, m.full_name])), [data]);
+  const mgrMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mgr of data?.managers ?? []) {
+      // Shipments store auth user_id in import_manager_id; fall back to row id for safety.
+      if (mgr.user_id) m.set(mgr.user_id, mgr.full_name);
+      m.set(mgr.id, mgr.full_name);
+    }
+    return m;
+  }, [data]);
   const supMap = useMemo(() => new Map((data?.suppliers ?? []).map((s) => [s.id, s.name])), [data]);
   const brMap = useMemo(() => new Map((data?.branches ?? []).map((b) => [b.id, b.name])), [data]);
 
@@ -162,6 +170,8 @@ function Analytics() {
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [openItem, setOpenItem] = useState<Flat | null>(null);
   const [view, setView] = useState<"product" | "manager" | "supplier">("product");
+  const [search, setSearch] = useState("");
+  const searchLower = search.trim().toLowerCase();
 
   // Grouping by manager / supplier (admins only)
   type ProdSub = {
@@ -284,15 +294,41 @@ function Analytics() {
         </div>
       )}
 
-      {view === "product" && (
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={
+          view === "manager"
+            ? "Пошук менеджера…"
+            : view === "supplier"
+              ? "Пошук постачальника…"
+              : "Пошук товару або країни…"
+        }
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+      />
+
+      {view === "product" && (() => {
+        const filtered = searchLower
+          ? groups.filter(
+              (g) =>
+                g.product.toLowerCase().includes(searchLower) ||
+                g.country.toLowerCase().includes(searchLower),
+            )
+          : groups;
+        return (
       <SectionCard title="Товар · країна · палети">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
-        ) : !groups.length ? (
-          <EmptyState title="Немає активних товарів" hint="Товари зникають з аналітики наступного дня після прибуття." />
+        ) : !filtered.length ? (
+          <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} hint={searchLower ? undefined : "Товари зникають з аналітики наступного дня після прибуття."} />
         ) : (
           <ul className="divide-y divide-border">
-            {groups.map((g) => (
+            {filtered.map((g) => (
               <li key={g.key}>
                 <button
                   type="button"
@@ -318,17 +354,22 @@ function Analytics() {
           </ul>
         )}
       </SectionCard>
-      )}
+        );
+      })()}
 
-      {view !== "product" && (
+      {view !== "product" && (() => {
+        const filtered = searchLower
+          ? ownerGroups.filter((og) => og.name.toLowerCase().includes(searchLower))
+          : ownerGroups;
+        return (
         <SectionCard title={view === "manager" ? "Менеджер · палети" : "Постачальник · палети"}>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Завантаження…</p>
-          ) : !ownerGroups.length ? (
-            <EmptyState title="Немає активних товарів" />
+          ) : !filtered.length ? (
+            <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} />
           ) : (
             <ul className="divide-y divide-border">
-              {ownerGroups.map((og) => (
+              {filtered.map((og) => (
                 <li key={og.key}>
                   <button
                     type="button"
@@ -351,7 +392,8 @@ function Analytics() {
             </ul>
           )}
         </SectionCard>
-      )}
+        );
+      })()}
 
       {/* Owner detail dialog */}
       <Dialog open={!!openOwner} onOpenChange={(o) => !o && setOpenOwner(null)}>
