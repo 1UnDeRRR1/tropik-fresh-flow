@@ -24,7 +24,7 @@ interface IM { id: string; full_name: string; is_active: boolean }
 
 function SuppliersAdmin() {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: "", country: "", import_manager_id: "" });
+  const [form, setForm] = useState({ name: "", country: "", import_manager_id: "", code_base: "", iso3: "" });
   const [edit, setEdit] = useState<Record<string, Partial<Sup>>>({});
 
   const { data: sups } = useQuery({
