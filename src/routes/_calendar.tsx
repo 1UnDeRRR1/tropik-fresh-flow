@@ -5,7 +5,9 @@ import {
   Link,
   useRouter,
 } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { useAuth, ROLE_LABEL_UK } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import logoSrc from "@/assets/tropik-logo.png";
 import { LogOut } from "lucide-react";
