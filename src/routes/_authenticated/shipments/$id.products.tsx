@@ -664,7 +664,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         .update({
           product_name: trimmedProductName,
           variety: form.variety || null,
-          origin_country: form.origin_country || null,
+          origin_country: normalizeCountry(form.origin_country) || null,
           caliber: form.caliber || null,
           sku: form.sku || null,
           pallet_count: palletCount,
