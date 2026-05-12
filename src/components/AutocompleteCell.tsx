@@ -76,7 +76,15 @@ export function AutocompleteCell({
     if (!l) return null;
     const direct = options.find((o) => o.toLowerCase() === l);
     if (direct) return direct;
-    if (aliases && aliases[l]) return aliases[l];
+    if (aliases && aliases[l]) {
+      const target = aliases[l].toLowerCase();
+      const aliased = options.find((o) => o.toLowerCase() === target);
+      if (aliased) return aliased;
+      return aliases[l];
+    }
+    // Unique substring fallback (e.g. "македонія" → "ПІВНІЧНА МАКЕДОНІЯ")
+    const subs = options.filter((o) => o.toLowerCase().includes(l));
+    if (subs.length === 1) return subs[0];
     return null;
   };
 
