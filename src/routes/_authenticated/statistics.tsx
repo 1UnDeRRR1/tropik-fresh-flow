@@ -7,6 +7,7 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -40,7 +41,7 @@ type ShipmentRow = {
 };
 
 type Supplier = { id: string; name: string };
-type Manager = { id: string; full_name: string };
+type Manager = { id: string; user_id: string | null; full_name: string };
 
 function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
 function toISO(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -123,7 +124,7 @@ function StatisticsPage() {
           .order("loading_date", { ascending: false })
           .limit(2000),
         supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("import_managers").select("id,full_name").order("full_name"),
+        supabase.from("import_managers").select("id,user_id,full_name").order("full_name"),
       ]);
       const shipments = ((shRes.data ?? []) as unknown as (ShipmentRow & { shipment_items: ItemRow[] })[]);
       return {
@@ -138,7 +139,10 @@ function StatisticsPage() {
   const suppliers = data?.suppliers ?? [];
   const managers = data?.managers ?? [];
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
-  const managerMap = useMemo(() => Object.fromEntries(managers.map(m => [m.id, m.full_name])), [managers]);
+  const managerMap = useMemo(
+    () => Object.fromEntries(managers.map((m) => [m.user_id ?? m.id, m.full_name])),
+    [managers],
+  );
 
   type Flat = {
     item: ItemRow;
@@ -196,7 +200,7 @@ function StatisticsPage() {
       if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) continue;
       if (f.shipment.import_manager_id) ids.add(f.shipment.import_manager_id);
     }
-    return managers.filter(m => ids.has(m.id));
+    return managers.filter((m) => ids.has(m.user_id ?? "") || ids.has(m.id));
   }, [flatPeriod, productF, countryF, supplierF, managers]);
 
   // Final filtered rows
@@ -349,43 +353,35 @@ function StatisticsPage() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="text-xs text-muted-foreground">Товар</label>
-            <Select value={productF} onValueChange={(v) => { setProductF(v); setCountryF(ALL); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {productOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={productF}
+              onChange={(v) => { setProductF(v); setCountryF(ALL); }}
+              options={productOptions.map((p) => ({ value: p, label: p }))}
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Країна</label>
-            <Select value={countryF} onValueChange={setCountryF}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {countryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={countryF}
+              onChange={setCountryF}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Постачальник</label>
-            <Select value={supplierF} onValueChange={setSupplierF}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {supplierOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={supplierF}
+              onChange={setSupplierF}
+              options={supplierOptions.map((s) => ({ value: s.id, label: s.name }))}
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Імпорт-менеджер</label>
-            <Select value={managerF} onValueChange={setManagerF}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {managerOptions.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={managerF}
+              onChange={setManagerF}
+              options={managerOptions.map((m) => ({ value: m.user_id ?? m.id, label: m.full_name }))}
+            />
           </div>
         </div>
         {activeChips.length > 0 && (
