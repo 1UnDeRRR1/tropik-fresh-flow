@@ -453,9 +453,9 @@ function VehicleCard({
 
   const startLongPress = (e: React.MouseEvent | React.TouchEvent) => {
     if (!ownShipment) return;
-    // ignore clicks/touches that originated on inner interactive elements
+    // ignore touches that originated on inner interactive elements (buttons/links/inputs)
     const target = e.target as HTMLElement;
-    if (target.closest("button, a, input, [role='button']:not([data-vehicle-card])")) return;
+    if (target.closest("button, a, input, textarea, select")) return;
     longPressFired.current = false;
     const pt = "touches" in e ? e.touches[0] : (e as React.MouseEvent);
     startPos.current = pt ? { x: pt.clientX, y: pt.clientY } : null;
