@@ -27,7 +27,11 @@ function isOwnedShipment(
   currentManagerId?: string | null,
 ) {
   if (!userId) return false;
-  return shipment.created_by === userId || shipment.import_manager_id === userId || shipment.import_manager_id === currentManagerId;
+  return (
+    shipment.created_by === userId
+    || (!!currentManagerId && shipment.import_manager_id === currentManagerId)
+    || shipment.import_manager_id === userId
+  );
 }
 
 function ShipmentsList() {
@@ -344,6 +348,7 @@ type OpenVehicleRow = {
   eta: string | null;
   total_pallets: number;
   total_weight_kg: number;
+  created_by: string | null;
   shipments: { id: string; import_manager_id: string | null; created_by?: string | null; suppliers: { name: string | null } | null }[] | null;
 };
 
@@ -356,7 +361,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(id,import_manager_id,created_by,suppliers(name))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,import_manager_id,created_by,suppliers(name))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];

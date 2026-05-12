@@ -59,12 +59,15 @@ function CalendarPage() {
     queryKey: ["calendar-shipments", user?.id, isStaffAll, fromISO],
     enabled: !!user,
     queryFn: async () => {
+      const { data: managerId } = !isStaffAll
+        ? await supabase.rpc("current_import_manager_id")
+        : { data: null };
       let q = supabase
         .from("shipments")
         .select(
           "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count,final_cost_indicative,final_cost_invoice)",
         );
-      if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
+      if (!isStaffAll && managerId) q = q.eq("import_manager_id", managerId);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as ShipmentRow[];

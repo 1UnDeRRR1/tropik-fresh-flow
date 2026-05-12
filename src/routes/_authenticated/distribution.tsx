@@ -349,6 +349,15 @@ type Bucket = { id: string; code: string; eta: string | null; country: string | 
 function DistributionList() {
   const { user, loading, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !loading && !!user && !isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   const distributionQuery = useQuery({
     queryKey: ["distribution-list", user?.id],
@@ -363,7 +372,7 @@ function DistributionList() {
       if (error) throw error;
       const all = (data ?? []) as ShipRow[];
       if (isAdmin) return all;
-      return all.filter((s) => s.created_by === user!.id || s.import_manager_id === user!.id);
+      return all.filter((s) => s.created_by === user!.id || (!!currentManagerId && s.import_manager_id === currentManagerId));
     },
   });
   const { data } = useStableQueryData({

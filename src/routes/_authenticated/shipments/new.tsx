@@ -257,21 +257,21 @@ function NewShipment() {
         ? code.trim()
         : formatShipmentCode(vCode, supplierCode);
 
-      const { data, error } = await supabase
+      const insertPayload = {
+        code: finalCode,
+        supplier_id: supplierId,
+        country: normalizeCountry(useCountry),
+        loading_date: useLoadingDate || null,
+        logistics_days: useDays,
+        eta: useEta || null,
+        import_manager_id: currentManagerId ?? user?.id ?? null,
+        created_by: user?.id ?? null,
+        vehicle_id: vId,
+      } as never;
+
+      const { error } = await supabase
         .from("shipments")
-        .insert({
-          code: finalCode,
-          supplier_id: supplierId,
-          country: normalizeCountry(useCountry),
-          loading_date: useLoadingDate || null,
-          logistics_days: useDays,
-          eta: useEta || null,
-          import_manager_id: currentManagerId ?? user?.id ?? null,
-          created_by: user?.id ?? null,
-          vehicle_id: vId,
-        } as never)
-        .select("id")
-        .single();
+        .insert(insertPayload);
 
       if (error) {
         if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
@@ -281,7 +281,7 @@ function NewShipment() {
       }
 
       toast.success("Поставку створено. Додайте позиції товарів.");
-      navigate({ to: "/shipments/$id/products", params: { id: data.id } });
+      navigate({ to: "/shipments" });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
