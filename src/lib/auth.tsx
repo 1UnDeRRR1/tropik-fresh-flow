@@ -29,12 +29,36 @@ const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 const ROLE_PRIORITY: AppRole[] = ["super_admin", "admin", "import_manager", "branch"];
 
+// Synchronously read the cached Supabase session from localStorage so that
+// when iOS Safari kills + restores the tab (background, rotation, phone call,
+// app switch) we can paint the authenticated shell on the very first render
+// instead of flashing the full-screen splash + redirect-to-login.
+function readCachedSession(): { session: Session | null; user: User | null } {
+  if (typeof window === "undefined") return { session: null, user: null };
+  try {
+    const projectRef = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined) ?? "";
+    const key = projectRef ? `sb-${projectRef}-auth-token` : null;
+    const raw = key ? localStorage.getItem(key) : null;
+    if (!raw) return { session: null, user: null };
+    const parsed = JSON.parse(raw);
+    const exp = parsed?.expires_at as number | undefined;
+    // Accept slightly-expired sessions too — the SDK will silently refresh.
+    if (exp && Date.now() / 1000 - exp > 60 * 60 * 24 * 7) return { session: null, user: null };
+    const u = parsed?.user as User | undefined;
+    return { session: parsed as Session, user: u ?? null };
+  } catch {
+    return { session: null, user: null };
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const cached = readCachedSession();
+  const [session, setSession] = useState<Session | null>(cached.session);
+  const [user, setUser] = useState<User | null>(cached.user);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  // If we already have a cached user, never show the global splash on mount.
+  const [loading, setLoading] = useState(!cached.user);
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof }, { data: rs }] = await Promise.all([
