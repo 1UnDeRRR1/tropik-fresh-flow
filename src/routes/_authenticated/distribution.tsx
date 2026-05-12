@@ -337,6 +337,8 @@ type ShipRow = {
   eta: string | null;
   status: string;
   country: string | null;
+  created_by: string | null;
+  import_manager_id: string | null;
   shipment_items: { pallet_count: number | null }[] | null;
   distributions: { distribution_items: { pallets: number | null }[] | null }[] | null;
 };
@@ -344,7 +346,8 @@ type ShipRow = {
 type Bucket = { id: string; code: string; eta: string | null; country: string | null; planned: number; distributed: number; remaining: number };
 
 function DistributionList() {
-  const { user, loading } = useAuth();
+  const { user, loading, hasRole } = useAuth();
+  const isAdmin = hasRole(["admin", "super_admin"]);
 
   const { data } = useQuery({
     queryKey: ["distribution-list", user?.id],
@@ -352,12 +355,14 @@ function DistributionList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,eta,status,country,shipment_items(pallet_count),distributions(distribution_items(pallets))")
+        .select("id,code,eta,status,country,created_by,import_manager_id,shipment_items(pallet_count),distributions(distribution_items(pallets))")
         .neq("status", "cancelled")
         .order("eta", { ascending: true, nullsFirst: false })
         .limit(200);
       if (error) throw error;
-      return (data ?? []) as ShipRow[];
+      const all = (data ?? []) as ShipRow[];
+      if (isAdmin) return all;
+      return all.filter((s) => s.created_by === user!.id || s.import_manager_id === user!.id);
     },
   });
 
