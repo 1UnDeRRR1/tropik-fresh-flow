@@ -2,12 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
-import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CostPair } from "@/components/CostPair";
 import { useAuth } from "@/lib/auth";
 
 interface ActiveOverviewRow {
@@ -22,16 +24,10 @@ interface ActiveOverviewRow {
   country: string | null;
   pallet_count: number;
   pallet_weight: number;
+  final_cost_indicative: number | null;
+  final_cost_invoice: number | null;
+  shipment_item_id: string | null;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "в роботі",
-  loading: "завантаж.",
-  in_transit: "в дорозі",
-  customs: "митниця",
-  distributing: "розподіл",
-  delayed: "затримка",
-};
 
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
@@ -297,7 +293,7 @@ function ManagerDashboard() {
         <TabsContent value="active">
           <SectionCard title="Активні поставки">
             <p className="-mt-1 mb-2 text-[11px] text-muted-foreground">
-              Сума по всіх імпорт-менеджерах. Зникає, коли настає дата заходу.
+              Товар · країна · палети. Зникає в день заходу поставки.
             </p>
             <ActiveOverviewList rows={active ?? []} />
           </SectionCard>
@@ -313,97 +309,114 @@ function ManagerDashboard() {
   );
 }
 
+type ProductGroup = {
+  key: string;
+  product: string;
+  country: string;
+  pallets: number;
+  shipmentCount: number;
+  rows: ActiveOverviewRow[];
+};
+
 function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
+  const [openGroup, setOpenGroup] = useState<ProductGroup | null>(null);
+
   if (!rows.length) {
     return <EmptyState title="Немає активних поставок" hint="Усі поставки вже прибули або відсутні в роботі" />;
   }
 
-  type Group = {
-    key: string;
-    product_name: string;
-    caliber: string | null;
-    country: string | null;
-    pallets: number;
-    weight: number;
-    managers: Map<string, number>;
-    statuses: Map<string, number>;
-    minEta: string | null;
-    maxEta: string | null;
-  };
-
-  const groups = new Map<string, Group>();
+  const groups = new Map<string, ProductGroup>();
+  const shipSets = new Map<string, Set<string>>();
   for (const r of rows) {
-    const key = `${r.product_name}|${r.caliber ?? ""}|${r.country ?? ""}`;
+    const product = (r.product_name || "").trim();
+    const country = (r.country || "").trim();
+    const key = `${product}__${country}`;
     let g = groups.get(key);
     if (!g) {
-      g = {
-        key,
-        product_name: r.product_name,
-        caliber: r.caliber,
-        country: r.country,
-        pallets: 0,
-        weight: 0,
-        managers: new Map(),
-        statuses: new Map(),
-        minEta: null,
-        maxEta: null,
-      };
+      g = { key, product, country, pallets: 0, shipmentCount: 0, rows: [] };
       groups.set(key, g);
     }
-    const pallets = Number(r.pallet_count) || 0;
-    const weight = pallets * (Number(r.pallet_weight) || 0);
-    g.pallets += pallets;
-    g.weight += weight;
-    const mname = r.manager_name ?? "—";
-    g.managers.set(mname, (g.managers.get(mname) ?? 0) + pallets);
-    const sl = STATUS_LABEL[r.status] ?? r.status;
-    g.statuses.set(sl, (g.statuses.get(sl) ?? 0) + pallets);
-    if (r.eta) {
-      if (!g.minEta || r.eta < g.minEta) g.minEta = r.eta;
-      if (!g.maxEta || r.eta > g.maxEta) g.maxEta = r.eta;
-    }
+    g.pallets += Number(r.pallet_count) || 0;
+    g.rows.push(r);
+    const s = shipSets.get(key) ?? new Set<string>();
+    s.add(r.shipment_id);
+    shipSets.set(key, s);
   }
+  for (const [k, g] of groups) g.shipmentCount = shipSets.get(k)?.size ?? 0;
 
-  const list = Array.from(groups.values()).sort((a, b) => b.pallets - a.pallets);
+  const list = Array.from(groups.values()).sort(
+    (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
+  );
 
   return (
-    <ul className="divide-y divide-border">
-      {list.map((g) => (
-        <li key={g.key} className="py-2.5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold">
-                {g.product_name}
-                {g.caliber ? ` ${g.caliber}` : ""}
-                {g.country ? ` · ${g.country}` : ""}
+    <>
+      <ul className="divide-y divide-border">
+        {list.map((g) => (
+          <li key={g.key}>
+            <button
+              type="button"
+              onClick={() => setOpenGroup(g)}
+              className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
+            >
+              <div className="min-w-0 flex-1 text-sm">
+                <div>
+                  <span className="font-medium">{g.product}</span>
+                  {g.country ? <span className="text-muted-foreground"> · {g.country}</span> : null}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{g.shipmentCount} пост.</div>
               </div>
-              <div className="text-[11px] text-muted-foreground">
-                {Array.from(g.managers.entries())
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([n, p]) => `${n} ${p}п`)
-                  .join(", ")}
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {Array.from(g.statuses.entries())
-                  .map(([s, p]) => `${s} ${p}п`)
-                  .join(" · ")}
-                {g.minEta
-                  ? ` · ETA ${g.minEta}${g.maxEta && g.maxEta !== g.minEta ? `…${g.maxEta}` : ""}`
-                  : ""}
-              </div>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-bold text-brand">
-                {g.pallets}п
-              </div>
-              {g.weight > 0 ? (
-                <div className="mt-1 text-[10px] text-muted-foreground">{Math.round(g.weight)} кг</div>
-              ) : null}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {openGroup?.product}
+              {openGroup?.country ? <span className="text-muted-foreground"> · {openGroup.country}</span> : null}
+            </DialogTitle>
+          </DialogHeader>
+          {openGroup ? (
+            <ul className="divide-y divide-border">
+              {openGroup.rows
+                .slice()
+                .sort((a, b) => (a.eta ?? "9999").localeCompare(b.eta ?? "9999"))
+                .map((r) => (
+                  <li key={r.shipment_item_id ?? `${r.shipment_id}-${r.product_name}`} className="py-2.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold truncate">
+                          {r.shipment_code ?? "—"}
+                          {r.caliber ? <span className="text-muted-foreground"> · {r.caliber}</span> : null}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          ETA {r.eta ?? "—"} · {r.manager_name ?? "—"}
+                        </div>
+                        <div className="mt-1">
+                          <CostPair
+                            indicative={r.final_cost_indicative}
+                            invoice={r.final_cost_invoice}
+                            suffix="/кг"
+                          />
+                        </div>
+                      </div>
+                      <div className="shrink-0 rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-bold text-brand">
+                        {Number(r.pallet_count) || 0}п
+                      </div>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
