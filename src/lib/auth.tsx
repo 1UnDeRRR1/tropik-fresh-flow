@@ -100,13 +100,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setDataLoaded(true);
       }
     });
+    // If we have a cached user, fetch profile/roles in the background so that
+    // the shell renders instantly while role-gated UI hydrates a moment later.
+    if (cached.user) {
+      void loadUserData(cached.user.id);
+    }
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       if (data.session?.user) {
-        currentUid = data.session.user.id;
-        await loadUserData(data.session.user.id);
+        if (currentUid !== data.session.user.id) {
+          currentUid = data.session.user.id;
+          await loadUserData(data.session.user.id);
+        }
       } else {
+        // No live session — clear cached optimistic user.
+        currentUid = null;
+        setUser(null);
+        setSession(null);
         setDataLoaded(true);
       }
       setLoading(false);
