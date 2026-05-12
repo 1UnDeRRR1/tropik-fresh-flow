@@ -38,9 +38,9 @@ const ROLE_PRIORITY: AppRole[] = [
   "super_admin",
   "admin",
   "import_manager",
-  "branch",
   "calendar_branch",
   "calendar_tropik",
+  "branch",
 ];
 const AUTH_BACKUP_KEY = "tropik-auth-backup";
 
