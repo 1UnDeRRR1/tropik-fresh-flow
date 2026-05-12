@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated/transfers'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
+import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedStatisticsRouteImport } from './routes/_authenticated/statistics'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedOffersRouteImport } from './routes/_authenticated/offers'
@@ -73,6 +74,11 @@ const AuthenticatedTransfersRoute = AuthenticatedTransfersRouteImport.update({
 const AuthenticatedSuppliersRoute = AuthenticatedSuppliersRouteImport.update({
   id: '/suppliers',
   path: '/suppliers',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSuperAdminRoute = AuthenticatedSuperAdminRouteImport.update({
+  id: '/super-admin',
+  path: '/super-admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedStatisticsRoute = AuthenticatedStatisticsRouteImport.update({
@@ -298,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/offers': typeof AuthenticatedOffersRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statistics': typeof AuthenticatedStatisticsRoute
+  '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
@@ -338,6 +345,7 @@ export interface FileRoutesByTo {
   '/offers': typeof AuthenticatedOffersRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/statistics': typeof AuthenticatedStatisticsRoute
+  '/super-admin': typeof AuthenticatedSuperAdminRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
   '/': typeof AuthenticatedIndexRoute
@@ -382,6 +390,7 @@ export interface FileRoutesById {
   '/_authenticated/offers': typeof AuthenticatedOffersRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/statistics': typeof AuthenticatedStatisticsRoute
+  '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -427,6 +436,7 @@ export interface FileRouteTypes {
     | '/offers'
     | '/settings'
     | '/statistics'
+    | '/super-admin'
     | '/suppliers'
     | '/transfers'
     | '/admin/branches'
@@ -467,6 +477,7 @@ export interface FileRouteTypes {
     | '/offers'
     | '/settings'
     | '/statistics'
+    | '/super-admin'
     | '/suppliers'
     | '/transfers'
     | '/'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
     | '/_authenticated/offers'
     | '/_authenticated/settings'
     | '/_authenticated/statistics'
+    | '/_authenticated/super-admin'
     | '/_authenticated/suppliers'
     | '/_authenticated/transfers'
     | '/_authenticated/'
@@ -578,6 +590,13 @@ declare module '@tanstack/react-router' {
       path: '/suppliers'
       fullPath: '/suppliers'
       preLoaderRoute: typeof AuthenticatedSuppliersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/super-admin': {
+      id: '/_authenticated/super-admin'
+      path: '/super-admin'
+      fullPath: '/super-admin'
+      preLoaderRoute: typeof AuthenticatedSuperAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/statistics': {
@@ -914,6 +933,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOffersRoute: typeof AuthenticatedOffersRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatisticsRoute: typeof AuthenticatedStatisticsRoute
+  AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRoute
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
   AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -941,6 +961,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOffersRoute: AuthenticatedOffersRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatisticsRoute: AuthenticatedStatisticsRoute,
+  AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRoute,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
   AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
