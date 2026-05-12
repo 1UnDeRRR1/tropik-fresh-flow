@@ -516,7 +516,7 @@ function VehicleCard({
       onTouchStart={startLongPress}
       onTouchEnd={cancelLongPress}
       onTouchCancel={cancelLongPress}
-      onTouchMove={cancelLongPress}
+      onTouchMove={handleTouchMove}
       onContextMenu={(e) => {
         if (ownShipment) {
           e.preventDefault();
