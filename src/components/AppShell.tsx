@@ -4,12 +4,15 @@ import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FxRateBadge } from "@/components/FxRateBadge";
-import type { ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, type ReactNode } from "react";
 
 interface NavItem {
   to: string;
   label: string;
   icon: typeof Home;
+  badge?: number;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
