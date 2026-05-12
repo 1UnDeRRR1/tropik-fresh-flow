@@ -160,7 +160,11 @@ function OffersPage() {
         ...o,
         product_name: it?.product_name,
         caliber: it?.caliber ?? null,
+        variety: it?.variety ?? null,
         origin_country: it?.origin_country ?? sh?.country ?? null,
+        pallet_weight: it?.pallet_weight ?? null,
+        final_cost_indicative: it?.final_cost_indicative ?? null,
+        final_cost_invoice: it?.final_cost_invoice ?? null,
         shipment_code: sh?.code,
         shipment_eta: sh?.eta ?? null,
       };
