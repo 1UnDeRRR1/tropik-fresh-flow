@@ -89,7 +89,7 @@ function LoadingPlanAdmin() {
       await run(supabase.from("loading_plan").insert({
         product_name: form.product_name,
         caliber: form.caliber || null,
-        country: form.country || null,
+        country: normalizeCountry(form.country) || null,
         planned_pallets: Number(form.planned_pallets) || 0,
         count_existing: form.count_existing,
       }));
