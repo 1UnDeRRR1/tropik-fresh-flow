@@ -11,8 +11,19 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, dataLoaded } = useAuth();
   if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background px-6">
+        <div className="flex flex-col items-center gap-4">
+          <Logo size={220} className="animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+  // Never redirect to /login until the auth/session restore path has finished,
+  // otherwise iPhone orientation changes can briefly bounce authenticated users.
+  if (!user && !dataLoaded) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">
         <div className="flex flex-col items-center gap-4">

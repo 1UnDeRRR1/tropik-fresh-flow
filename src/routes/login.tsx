@@ -14,7 +14,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user } = useAuth();
+  const { user, loading, dataLoaded } = useAuth();
   const { ready, target } = usePostLoginTarget();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -25,6 +25,13 @@ function LoginPage() {
 
   // Single source of truth for post-login destination.
   if (user && ready) return <Navigate to={target} />;
+  if (loading || (user && !dataLoaded)) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-primary px-4 py-10 text-primary-foreground">
+        <Logo size={220} className="animate-pulse" />
+      </div>
+    );
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
