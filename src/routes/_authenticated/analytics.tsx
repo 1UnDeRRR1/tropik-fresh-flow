@@ -435,14 +435,13 @@ function Analytics() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate text-sm font-semibold">
-                            {it.product_name}
-                            {it.caliber ? <span className="text-muted-foreground"> ·{it.caliber}</span> : null}
+                            ETA {sh.eta ?? "—"}
                           </span>
                           <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                           <span className="font-mono text-foreground">{sh.code}</span>
-                          {sh.eta && <span>ETA {sh.eta}</span>}
+                          {it.caliber ? <span>·{it.caliber}</span> : null}
                           <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
                           <span>{(it.origin_country || sh.country) ?? "—"}</span>
                           <span>{Math.round(weight)} кг</span>
