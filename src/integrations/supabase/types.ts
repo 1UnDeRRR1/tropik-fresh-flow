@@ -1567,6 +1567,8 @@ export type Database = {
           caliber: string
           country: string
           eta: string
+          final_cost_indicative: number
+          final_cost_invoice: number
           manager_id: string
           manager_name: string
           pallet_count: number
@@ -1574,6 +1576,7 @@ export type Database = {
           product_name: string
           shipment_code: string
           shipment_id: string
+          shipment_item_id: string
           status: string
         }[]
       }
