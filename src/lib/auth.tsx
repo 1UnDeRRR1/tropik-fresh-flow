@@ -29,26 +29,83 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
 const ROLE_PRIORITY: AppRole[] = ["super_admin", "admin", "import_manager", "branch"];
+const AUTH_BACKUP_KEY = "tropik-auth-backup";
+
+function parseStoredSession(raw: string | null): { session: Session | null; user: User | null; hasToken: boolean } {
+  if (!raw) return { session: null, user: null, hasToken: false };
+  try {
+    const parsed = JSON.parse(raw);
+    const candidate = (parsed?.currentSession ?? parsed?.session ?? parsed) as Session | null | undefined;
+    const exp = (candidate as { expires_at?: number } | null | undefined)?.expires_at;
+    if (exp && Date.now() / 1000 - exp > 60 * 60 * 24 * 7) {
+      return { session: null, user: null, hasToken: true };
+    }
+    return {
+      session: candidate ?? null,
+      user: (candidate?.user as User | undefined) ?? null,
+      hasToken: true,
+    };
+  } catch {
+    return { session: null, user: null, hasToken: true };
+  }
+}
+
+function readStorageSession(storage: Storage | undefined, preferredKey: string | null) {
+  if (!storage) return { session: null, user: null, hasToken: false };
+
+  const keys = [
+    AUTH_BACKUP_KEY,
+    ...(preferredKey ? [preferredKey] : []),
+    ...Object.keys(storage).filter((key) => key.startsWith("sb-") && key.endsWith("-auth-token")),
+  ];
+
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const parsed = parseStoredSession(storage.getItem(key));
+    if (parsed.hasToken) {
+      return parsed;
+    }
+  }
+
+  return { session: null, user: null, hasToken: false };
+}
+
+function persistSessionBackup(session: Session | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!session) {
+      localStorage.removeItem(AUTH_BACKUP_KEY);
+      sessionStorage.removeItem(AUTH_BACKUP_KEY);
+      return;
+    }
+    const raw = JSON.stringify(session);
+    localStorage.setItem(AUTH_BACKUP_KEY, raw);
+    sessionStorage.setItem(AUTH_BACKUP_KEY, raw);
+  } catch {
+    /* ignore storage failures */
+  }
+}
 
 // Synchronously read the cached Supabase session from localStorage so that
 // when iOS Safari kills + restores the tab (background, rotation, phone call,
 // app switch) we can paint the authenticated shell on the very first render
 // instead of flashing the full-screen splash + redirect-to-login.
-function readCachedSession(): { session: Session | null; user: User | null } {
+function readCachedSession(): { session: Session | null; user: User | null; hasPersistedToken: boolean } {
   if (typeof window === "undefined") return { session: null, user: null };
   try {
     const projectRef = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined) ?? "";
     const key = projectRef ? `sb-${projectRef}-auth-token` : null;
-    const raw = key ? localStorage.getItem(key) : null;
-    if (!raw) return { session: null, user: null };
-    const parsed = JSON.parse(raw);
-    const exp = parsed?.expires_at as number | undefined;
-    // Accept slightly-expired sessions too — the SDK will silently refresh.
-    if (exp && Date.now() / 1000 - exp > 60 * 60 * 24 * 7) return { session: null, user: null };
-    const u = parsed?.user as User | undefined;
-    return { session: parsed as Session, user: u ?? null };
+    const local = readStorageSession(localStorage, key);
+    if (local.user || local.session || local.hasToken) {
+      return { session: local.session, user: local.user, hasPersistedToken: local.hasToken };
+    }
+
+    const session = readStorageSession(sessionStorage, key);
+    return { session: session.session, user: session.user, hasPersistedToken: session.hasToken };
   } catch {
-    return { session: null, user: null };
+    return { session: null, user: null, hasPersistedToken: false };
   }
 }
 
