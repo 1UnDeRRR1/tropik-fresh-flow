@@ -17,6 +17,8 @@ interface Sup {
   country: string | null;
   is_active: boolean;
   import_manager_id: string | null;
+  code_base: string | null;
+  iso3: string | null;
 }
 interface IM { id: string; full_name: string; is_active: boolean }
 
