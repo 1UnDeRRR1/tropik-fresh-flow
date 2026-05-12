@@ -22,6 +22,7 @@ import { CostPair } from "@/components/CostPair";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/distribution/$shipmentId")({
   component: () => <StaffOnly><DistributionMatrix /></StaffOnly>,
@@ -50,11 +51,14 @@ function DistributionMatrix() {
   const [confirmOpen, setConfirmOpen] = useState<null | "save-overflow" | "reset" | "leave">(null);
   const pendingNavRef = useRef<null | (() => void)>(null);
 
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole(["admin", "super_admin"]);
+
   const { data, isLoading } = useQuery({
     queryKey: ["matrix", shipmentId],
     queryFn: async () => {
       const [shRes, itemsRes, branchesRes, distRes] = await Promise.all([
-        supabase.from("shipments").select("id,code,status").eq("id", shipmentId).single(),
+        supabase.from("shipments").select("id,code,status,created_by,import_manager_id").eq("id", shipmentId).single(),
         supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
         supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase
@@ -239,6 +243,31 @@ function DistributionMatrix() {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> Завантаження…
+      </div>
+    );
+  }
+
+  const ship = data.shipment as { created_by?: string | null; import_manager_id?: string | null; code?: string } | null;
+  const isOwner =
+    !!user &&
+    !!ship &&
+    (ship.created_by === user.id || ship.import_manager_id === user.id);
+  if (!isAdmin && !isOwner) {
+    return (
+      <div className="space-y-3">
+        <PageHeader
+          title="Розподіл недоступний"
+          subtitle={`Поставка ${ship?.code ?? ""}`}
+          action={
+            <Link to="/shipments/$id" params={{ id: shipmentId }} className="text-xs text-brand">
+              До поставки
+            </Link>
+          }
+        />
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+          Ви не можете розподіляти цю поставку — товар належить іншому імпорт-менеджеру.
+          Кожен менеджер розподіляє лише свої позиції в авто.
+        </div>
       </div>
     );
   }
