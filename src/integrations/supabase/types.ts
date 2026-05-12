@@ -1669,7 +1669,13 @@ export type Database = {
       user_branch_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "import_manager" | "branch"
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "import_manager"
+        | "branch"
+        | "calendar_branch"
+        | "calendar_tropik"
       branch_offer_status:
         | "pending"
         | "partially_accepted"
@@ -1837,7 +1843,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "import_manager", "branch"],
+      app_role: [
+        "super_admin",
+        "admin",
+        "import_manager",
+        "branch",
+        "calendar_branch",
+        "calendar_tropik",
+      ],
       branch_offer_status: [
         "pending",
         "partially_accepted",
