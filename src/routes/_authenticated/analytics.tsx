@@ -40,7 +40,7 @@ type ShipmentRow = {
   shipment_items: ItemRow[];
 };
 
-type Manager = { id: string; full_name: string };
+type Manager = { id: string; full_name: string; user_id: string | null };
 type Supplier = { id: string; name: string };
 type Branch = { id: string; name: string };
 type DistItem = { shipment_item_id: string; pallets: number | null };
