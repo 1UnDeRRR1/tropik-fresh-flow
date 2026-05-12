@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CostPair } from "@/components/CostPair";
 import { toast } from "sonner";
+import { useStableQueryData } from "@/lib/query-stability";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
@@ -349,7 +350,7 @@ function DistributionList() {
   const { user, loading, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
 
-  const { data } = useQuery({
+  const distributionQuery = useQuery({
     queryKey: ["distribution-list", user?.id],
     enabled: !loading && !!user,
     queryFn: async () => {
@@ -364,6 +365,14 @@ function DistributionList() {
       if (isAdmin) return all;
       return all.filter((s) => s.created_by === user!.id || s.import_manager_id === user!.id);
     },
+  });
+  const { data } = useStableQueryData({
+    data: distributionQuery.data,
+    isSuccess: distributionQuery.isSuccess,
+    isFetching: distributionQuery.isFetching,
+    isError: distributionQuery.isError,
+    module: "distribution-list",
+    countRows: (rows) => rows.length,
   });
 
   const isoToday = new Date().toISOString().slice(0, 10);
@@ -395,19 +404,19 @@ function DistributionList() {
 
       <section id="urgent">
         <SectionCard title="24 години — терміново">
-          {!urgent.length ? <EmptyState title="Немає термінових поставок" /> : <List rows={urgent} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />}
+          {!urgent.length ? (distributionQuery.isFetching || !distributionQuery.isSuccess ? <p className="text-sm text-muted-foreground">Оновлення даних…</p> : <EmptyState title="Немає термінових поставок" />) : <List rows={urgent} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />}
         </SectionCard>
       </section>
 
       <section id="not">
         <SectionCard title="Нерозподілено">
-          {!notDist.length ? <EmptyState title="Немає нерозподілених поставок" hint="Створіть поставку та додайте товари" /> : <List rows={notDist} icon={<Package className="h-4 w-4" />} />}
+          {!notDist.length ? (distributionQuery.isFetching || !distributionQuery.isSuccess ? <p className="text-sm text-muted-foreground">Оновлення даних…</p> : <EmptyState title="Немає нерозподілених поставок" hint="Створіть поставку та додайте товари" />) : <List rows={notDist} icon={<Package className="h-4 w-4" />} />}
         </SectionCard>
       </section>
 
       <section id="done">
         <SectionCard title="Розподілено">
-          {!done.length ? <EmptyState title="Розподілів ще немає" /> : <List rows={done} variant="done" icon={<CheckCircle2 className="h-4 w-4" />} />}
+          {!done.length ? (distributionQuery.isFetching || !distributionQuery.isSuccess ? <p className="text-sm text-muted-foreground">Оновлення даних…</p> : <EmptyState title="Розподілів ще немає" />) : <List rows={done} variant="done" icon={<CheckCircle2 className="h-4 w-4" />} />}
         </SectionCard>
       </section>
     </div>
