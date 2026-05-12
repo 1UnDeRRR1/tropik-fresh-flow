@@ -110,14 +110,16 @@ function readCachedSession(): { session: Session | null; user: User | null; hasP
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const cached = readCachedSession();
+  const [cached] = useState(() => readCachedSession());
   const [session, setSession] = useState<Session | null>(cached.session);
   const [user, setUser] = useState<User | null>(cached.user);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  // If we have a persisted token but no parsed user yet, keep the shell in
-  // restore mode so mobile orientation reloads do not flash /login.
-  const [loading, setLoading] = useState(cached.hasPersistedToken && !cached.user);
+  // Keep the very first render deterministic across SSR and client hydration.
+  // iPhone rotation can recreate the webview; if client-side storage makes the
+  // client render AppShell while SSR rendered the splash, React throws a
+  // hydration mismatch and remounts the tree, which looks like a logout/reset.
+  const [loading, setLoading] = useState(true);
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
