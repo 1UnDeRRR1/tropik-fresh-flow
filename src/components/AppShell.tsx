@@ -117,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/shipments", label: "Поставки", icon: Package },
         ...(isAdmin ? [] : [{ to: "/distribution", label: "Розподіл", icon: Truck }]),
         ...(isManager || isAdmin
-          ? [{ to: "/manager-offers", label: "Запропонувати", icon: Megaphone }]
+          ? [{ to: "/manager-offers", label: "Запропонувати", icon: Megaphone, badge: pendingManagerResponses }]
           : []),
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
