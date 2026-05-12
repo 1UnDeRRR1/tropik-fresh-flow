@@ -763,8 +763,14 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         />
       </td>
       <td className="px-0.5 py-0.5">
-        <button type="button" onClick={remove} disabled={readOnly} className="p-1 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40">
-          <Trash2 className="h-3.5 w-3.5" />
+        <button
+          type="button"
+          onClick={remove}
+          disabled={readOnly}
+          aria-label="Видалити рядок"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 touch-manipulation"
+        >
+          <Trash2 className="h-5 w-5" />
         </button>
       </td>
     </tr>
