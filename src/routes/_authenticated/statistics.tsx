@@ -353,43 +353,35 @@ function StatisticsPage() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="text-xs text-muted-foreground">Товар</label>
-            <Select value={productF} onValueChange={(v) => { setProductF(v); setCountryF(ALL); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {productOptions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={productF}
+              onChange={(v) => { setProductF(v); setCountryF(ALL); }}
+              options={productOptions.map((p) => ({ value: p, label: p }))}
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Країна</label>
-            <Select value={countryF} onValueChange={setCountryF}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {countryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={countryF}
+              onChange={setCountryF}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Постачальник</label>
-            <Select value={supplierF} onValueChange={setSupplierF}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {supplierOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={supplierF}
+              onChange={setSupplierF}
+              options={supplierOptions.map((s) => ({ value: s.id, label: s.name }))}
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Імпорт-менеджер</label>
-            <Select value={managerF} onValueChange={setManagerF}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>ВСІ</SelectItem>
-                {managerOptions.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={managerF}
+              onChange={setManagerF}
+              options={managerOptions.map((m) => ({ value: m.user_id ?? m.id, label: m.full_name }))}
+            />
           </div>
         </div>
         {activeChips.length > 0 && (
