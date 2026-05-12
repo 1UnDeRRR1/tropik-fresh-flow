@@ -175,13 +175,15 @@ function NewShipment() {
   // Auto-generate code preview
   useEffect(() => {
     if (codeOverride) return;
-    const supplierCode = selectedSupplier ? buildSupplierCode(selectedSupplier.name) : "";
+    const supplierCode = selectedSupplier
+      ? (selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name))
+      : "";
     if (mode === "existing" && selectedVehicle && supplierCode) {
       setCode(formatShipmentCode(selectedVehicle.code, supplierCode));
     } else if (mode === "new" && country && supplierCode) {
-      const cc = getCountryCode(country);
+      const cc = selectedSupplier?.iso3?.trim() || getCountryCode(country);
       const seqStr = previewSeq ? String(previewSeq).padStart(2, "0") : "··";
-      setCode(formatShipmentCode(`${cc}${seqStr}`, supplierCode));
+      setCode(formatShipmentCode(`${seqStr}-${cc}`, supplierCode));
     } else {
       setCode("");
     }
