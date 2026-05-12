@@ -685,7 +685,7 @@ function OfferEditor({
 
   const productCanonical = resolveOption(form.product_name, productOptions);
   const productValid = !!productCanonical;
-  const countryCanonical = resolveOption(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
+  const countryCanonical = resolveCountry(form.origin_country, COUNTRY_OPTIONS, COUNTRY_ALIASES);
   const countryValid = !!countryCanonical;
 
   const priceNum = Number(form.price_per_kg);
