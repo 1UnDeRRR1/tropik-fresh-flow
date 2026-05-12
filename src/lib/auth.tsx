@@ -194,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextUid = s?.user?.id ?? null;
       if (nextUid) {
         persistSessionBackup(s);
-        applyIdentity(s, s.user);
+        applyIdentity(s, s?.user ?? null);
         // Only reload profile/roles when the user identity actually changes
         // (initial sign-in or account switch). TOKEN_REFRESHED / USER_UPDATED
         // events keep the same uid — do NOT reset dataLoaded or wipe roles,
