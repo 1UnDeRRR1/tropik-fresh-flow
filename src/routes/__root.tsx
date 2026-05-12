@@ -11,6 +11,8 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { useEffect } from "react";
+import { installGlobalErrorLogger, logSystem } from "@/lib/system-log";
 
 function NotFoundComponent() {
   return (
