@@ -44,10 +44,19 @@ type OpenVehicle = {
   total_weight_kg: number;
   created_by: string | null;
   shipments: {
+    id: string;
+    code: string | null;
     logistics_cost: number | null;
     logistics_cost_currency: string | null;
     created_by: string | null;
     suppliers: { name: string | null } | null;
+    shipment_items: {
+      id: string;
+      product_name: string | null;
+      variety: string | null;
+      caliber: string | null;
+      pallet_count: number | null;
+    }[] | null;
   }[] | null;
 };
 
