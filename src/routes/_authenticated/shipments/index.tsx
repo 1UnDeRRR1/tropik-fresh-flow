@@ -356,7 +356,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(id,import_manager_id,suppliers(name))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(id,import_manager_id,created_by,suppliers(name))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
@@ -416,7 +416,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           const palletsPct = Math.min(100, (pallets / 26) * 100);
           const weightPct = Math.min(100, (weight / 21500) * 100);
           // If current user owns one of the shipments in this vehicle → go straight to that shipment's products
-          const ownShipment = (v.shipments ?? []).find((s) => s.import_manager_id === user?.id);
+          const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
