@@ -308,30 +308,32 @@ function DistributionMatrix() {
           const t = totals[it.id] ?? { distributed: 0, remaining: 0, total: 0 };
           return (
             <div key={it.id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">
-                    {it.product_name}
-                    {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
+              <div className="sticky top-14 z-20 -mx-3 -mt-3 rounded-t-2xl border-b border-border bg-card/95 px-3 pt-3 pb-2 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">
+                      {it.product_name}
+                      {it.caliber && <span className="ml-1 text-muted-foreground">·{it.caliber}</span>}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px]">
+                      <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px]">
-                    <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
+                  <div className="flex shrink-0 gap-1.5 text-[11px] tabular-nums">
+                    <span className="rounded-md bg-secondary px-1.5 py-0.5">Факт {t.total}</span>
+                    <span className="rounded-md bg-brand/10 px-1.5 py-0.5 font-semibold text-brand">{t.distributed}</span>
+                    <span className={cn("rounded-md px-1.5 py-0.5 font-semibold", t.remaining < 0 ? "bg-destructive/15 text-destructive" : "bg-secondary")}>
+                      зал {t.remaining}
+                    </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-1.5 text-[11px] tabular-nums">
-                  <span className="rounded-md bg-secondary px-1.5 py-0.5">Факт {t.total}</span>
-                  <span className="rounded-md bg-brand/10 px-1.5 py-0.5 font-semibold text-brand">{t.distributed}</span>
-                  <span className={cn("rounded-md px-1.5 py-0.5 font-semibold", t.remaining < 0 ? "bg-destructive/15 text-destructive" : "bg-secondary")}>
-                    зал {t.remaining}
-                  </span>
-                </div>
-              </div>
 
-              {t.remaining <= 0 && (
-                <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
-                  {t.remaining < 0 ? "Перевищено факт. кількість палет" : "Немає доступних палет для розподілу"}
-                </div>
-              )}
+                {t.remaining <= 0 && (
+                  <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
+                    {t.remaining < 0 ? "Перевищено факт. кількість палет" : "Немає доступних палет для розподілу"}
+                  </div>
+                )}
+              </div>
 
               <div className="mt-3 space-y-1.5">
                 {data.branches.map((b) => {
