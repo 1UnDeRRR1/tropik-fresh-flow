@@ -45,7 +45,11 @@ type OfferRow = {
   // hydrated client-side from branch views
   product_name?: string;
   caliber?: string | null;
+  variety?: string | null;
   origin_country?: string | null;
+  pallet_weight?: number | null;
+  final_cost_indicative?: number | null;
+  final_cost_invoice?: number | null;
   shipment_code?: string;
   shipment_eta?: string | null;
 };
@@ -120,10 +124,10 @@ function OffersPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,shipment_id,product_name,caliber,origin_country")
+        .select("id,shipment_id,product_name,caliber,variety,origin_country,pallet_weight,final_cost_indicative,final_cost_invoice")
         .in("id", itemIds);
       if (error) throw error;
-      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null; origin_country: string | null }>;
+      return (data ?? []) as Array<{ id: string; shipment_id: string; product_name: string; caliber: string | null; variety: string | null; origin_country: string | null; pallet_weight: number | null; final_cost_indicative: number | null; final_cost_invoice: number | null }>;
     },
   });
 
@@ -156,7 +160,11 @@ function OffersPage() {
         ...o,
         product_name: it?.product_name,
         caliber: it?.caliber ?? null,
+        variety: it?.variety ?? null,
         origin_country: it?.origin_country ?? sh?.country ?? null,
+        pallet_weight: it?.pallet_weight ?? null,
+        final_cost_indicative: it?.final_cost_indicative ?? null,
+        final_cost_invoice: it?.final_cost_invoice ?? null,
         shipment_code: sh?.code,
         shipment_eta: sh?.eta ?? null,
       };
@@ -256,6 +264,18 @@ function OffersPage() {
                     {" · "}
                     <span className="text-primary">{o.offered_pallets}п</span>
                   </div>
+                  {(o.final_cost_indicative != null || o.final_cost_invoice != null) && (
+                    <div className="mt-1 text-xs">
+                      <span className="text-success font-semibold tabular-nums">
+                        ${Number(o.final_cost_indicative ?? 0).toFixed(2)}
+                      </span>
+                      <span className="mx-1 text-muted-foreground">/</span>
+                      <span className="text-destructive font-semibold tabular-nums">
+                        ${Number(o.final_cost_invoice ?? 0).toFixed(2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground">собівартість</span>
+                    </div>
+                  )}
                   <div className="text-[11px] text-muted-foreground">
                     ETA {fmtEta(o.shipment_eta)}
                     {o.accepted_pallets > 0 && (
@@ -312,7 +332,21 @@ function OffersPage() {
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
                 <div className="font-semibold">
                   {actioning.shipment_code ?? "—"} · {actioning.product_name ?? "—"}{actioning.origin_country ? ` (${actioning.origin_country})` : ""}
+                  {actioning.caliber ? ` · ${actioning.caliber}` : ""}
+                  {actioning.variety ? ` · ${actioning.variety}` : ""}
                 </div>
+                {(actioning.final_cost_indicative != null || actioning.final_cost_invoice != null) && (
+                  <div className="mt-1 text-xs">
+                    Собівартість:{" "}
+                    <span className="text-success font-semibold tabular-nums">
+                      ${Number(actioning.final_cost_indicative ?? 0).toFixed(2)}
+                    </span>
+                    <span className="mx-1 text-muted-foreground">/</span>
+                    <span className="text-destructive font-semibold tabular-nums">
+                      ${Number(actioning.final_cost_invoice ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="text-xs text-muted-foreground">
                   Запропоновано {actioning.offered_pallets}п · ETA {fmtEta(actioning.shipment_eta)}
                 </div>
