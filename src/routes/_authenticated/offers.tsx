@@ -45,7 +45,11 @@ type OfferRow = {
   // hydrated client-side from branch views
   product_name?: string;
   caliber?: string | null;
+  variety?: string | null;
   origin_country?: string | null;
+  pallet_weight?: number | null;
+  final_cost_indicative?: number | null;
+  final_cost_invoice?: number | null;
   shipment_code?: string;
   shipment_eta?: string | null;
 };
