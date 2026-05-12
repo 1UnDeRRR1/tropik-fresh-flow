@@ -32,7 +32,7 @@ function SuppliersAdmin() {
     queryFn: async () => {
       const { data } = await supabase
         .from("suppliers")
-        .select("id,name,country,is_active,import_manager_id")
+        .select("id,name,country,is_active,import_manager_id,code_base,iso3")
         .order("name");
       return (data ?? []) as Sup[];
     },
