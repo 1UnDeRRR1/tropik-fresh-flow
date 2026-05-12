@@ -602,7 +602,7 @@ const MAX_WEIGHT_KG = 21500;
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
-  const COUNTRY_OPTIONS = Array.from(new Set([...dbCountries, ...FALLBACK_COUNTRY_OPTIONS]));
+  const COUNTRY_OPTIONS = dbCountries;
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
     product_name: normalizedProductName,
