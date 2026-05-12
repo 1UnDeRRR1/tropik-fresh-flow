@@ -136,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null>(cached.session);
   const userRef = useRef<User | null>(cached.user);
   const profileRef = useRef<Profile | null>(null);
+  const signingOutRef = useRef(false);
 
   const applyIdentity = (nextSession: Session | null, nextUser: User | null) => {
     sessionRef.current = nextSession;
@@ -208,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
-        const fallback = readCachedSession();
+        const fallback = signingOutRef.current ? { user: null, session: null } : readCachedSession();
         if (fallback.user && fallback.session) {
           void logSystem({
             level: "warning",
@@ -320,7 +321,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     dataLoaded,
     signOut: async () => {
-      await supabase.auth.signOut();
+      signingOutRef.current = true;
+      try {
+        persistSessionBackup(null);
+        await supabase.auth.signOut();
+      } finally {
+        // Reset shortly after so future sessions can persist again.
+        setTimeout(() => { signingOutRef.current = false; }, 1000);
+      }
     },
     refresh: async () => {
       if (user) await loadUserData(user.id);
