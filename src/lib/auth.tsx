@@ -136,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null>(cached.session);
   const userRef = useRef<User | null>(cached.user);
   const profileRef = useRef<Profile | null>(null);
+  const signingOutRef = useRef(false);
 
   const applyIdentity = (nextSession: Session | null, nextUser: User | null) => {
     sessionRef.current = nextSession;
