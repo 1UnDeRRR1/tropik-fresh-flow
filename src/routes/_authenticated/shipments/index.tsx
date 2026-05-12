@@ -21,11 +21,29 @@ export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
 });
 
+function isOwnedShipment(
+  shipment: { import_manager_id: string | null; created_by?: string | null },
+  userId?: string,
+  currentManagerId?: string | null,
+) {
+  if (!userId) return false;
+  return shipment.created_by === userId || shipment.import_manager_id === userId || shipment.import_manager_id === currentManagerId;
+}
+
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const qc = useQueryClient();
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   const shipmentsQuery = useQuery({
     queryKey: ["shipments-list"],
@@ -33,7 +51,7 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, eta, country, import_manager_id,
+          id, code, status, eta, country, import_manager_id, created_by,
           suppliers(name, country),
           shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
@@ -117,7 +135,7 @@ function ShipmentsList() {
         }
       />
 
-      {isStaff && <OpenVehiclesBlock />}
+      {isStaff && <OpenVehiclesBlock currentManagerId={currentManagerId} />}
 
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="flex gap-2 pb-1">
@@ -161,7 +179,7 @@ function ShipmentsList() {
                       : s.isSoon
                         ? "bg-warning/5"
                         : "";
-                  const isOwner = !!user && s.import_manager_id === user.id;
+                  const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                   return (
                     <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
                       <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
@@ -326,10 +344,10 @@ type OpenVehicleRow = {
   eta: string | null;
   total_pallets: number;
   total_weight_kg: number;
-  shipments: { id: string; import_manager_id: string | null; suppliers: { name: string | null } | null }[] | null;
+  shipments: { id: string; import_manager_id: string | null; created_by?: string | null; suppliers: { name: string | null } | null }[] | null;
 };
 
-function OpenVehiclesBlock() {
+function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | null }) {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
   const navigate = useNavigate();
@@ -338,7 +356,7 @@ function OpenVehiclesBlock() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(id,import_manager_id,suppliers(name))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg, shipments(id,import_manager_id,created_by,suppliers(name))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
@@ -398,7 +416,7 @@ function OpenVehiclesBlock() {
           const palletsPct = Math.min(100, (pallets / 26) * 100);
           const weightPct = Math.min(100, (weight / 21500) * 100);
           // If current user owns one of the shipments in this vehicle → go straight to that shipment's products
-          const ownShipment = (v.shipments ?? []).find((s) => s.import_manager_id === user?.id);
+          const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });

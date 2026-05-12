@@ -65,6 +65,15 @@ function NewShipment() {
   const { user, hasRole, loading } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const search = Route.useSearch();
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !loading && !!user && isStaff,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   // Redirect non-staff to their dashboard
   useEffect(() => {
@@ -257,7 +266,7 @@ function NewShipment() {
           loading_date: useLoadingDate || null,
           logistics_days: useDays,
           eta: useEta || null,
-          import_manager_id: user?.id ?? null,
+          import_manager_id: currentManagerId ?? user?.id ?? null,
           created_by: user?.id ?? null,
           vehicle_id: vId,
         } as never)
