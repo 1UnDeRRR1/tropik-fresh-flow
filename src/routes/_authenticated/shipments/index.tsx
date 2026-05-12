@@ -21,11 +21,29 @@ export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
 });
 
+function isOwnedShipment(
+  shipment: { import_manager_id: string | null; created_by?: string | null },
+  userId?: string,
+  currentManagerId?: string | null,
+) {
+  if (!userId) return false;
+  return shipment.created_by === userId || shipment.import_manager_id === userId || shipment.import_manager_id === currentManagerId;
+}
+
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const qc = useQueryClient();
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   const shipmentsQuery = useQuery({
     queryKey: ["shipments-list"],
@@ -33,7 +51,7 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, eta, country, import_manager_id,
+          id, code, status, eta, country, import_manager_id, created_by,
           suppliers(name, country),
           shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
@@ -117,7 +135,7 @@ function ShipmentsList() {
         }
       />
 
-      {isStaff && <OpenVehiclesBlock />}
+      {isStaff && <OpenVehiclesBlock currentManagerId={currentManagerId} />}
 
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="flex gap-2 pb-1">
