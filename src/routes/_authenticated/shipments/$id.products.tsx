@@ -246,7 +246,14 @@ function ProductsFullscreen() {
   const incompleteCount = incompleteItems.length;
   const hasRealPallets = validItems.length > 0;
   const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
-  const currentShipmentEditable = !!user?.id && (!!isAdmin || currentShipmentOwnerId === user.id);
+  // Editable when admin, the explicit manager, or the creator (covers vacation
+  // replacement: replacement creates the shipment, supplier belongs to the
+  // vacationing manager — DB RLS already allows it via is_shipment_owner).
+  const currentShipmentEditable = !!user?.id && (
+    !!isAdmin
+    || sh?.created_by === user.id
+    || sh?.import_manager_id === user.id
+  );
   const capacityItems = vehicleContext?.loadedItems ?? items.map((item) => ({
     id: item.id,
     pallet_count: item.pallet_count,
