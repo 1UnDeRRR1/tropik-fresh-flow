@@ -61,6 +61,15 @@ function Analytics() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
   const today = todayISO();
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user && !isStaffAll,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["analytics-v2", user?.id, isStaffAll],
@@ -73,7 +82,7 @@ function Analytics() {
         )
         .order("eta", { ascending: true })
         .limit(1000);
-      if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
+      if (!isStaffAll && currentManagerId) q = q.eq("import_manager_id", currentManagerId);
       const [shRes, mgrRes, supRes, brRes, distRes] = await Promise.all([
         q,
         supabase.from("import_managers").select("id,full_name,user_id"),
