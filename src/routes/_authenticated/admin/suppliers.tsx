@@ -71,7 +71,9 @@ function SuppliersAdmin() {
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Sup> }) => {
-      await run(supabase.from("suppliers").update(patch).eq("id", id));
+      const normalized: Partial<Sup> = { ...patch };
+      if ("country" in patch) normalized.country = normalizeCountry(patch.country ?? "") || null;
+      await run(supabase.from("suppliers").update(normalized).eq("id", id));
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "suppliers"] });
