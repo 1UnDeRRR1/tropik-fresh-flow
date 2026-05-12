@@ -56,10 +56,12 @@ function SuppliersAdmin() {
         name: form.name,
         country: form.country || null,
         import_manager_id: form.import_manager_id || null,
+        code_base: form.code_base || null,
+        iso3: form.iso3 ? form.iso3.toUpperCase() : null,
       }));
     },
     onSuccess: () => {
-      setForm({ name: "", country: "", import_manager_id: "" });
+      setForm({ name: "", country: "", import_manager_id: "", code_base: "", iso3: "" });
       qc.invalidateQueries({ queryKey: ["admin", "suppliers"] });
       toast.success("Постачальника додано");
     },
