@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { user, loading, dataLoaded } = useAuth();
+  const { user, loading, dataLoaded, primaryRole } = useAuth();
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">
@@ -21,8 +21,6 @@ function AuthenticatedLayout() {
       </div>
     );
   }
-  // Never redirect to /login until the auth/session restore path has finished,
-  // otherwise iPhone orientation changes can briefly bounce authenticated users.
   if (!user && !dataLoaded) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">
@@ -33,6 +31,9 @@ function AuthenticatedLayout() {
     );
   }
   if (!user) return <Navigate to="/login" />;
+  // Lightweight calendar accounts must not see the operational shell.
+  if (primaryRole === "calendar_branch") return <Navigate to="/calendar/branch" />;
+  if (primaryRole === "calendar_tropik") return <Navigate to="/calendar/tropik" />;
   return (
     <AppShell>
       <Outlet />
