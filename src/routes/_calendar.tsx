@@ -34,6 +34,39 @@ function CalendarLayout() {
     router.navigate({ to: "/login" });
   };
 
+  // Conservative expiry check: every 10 minutes ask the server whether this
+  // calendar account is still active. Only sign out on an explicit `false`
+  // — never on network errors, RLS hiccups, or transient mobile sleep — so
+  // orientation changes / brief offline moments cannot trigger a false logout.
+  const signedOutRef = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    if (primaryRole !== "calendar_branch" && primaryRole !== "calendar_tropik") return;
+
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const { data, error } = await supabase.rpc("is_calendar_active", {
+          _user_id: user.id,
+        });
+        if (cancelled || error) return;
+        if (data === false && !signedOutRef.current) {
+          signedOutRef.current = true;
+          await signOut();
+          router.navigate({ to: "/login", search: { reason: "expired" } as never });
+        }
+      } catch {
+        /* ignore — never sign out on transient errors */
+      }
+    };
+    const id = window.setInterval(check, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [user, primaryRole, signOut, router]);
+
+
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
