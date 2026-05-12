@@ -253,7 +253,7 @@ function NewShipment() {
         .insert({
           code: finalCode,
           supplier_id: supplierId,
-          country: useCountry,
+          country: normalizeCountry(useCountry),
           loading_date: useLoadingDate || null,
           logistics_days: useDays,
           eta: useEta || null,
