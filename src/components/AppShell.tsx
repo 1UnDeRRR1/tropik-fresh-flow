@@ -24,13 +24,48 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAdmin = hasRole(["admin", "super_admin"]);
   const isSuper = hasRole("super_admin");
   const isManager = primaryRole === "import_manager";
+
+  const branchId = profile?.branch_id ?? null;
+  const qc = useQueryClient();
+  const { data: pendingOffers = 0 } = useQuery({
+    queryKey: ["nav-pending-incoming-offers", branchId],
+    enabled: isBranch && !!branchId,
+    queryFn: async () => {
+      const { count } = await (supabase as any)
+        .from("branch_transfer_offers")
+        .select("id", { count: "exact", head: true })
+        .eq("to_branch_id", branchId!)
+        .eq("status", "pending");
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    if (!isBranch || !branchId) return;
+    const ch = supabase
+      .channel(`bto-nav-${branchId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "branch_transfer_offers", filter: `to_branch_id=eq.${branchId}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["nav-pending-incoming-offers", branchId] });
+          qc.invalidateQueries({ queryKey: ["offers"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [isBranch, branchId, qc]);
+
   const items: NavItem[] = isBranch
     ? [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/distribution", label: "Вільно", icon: Package },
         { to: "/branch-offers", label: "Про. ЗЕД", icon: Inbox },
         { to: "/branch-calendar", label: "Календар", icon: CalendarDays },
-        { to: "/offers", label: "Переказ", icon: Send },
+        { to: "/offers", label: "Переказ", icon: Send, badge: pendingOffers },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
     : [
