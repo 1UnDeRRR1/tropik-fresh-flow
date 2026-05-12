@@ -30,7 +30,7 @@ export async function logSystem(entry: LogEntry): Promise<void> {
       branch_id: entry.branch_id ?? null,
       vehicle_id: entry.vehicle_id ?? null,
       distribution_id: entry.distribution_id ?? null,
-      context: entry.context ?? null,
+      context: (entry.context ?? null) as never,
     });
   } catch {
     /* swallow */
