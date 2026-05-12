@@ -76,7 +76,7 @@ function Analytics() {
       if (!isStaffAll) q = q.eq("import_manager_id", user!.id);
       const [shRes, mgrRes, supRes, brRes, distRes] = await Promise.all([
         q,
-        supabase.from("import_managers").select("id,full_name"),
+        supabase.from("import_managers").select("id,full_name,user_id"),
         supabase.from("suppliers").select("id,name"),
         supabase.from("branches").select("id,name").eq("is_active", true),
         supabase.from("distributions").select("branch_id, shipment_id, distribution_items(shipment_item_id,pallets)"),
