@@ -200,7 +200,7 @@ function StatisticsPage() {
       if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) continue;
       if (f.shipment.import_manager_id) ids.add(f.shipment.import_manager_id);
     }
-    return managers.filter(m => ids.has(m.id));
+    return managers.filter((m) => ids.has(m.user_id ?? "") || ids.has(m.id));
   }, [flatPeriod, productF, countryF, supplierF, managers]);
 
   // Final filtered rows
