@@ -446,43 +446,97 @@ function VehicleCard({
   onClose: () => void;
   onDeleted: () => void;
 }) {
-  const [showDelete, setShowDelete] = useState(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressFired = useRef(false);
-  const startPos = useRef<{ x: number; y: number } | null>(null);
+  const DELETE_REVEAL = 108;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const gesture = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+    startOffset: number;
+    dragging: boolean;
+  }>({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startOffset: 0,
+    dragging: false,
+  });
+  const suppressClick = useRef(false);
 
-  const startLongPress = (e: React.MouseEvent | React.TouchEvent) => {
+  const closeDelete = () => {
+    setDeleteOpen(false);
+    setSwipeOffset(0);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!ownShipment) return;
-    // ignore touches that originated on inner interactive elements (buttons/links/inputs)
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest("button, a, input, textarea, select")) return;
-    longPressFired.current = false;
-    const pt = "touches" in e ? e.touches[0] : (e as React.MouseEvent);
-    startPos.current = pt ? { x: pt.clientX, y: pt.clientY } : null;
-    longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true;
-      if ("vibrate" in navigator) navigator.vibrate?.(40);
-      setShowDelete(true);
-    }, 500);
+    gesture.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffset: deleteOpen ? -DELETE_REVEAL : 0,
+      dragging: false,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
-  const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!ownShipment) return;
+    if (gesture.current.pointerId !== e.pointerId) return;
+
+    const dx = e.clientX - gesture.current.startX;
+    const dy = e.clientY - gesture.current.startY;
+
+    if (!gesture.current.dragging) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx) || dx > 0) {
+        gesture.current.pointerId = null;
+        return;
+      }
+      gesture.current.dragging = true;
+      setDragging(true);
+      suppressClick.current = true;
     }
-    startPos.current = null;
+
+    e.preventDefault();
+    const nextOffset = Math.max(-DELETE_REVEAL, Math.min(0, gesture.current.startOffset + dx));
+    setSwipeOffset(nextOffset);
   };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!longPressTimer.current || !startPos.current) return;
-    const t = e.touches[0];
-    if (!t) return;
-    const dx = Math.abs(t.clientX - startPos.current.x);
-    const dy = Math.abs(t.clientY - startPos.current.y);
-    if (dx > 10 || dy > 10) cancelLongPress();
+
+  const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (gesture.current.pointerId !== e.pointerId) return;
+
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+
+    if (gesture.current.dragging) {
+      const shouldOpen = swipeOffset <= -DELETE_REVEAL * 0.45;
+      setDeleteOpen(shouldOpen);
+      setSwipeOffset(shouldOpen ? -DELETE_REVEAL : 0);
+      suppressClick.current = true;
+    }
+
+    gesture.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startOffset: 0,
+      dragging: false,
+    };
+    setDragging(false);
   };
-  const handleClickGuarded = () => {
-    if (longPressFired.current) {
-      longPressFired.current = false;
+
+  const handleCardClick = () => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
+    if (deleteOpen) {
+      closeDelete();
       return;
     }
     onCardClick();
@@ -490,7 +544,7 @@ function VehicleCard({
 
   const doDelete = async () => {
     if (!ownShipment) return;
-    setShowDelete(false);
+    closeDelete();
     if (!confirm(`Видалити вашу поставку з авто ${v.code}? Дію неможливо скасувати.`)) return;
     const { error } = await supabase.from("shipments").delete().eq("id", ownShipment.id);
     if (error) return toast.error(error.message);
@@ -501,92 +555,100 @@ function VehicleCard({
   return (
     <div
       data-focus-id={`v:${v.id} ${(v.shipments ?? []).map((s) => `mgr:${s.import_manager_id ?? ""}`).join(" ")}`}
-      role="button"
-      tabIndex={0}
-      onClick={handleClickGuarded}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onCardClick();
-        }
-      }}
-      onMouseDown={startLongPress}
-      onMouseUp={cancelLongPress}
-      onMouseLeave={cancelLongPress}
-      onTouchStart={startLongPress}
-      onTouchEnd={cancelLongPress}
-      onTouchCancel={cancelLongPress}
-      onTouchMove={handleTouchMove}
-      onContextMenu={(e) => {
-        if (ownShipment) {
-          e.preventDefault();
-          setShowDelete(true);
-        }
-      }}
-      className="relative cursor-pointer select-none rounded-xl border border-border bg-card p-3 transition active:scale-[0.99] hover:border-brand/40"
+      className="relative overflow-hidden rounded-xl border border-border bg-card hover:border-brand/40"
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-bold text-brand">{v.code}</div>
-          <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
-        </div>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
-          >
-            + Постач.
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!isAdmin && !ownShipment}
-            title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-          >
-            Закрити
-          </Button>
-        </div>
-      </div>
-      {sups.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {sups.map((s, i) => (
-            <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
-          ))}
-        </div>
-      )}
-      <div className="mt-2 space-y-1.5 text-[11px]">
-        <div className="flex items-center justify-between">
-          <span>Палети {pallets}/26</span>
-          <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-          <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Вага {Math.round(weight)}/21500 кг</span>
-          <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-          <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
-        </div>
-      </div>
-
-      {showDelete && ownShipment && (
-        <div
-          className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-background/85 backdrop-blur-sm"
-          onClick={(e) => { e.stopPropagation(); setShowDelete(false); }}
-        >
+      {ownShipment && (
+        <div className="absolute inset-y-0 right-0 z-0 flex w-[108px] items-stretch justify-end">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); doDelete(); }}
-            className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground shadow-lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              void doDelete();
+            }}
+            className={cn(
+              "flex w-[108px] flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground transition-opacity",
+              deleteOpen ? "opacity-100" : "opacity-80",
+            )}
+            aria-label="Видалити поставку"
           >
-            <Trash2 className="h-4 w-4" /> Видалити поставку
+            <Trash2 className="h-5 w-5" />
+            <span className="text-[11px] font-semibold">Видалити</span>
           </button>
         </div>
       )}
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleCardClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (deleteOpen) {
+              closeDelete();
+              return;
+            }
+            onCardClick();
+          }
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
+        className={cn(
+          "relative z-10 cursor-pointer select-none rounded-xl bg-card p-3 active:scale-[0.99]",
+          dragging ? "transition-none" : "transition-transform duration-200 ease-out",
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-bold text-brand">{v.code}</div>
+            <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
+          </div>
+          <div className="flex shrink-0 gap-1">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
+            >
+              + Постач.
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!isAdmin && !ownShipment}
+              title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+            >
+              Закрити
+            </Button>
+          </div>
+        </div>
+        {sups.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {sups.map((s, i) => (
+              <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 space-y-1.5 text-[11px]">
+          <div className="flex items-center justify-between">
+            <span>Палети {pallets}/26</span>
+            <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Вага {Math.round(weight)}/21500 кг</span>
+            <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
