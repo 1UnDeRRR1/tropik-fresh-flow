@@ -247,6 +247,31 @@ function DistributionMatrix() {
     );
   }
 
+  const ship = data.shipment as { created_by?: string | null; import_manager_id?: string | null; code?: string } | null;
+  const isOwner =
+    !!user &&
+    !!ship &&
+    (ship.created_by === user.id || ship.import_manager_id === user.id);
+  if (!isAdmin && !isOwner) {
+    return (
+      <div className="space-y-3">
+        <PageHeader
+          title="Розподіл недоступний"
+          subtitle={`Поставка ${ship?.code ?? ""}`}
+          action={
+            <Link to="/shipments/$id" params={{ id: shipmentId }} className="text-xs text-brand">
+              До поставки
+            </Link>
+          }
+        />
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+          Ви не можете розподіляти цю поставку — товар належить іншому імпорт-менеджеру.
+          Кожен менеджер розподіляє лише свої позиції в авто.
+        </div>
+      </div>
+    );
+  }
+
   const SaveButton = (
     <Button
       size="sm"
