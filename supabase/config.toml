@@ -1,3 +1,5 @@
 project_id = "dshusqieryinurchezli"
 [functions.admin-users]
 verify_jwt = true
+[functions.calendar-account-admin]
+verify_jwt = true

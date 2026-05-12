@@ -37,9 +37,14 @@ function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      // Lightweight calendar accounts log in with a username (no `@`).
+      // Convert to the synthetic email used at account creation.
+      const loginEmail = email.includes("@")
+        ? email.trim()
+        : `${email.trim().toLowerCase()}@calendar.tropik.local`;
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: loginEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
@@ -49,7 +54,10 @@ function LoginPage() {
         if (error) throw error;
         toast.success("Акаунт створено. Вхід…");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password,
+        });
         if (error) throw error;
       }
       navigate({ to: "/" });
@@ -102,14 +110,16 @@ function LoginPage() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="email">Електронна пошта</Label>
+              <Label htmlFor="email">Електронна пошта або логін</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
+                autoCapitalize="none"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@tropik.ua"
+                placeholder="you@tropik.ua або Odesa-1"
               />
             </div>
             <div className="space-y-1.5">

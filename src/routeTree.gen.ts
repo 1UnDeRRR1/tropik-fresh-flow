@@ -10,8 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CalendarRouteImport } from './routes/_calendar'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as CalendarTropikRouteImport } from './routes/_calendar/tropik'
+import { Route as CalendarBranchRouteImport } from './routes/_calendar/branch'
 import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated/transfers'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
@@ -51,6 +54,7 @@ import { Route as AuthenticatedAdminLoadingPlanRouteImport } from './routes/_aut
 import { Route as AuthenticatedAdminCustomsRouteImport } from './routes/_authenticated/admin/customs'
 import { Route as AuthenticatedAdminCountriesMasterRouteImport } from './routes/_authenticated/admin/countries-master'
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
+import { Route as AuthenticatedAdminCalendarAccessRouteImport } from './routes/_authenticated/admin/calendar-access'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
 import { Route as AuthenticatedShipmentsIdProductsRouteImport } from './routes/_authenticated/shipments/$id.products'
@@ -58,6 +62,10 @@ import { Route as AuthenticatedShipmentsIdProductsRouteImport } from './routes/_
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/_calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -68,6 +76,16 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const CalendarTropikRoute = CalendarTropikRouteImport.update({
+  id: '/tropik',
+  path: '/tropik',
+  getParentRoute: () => CalendarRoute,
+} as any)
+const CalendarBranchRoute = CalendarBranchRouteImport.update({
+  id: '/branch',
+  path: '/branch',
+  getParentRoute: () => CalendarRoute,
 } as any)
 const AuthenticatedTransfersRoute = AuthenticatedTransfersRouteImport.update({
   id: '/transfers',
@@ -290,6 +308,12 @@ const AuthenticatedAdminCountriesRoute =
     path: '/countries',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminCalendarAccessRoute =
+  AuthenticatedAdminCalendarAccessRouteImport.update({
+    id: '/calendar-access',
+    path: '/calendar-access',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminBranchesRoute =
   AuthenticatedAdminBranchesRouteImport.update({
     id: '/branches',
@@ -328,7 +352,10 @@ export interface FileRoutesByFullPath {
   '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
+  '/branch': typeof CalendarBranchRoute
+  '/tropik': typeof CalendarTropikRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
+  '/admin/calendar-access': typeof AuthenticatedAdminCalendarAccessRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
@@ -355,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/branch-calendar': typeof AuthenticatedBranchCalendarRoute
@@ -371,8 +399,10 @@ export interface FileRoutesByTo {
   '/statistics': typeof AuthenticatedStatisticsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
-  '/': typeof AuthenticatedIndexRoute
+  '/branch': typeof CalendarBranchRoute
+  '/tropik': typeof CalendarTropikRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
+  '/admin/calendar-access': typeof AuthenticatedAdminCalendarAccessRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
@@ -401,6 +431,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_calendar': typeof CalendarRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -419,8 +450,11 @@ export interface FileRoutesById {
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
+  '/_calendar/branch': typeof CalendarBranchRoute
+  '/_calendar/tropik': typeof CalendarTropikRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
+  '/_authenticated/admin/calendar-access': typeof AuthenticatedAdminCalendarAccessRoute
   '/_authenticated/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/_authenticated/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
   '/_authenticated/admin/customs': typeof AuthenticatedAdminCustomsRoute
@@ -468,7 +502,10 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/suppliers'
     | '/transfers'
+    | '/branch'
+    | '/tropik'
     | '/admin/branches'
+    | '/admin/calendar-access'
     | '/admin/countries'
     | '/admin/countries-master'
     | '/admin/customs'
@@ -495,6 +532,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/refresh-fx'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/login'
     | '/analytics'
     | '/branch-calendar'
@@ -511,8 +549,10 @@ export interface FileRouteTypes {
     | '/statistics'
     | '/suppliers'
     | '/transfers'
-    | '/'
+    | '/branch'
+    | '/tropik'
     | '/admin/branches'
+    | '/admin/calendar-access'
     | '/admin/countries'
     | '/admin/countries-master'
     | '/admin/customs'
@@ -540,6 +580,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/_calendar'
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
@@ -558,8 +599,11 @@ export interface FileRouteTypes {
     | '/_authenticated/super-admin'
     | '/_authenticated/suppliers'
     | '/_authenticated/transfers'
+    | '/_calendar/branch'
+    | '/_calendar/tropik'
     | '/_authenticated/'
     | '/_authenticated/admin/branches'
+    | '/_authenticated/admin/calendar-access'
     | '/_authenticated/admin/countries'
     | '/_authenticated/admin/countries-master'
     | '/_authenticated/admin/customs'
@@ -588,6 +632,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  CalendarRoute: typeof CalendarRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
 }
@@ -599,6 +644,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_calendar': {
+      id: '/_calendar'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -614,6 +666,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_calendar/tropik': {
+      id: '/_calendar/tropik'
+      path: '/tropik'
+      fullPath: '/tropik'
+      preLoaderRoute: typeof CalendarTropikRouteImport
+      parentRoute: typeof CalendarRoute
+    }
+    '/_calendar/branch': {
+      id: '/_calendar/branch'
+      path: '/branch'
+      fullPath: '/branch'
+      preLoaderRoute: typeof CalendarBranchRouteImport
+      parentRoute: typeof CalendarRoute
     }
     '/_authenticated/transfers': {
       id: '/_authenticated/transfers'
@@ -888,6 +954,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCountriesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/calendar-access': {
+      id: '/_authenticated/admin/calendar-access'
+      path: '/calendar-access'
+      fullPath: '/admin/calendar-access'
+      preLoaderRoute: typeof AuthenticatedAdminCalendarAccessRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/branches': {
       id: '/_authenticated/admin/branches'
       path: '/branches'
@@ -914,6 +987,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
+  AuthenticatedAdminCalendarAccessRoute: typeof AuthenticatedAdminCalendarAccessRoute
   AuthenticatedAdminCountriesRoute: typeof AuthenticatedAdminCountriesRoute
   AuthenticatedAdminCountriesMasterRoute: typeof AuthenticatedAdminCountriesMasterRoute
   AuthenticatedAdminCustomsRoute: typeof AuthenticatedAdminCustomsRoute
@@ -929,6 +1003,7 @@ interface AuthenticatedAdminRouteChildren {
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
+  AuthenticatedAdminCalendarAccessRoute: AuthenticatedAdminCalendarAccessRoute,
   AuthenticatedAdminCountriesRoute: AuthenticatedAdminCountriesRoute,
   AuthenticatedAdminCountriesMasterRoute:
     AuthenticatedAdminCountriesMasterRoute,
@@ -1054,8 +1129,23 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface CalendarRouteChildren {
+  CalendarBranchRoute: typeof CalendarBranchRoute
+  CalendarTropikRoute: typeof CalendarTropikRoute
+}
+
+const CalendarRouteChildren: CalendarRouteChildren = {
+  CalendarBranchRoute: CalendarBranchRoute,
+  CalendarTropikRoute: CalendarTropikRoute,
+}
+
+const CalendarRouteWithChildren = CalendarRoute._addFileChildren(
+  CalendarRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  CalendarRoute: CalendarRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
 }

@@ -14,6 +14,7 @@ const TABS = [
   { to: "/admin/loading-plan", label: "План" },
   { to: "/admin/countries", label: "Логістика" },
   { to: "/admin/customs", label: "Митниця" },
+  { to: "/admin/calendar-access", label: "Календарі" },
   { to: "/admin/qa", label: "QA" },
 ] as const;
 

@@ -3,7 +3,13 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSystem } from "@/lib/system-log";
 
-export type AppRole = "super_admin" | "admin" | "import_manager" | "branch";
+export type AppRole =
+  | "super_admin"
+  | "admin"
+  | "import_manager"
+  | "branch"
+  | "calendar_branch"
+  | "calendar_tropik";
 
 export interface Profile {
   id: string;
@@ -28,7 +34,14 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
-const ROLE_PRIORITY: AppRole[] = ["super_admin", "admin", "import_manager", "branch"];
+const ROLE_PRIORITY: AppRole[] = [
+  "super_admin",
+  "admin",
+  "import_manager",
+  "branch",
+  "calendar_branch",
+  "calendar_tropik",
+];
 const AUTH_BACKUP_KEY = "tropik-auth-backup";
 
 function parseStoredSession(raw: string | null): { session: Session | null; user: User | null; hasToken: boolean } {
@@ -302,6 +315,8 @@ export const ROLE_LABEL_UK: Record<AppRole, string> = {
   admin: "Адміністратор",
   import_manager: "Менеджер ЗЕД",
   branch: "Філія",
+  calendar_branch: "Календар філії",
+  calendar_tropik: "Календар Tropik",
 };
 
 export function defaultRoutePerRole(role: AppRole | null): string {
@@ -314,6 +329,10 @@ export function defaultRoutePerRole(role: AppRole | null): string {
       return "/dashboard/manager";
     case "branch":
       return "/dashboard/branch";
+    case "calendar_branch":
+      return "/calendar/branch";
+    case "calendar_tropik":
+      return "/calendar/tropik";
     default:
       return "/dashboard/branch";
   }
