@@ -221,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
           });
           applyIdentity(fallback.session, fallback.user);
-          setLoading(true);
+          setLoading(false);
           return;
         }
         persistSessionBackup(null);
