@@ -264,6 +264,18 @@ function OffersPage() {
                     {" · "}
                     <span className="text-primary">{o.offered_pallets}п</span>
                   </div>
+                  {(o.final_cost_indicative != null || o.final_cost_invoice != null) && (
+                    <div className="mt-1 text-xs">
+                      <span className="text-success font-semibold tabular-nums">
+                        ${Number(o.final_cost_indicative ?? 0).toFixed(2)}
+                      </span>
+                      <span className="mx-1 text-muted-foreground">/</span>
+                      <span className="text-destructive font-semibold tabular-nums">
+                        ${Number(o.final_cost_invoice ?? 0).toFixed(2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground">собівартість</span>
+                    </div>
+                  )}
                   <div className="text-[11px] text-muted-foreground">
                     ETA {fmtEta(o.shipment_eta)}
                     {o.accepted_pallets > 0 && (
