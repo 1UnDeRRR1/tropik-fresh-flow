@@ -7,7 +7,31 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth";
+
+interface ActiveOverviewRow {
+  shipment_id: string;
+  shipment_code: string | null;
+  status: string;
+  eta: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
+  product_name: string;
+  caliber: string | null;
+  country: string | null;
+  pallet_count: number;
+  pallet_weight: number;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "в роботі",
+  loading: "завантаж.",
+  in_transit: "в дорозі",
+  customs: "митниця",
+  distributing: "розподіл",
+  delayed: "затримка",
+};
 
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
