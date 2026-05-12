@@ -209,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       } else if (event === "SIGNED_OUT") {
-        const fallback = readCachedSession();
+        const fallback = signingOutRef.current ? { user: null, session: null } : readCachedSession();
         if (fallback.user && fallback.session) {
           void logSystem({
             level: "warning",
