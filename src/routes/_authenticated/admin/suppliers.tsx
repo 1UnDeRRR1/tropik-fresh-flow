@@ -55,7 +55,7 @@ function SuppliersAdmin() {
     mutationFn: async () => {
       await run(supabase.from("suppliers").insert({
         name: form.name,
-        country: form.country || null,
+        country: normalizeCountry(form.country) || null,
         import_manager_id: form.import_manager_id || null,
         code_base: form.code_base || null,
         iso3: form.iso3 ? form.iso3.toUpperCase() : null,
