@@ -110,7 +110,7 @@ function LoginPage() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="email">Електронна пошта або логін</Label>
+              <Label htmlFor="email">Логін</Label>
               <Input
                 id="email"
                 type="text"
@@ -119,7 +119,7 @@ function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@tropik.ua або Odesa-1"
+                placeholder="Логін"
               />
             </div>
             <div className="space-y-1.5">
