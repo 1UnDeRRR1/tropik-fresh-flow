@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { logSystem } from "@/lib/system-log";
 
 export type AppRole = "super_admin" | "admin" | "import_manager" | "branch";
 
@@ -61,12 +62,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(!cached.user);
 
   const loadUserData = async (uid: string) => {
-    const [{ data: prof }, { data: rs }] = await Promise.all([
+    const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
       supabase.from("profiles").select("id,full_name,branch_id,avatar_url,phone").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
-    setProfile(prof as Profile | null);
-    setRoles(((rs ?? []) as { role: AppRole }[]).map((r) => r.role));
+
+    const nextRoles = ((rs ?? []) as { role: AppRole }[]).map((r) => r.role);
+    if (profileError || rolesError || nextRoles.length === 0) {
+      void logSystem({
+        level: "warning",
+        message: "Skipped auth/profile overwrite because refresh returned incomplete identity data",
+        module: "auth",
+        action: "load_user_data_guard",
+        context: {
+          user_id: uid,
+          profile_error: profileError?.message ?? null,
+          roles_error: rolesError?.message ?? null,
+          roles_count: nextRoles.length,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      setDataLoaded((prev) => prev || !!user);
+      return;
+    }
+
+    setProfile((prof as Profile | null) ?? profile);
+    setRoles(nextRoles);
     setDataLoaded(true);
   };
 
@@ -80,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let currentUid: string | null = cached.user?.id ?? null;
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
-      setUser(s?.user ?? null);
+      if (s?.user) setUser(s.user);
       const nextUid = s?.user?.id ?? null;
       if (nextUid) {
         // Only reload profile/roles when the user identity actually changes
@@ -93,8 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setDataLoaded(false);
           setTimeout(() => loadUserData(nextUid), 0);
         }
-      } else {
+      } else if (event === "SIGNED_OUT") {
         currentUid = null;
+        setUser(null);
+        setSession(null);
         setProfile(null);
         setRoles([]);
         setDataLoaded(true);
@@ -114,11 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await loadUserData(data.session.user.id);
         }
       } else {
-        // No live session — clear cached optimistic user.
-        currentUid = null;
-        setUser(null);
-        setSession(null);
-        setDataLoaded(true);
+        // Keep the last authenticated identity during transient mobile/session restore.
+        if (!currentUid) {
+          setDataLoaded(true);
+        }
       }
       setLoading(false);
     });

@@ -12,6 +12,7 @@ import { toUaCountry } from "@/lib/countries";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
+import { useStableQueryData } from "@/lib/query-stability";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { CostPair } from "@/components/CostPair";
@@ -26,7 +27,7 @@ function ShipmentsList() {
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const qc = useQueryClient();
 
-  const { data } = useQuery({
+  const shipmentsQuery = useQuery({
     queryKey: ["shipments-list"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -41,6 +42,14 @@ function ShipmentsList() {
       if (error) throw error;
       return data ?? [];
     },
+  });
+  const { data } = useStableQueryData({
+    data: shipmentsQuery.data,
+    isSuccess: shipmentsQuery.isSuccess,
+    isFetching: shipmentsQuery.isFetching,
+    isError: shipmentsQuery.isError,
+    module: "shipments-list",
+    countRows: (rows) => rows.length,
   });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -121,7 +130,11 @@ function ShipmentsList() {
 
       <SectionCard title={`Реєстр (${filtered.length})`}>
         {!filtered.length ? (
+          shipmentsQuery.isFetching || !shipmentsQuery.isSuccess ? (
+            <p className="text-sm text-muted-foreground">Оновлення даних…</p>
+          ) : (
           <EmptyState title="Поставок немає" />
+          )
         ) : (
           <div className="-mx-4 overflow-x-auto px-4">
             <table className="min-w-full border-separate border-spacing-0 text-xs">
