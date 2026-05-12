@@ -1637,11 +1637,16 @@ export type Database = {
         Args: { _branch_id: string; _offer_id: string }
         Returns: boolean
       }
+      can_access_supplier: {
+        Args: { _supplier_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_close_vehicle: {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
       current_import_manager_id: { Args: never; Returns: string }
+      effective_manager_ids: { Args: { _user_id: string }; Returns: string[] }
       ensure_shipment_fx_snapshot: {
         Args: { _shipment_id: string }
         Returns: number
