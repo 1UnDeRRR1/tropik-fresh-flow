@@ -429,3 +429,150 @@ function OpenVehiclesBlock() {
   );
 }
 
+function VehicleCard({
+  v, sups, pallets, weight, palletsPct, weightPct, ownShipment, isAdmin,
+  onCardClick, onAddSupplier, onClose, onDeleted,
+}: {
+  v: OpenVehicleRow;
+  sups: string[];
+  pallets: number;
+  weight: number;
+  palletsPct: number;
+  weightPct: number;
+  ownShipment: { id: string; import_manager_id: string | null } | undefined;
+  isAdmin: boolean;
+  onCardClick: () => void;
+  onAddSupplier: () => void;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [showDelete, setShowDelete] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+
+  const startLongPress = () => {
+    if (!ownShipment) return;
+    longPressFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      if ("vibrate" in navigator) navigator.vibrate?.(40);
+      setShowDelete(true);
+    }, 550);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const handleClickGuarded = () => {
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
+    onCardClick();
+  };
+
+  const doDelete = async () => {
+    if (!ownShipment) return;
+    setShowDelete(false);
+    if (!confirm(`Видалити вашу поставку з авто ${v.code}? Дію неможливо скасувати.`)) return;
+    const { error } = await supabase.from("shipments").delete().eq("id", ownShipment.id);
+    if (error) return toast.error(error.message);
+    toast.success("Поставку видалено");
+    onDeleted();
+  };
+
+  return (
+    <div
+      data-focus-id={`v:${v.id} ${(v.shipments ?? []).map((s) => `mgr:${s.import_manager_id ?? ""}`).join(" ")}`}
+      role="button"
+      tabIndex={0}
+      onClick={handleClickGuarded}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onCardClick();
+        }
+      }}
+      onMouseDown={startLongPress}
+      onMouseUp={cancelLongPress}
+      onMouseLeave={cancelLongPress}
+      onTouchStart={startLongPress}
+      onTouchEnd={cancelLongPress}
+      onTouchCancel={cancelLongPress}
+      onTouchMove={cancelLongPress}
+      onContextMenu={(e) => {
+        if (ownShipment) {
+          e.preventDefault();
+          setShowDelete(true);
+        }
+      }}
+      className="relative cursor-pointer select-none rounded-xl border border-border bg-card p-3 transition active:scale-[0.99] hover:border-brand/40"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-bold text-brand">{v.code}</div>
+          <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
+          >
+            + Постач.
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!isAdmin && !ownShipment}
+            title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+          >
+            Закрити
+          </Button>
+        </div>
+      </div>
+      {sups.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {sups.map((s, i) => (
+            <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 space-y-1.5 text-[11px]">
+        <div className="flex items-center justify-between">
+          <span>Палети {pallets}/26</span>
+          <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+          <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Вага {Math.round(weight)}/21500 кг</span>
+          <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+          <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
+        </div>
+      </div>
+
+      {showDelete && ownShipment && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-background/85 backdrop-blur-sm"
+          onClick={(e) => { e.stopPropagation(); setShowDelete(false); }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); doDelete(); }}
+            className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground shadow-lg"
+          >
+            <Trash2 className="h-4 w-4" /> Видалити поставку
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
