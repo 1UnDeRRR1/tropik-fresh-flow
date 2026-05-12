@@ -762,13 +762,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="px-0.5 py-0.5">
+      <td className="sticky right-0 z-20 bg-card px-0.5 py-0.5 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]">
         <button
           type="button"
           onClick={remove}
           disabled={readOnly}
           aria-label="Видалити рядок"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 touch-manipulation"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 touch-manipulation"
         >
           <Trash2 className="h-5 w-5" />
         </button>
