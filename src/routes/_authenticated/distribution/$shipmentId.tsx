@@ -22,6 +22,7 @@ import { CostPair } from "@/components/CostPair";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/distribution/$shipmentId")({
   component: () => <StaffOnly><DistributionMatrix /></StaffOnly>,
