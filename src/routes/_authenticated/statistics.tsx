@@ -124,7 +124,7 @@ function StatisticsPage() {
           .order("loading_date", { ascending: false })
           .limit(2000),
         supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("import_managers").select("id,full_name").order("full_name"),
+        supabase.from("import_managers").select("id,user_id,full_name").order("full_name"),
       ]);
       const shipments = ((shRes.data ?? []) as unknown as (ShipmentRow & { shipment_items: ItemRow[] })[]);
       return {
