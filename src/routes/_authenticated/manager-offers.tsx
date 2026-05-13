@@ -1150,19 +1150,43 @@ function LinkShipmentDialog({
   onClose: () => void;
   onLinked: () => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    if (offer) setShowAll(false);
+  }, [offer?.id]);
+
   const { data: shipments } = useQuery({
     queryKey: ["shipments-link-options", offer?.id],
     enabled: !!offer,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,country,eta")
+        .select("id,code,country,eta,shipment_items(product_name)")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as Array<{
+        id: string;
+        code: string;
+        country: string | null;
+        eta: string | null;
+        shipment_items: { product_name: string }[] | null;
+      }>;
     },
   });
+
+  const norm = (s: string) => s.trim().toLowerCase();
+  const target = offer ? norm(offer.product_name) : "";
+  const matching = useMemo(
+    () =>
+      (shipments ?? []).filter((s) =>
+        (s.shipment_items ?? []).some((i) => norm(i.product_name) === target),
+      ),
+    [shipments, target],
+  );
+
+  const list = showAll ? (shipments ?? []) : matching;
 
   const link = useMutation({
     mutationFn: async (shipmentId: string) => {
@@ -1186,25 +1210,71 @@ function LinkShipmentDialog({
         <SheetHeader>
           <SheetTitle>Прив'язати до поставки</SheetTitle>
         </SheetHeader>
-        <div className="mt-4 space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Виберіть поставку. Підтверджені палети філій буде автоматично розподілено за
-            відповідним товаром поставки.
-          </p>
-          {(shipments ?? []).map((s) => (
-            <button
-              key={s.id}
-              onClick={() => link.mutate(s.id)}
-              className="flex w-full items-center justify-between rounded-lg border border-border p-3 text-left hover:bg-secondary"
+        <div className="mt-4 space-y-3">
+          {offer && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs">
+              <div className="text-muted-foreground">Товар пропозиції</div>
+              <div className="font-semibold text-sm">{offer.product_name}</div>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {showAll
+                ? "Показано всі поставки."
+                : "Показано лише поставки з цим товаром."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setShowAll((v) => !v)}
             >
-              <div>
-                <div className="font-semibold">{s.code}</div>
-                <div className="text-xs text-muted-foreground">
-                  {s.country ?? "—"} · ETA {s.eta ?? "—"}
-                </div>
-              </div>
-            </button>
-          ))}
+              {showAll ? "Тільки з товаром" : "Показати всі"}
+            </Button>
+          </div>
+
+          {list.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              {showAll
+                ? "Немає поставок."
+                : `Немає поставок з товаром «${offer?.product_name ?? ""}». Натисніть «Показати всі», щоб побачити решту.`}
+            </div>
+          ) : (
+            list.map((s) => {
+              const items = s.shipment_items ?? [];
+              const has = items.some((i) => norm(i.product_name) === target);
+              const uniqueProducts = Array.from(
+                new Set(items.map((i) => i.product_name)),
+              );
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => link.mutate(s.id)}
+                  className={cn(
+                    "flex w-full flex-col gap-1 rounded-lg border p-3 text-left hover:bg-secondary",
+                    has ? "border-success/50 bg-success/5" : "border-border",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{s.code}</div>
+                    {has && (
+                      <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                        є товар
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.country ?? "—"} · ETA {s.eta ?? "—"}
+                  </div>
+                  {uniqueProducts.length > 0 && (
+                    <div className="text-[11px] text-muted-foreground line-clamp-2">
+                      {uniqueProducts.join(", ")}
+                    </div>
+                  )}
+                </button>
+              );
+            })
+          )}
         </div>
       </SheetContent>
     </Sheet>
