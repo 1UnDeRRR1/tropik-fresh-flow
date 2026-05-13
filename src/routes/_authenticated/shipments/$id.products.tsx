@@ -95,6 +95,16 @@ type VehicleContext = {
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
 
+function normalizeProductValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function isKnownProductName(value: string | null | undefined, products: ProductRef[]) {
+  const normalized = normalizeProductValue(value);
+  if (!normalized) return false;
+  return products.some((product) => normalizeProductValue(product.name) === normalized);
+}
+
 function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count">) {
   return (item.product_name ?? "").trim().length > 0 && Number(item.pallet_count ?? 0) > 0;
 }
@@ -111,6 +121,41 @@ function getMissingFields(item: ItemRow): RequiredField[] {
   if (totalW <= 0) missing.push("total_weight");
   if (!item.unit_price || Number(item.unit_price) <= 0) missing.push("unit_price");
   return missing;
+}
+
+async function syncVehicleStateForShipment(shipmentId: string) {
+  const { data: shipment } = await supabase
+    .from("shipments")
+    .select("vehicle_id")
+    .eq("id", shipmentId)
+    .maybeSingle();
+
+  const vehicleId = (shipment as { vehicle_id?: string | null } | null)?.vehicle_id;
+  if (!vehicleId) return;
+
+  const { data: vehicle } = await supabase
+    .from("vehicles" as never)
+    .select("id,total_pallets,total_weight_kg,status,closed_by,closed_at")
+    .eq("id", vehicleId)
+    .maybeSingle();
+
+  const totalPallets = Number((vehicle as { total_pallets?: number | null } | null)?.total_pallets ?? 0);
+  const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
+  const closedBy = (vehicle as { closed_by?: string | null } | null)?.closed_by ?? null;
+  const closedAt = (vehicle as { closed_at?: string | null } | null)?.closed_at ?? null;
+  const shouldBeClosed = totalPallets === MAX_PALLETS || totalWeight === MAX_WEIGHT_KG;
+  const nextStatus = shouldBeClosed ? "closed" : "open";
+
+  if (closedBy && !shouldBeClosed) return;
+  if ((vehicle as { status?: string | null } | null)?.status === nextStatus && (shouldBeClosed || !closedAt)) return;
+
+  await supabase
+    .from("vehicles" as never)
+    .update({
+      status: nextStatus,
+      closed_at: shouldBeClosed ? closedAt ?? new Date().toISOString() : null,
+    } as never)
+    .eq("id", vehicleId);
 }
 
 function ProductsFullscreen() {
@@ -251,7 +296,11 @@ function ProductsFullscreen() {
   const vehicleContext = data?.vehicleContext ?? null;
   const country = toUaCountry(sh?.country) || "—";
   
-  const incompleteItems = items.filter((i) => Number(i.pallet_count ?? 0) > 0 && getMissingFields(i).length > 0);
+  const incompleteItems = items.filter((i) => {
+    if (Number(i.pallet_count ?? 0) <= 0) return false;
+    const missing = getMissingFields(i);
+    return missing.length > 0 || !isKnownProductName(i.product_name, products);
+  });
   const incompleteCount = incompleteItems.length;
   const hasRealPallets = validItems.length > 0;
   const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
@@ -286,11 +335,15 @@ function ProductsFullscreen() {
   }, [id]);
 
   const leaveProducts = async () => {
-    const deleted = await deleteShipmentIfEmpty(id);
+    const hasDraftRows = items.some(
+      (item) => !(item.product_name ?? "").trim() || item.product_name === "Новий товар" || Number(item.pallet_count ?? 0) <= 0,
+    );
+    const deleted = hasDraftRows ? false : await deleteShipmentIfEmpty(id);
     if (deleted) {
       navigate({ to: "/shipments" });
       return;
     }
+    await syncVehicleStateForShipment(id);
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
@@ -403,6 +456,11 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
+          if (incompleteCount > 0) {
+            e.preventDefault();
+            toast.error(`Заповніть всі обов'язкові поля (${incompleteCount} поз.)`);
+            return;
+          }
           if (!hasRealPallets) {
             e.preventDefault();
             toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
@@ -412,8 +470,9 @@ function ProductsFullscreen() {
           void leaveProducts();
         }}>
           <Button
+            disabled={incompleteCount > 0}
             className={cn(
-              "w-full",
+              "w-full disabled:cursor-not-allowed disabled:opacity-70",
               incompleteCount > 0
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
@@ -630,6 +689,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = dbCountries;
+  const knownProductNames = products.map((product) => product.name);
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
     product_name: normalizedProductName,
@@ -654,6 +714,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const palletWeightNum = Number(form.pallet_weight) || 0;
   const totalWeightNum = palletCountNum * palletWeightNum;
   const invalidProduct = !form.product_name.trim();
+  const unknownProduct = !!form.product_name.trim() && !isKnownProductName(form.product_name, products);
   const invalidCountry = !form.origin_country.trim();
   const invalidPallets = palletCountNum <= 0;
   const invalidWeight = totalWeightNum <= 0;
@@ -667,6 +728,9 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
       const trimmedProductName = form.product_name.trim();
+      if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
+        return;
+      }
       const palletCount = Number(form.pallet_count);
       const totalKg = palletCount * palletWeight;
       const { error } = await supabase
@@ -687,11 +751,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       if (error) toast.error(error.message);
       else {
         dirtyRef.current = false;
+        await syncVehicleStateForShipment(shipmentId);
         qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id, qc, readOnly]);
+  }, [form, palletWeight, item.id, products, qc, readOnly, shipmentId]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -703,6 +768,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
     setConfirmOpen(false);
+    await syncVehicleStateForShipment(shipmentId);
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
@@ -715,13 +781,21 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
-          options={products.map((p) => p.name)}
-          placeholder={invalidProduct ? "Товар*" : "Товар"}
-          className={cn("font-medium", invalidProduct && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
+          options={knownProductNames}
+          placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
+          className={cn(
+            "font-medium",
+            (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80",
+          )}
           expandedMinWidth={200}
-          required={false}
+          required
           readOnly={readOnly}
         />
+        {unknownProduct && (
+          <div className="px-1.5 pt-0.5 text-[10px] font-medium text-destructive">
+            Оберіть товар лише зі списку
+          </div>
+        )}
       </td>
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
@@ -751,18 +825,15 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidPallets}
           onChange={(v) => {
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
-            const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
+            const maxByWeight = palletWeight > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             const nextCount = v > max ? max : v;
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
-            // Keep TOTAL weight constant: recompute per-pallet weight
-            const currentTotal = (Number(form.pallet_count) || 0) * palletWeight;
-            const newPerPallet = nextCount > 0 ? currentTotal / nextCount : 0;
             if (readOnly) return;
             dirtyRef.current = true;
-            setForm((f) => ({ ...f, pallet_count: nextCount, pallet_weight: newPerPallet }));
+            setForm((f) => ({ ...f, pallet_count: nextCount }));
           }}
         />
       </td>
@@ -774,10 +845,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidWeight}
           onChange={(totalKgInput) => {
             const palletCount = Number(form.pallet_count) || 0;
-            if (otherKg + totalKgInput > MAX_WEIGHT_KG) {
+            const safeTotalKg = Math.max(0, totalKgInput);
+            if (otherKg + safeTotalKg > MAX_WEIGHT_KG) {
               toast.error(`Перевищено ліміт: макс ${MAX_WEIGHT_KG} кг на машину`);
+              return;
             }
-            const newPerPallet = palletCount > 0 ? totalKgInput / palletCount : totalKgInput;
+            const newPerPallet = palletCount > 0 ? safeTotalKg / palletCount : safeTotalKg;
             set("pallet_weight", newPerPallet);
           }}
         />
