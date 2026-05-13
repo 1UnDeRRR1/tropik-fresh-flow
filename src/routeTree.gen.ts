@@ -46,6 +46,7 @@ import { Route as AuthenticatedAdminTriggersRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminSuppliersRouteImport } from './routes/_authenticated/admin/suppliers'
 import { Route as AuthenticatedAdminQaRouteImport } from './routes/_authenticated/admin/qa'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin/products'
+import { Route as AuthenticatedAdminPilotQaRouteImport } from './routes/_authenticated/admin/pilot-qa'
 import { Route as AuthenticatedAdminManagersRouteImport } from './routes/_authenticated/admin/managers'
 import { Route as AuthenticatedAdminLoadingPlanRouteImport } from './routes/_authenticated/admin/loading-plan'
 import { Route as AuthenticatedAdminCustomsRouteImport } from './routes/_authenticated/admin/customs'
@@ -260,6 +261,12 @@ const AuthenticatedAdminProductsRoute =
     path: '/products',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminPilotQaRoute =
+  AuthenticatedAdminPilotQaRouteImport.update({
+    id: '/pilot-qa',
+    path: '/pilot-qa',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminManagersRoute =
   AuthenticatedAdminManagersRouteImport.update({
     id: '/managers',
@@ -334,6 +341,7 @@ export interface FileRoutesByFullPath {
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
   '/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
+  '/admin/pilot-qa': typeof AuthenticatedAdminPilotQaRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
@@ -378,6 +386,7 @@ export interface FileRoutesByTo {
   '/admin/customs': typeof AuthenticatedAdminCustomsRoute
   '/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/admin/managers': typeof AuthenticatedAdminManagersRoute
+  '/admin/pilot-qa': typeof AuthenticatedAdminPilotQaRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
@@ -426,6 +435,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/customs': typeof AuthenticatedAdminCustomsRoute
   '/_authenticated/admin/loading-plan': typeof AuthenticatedAdminLoadingPlanRoute
   '/_authenticated/admin/managers': typeof AuthenticatedAdminManagersRoute
+  '/_authenticated/admin/pilot-qa': typeof AuthenticatedAdminPilotQaRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/qa': typeof AuthenticatedAdminQaRoute
   '/_authenticated/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/admin/customs'
     | '/admin/loading-plan'
     | '/admin/managers'
+    | '/admin/pilot-qa'
     | '/admin/products'
     | '/admin/qa'
     | '/admin/suppliers'
@@ -518,6 +529,7 @@ export interface FileRouteTypes {
     | '/admin/customs'
     | '/admin/loading-plan'
     | '/admin/managers'
+    | '/admin/pilot-qa'
     | '/admin/products'
     | '/admin/qa'
     | '/admin/suppliers'
@@ -565,6 +577,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/customs'
     | '/_authenticated/admin/loading-plan'
     | '/_authenticated/admin/managers'
+    | '/_authenticated/admin/pilot-qa'
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/qa'
     | '/_authenticated/admin/suppliers'
@@ -853,6 +866,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminProductsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/pilot-qa': {
+      id: '/_authenticated/admin/pilot-qa'
+      path: '/pilot-qa'
+      fullPath: '/admin/pilot-qa'
+      preLoaderRoute: typeof AuthenticatedAdminPilotQaRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/managers': {
       id: '/_authenticated/admin/managers'
       path: '/managers'
@@ -919,6 +939,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminCustomsRoute: typeof AuthenticatedAdminCustomsRoute
   AuthenticatedAdminLoadingPlanRoute: typeof AuthenticatedAdminLoadingPlanRoute
   AuthenticatedAdminManagersRoute: typeof AuthenticatedAdminManagersRoute
+  AuthenticatedAdminPilotQaRoute: typeof AuthenticatedAdminPilotQaRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminQaRoute: typeof AuthenticatedAdminQaRoute
   AuthenticatedAdminSuppliersRoute: typeof AuthenticatedAdminSuppliersRoute
@@ -935,6 +956,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminCustomsRoute: AuthenticatedAdminCustomsRoute,
   AuthenticatedAdminLoadingPlanRoute: AuthenticatedAdminLoadingPlanRoute,
   AuthenticatedAdminManagersRoute: AuthenticatedAdminManagersRoute,
+  AuthenticatedAdminPilotQaRoute: AuthenticatedAdminPilotQaRoute,
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminQaRoute: AuthenticatedAdminQaRoute,
   AuthenticatedAdminSuppliersRoute: AuthenticatedAdminSuppliersRoute,
@@ -1062,13 +1084,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
