@@ -357,6 +357,7 @@ function ProductsFullscreen() {
       return;
     }
     await syncVehicleStateForShipment(id);
+    invalidateVehicleAndShipmentCaches(qc);
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
