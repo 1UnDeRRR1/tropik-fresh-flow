@@ -395,6 +395,7 @@ function ProductsFullscreen() {
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
     qc.invalidateQueries({ queryKey: ["shipment", id] });
+    invalidateVehicleAndShipmentCaches(qc);
   };
 
   return (
