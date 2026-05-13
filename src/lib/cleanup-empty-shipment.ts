@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Delete a shipment if it has no items with pallet_count > 0.
+ * Delete a shipment only when it has no meaningful draft data and no items with pallet_count > 0.
  * If, after deletion, the parent vehicle has no shipments left, delete the vehicle too.
  * Returns true if shipment was deleted.
  */
@@ -13,7 +13,7 @@ export async function deleteShipmentIfEmpty(shipmentId: string): Promise<boolean
     .eq("shipment_id", shipmentId);
 
   const invalidIds = (items ?? [])
-    .filter((i) => (i.product_name ?? "").trim().length === 0 || Number(i.pallet_count ?? 0) <= 0)
+    .filter((i) => (i.product_name ?? "").trim().length === 0 && Number(i.pallet_count ?? 0) <= 0)
     .map((i) => i.id);
 
   if (invalidIds.length > 0) {
@@ -24,6 +24,11 @@ export async function deleteShipmentIfEmpty(shipmentId: string): Promise<boolean
     (i) => (i.product_name ?? "").trim().length > 0 && Number(i.pallet_count ?? 0) > 0,
   );
   if (hasReal) return false;
+
+  const hasDraftData = (items ?? []).some(
+    (i) => (i.product_name ?? "").trim().length > 0 || Number(i.pallet_count ?? 0) > 0,
+  );
+  if (hasDraftData) return false;
 
   // Get vehicle_id before delete
   const { data: ship } = await supabase
