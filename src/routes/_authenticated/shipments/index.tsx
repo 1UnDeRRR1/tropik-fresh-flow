@@ -1,12 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip, SHIPMENT_LABEL } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
 import { useAuth } from "@/lib/auth";
@@ -469,8 +479,11 @@ function VehicleCard({
   onClose: () => void;
   onDeleted: () => void;
 }) {
-  const DELETE_REVEAL = 108;
+  const DELETE_REVEAL = 132;
+  const SWIPE_ACTIVATION = 12;
+  const SWIPE_OPEN_THRESHOLD = 52;
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const gesture = useRef<{
@@ -508,6 +521,17 @@ function VehicleCard({
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
+  const resetGesture = () => {
+    gesture.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startOffset: 0,
+      dragging: false,
+    };
+    setDragging(false);
+  };
+
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!ownShipment) return;
     if (gesture.current.pointerId !== e.pointerId) return;
@@ -516,9 +540,10 @@ function VehicleCard({
     const dy = e.clientY - gesture.current.startY;
 
     if (!gesture.current.dragging) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dy) > Math.abs(dx) || dx > 0) {
-        gesture.current.pointerId = null;
+      if (Math.abs(dx) < SWIPE_ACTIVATION && Math.abs(dy) < SWIPE_ACTIVATION) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        e.currentTarget.releasePointerCapture?.(e.pointerId);
+        resetGesture();
         return;
       }
       gesture.current.dragging = true;
@@ -537,20 +562,13 @@ function VehicleCard({
     e.currentTarget.releasePointerCapture?.(e.pointerId);
 
     if (gesture.current.dragging) {
-      const shouldOpen = swipeOffset <= -DELETE_REVEAL * 0.45;
+      const shouldOpen = swipeOffset <= -SWIPE_OPEN_THRESHOLD;
       setDeleteOpen(shouldOpen);
       setSwipeOffset(shouldOpen ? -DELETE_REVEAL : 0);
       suppressClick.current = true;
     }
 
-    gesture.current = {
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      startOffset: 0,
-      dragging: false,
-    };
-    setDragging(false);
+    resetGesture();
   };
 
   const handleCardClick = () => {
@@ -567,8 +585,8 @@ function VehicleCard({
 
   const doDelete = async () => {
     if (!ownShipment) return;
+    setConfirmOpen(false);
     closeDelete();
-    if (!confirm(`Видалити вашу поставку з авто ${v.code}? Дію неможливо скасувати.`)) return;
     const { error } = await supabase.from("shipments").delete().eq("id", ownShipment.id);
     if (error) return toast.error(error.message);
     toast.success("Поставку видалено");
@@ -576,103 +594,145 @@ function VehicleCard({
   };
 
   return (
-    <div
-      data-focus-id={`v:${v.id} ${(v.shipments ?? []).map((s) => `mgr:${s.import_manager_id ?? ""}`).join(" ")}`}
-      className="relative overflow-hidden rounded-xl border border-border bg-card hover:border-brand/40"
-    >
-      {ownShipment && (
-        <div className="absolute inset-y-0 right-0 z-0 flex w-[108px] items-stretch justify-end">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void doDelete();
-            }}
-            className={cn(
-              "flex w-[108px] flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground transition-opacity",
-              deleteOpen ? "opacity-100" : "opacity-80",
-            )}
-            aria-label="Видалити поставку"
-          >
-            <Trash2 className="h-5 w-5" />
-            <span className="text-[11px] font-semibold">Видалити</span>
-          </button>
-        </div>
-      )}
-
+    <>
       <div
-        role="button"
-        tabIndex={0}
-        onClick={handleCardClick}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            if (deleteOpen) {
-              closeDelete();
-              return;
-            }
-            onCardClick();
-          }
-        }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerEnd}
-        style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
-        className={cn(
-          "relative z-10 cursor-pointer select-none rounded-xl bg-card p-3 active:scale-[0.99]",
-          dragging ? "transition-none" : "transition-transform duration-200 ease-out",
-        )}
+        data-focus-id={`v:${v.id} ${(v.shipments ?? []).map((s) => `mgr:${s.import_manager_id ?? ""}`).join(" ")}`}
+        className="relative overflow-hidden rounded-xl border border-border bg-card hover:border-brand/40"
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="font-bold text-brand">{v.code}</div>
-            <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
-          </div>
-          <div className="flex shrink-0 gap-1">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
-            >
-              + Постач.
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!isAdmin && !ownShipment}
-              title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
-              onClick={(e) => { e.stopPropagation(); onClose(); }}
-            >
-              Закрити
-            </Button>
-          </div>
-        </div>
-        {sups.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {sups.map((s, i) => (
-              <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
-            ))}
+        {ownShipment && (
+          <div className="absolute inset-y-0 right-0 z-0 flex w-[132px] items-stretch justify-end">
+            <div className="flex w-[132px] items-stretch">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeDelete();
+                }}
+                className="flex w-11 items-center justify-center bg-secondary text-secondary-foreground transition-opacity hover:bg-secondary/80"
+                aria-label="Скасувати свайп"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmOpen(true);
+                }}
+                className={cn(
+                  "flex flex-1 flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground transition-opacity",
+                  deleteOpen ? "opacity-100" : "opacity-80",
+                )}
+                aria-label="Видалити поставку"
+              >
+                <Trash2 className="h-5 w-5" />
+                <span className="text-[11px] font-semibold">Видалити</span>
+              </button>
+            </div>
           </div>
         )}
-        <div className="mt-2 space-y-1.5 text-[11px]">
-          <div className="flex items-center justify-between">
-            <span>Палети {pallets}/26</span>
-            <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={handleCardClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (deleteOpen) {
+                closeDelete();
+                return;
+              }
+              onCardClick();
+            }
+            if (e.key === "Escape" && deleteOpen) {
+              e.preventDefault();
+              closeDelete();
+            }
+          }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
+          className={cn(
+            "relative z-10 cursor-pointer select-none rounded-xl bg-card p-3 active:scale-[0.99]",
+            dragging ? "transition-none" : "transition-transform duration-200 ease-out",
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-bold text-brand">{v.code}</div>
+              <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
+              >
+                + Постач.
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!isAdmin && !ownShipment}
+                title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
+              >
+                Закрити
+              </Button>
+            </div>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Вага {Math.round(weight)}/21500 кг</span>
-            <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
+          {sups.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {sups.map((s, i) => (
+                <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 space-y-1.5 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span>Палети {pallets}/26</span>
+              <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Вага {Math.round(weight)}/21500 кг</span>
+              <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Видалити поставку?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Поставка з авто {v.code} буде видалена без можливості відновлення.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ні</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void doDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Так, видалити
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

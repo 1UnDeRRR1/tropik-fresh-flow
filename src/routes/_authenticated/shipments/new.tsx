@@ -257,7 +257,10 @@ function NewShipment() {
         ? code.trim()
         : formatShipmentCode(vCode, supplierCode);
 
+      const shipmentId = crypto.randomUUID();
+
       const insertPayload = {
+        id: shipmentId,
         code: finalCode,
         supplier_id: supplierId,
         country: normalizeCountry(useCountry),
@@ -281,7 +284,7 @@ function NewShipment() {
       }
 
       toast.success("Поставку створено. Додайте позиції товарів.");
-      navigate({ to: "/shipments" });
+      navigate({ to: "/shipments/$id/products", params: { id: shipmentId } });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
