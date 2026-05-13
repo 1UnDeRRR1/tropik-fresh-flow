@@ -769,6 +769,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         dirtyRef.current = false;
         await syncVehicleStateForShipment(shipmentId);
         qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+        invalidateVehicleAndShipmentCaches(qc);
       }
     }, 600);
     return () => clearTimeout(t);
