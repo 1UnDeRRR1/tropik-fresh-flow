@@ -688,6 +688,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
 
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
+const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
