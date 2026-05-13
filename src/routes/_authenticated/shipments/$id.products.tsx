@@ -162,6 +162,15 @@ async function syncVehicleStateForShipment(shipmentId: string) {
     .eq("id", vehicleId);
 }
 
+function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["shipments-list"] });
+  qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+  qc.invalidateQueries({ queryKey: ["vehicles-list"] });
+  qc.invalidateQueries({ queryKey: ["vehicles-open"] });
+  qc.invalidateQueries({ queryKey: ["distribution-list"] });
+  qc.invalidateQueries({ queryKey: ["shipment-products"] });
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -348,6 +357,7 @@ function ProductsFullscreen() {
       return;
     }
     await syncVehicleStateForShipment(id);
+    invalidateVehicleAndShipmentCaches(qc);
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
@@ -385,6 +395,7 @@ function ProductsFullscreen() {
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
     qc.invalidateQueries({ queryKey: ["shipment", id] });
+    invalidateVehicleAndShipmentCaches(qc);
   };
 
   return (
@@ -758,6 +769,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         dirtyRef.current = false;
         await syncVehicleStateForShipment(shipmentId);
         qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+        invalidateVehicleAndShipmentCaches(qc);
       }
     }, 600);
     return () => clearTimeout(t);
@@ -775,6 +787,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     setConfirmOpen(false);
     await syncVehicleStateForShipment(shipmentId);
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+    invalidateVehicleAndShipmentCaches(qc);
   };
 
   const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
