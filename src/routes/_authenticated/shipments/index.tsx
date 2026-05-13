@@ -667,7 +667,7 @@ function VehicleCard({
           style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
           className={cn(
             "relative z-10 cursor-pointer select-none rounded-xl bg-card p-3 active:scale-[0.99]",
-            dragging ? "transition-none" : "transition-transform duration-260 ease-out",
+            dragging ? "transition-none" : "transition-transform duration-[260ms] ease-out",
           )}
         >
           <div className="flex items-center justify-between gap-2">
