@@ -640,13 +640,14 @@ function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; owner
         );
         if (productNames.length === 0) return null;
         return (
-          <div className="rounded-xl border border-border bg-secondary/30 p-3 text-xs space-y-1.5">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Товари в авто (перевірте сумісність)
+          <div className="rounded-xl border-2 border-amber-500/60 bg-amber-500/10 p-3.5 text-sm space-y-2 shadow-[0_0_0_3px_rgba(245,158,11,0.08)]">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Товари в авто — перевірте сумісність</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {productNames.map((name) => (
-                <span key={name} className="rounded-full bg-background px-2 py-0.5 text-[11px] font-medium text-foreground">
+                <span key={name} className="rounded-full bg-background border border-amber-500/40 px-2.5 py-1 text-sm font-semibold text-foreground">
                   {name}
                 </span>
               ))}
