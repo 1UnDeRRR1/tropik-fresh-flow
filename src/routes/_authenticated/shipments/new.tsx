@@ -124,9 +124,13 @@ function NewShipment() {
     },
   });
 
+  const qc = useQueryClient();
+
   const { data: openVehicles } = useQuery({
     queryKey: ["open-vehicles", user?.id, country],
     enabled: !loading && !!user && isStaff,
+    refetchOnMount: "always",
+    staleTime: 0,
     queryFn: async () => {
       let q = supabase
         .from("vehicles" as never)
@@ -139,6 +143,26 @@ function NewShipment() {
       return (data ?? []) as unknown as OpenVehicle[];
     },
   });
+
+  // Realtime: refresh open vehicles list when vehicles or shipment_items change
+  useEffect(() => {
+    if (!user || !isStaff) return;
+    const channel = supabase
+      .channel("open-vehicles-watch")
+      .on("postgres_changes", { event: "*", schema: "public", table: "vehicles" }, () => {
+        qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipment_items" }, () => {
+        qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipments" }, () => {
+        qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, isStaff, qc]);
 
   const selectedSupplier = useMemo(
     () => suppliers?.find((s) => s.id === supplierId) ?? null,
