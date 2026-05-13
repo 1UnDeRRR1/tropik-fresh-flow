@@ -31,9 +31,7 @@ function AuthenticatedLayout() {
     );
   }
   if (!user) return <Navigate to="/login" />;
-  // Lightweight calendar accounts must not see the operational shell.
-  if (primaryRole === "calendar_branch") return <Navigate to="/calendar/branch" />;
-  if (primaryRole === "calendar_tropik") return <Navigate to="/calendar/tropik" />;
+  // External calendar accounts intentionally disabled — fall through to main shell.
   return (
     <AppShell>
       <Outlet />

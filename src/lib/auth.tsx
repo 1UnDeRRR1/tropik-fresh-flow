@@ -369,9 +369,9 @@ export function defaultRoutePerRole(role: AppRole | null): string {
     case "branch":
       return "/dashboard/branch";
     case "calendar_branch":
-      return "/calendar/branch";
     case "calendar_tropik":
-      return "/calendar/tropik";
+      // External calendar UI is disabled — send to safe landing page.
+      return "/";
     default:
       return "/dashboard/branch";
   }
