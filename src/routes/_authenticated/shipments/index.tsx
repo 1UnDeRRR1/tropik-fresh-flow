@@ -479,13 +479,15 @@ function VehicleCard({
   onClose: () => void;
   onDeleted: () => void;
 }) {
-  const DELETE_REVEAL = 132;
-  const SWIPE_ACTIVATION = 12;
-  const SWIPE_OPEN_THRESHOLD = 52;
+  const DELETE_REVEAL = 144;
+  const SWIPE_ACTIVATION = 6;
+  const SWIPE_OPEN_THRESHOLD = 36;
+  const SWIPE_CLOSE_THRESHOLD = 18;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const swipeOffsetRef = useRef(0);
   const gesture = useRef<{
     pointerId: number | null;
     startX: number;
@@ -501,9 +503,14 @@ function VehicleCard({
   });
   const suppressClick = useRef(false);
 
+  const setSwipePosition = (nextOffset: number) => {
+    swipeOffsetRef.current = nextOffset;
+    setSwipeOffset(nextOffset);
+  };
+
   const closeDelete = () => {
     setDeleteOpen(false);
-    setSwipeOffset(0);
+    setSwipePosition(0);
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -541,7 +548,7 @@ function VehicleCard({
 
     if (!gesture.current.dragging) {
       if (Math.abs(dx) < SWIPE_ACTIVATION && Math.abs(dy) < SWIPE_ACTIVATION) return;
-      if (Math.abs(dy) > Math.abs(dx)) {
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
         e.currentTarget.releasePointerCapture?.(e.pointerId);
         resetGesture();
         return;
@@ -553,7 +560,7 @@ function VehicleCard({
 
     e.preventDefault();
     const nextOffset = Math.max(-DELETE_REVEAL, Math.min(0, gesture.current.startOffset + dx));
-    setSwipeOffset(nextOffset);
+    setSwipePosition(nextOffset);
   };
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -562,9 +569,12 @@ function VehicleCard({
     e.currentTarget.releasePointerCapture?.(e.pointerId);
 
     if (gesture.current.dragging) {
-      const shouldOpen = swipeOffset <= -SWIPE_OPEN_THRESHOLD;
+      const finalOffset = swipeOffsetRef.current;
+      const shouldOpen = deleteOpen
+        ? finalOffset <= -SWIPE_CLOSE_THRESHOLD
+        : finalOffset <= -SWIPE_OPEN_THRESHOLD;
       setDeleteOpen(shouldOpen);
-      setSwipeOffset(shouldOpen ? -DELETE_REVEAL : 0);
+      setSwipePosition(shouldOpen ? -DELETE_REVEAL : 0);
       suppressClick.current = true;
     }
 
@@ -600,8 +610,8 @@ function VehicleCard({
         className="relative overflow-hidden rounded-xl border border-border bg-card hover:border-brand/40"
       >
         {ownShipment && (
-          <div className="absolute inset-y-0 right-0 z-0 flex w-[132px] items-stretch justify-end">
-            <div className="flex w-[132px] items-stretch">
+          <div className="absolute inset-y-0 right-0 z-0 flex w-36 items-stretch justify-end">
+            <div className="flex w-36 items-stretch">
               <button
                 type="button"
                 onClick={(e) => {
@@ -657,7 +667,7 @@ function VehicleCard({
           style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
           className={cn(
             "relative z-10 cursor-pointer select-none rounded-xl bg-card p-3 active:scale-[0.99]",
-            dragging ? "transition-none" : "transition-transform duration-200 ease-out",
+            dragging ? "transition-none" : "transition-transform duration-260 ease-out",
           )}
         >
           <div className="flex items-center justify-between gap-2">
