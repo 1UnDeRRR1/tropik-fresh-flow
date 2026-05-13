@@ -227,8 +227,18 @@ function DistributionMatrix() {
 
       setInitial(JSON.parse(JSON.stringify(grid)));
       toast.success("Розподіл збережено");
-      qc.invalidateQueries({ queryKey: ["matrix", shipmentId] });
-      qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["matrix", shipmentId] }),
+        qc.invalidateQueries({ queryKey: ["shipment", shipmentId] }),
+        qc.invalidateQueries({ queryKey: ["shipments-list"] }),
+        qc.invalidateQueries({ queryKey: ["distribution-list"] }),
+      ]);
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["matrix", shipmentId], type: "all" }),
+        qc.refetchQueries({ queryKey: ["shipment", shipmentId], type: "all" }),
+        qc.refetchQueries({ queryKey: ["shipments-list"], type: "all" }),
+        qc.refetchQueries({ queryKey: ["distribution-list"], type: "all" }),
+      ]);
       if (router.history.canGoBack()) {
         router.history.back();
       } else {
