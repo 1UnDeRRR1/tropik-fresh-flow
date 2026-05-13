@@ -95,6 +95,16 @@ type VehicleContext = {
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
 
+function normalizeProductValue(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function isKnownProductName(value: string | null | undefined, products: ProductRef[]) {
+  const normalized = normalizeProductValue(value);
+  if (!normalized) return false;
+  return products.some((product) => normalizeProductValue(product.name) === normalized);
+}
+
 function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count">) {
   return (item.product_name ?? "").trim().length > 0 && Number(item.pallet_count ?? 0) > 0;
 }
@@ -111,6 +121,41 @@ function getMissingFields(item: ItemRow): RequiredField[] {
   if (totalW <= 0) missing.push("total_weight");
   if (!item.unit_price || Number(item.unit_price) <= 0) missing.push("unit_price");
   return missing;
+}
+
+async function syncVehicleStateForShipment(shipmentId: string) {
+  const { data: shipment } = await supabase
+    .from("shipments")
+    .select("vehicle_id")
+    .eq("id", shipmentId)
+    .maybeSingle();
+
+  const vehicleId = (shipment as { vehicle_id?: string | null } | null)?.vehicle_id;
+  if (!vehicleId) return;
+
+  const { data: vehicle } = await supabase
+    .from("vehicles" as never)
+    .select("id,total_pallets,total_weight_kg,status,closed_by,closed_at")
+    .eq("id", vehicleId)
+    .maybeSingle();
+
+  const totalPallets = Number((vehicle as { total_pallets?: number | null } | null)?.total_pallets ?? 0);
+  const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
+  const closedBy = (vehicle as { closed_by?: string | null } | null)?.closed_by ?? null;
+  const closedAt = (vehicle as { closed_at?: string | null } | null)?.closed_at ?? null;
+  const shouldBeClosed = totalPallets === MAX_PALLETS || totalWeight === MAX_WEIGHT_KG;
+  const nextStatus = shouldBeClosed ? "closed" : "open";
+
+  if (closedBy && !shouldBeClosed) return;
+  if ((vehicle as { status?: string | null } | null)?.status === nextStatus && (shouldBeClosed || !closedAt)) return;
+
+  await supabase
+    .from("vehicles" as never)
+    .update({
+      status: nextStatus,
+      closed_at: shouldBeClosed ? closedAt ?? new Date().toISOString() : null,
+    } as never)
+    .eq("id", vehicleId);
 }
 
 function ProductsFullscreen() {
