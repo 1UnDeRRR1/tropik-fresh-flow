@@ -296,7 +296,11 @@ function ProductsFullscreen() {
   const vehicleContext = data?.vehicleContext ?? null;
   const country = toUaCountry(sh?.country) || "—";
   
-  const incompleteItems = items.filter((i) => Number(i.pallet_count ?? 0) > 0 && getMissingFields(i).length > 0);
+  const incompleteItems = items.filter((i) => {
+    if (Number(i.pallet_count ?? 0) <= 0) return false;
+    const missing = getMissingFields(i);
+    return missing.length > 0 || !isKnownProductName(i.product_name, products);
+  });
   const incompleteCount = incompleteItems.length;
   const hasRealPallets = validItems.length > 0;
   const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
@@ -331,11 +335,15 @@ function ProductsFullscreen() {
   }, [id]);
 
   const leaveProducts = async () => {
-    const deleted = await deleteShipmentIfEmpty(id);
+    const hasDraftRows = items.some(
+      (item) => !(item.product_name ?? "").trim() || item.product_name === "Новий товар" || Number(item.pallet_count ?? 0) <= 0,
+    );
+    const deleted = hasDraftRows ? false : await deleteShipmentIfEmpty(id);
     if (deleted) {
       navigate({ to: "/shipments" });
       return;
     }
+    await syncVehicleStateForShipment(id);
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
@@ -457,8 +465,9 @@ function ProductsFullscreen() {
           void leaveProducts();
         }}>
           <Button
+            disabled={incompleteCount > 0}
             className={cn(
-              "w-full",
+              "w-full disabled:cursor-not-allowed disabled:opacity-70",
               incompleteCount > 0
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
