@@ -83,14 +83,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#0B1B3B" },
-      { title: "TROPIK Supply Distribution" },
+      { title: "TROPIK Import & Distribution" },
       {
         name: "description",
         content:
           "Внутрішня система TROPIK для управління імпортом і розподілом фруктів та овочів",
       },
-      { property: "og:title", content: "TROPIK Supply Distribution" },
+      { property: "og:title", content: "TROPIK Import & Distribution" },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "TROPIK Import & Distribution" },
+      { name: "description", content: "Internal web/PWA for fruit and vegetable import distribution management." },
+      { property: "og:description", content: "Internal web/PWA for fruit and vegetable import distribution management." },
+      { name: "twitter:description", content: "Internal web/PWA for fruit and vegetable import distribution management." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/805976f7-23db-4ab0-a216-6b4a0201ea18/id-preview-0f5b11be--1e88bdf2-4c3c-407d-937e-c134ac58990b.lovable.app-1778646625470.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/805976f7-23db-4ab0-a216-6b4a0201ea18/id-preview-0f5b11be--1e88bdf2-4c3c-407d-937e-c134ac58990b.lovable.app-1778646625470.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
