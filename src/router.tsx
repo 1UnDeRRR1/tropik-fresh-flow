@@ -59,7 +59,11 @@ export const getRouter = () => {
         gcTime: 10 * 60_000,
         // Don't wipe-and-refetch on every tab focus; rely on realtime + manual invalidation.
         refetchOnWindowFocus: false,
-        refetchOnReconnect: "always",
+        // Don't auto-refetch on reconnect — mobile tab/app switches briefly
+        // drop the network and would otherwise re-trigger every active query
+        // (and its loading skeleton) every time the user returns to the app.
+        refetchOnReconnect: false,
+        refetchOnMount: false,
         retry: 2,
         retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
       },
