@@ -763,6 +763,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
     if (error) return toast.error(error.message);
     setConfirmOpen(false);
+    await syncVehicleStateForShipment(shipmentId);
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
   };
 
