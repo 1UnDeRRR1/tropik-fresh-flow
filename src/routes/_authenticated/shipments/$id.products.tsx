@@ -684,6 +684,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = dbCountries;
+  const knownProductNames = products.map((product) => product.name);
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
   const [form, setForm] = useState({
     product_name: normalizedProductName,
@@ -708,6 +709,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const palletWeightNum = Number(form.pallet_weight) || 0;
   const totalWeightNum = palletCountNum * palletWeightNum;
   const invalidProduct = !form.product_name.trim();
+  const unknownProduct = !!form.product_name.trim() && !isKnownProductName(form.product_name, products);
   const invalidCountry = !form.origin_country.trim();
   const invalidPallets = palletCountNum <= 0;
   const invalidWeight = totalWeightNum <= 0;
@@ -721,6 +723,9 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
       const trimmedProductName = form.product_name.trim();
+      if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
+        return;
+      }
       const palletCount = Number(form.pallet_count);
       const totalKg = palletCount * palletWeight;
       const { error } = await supabase
@@ -741,11 +746,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       if (error) toast.error(error.message);
       else {
         dirtyRef.current = false;
+        await syncVehicleStateForShipment(shipmentId);
         qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id, qc, readOnly]);
+  }, [form, palletWeight, item.id, products, qc, readOnly, shipmentId]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -769,13 +775,21 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
-          options={products.map((p) => p.name)}
-          placeholder={invalidProduct ? "Товар*" : "Товар"}
-          className={cn("font-medium", invalidProduct && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
+          options={knownProductNames}
+          placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
+          className={cn(
+            "font-medium",
+            (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80",
+          )}
           expandedMinWidth={200}
-          required={false}
+          required
           readOnly={readOnly}
         />
+        {unknownProduct && (
+          <div className="px-1.5 pt-0.5 text-[10px] font-medium text-destructive">
+            Оберіть товар лише зі списку
+          </div>
+        )}
       </td>
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
@@ -805,18 +819,15 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidPallets}
           onChange={(v) => {
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
-            const maxByWeight = palletWeight > 0 ? Math.floor((MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
+            const maxByWeight = palletWeight > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             const nextCount = v > max ? max : v;
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
-            // Keep TOTAL weight constant: recompute per-pallet weight
-            const currentTotal = (Number(form.pallet_count) || 0) * palletWeight;
-            const newPerPallet = nextCount > 0 ? currentTotal / nextCount : 0;
             if (readOnly) return;
             dirtyRef.current = true;
-            setForm((f) => ({ ...f, pallet_count: nextCount, pallet_weight: newPerPallet }));
+            setForm((f) => ({ ...f, pallet_count: nextCount }));
           }}
         />
       </td>
@@ -828,10 +839,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidWeight}
           onChange={(totalKgInput) => {
             const palletCount = Number(form.pallet_count) || 0;
-            if (otherKg + totalKgInput > MAX_WEIGHT_KG) {
+            const safeTotalKg = Math.max(0, totalKgInput);
+            if (otherKg + safeTotalKg > MAX_WEIGHT_KG) {
               toast.error(`Перевищено ліміт: макс ${MAX_WEIGHT_KG} кг на машину`);
+              return;
             }
-            const newPerPallet = palletCount > 0 ? totalKgInput / palletCount : totalKgInput;
+            const newPerPallet = palletCount > 0 ? safeTotalKg / palletCount : safeTotalKg;
             set("pallet_weight", newPerPallet);
           }}
         />
