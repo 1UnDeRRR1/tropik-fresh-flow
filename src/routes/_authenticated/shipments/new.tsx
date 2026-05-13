@@ -269,9 +269,11 @@ function NewShipment() {
         vehicle_id: vId,
       } as never;
 
-      const { error } = await supabase
+      const { data: insertedShipment, error } = await supabase
         .from("shipments")
-        .insert(insertPayload);
+        .insert(insertPayload)
+        .select("id")
+        .single();
 
       if (error) {
         if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
@@ -281,7 +283,7 @@ function NewShipment() {
       }
 
       toast.success("Поставку створено. Додайте позиції товарів.");
-      navigate({ to: "/shipments" });
+      navigate({ to: "/shipments/$id/products", params: { id: insertedShipment.id } });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
