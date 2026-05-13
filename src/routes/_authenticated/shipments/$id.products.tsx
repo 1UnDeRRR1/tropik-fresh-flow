@@ -787,6 +787,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     setConfirmOpen(false);
     await syncVehicleStateForShipment(shipmentId);
     qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+    invalidateVehicleAndShipmentCaches(qc);
   };
 
   const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
