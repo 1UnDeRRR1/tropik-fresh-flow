@@ -143,7 +143,11 @@ async function syncVehicleStateForShipment(shipmentId: string) {
   const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
   const closedBy = (vehicle as { closed_by?: string | null } | null)?.closed_by ?? null;
   const closedAt = (vehicle as { closed_at?: string | null } | null)?.closed_at ?? null;
-  const shouldBeClosed = totalPallets === MAX_PALLETS || totalWeight === MAX_WEIGHT_KG;
+  // Авто закривається автоматично лише якщо досягнуто межі по палетах (≥26)
+  // АБО вага потрапила в діапазон 21000–21500 кг включно. Інакше залишається відкритим.
+  const shouldBeClosed =
+    totalPallets >= MAX_PALLETS ||
+    (totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG && totalWeight <= MAX_WEIGHT_KG);
   const nextStatus = shouldBeClosed ? "closed" : "open";
 
   if (closedBy && !shouldBeClosed) return;
@@ -684,6 +688,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
 
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
+const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
   const qc = useQueryClient();
