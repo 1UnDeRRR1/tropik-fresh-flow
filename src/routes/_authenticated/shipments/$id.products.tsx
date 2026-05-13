@@ -456,6 +456,11 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
+          if (incompleteCount > 0) {
+            e.preventDefault();
+            toast.error(`Заповніть всі обов'язкові поля (${incompleteCount} поз.)`);
+            return;
+          }
           if (!hasRealPallets) {
             e.preventDefault();
             toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
