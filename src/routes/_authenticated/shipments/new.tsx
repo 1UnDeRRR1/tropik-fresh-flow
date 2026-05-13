@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Check, ChevronsUpDown, Truck, Plus, Lock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
