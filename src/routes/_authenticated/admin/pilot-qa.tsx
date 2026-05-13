@@ -220,18 +220,7 @@ function PilotQAPage() {
       </SectionCard>
 
       {CHECKS.map((g) => (
-        <SectionCard
-          key={g.group}
-          title={
-            <div className="flex flex-wrap items-center gap-2">
-              <span>{g.group}</span>
-              <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {g.role}
-              </span>
-              {g.role.includes("iPhone") && <Smartphone className="size-3.5 text-muted-foreground" />}
-            </div>
-          }
-        >
+        <SectionCard key={g.group} title={`${g.group}  ·  ${g.role}`}>
           {g.account && (
             <div className="mb-2 rounded-lg border border-dashed border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
               Акаунти: <code className="font-mono">{g.account}</code>
