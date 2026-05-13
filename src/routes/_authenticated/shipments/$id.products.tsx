@@ -162,6 +162,15 @@ async function syncVehicleStateForShipment(shipmentId: string) {
     .eq("id", vehicleId);
 }
 
+function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["shipments-list"] });
+  qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+  qc.invalidateQueries({ queryKey: ["vehicles-list"] });
+  qc.invalidateQueries({ queryKey: ["vehicles-open"] });
+  qc.invalidateQueries({ queryKey: ["distribution-list"] });
+  qc.invalidateQueries({ queryKey: ["shipment-products"] });
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
