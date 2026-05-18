@@ -208,18 +208,18 @@ function BranchDashboard() {
   });
 
   const { data: ships } = useQuery({
-    queryKey: ["branch-incoming-ships-v2", shipmentIds.join(",")],
+    queryKey: ["branch-incoming-ships-v3", shipmentIds.join(",")],
     enabled: shipmentIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments")
-        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,temperature_mode,supplier_id,import_manager_id")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,pipeline_status,temperature_mode,supplier_id,import_manager_id")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
         unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null;
-        status: string; temperature_mode: string | null;
+        status: string; pipeline_status: PipelineStatus; temperature_mode: string | null;
         supplier_id: string | null; import_manager_id: string | null;
       }>;
     },
