@@ -155,7 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <img
                 src={logoSrc}
                 alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
-                className="h-12 w-auto object-contain"
+                className="h-14 w-auto max-h-full object-contain md:h-16"
                 draggable={false}
               />
             </Link>
