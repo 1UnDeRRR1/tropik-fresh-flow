@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, ChevronDown, ChevronUp, Link2, Trash2, Bell } from "lucide-react";
+import { Plus, Pencil, Link2, Trash2, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -152,7 +152,7 @@ function ManagerOffersPage() {
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  
   const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -163,12 +163,9 @@ function ManagerOffersPage() {
     else if (offerStatus === "draft") setTab("drafts");
     else if (offerStatus === "linked") setTab("linked");
     else if (["closed", "expired"].includes(offerStatus)) setTab("archive");
-    setExpanded((prev) => ({ ...prev, [offerId]: true }));
+    
     setHighlightedId(offerId);
-    setTimeout(() => {
-      const el = document.getElementById(`offer-${offerId}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
+    setDetailOfferId(offerId);
     setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
   }
 
@@ -258,6 +255,30 @@ function ManagerOffersPage() {
     return m;
   }, [linkedShipments]);
 
+  const creatorIds = useMemo(
+    () => Array.from(new Set((offers ?? []).map((o) => o.created_by).filter(Boolean))),
+    [offers],
+  );
+
+  const { data: creators } = useQuery({
+    queryKey: ["manager-offer-creators", creatorIds],
+    enabled: creatorIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", creatorIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const creatorById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of creators ?? []) m[c.id] = c.full_name ?? "—";
+    return m;
+  }, [creators]);
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
@@ -340,6 +361,44 @@ function ManagerOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const approveAllPending = useMutation({
+    mutationFn: async () => {
+      const pending: { id: string; requested: number }[] = [];
+      for (const o of merged) {
+        const inScope = (branchId: string) =>
+          o.target_mode === "all" || o.targetBranchIds.includes(branchId);
+        for (const r of o.responses) {
+          if (r.approved_pallets == null && inScope(r.branch_id)) {
+            pending.push({ id: r.id, requested: Number(r.requested_pallets ?? 0) });
+          }
+        }
+      }
+      if (!pending.length) return 0;
+      const results = await Promise.all(
+        pending.map((p) =>
+          supabase
+            .from("manager_offer_responses")
+            .update({ approved_pallets: p.requested })
+            .eq("id", p.id),
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+      return pending.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`Підтверджено відгуків: ${count}`);
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [detailOfferId, setDetailOfferId] = useState<string | null>(null);
+  const detailOffer = useMemo(
+    () => merged.find((o) => o.id === detailOfferId) ?? null,
+    [merged, detailOfferId],
+  );
+
   return (
     <div>
       <PageHeader
@@ -354,9 +413,18 @@ function ManagerOffersPage() {
 
       {pendingItems.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
-            <Bell className="h-4 w-4" />
-            Нові відгуки від філій ({pendingItems.length})
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+              <Bell className="h-4 w-4" />
+              Нові відгуки від філій ({pendingItems.length})
+            </div>
+            <Button
+              size="sm"
+              onClick={() => approveAllPending.mutate()}
+              disabled={approveAllPending.isPending}
+            >
+              Підтвердити все
+            </Button>
           </div>
           <div className="space-y-1.5">
             {pendingItems.slice(0, 6).map((p, i) => (
@@ -400,7 +468,93 @@ function ManagerOffersPage() {
           {!isLoading && filtered.length === 0 && (
             <EmptyState title="Немає пропозицій" hint="Натисніть «Створити», щоб додати першу" />
           )}
-          {filtered.map((o) => {
+          {filtered.length > 0 && (
+            <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Товар</th>
+                    <th className="px-3 py-2 text-left">Країна</th>
+                    <th className="px-3 py-2 text-left">Калібр</th>
+                    <th className="px-3 py-2 text-right">Собівартість</th>
+                    <th className="px-3 py-2 text-left">Дата поставки</th>
+                    <th className="px-3 py-2 text-left">Менеджер</th>
+                    <th className="px-3 py-2 text-right">Палети</th>
+                    <th className="px-3 py-2 text-left">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((o) => {
+                    const inScope = (branchId: string) =>
+                      o.target_mode === "all" || o.targetBranchIds.includes(branchId);
+                    const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
+                    const totalApproved = activeResponses.reduce(
+                      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+                      0,
+                    );
+                    const hasPending = o.responses.some((r) => r.approved_pallets == null);
+                    const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
+                    const realEta = ship?.arrived_at ?? ship?.eta ?? null;
+                    const etaShow = realEta ?? o.expected_eta;
+                    return (
+                      <tr
+                        key={o.id}
+                        id={`offer-${o.id}`}
+                        onClick={() => setDetailOfferId(o.id)}
+                        className={cn(
+                          "cursor-pointer border-t border-border transition hover:bg-accent/40",
+                          hasPending && "bg-amber-50/60 dark:bg-amber-500/5",
+                          highlightedId === o.id && "ring-2 ring-amber-400",
+                        )}
+                      >
+                        <td className="px-3 py-2 font-semibold">
+                          {o.product_name}
+                          {hasPending && (
+                            <span className="ml-2 inline-block h-2 w-2 rounded-full bg-amber-500" />
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{o.origin_country ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{o.caliber ?? "—"}</td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="text-success">${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</span>
+                          <span className="text-muted-foreground"> · </span>
+                          <span className="text-destructive">${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</span>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {etaShow ? new Date(etaShow).toLocaleDateString("uk-UA") : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {creatorById[o.created_by] ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {o.offered_pallets != null
+                            ? `${totalApproved}/${o.offered_pallets}`
+                            : totalApproved}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                              STATUS_CLASS[o.status],
+                            )}
+                          >
+                            {STATUS_LABEL[o.status]}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={!!detailOffer} onOpenChange={(v) => !v && setDetailOfferId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          {detailOffer && (() => {
+            const o = detailOffer;
             const inScope = (branchId: string) =>
               o.target_mode === "all" || o.targetBranchIds.includes(branchId);
             const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
@@ -414,108 +568,107 @@ function ManagerOffersPage() {
               0,
             );
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
-            const isOpen = expanded[o.id] ?? false;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
-            const hasPending = o.responses.some((r) => r.approved_pallets == null);
+            const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
+            const realEta = ship?.arrived_at ?? ship?.eta ?? null;
+            const showEta = realEta ?? o.expected_eta;
+            const isReal = !!realEta;
+            const details = [o.packaging, o.specification, o.variety].filter(Boolean).join(" • ");
             return (
-              <div
-                key={o.id}
-                id={`offer-${o.id}`}
-                data-offer-card
-                className={cn(
-                  "rounded-2xl border bg-card p-4 shadow-sm transition-all",
-                  hasPending ? "border-amber-400/70 ring-1 ring-amber-300/40" : "border-border",
-                  highlightedId === o.id && "ring-4 ring-amber-400 shadow-lg",
-                )}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold">{o.product_name}</span>
-                      {o.origin_country && (
-                        <span className="text-sm text-muted-foreground">{o.origin_country}</span>
+              <div>
+                <DialogHeader>
+                  <DialogTitle className="flex flex-wrap items-center gap-2">
+                    {o.product_name}
+                    {o.origin_country && (
+                      <span className="text-sm text-muted-foreground">{o.origin_country}</span>
+                    )}
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                        STATUS_CLASS[o.status],
                       )}
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                          STATUS_CLASS[o.status],
-                        )}
-                      >
-                        {STATUS_LABEL[o.status]}
+                    >
+                      {STATUS_LABEL[o.status]}
+                    </span>
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="mt-3 space-y-2 text-sm">
+                  {o.caliber && (
+                    <div>
+                      <span className="text-muted-foreground">Калібр: </span>
+                      <b>{o.caliber}</b>
+                    </div>
+                  )}
+                  {details && (
+                    <div className="text-muted-foreground">
+                      {details}
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-success">Інд: <b>${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</b></span>
+                    <span className="text-muted-foreground"> · </span>
+                    <span className="text-destructive">Інв: <b>${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</b></span>
+                    {o.expires_at && (
+                      <span className="ml-2 text-muted-foreground">
+                        Залишок: {formatRemaining(o.expires_at)}
                       </span>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {[o.caliber, o.packaging, o.specification, o.variety]
-                        .filter(Boolean)
-                        .join(" • ")}
-                    </div>
-                    <div className="mt-1 text-xs">
-                      <span className="text-success">Інд: <b>${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</b></span>
-                      <span className="text-muted-foreground"> · </span>
-                      <span className="text-destructive">Інв: <b>${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</b></span>
-                      {o.expires_at && (
-                        <span className="ml-2 text-muted-foreground">
-                          Залишок: {formatRemaining(o.expires_at)}
-                        </span>
-                      )}
-                    </div>
-                    {(() => {
-                      const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
-                      const realEta = ship?.arrived_at ?? ship?.eta ?? null;
-                      const showEta = realEta ?? o.expected_eta;
-                      if (!showEta) return null;
-                      const isReal = !!realEta;
-                      return (
-                        <div className="mt-1 text-xs">
-                          <span className="text-muted-foreground">{isReal ? "ETA поставки:" : "Очікувана дата:"}</span>{" "}
-                          <b className={isReal ? "text-success" : ""}>
-                            {new Date(showEta).toLocaleDateString("uk-UA")}
-                          </b>
-                          {!isReal && (
-                            <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">(план)</span>
-                          )}
-                        </div>
-                      );
-                    })()}
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="text-muted-foreground">Цільові філії:</span>
-                      {o.target_mode === "all" ? (
-                        <b>Всі філії</b>
-                      ) : (
-                        <b>
-                          Вибірково:{" "}
-                          {o.targetBranchIds.length === 0
-                            ? "—"
-                            : o.targetBranchIds
-                                .map((id) => branchById[id] ?? id)
-                                .join(", ")}
-                        </b>
-                      )}
-                      {canEditTargeting && o.status !== "draft" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => setPublishOffer(o)}
-                        >
-                          <Pencil className="mr-1 h-3 w-3" /> Змінити
-                        </Button>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <div className={cn("text-sm font-semibold", over && "text-destructive")}>
-                      {o.offered_pallets != null
-                        ? `${o.offered_pallets} / ${totalApproved}`
-                        : `${totalApproved} палет`}
+                  {showEta && (
+                    <div>
+                      <span className="text-muted-foreground">{isReal ? "ETA поставки:" : "Очікувана дата:"}</span>{" "}
+                      <b className={isReal ? "text-success" : ""}>
+                        {new Date(showEta).toLocaleDateString("uk-UA")}
+                      </b>
+                      {!isReal && (
+                        <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">(план)</span>
+                      )}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">
+                  )}
+                  <div>
+                    <span className="text-muted-foreground">Менеджер: </span>
+                    <b>{creatorById[o.created_by] ?? "—"}</b>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">Цільові філії:</span>
+                    {o.target_mode === "all" ? (
+                      <b>Всі філії</b>
+                    ) : (
+                      <b>
+                        Вибірково:{" "}
+                        {o.targetBranchIds.length === 0
+                          ? "—"
+                          : o.targetBranchIds.map((id) => branchById[id] ?? id).join(", ")}
+                      </b>
+                    )}
+                    {canEditTargeting && o.status !== "draft" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setPublishOffer(o)}
+                      >
+                        <Pencil className="mr-1 h-3 w-3" /> Змінити
+                      </Button>
+                    )}
+                  </div>
+                  <div className={cn("text-sm font-semibold", over && "text-destructive")}>
+                    {o.offered_pallets != null
+                      ? `${o.offered_pallets} / ${totalApproved} палет`
+                      : `${totalApproved} палет`}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
-                    </div>
+                    </span>
                   </div>
+                  {o.notes && (
+                    <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
+                      {o.notes}
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {o.status === "draft" && (
                     <Button size="sm" onClick={() => setPublishOffer(o)}>
                       Запропонувати
@@ -553,43 +706,24 @@ function ManagerOffersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setStatus.mutate({ id: o.id, status: "deleted" })}
+                    onClick={() => {
+                      setStatus.mutate({ id: o.id, status: "deleted" });
+                      setDetailOfferId(null);
+                    }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={(e) => {
-                      const willOpen = !isOpen;
-                      setExpanded((p) => ({ ...p, [o.id]: willOpen }));
-                      if (willOpen) {
-                        const btn = e.currentTarget;
-                        setTimeout(() => {
-                          const card = btn.closest("[data-offer-card]");
-                          const panel = card?.querySelector("[data-offer-responses]") as HTMLElement | null;
-                          if (panel) {
-                            panel.scrollIntoView({ behavior: "smooth", block: "center" });
-                          }
-                        }, 50);
-                      }
-                    }}
-                  >
-                    {isOpen ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                    Відгуки ({activeResponses.length}
-                    {excludedResponses.length > 0 && ` +${excludedResponses.length}`})
-                  </Button>
                 </div>
 
-                {isOpen && (
-                  <div data-offer-responses className="mt-3 overflow-x-auto scroll-mt-24">
-                    {o.responses.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Поки немає відгуків</p>
-                    ) : (
+                <div className="mt-4">
+                  <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                    Відгуки ({activeResponses.length}
+                    {excludedResponses.length > 0 && ` +${excludedResponses.length}`})
+                  </div>
+                  {o.responses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Поки немає відгуків</p>
+                  ) : (
+                    <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-left text-xs uppercase text-muted-foreground">
@@ -638,14 +772,15 @@ function ManagerOffersPage() {
                           })}
                         </tbody>
                       </table>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
-          })}
-        </TabsContent>
-      </Tabs>
+          })()}
+        </DialogContent>
+      </Dialog>
+
 
       <OfferEditor
         open={creating || !!editing}
