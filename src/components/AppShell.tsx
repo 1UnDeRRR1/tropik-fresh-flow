@@ -241,6 +241,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
+      <PreviewRoleSwitcher />
     </div>
   );
 }
