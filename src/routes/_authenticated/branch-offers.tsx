@@ -88,6 +88,18 @@ function BranchOffersPage() {
     return m;
   }, [myResponses]);
 
+  const visibleOffers = useMemo(() => {
+    const list = offers ?? [];
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return list.filter((o) => {
+      if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
+      // closed / expired: show only to branches that responded, and only for 7 days
+      if (!responseByOffer[o.id]) return false;
+      const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+      return ts >= cutoff;
+    });
+  }, [offers, responseByOffer]);
+
   const managerNameById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
