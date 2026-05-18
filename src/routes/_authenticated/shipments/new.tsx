@@ -422,6 +422,7 @@ function NewShipment() {
                       setCountry(c);
                       setCountryTouched(true);
                       setVehicleId("");
+                      clearInvalid("country");
                       setCountryOpen(false);
                     }}
                   >
