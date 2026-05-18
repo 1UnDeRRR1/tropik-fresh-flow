@@ -138,6 +138,9 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
+  const [fManager, setFManager] = useState<string>("__all__");
+  const [fProduct, setFProduct] = useState<string>("__all__");
+  const [fCountry, setFCountry] = useState<string>("__all__");
 
   const { data: dists } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
