@@ -165,10 +165,7 @@ function ManagerOffersPage() {
     else if (["closed", "expired"].includes(offerStatus)) setTab("archive");
     setExpanded((prev) => ({ ...prev, [offerId]: true }));
     setHighlightedId(offerId);
-    setTimeout(() => {
-      const el = document.getElementById(`offer-${offerId}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
+    setDetailOfferId(offerId);
     setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
   }
 
