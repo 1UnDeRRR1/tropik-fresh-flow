@@ -346,14 +346,17 @@ function ProductsFullscreen() {
 
   const [shake, setShake] = useState(false);
   const [flashTransport, setFlashTransport] = useState(false);
+  const [pulseFields, setPulseFields] = useState(false);
   const triggerShake = (flashTr: boolean) => {
     setFlashTransport(flashTr);
+    setPulseFields(true);
     setShake(false);
     requestAnimationFrame(() => setShake(true));
     window.setTimeout(() => {
       setShake(false);
+      setPulseFields(false);
       if (flashTr) setFlashTransport(false);
-    }, 1200);
+    }, 1500);
   };
 
   useEffect(() => {
@@ -475,7 +478,7 @@ function ProductsFullscreen() {
                 const capacitySource = vehicleContext?.loadedItems ?? items;
                 const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
                 const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
-                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} />;
+                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
               })}
             </tbody>
           </table>
@@ -711,7 +714,7 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean }) {
+function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean; pulse?: boolean }) {
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
   const COUNTRY_OPTIONS = dbCountries;
@@ -805,7 +808,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   return (
     <>
     <tr className="border-b border-border/40">
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
@@ -828,7 +831,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
@@ -846,7 +849,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td className="relative px-0.5 py-0.5">
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
@@ -865,7 +868,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td className={cn("relative px-0.5 py-0.5", pulse && invalidWeight && "field-invalid")}>
         <NumCell
           value={Math.round(totalWeight)}
           readOnly={readOnly}
@@ -883,7 +886,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className="relative px-0.5 py-0.5 min-w-[96px]">
+      <td className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}

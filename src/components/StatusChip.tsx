@@ -1,5 +1,19 @@
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
+import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import type { PipelineStatus } from "@/lib/pipeline-status";
+
+const SHIPMENT_TO_PIPELINE: Record<string, PipelineStatus | null> = {
+  draft: "proposed",
+  loading: "loading",
+  in_transit: "in_transit",
+  customs: "at_customs",
+  arrived: "at_warehouse",
+  distributing: "processing",
+  completed: null,
+  delayed: null,
+  cancelled: null,
+};
 
 export type ShipmentStatus = Database["public"]["Enums"]["shipment_status"];
 export type DistributionStatus = Database["public"]["Enums"]["distribution_status"];
@@ -59,6 +73,13 @@ export function StatusChip({
   status: string;
   kind?: "shipment" | "distribution" | "transfer" | "branch_request";
 }) {
+  if (kind === "shipment") {
+    const pipeline = SHIPMENT_TO_PIPELINE[status];
+    if (pipeline) {
+      return <PipelineStatusBadge status={pipeline} variant="animated" size="sm" />;
+    }
+  }
+
   const label =
     kind === "shipment"
       ? SHIPMENT_LABEL[status as ShipmentStatus] ?? status
