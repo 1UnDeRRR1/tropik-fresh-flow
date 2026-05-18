@@ -75,6 +75,8 @@ type LogisticsRow = {
   temperature_mode: string | null;
   supplier: { name: string | null; import_manager_id: string | null } | null;
   import_manager_id: string | null;
+  unloaded_at: string | null;
+  archived_at: string | null;
   items: Array<{
     product_name: string;
     pallet_count: number | null;
