@@ -219,8 +219,10 @@ function BranchDashboard() {
         </div>
       )}
 
+      <MainBoardToggle value={board} onChange={setBoard} />
+
       {!rows.length ? (
-        <EmptyState title="Поки немає підтвердженого товару" />
+        <EmptyState title={board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"} />
       ) : (
         <SectionCard title="Підтверджений товар">
           <div className="-mx-2 overflow-x-auto">
