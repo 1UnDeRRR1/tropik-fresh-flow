@@ -142,13 +142,38 @@ function BranchDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distributions")
-        .select(`id,status,shipment_id,distribution_items(pallets,qty,shipment_item_id)`)
+        .select(`id,status,shipment_id,distribution_items(pallets,qty,shipment_item_id,reserved_offer_id)`)
         .eq("branch_id", branchId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; status: string; shipment_id: string;
-        distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string | null }> | null;
+        distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string | null; reserved_offer_id: string | null }> | null;
+      }>;
+    },
+  });
+
+  // Approved manager-offer responses for this branch — used to surface "pending shipment" rows
+  const { data: pendingOffers } = useQuery({
+    queryKey: ["branch-pending-mor", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("manager_offer_responses")
+        .select(`id,offer_id,approved_pallets,
+          manager_offers!inner(id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
+        .eq("branch_id", branchId!)
+        .gt("approved_pallets", 0);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; offer_id: string; approved_pallets: number;
+        manager_offers: {
+          id: string; product_name: string; origin_country: string | null;
+          caliber: string | null; variety: string | null; expected_eta: string | null;
+          indicative_cost_usd: number | null; invoice_cost_usd: number | null;
+          linked_shipment_id: string | null; status: string;
+          import_manager_id: string | null; pallet_weight: number | null;
+        };
       }>;
     },
   });
