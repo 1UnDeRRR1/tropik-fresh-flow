@@ -54,10 +54,10 @@ function SuppliersAdmin() {
   const create = useMutation({
     mutationFn: async () => {
       await run(supabase.from("suppliers").insert({
-        name: form.name,
+        name: form.name.toUpperCase(),
         country: normalizeCountry(form.country) || null,
         import_manager_id: form.import_manager_id || null,
-        code_base: form.code_base || null,
+        code_base: form.code_base ? form.code_base.toUpperCase() : null,
         iso3: form.iso3 ? form.iso3.toUpperCase() : null,
       }));
     },
