@@ -45,6 +45,7 @@ import { Route as AuthenticatedDashboardAdminRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminVacationsRouteImport } from './routes/_authenticated/admin/vacations'
 import { Route as AuthenticatedAdminTriggersRouteImport } from './routes/_authenticated/admin/triggers'
 import { Route as AuthenticatedAdminSuppliersRouteImport } from './routes/_authenticated/admin/suppliers'
+import { Route as AuthenticatedAdminStatusPreviewRouteImport } from './routes/_authenticated/admin/status-preview'
 import { Route as AuthenticatedAdminQaRouteImport } from './routes/_authenticated/admin/qa'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin/products'
 import { Route as AuthenticatedAdminPilotQaRouteImport } from './routes/_authenticated/admin/pilot-qa'
@@ -256,6 +257,12 @@ const AuthenticatedAdminSuppliersRoute =
     path: '/suppliers',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminStatusPreviewRoute =
+  AuthenticatedAdminStatusPreviewRouteImport.update({
+    id: '/status-preview',
+    path: '/status-preview',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminQaRoute = AuthenticatedAdminQaRouteImport.update({
   id: '/qa',
   path: '/qa',
@@ -351,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/admin/pilot-qa': typeof AuthenticatedAdminPilotQaRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
+  '/admin/status-preview': typeof AuthenticatedAdminStatusPreviewRoute
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/admin/triggers': typeof AuthenticatedAdminTriggersRoute
   '/admin/vacations': typeof AuthenticatedAdminVacationsRoute
@@ -397,6 +405,7 @@ export interface FileRoutesByTo {
   '/admin/pilot-qa': typeof AuthenticatedAdminPilotQaRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/qa': typeof AuthenticatedAdminQaRoute
+  '/admin/status-preview': typeof AuthenticatedAdminStatusPreviewRoute
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/admin/triggers': typeof AuthenticatedAdminTriggersRoute
   '/admin/vacations': typeof AuthenticatedAdminVacationsRoute
@@ -447,6 +456,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/pilot-qa': typeof AuthenticatedAdminPilotQaRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/qa': typeof AuthenticatedAdminQaRoute
+  '/_authenticated/admin/status-preview': typeof AuthenticatedAdminStatusPreviewRoute
   '/_authenticated/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/_authenticated/admin/triggers': typeof AuthenticatedAdminTriggersRoute
   '/_authenticated/admin/vacations': typeof AuthenticatedAdminVacationsRoute
@@ -497,6 +507,7 @@ export interface FileRouteTypes {
     | '/admin/pilot-qa'
     | '/admin/products'
     | '/admin/qa'
+    | '/admin/status-preview'
     | '/admin/suppliers'
     | '/admin/triggers'
     | '/admin/vacations'
@@ -543,6 +554,7 @@ export interface FileRouteTypes {
     | '/admin/pilot-qa'
     | '/admin/products'
     | '/admin/qa'
+    | '/admin/status-preview'
     | '/admin/suppliers'
     | '/admin/triggers'
     | '/admin/vacations'
@@ -592,6 +604,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/pilot-qa'
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/qa'
+    | '/_authenticated/admin/status-preview'
     | '/_authenticated/admin/suppliers'
     | '/_authenticated/admin/triggers'
     | '/_authenticated/admin/vacations'
@@ -871,6 +884,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSuppliersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/status-preview': {
+      id: '/_authenticated/admin/status-preview'
+      path: '/status-preview'
+      fullPath: '/admin/status-preview'
+      preLoaderRoute: typeof AuthenticatedAdminStatusPreviewRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/qa': {
       id: '/_authenticated/admin/qa'
       path: '/qa'
@@ -961,6 +981,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminPilotQaRoute: typeof AuthenticatedAdminPilotQaRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminQaRoute: typeof AuthenticatedAdminQaRoute
+  AuthenticatedAdminStatusPreviewRoute: typeof AuthenticatedAdminStatusPreviewRoute
   AuthenticatedAdminSuppliersRoute: typeof AuthenticatedAdminSuppliersRoute
   AuthenticatedAdminTriggersRoute: typeof AuthenticatedAdminTriggersRoute
   AuthenticatedAdminVacationsRoute: typeof AuthenticatedAdminVacationsRoute
@@ -978,6 +999,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminPilotQaRoute: AuthenticatedAdminPilotQaRoute,
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminQaRoute: AuthenticatedAdminQaRoute,
+  AuthenticatedAdminStatusPreviewRoute: AuthenticatedAdminStatusPreviewRoute,
   AuthenticatedAdminSuppliersRoute: AuthenticatedAdminSuppliersRoute,
   AuthenticatedAdminTriggersRoute: AuthenticatedAdminTriggersRoute,
   AuthenticatedAdminVacationsRoute: AuthenticatedAdminVacationsRoute,

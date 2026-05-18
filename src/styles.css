@@ -255,3 +255,27 @@
   pointer-events: none;
   animation: logo-shimmer 10s ease-in-out infinite;
 }
+
+/* Pipeline status animations */
+@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-spin-slow { animation: spin-slow 2.4s linear infinite; }
+
+@keyframes drive-x {
+  0% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  100% { transform: translateX(-2px); }
+}
+.anim-drive { animation: drive-x 1.6s ease-in-out infinite; }
+
+@keyframes soft-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+.anim-soft-bounce { animation: soft-bounce 2s ease-in-out infinite; }
+
+@keyframes check-pop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.anim-check-pop { animation: check-pop 1.8s ease-in-out infinite; }
