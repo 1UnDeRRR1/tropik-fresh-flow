@@ -226,6 +226,7 @@ function OffersPage() {
   });
 
   const incomingPending = received?.filter((o) => o.status === "pending").length ?? 0;
+  const sentPending = sent?.filter((o) => o.status === "pending").length ?? 0;
 
   return (
     <div className="space-y-4">
@@ -233,10 +234,28 @@ function OffersPage() {
 
       <Tabs defaultValue="received">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="received">
-            ВХІДНІ {incomingPending ? `· ${incomingPending}` : ""}
+          <TabsTrigger
+            value="received"
+            className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-900 dark:data-[state=active]:bg-yellow-500/15 dark:data-[state=active]:text-yellow-200"
+          >
+            ВХІДНІ
+            {incomingPending > 0 && (
+              <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-200 px-1.5 text-[11px] font-bold text-yellow-900 dark:bg-yellow-500/30 dark:text-yellow-100">
+                {incomingPending}
+              </span>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="sent">ВІДПРАВЛЕНІ</TabsTrigger>
+          <TabsTrigger
+            value="sent"
+            className="data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 dark:data-[state=active]:bg-sky-500/15 dark:data-[state=active]:text-sky-200"
+          >
+            ВІДПРАВЛЕНІ
+            {sentPending > 0 && (
+              <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-200 px-1.5 text-[11px] font-bold text-sky-900 dark:bg-sky-500/30 dark:text-sky-100">
+                {sentPending}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="received" className="mt-4">
