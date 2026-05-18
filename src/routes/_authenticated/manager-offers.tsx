@@ -289,6 +289,35 @@ function ManagerOffersPage() {
     return merged;
   }, [merged, tab]);
 
+  // New responses from branches that the manager hasn't acted on yet
+  const pendingItems = useMemo(() => {
+    const items: {
+      offerId: string;
+      offerStatus: ManagerOfferStatus;
+      productName: string;
+      originCountry: string | null;
+      branchName: string;
+      requested: number;
+      createdAt: string;
+    }[] = [];
+    for (const o of merged) {
+      for (const r of o.responses) {
+        if (r.approved_pallets == null) {
+          items.push({
+            offerId: o.id,
+            offerStatus: o.status,
+            productName: o.product_name,
+            originCountry: o.origin_country ?? null,
+            branchName: r.branch_name ?? "Філія",
+            requested: Number(r.requested_pallets ?? 0),
+            createdAt: (r as { created_at?: string }).created_at ?? "",
+          });
+        }
+      }
+    }
+    return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }, [merged]);
+
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ManagerOfferStatus }) => {
       const { error } = await supabase.from("manager_offers").update({ status }).eq("id", id);
