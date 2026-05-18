@@ -105,6 +105,7 @@ function LogisticsPage() {
         .from("shipments")
         .select(
           `id, code, status, logistics_status, loading_date, eta, country,
+           unloaded_at, archived_at,
            loading_address, loading_reference, driver_name, driver_phone,
            vehicle_plate, tractor_plate, trailer_plate,
            notes, logistics_comment, loading_started_at, loading_ended_at,
@@ -115,7 +116,6 @@ function LogisticsPage() {
            supplier:suppliers(name, import_manager_id),
            items:shipment_items(product_name, pallet_count, pallet_weight, origin_country)`,
         )
-        .neq("status", "cancelled")
         .or("notes.is.null,notes.not.ilike.%[proposal-draft]%")
         .not("supplier_id", "is", null)
         .order("loading_date", { ascending: true, nullsFirst: false })
