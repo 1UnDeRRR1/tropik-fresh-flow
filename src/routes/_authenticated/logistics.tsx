@@ -34,6 +34,7 @@ import {
   type LogisticsStatus,
   type LogisticsFilter,
 } from "@/lib/logistics";
+import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/logistics")({
   component: LogisticsGate,
