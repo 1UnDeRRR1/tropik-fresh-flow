@@ -98,6 +98,20 @@ function NewShipment() {
   const [countryOpen, setCountryOpen] = useState(false);
   const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
+  const [shake, setShake] = useState(false);
+  const clearInvalid = (key: string) => setInvalid((prev) => {
+    if (!prev.has(key)) return prev;
+    const next = new Set(prev);
+    next.delete(key);
+    return next;
+  });
+  const triggerShake = (missing: string[]) => {
+    setInvalid(new Set(missing));
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    window.setTimeout(() => setShake(false), 600);
+  };
 
   const { data: managerProfiles } = useQuery({
     queryKey: ["manager-profiles", user?.id],
