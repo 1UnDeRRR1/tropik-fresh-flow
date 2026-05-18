@@ -252,7 +252,7 @@ function BranchFreeList() {
       )}
 
       <Sheet open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="bottom" className={cn("max-h-[85vh] overflow-y-auto rounded-t-2xl", shake && "animate-shake")}>
           <SheetHeader className="text-left">
             <SheetTitle className="pr-8">
               <span>
