@@ -1326,7 +1326,7 @@ function LinkShipmentDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,country,eta,shipment_items(product_name)")
+        .select("id,code,country,eta,shipment_items(product_name,origin_country)")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -1335,19 +1335,23 @@ function LinkShipmentDialog({
         code: string;
         country: string | null;
         eta: string | null;
-        shipment_items: { product_name: string }[] | null;
+        shipment_items: { product_name: string; origin_country: string | null }[] | null;
       }>;
     },
   });
 
-  const norm = (s: string) => s.trim().toLowerCase();
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
   const target = offer ? norm(offer.product_name) : "";
+  const targetCountry = offer ? norm(offer.origin_country) : "";
+  const itemMatches = (i: { product_name: string; origin_country: string | null }) =>
+    norm(i.product_name) === target &&
+    (!targetCountry || norm(i.origin_country) === targetCountry);
   const matching = useMemo(
     () =>
       (shipments ?? []).filter((s) =>
-        (s.shipment_items ?? []).some((i) => norm(i.product_name) === target),
+        (s.shipment_items ?? []).some(itemMatches),
       ),
-    [shipments, target],
+    [shipments, target, targetCountry],
   );
 
   const list = showAll ? (shipments ?? []) : matching;
