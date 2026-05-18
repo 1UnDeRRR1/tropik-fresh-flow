@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,6 @@ import { useAuth } from "@/lib/auth";
 import { useStableQueryData } from "@/lib/query-stability";
 import { toUaCountry } from "@/lib/countries";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { useMemo } from "react";
 
 interface ActiveOverviewRow {
   shipment_id: string;
