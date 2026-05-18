@@ -27,6 +27,7 @@ import { useStableQueryData } from "@/lib/query-stability";
 import { StaffOnly } from "@/components/StaffOnly";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
+import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
