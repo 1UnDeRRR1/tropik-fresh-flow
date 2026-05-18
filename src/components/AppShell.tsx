@@ -138,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
+  return (
     <div className="min-h-dvh bg-background">
       <PreviewRoleSwitcher />
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
