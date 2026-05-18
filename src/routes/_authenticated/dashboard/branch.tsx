@@ -155,20 +155,22 @@ function BranchDashboard() {
     },
   });
 
-  // Approved manager-offer responses for this branch — used to surface "pending shipment" rows
+  // All manager-offer responses for this branch (any decision state).
+  // approved_pallets IS NULL → "Чекаю підтвердження";
+  // approved_pallets = 0    → "Відмовлено";
+  // approved_pallets > 0    → "В опрацюванні" (until linked to shipment).
   const { data: pendingOffers } = useQuery({
-    queryKey: ["branch-pending-mor", branchId],
+    queryKey: ["branch-all-mor", branchId],
     enabled: !!branchId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("manager_offer_responses")
-        .select(`id,offer_id,approved_pallets,
+        .select(`id,offer_id,approved_pallets,requested_pallets,
           manager_offers!inner(id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
-        .eq("branch_id", branchId!)
-        .gt("approved_pallets", 0);
+        .eq("branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
-        id: string; offer_id: string; approved_pallets: number;
+        id: string; offer_id: string; approved_pallets: number | null; requested_pallets: number;
         manager_offers: {
           id: string; product_name: string; origin_country: string | null;
           caliber: string | null; variety: string | null; expected_eta: string | null;
