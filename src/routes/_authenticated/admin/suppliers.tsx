@@ -73,6 +73,8 @@ function SuppliersAdmin() {
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Sup> }) => {
       const normalized: Partial<Sup> = { ...patch };
       if ("country" in patch) normalized.country = normalizeCountry(patch.country ?? "") || null;
+      if ("name" in patch && typeof normalized.name === "string") normalized.name = normalized.name.toUpperCase();
+      if ("code_base" in patch && typeof normalized.code_base === "string") normalized.code_base = normalized.code_base.toUpperCase();
       await run(supabase.from("suppliers").update(normalized).eq("id", id));
     },
     onSuccess: () => {
