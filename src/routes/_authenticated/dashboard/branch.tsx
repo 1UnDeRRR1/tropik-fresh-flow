@@ -529,12 +529,9 @@ function BranchDashboard() {
                       className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
-                        {r.dist_status === "pending" ? (
-                          <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
-                            Очікує поставку
-                          </span>
-                        ) : (
-                          <StatusChip status={r.dist_status} kind="distribution" />
+                        <PipelineStatusBadge status={r.pipeline} variant="animated" size="sm" />
+                        {r.approved_qty_note && (
+                          <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
                         )}
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
