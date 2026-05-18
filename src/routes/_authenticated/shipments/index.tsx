@@ -46,6 +46,7 @@ function isOwnedShipment(
 
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
+  const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const qc = useQueryClient();
