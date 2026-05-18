@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
+import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
