@@ -493,6 +493,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           );
         })}
       </div>
+      )}
     </SectionCard>
   );
 }
