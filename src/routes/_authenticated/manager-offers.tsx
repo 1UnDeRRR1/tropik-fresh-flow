@@ -339,6 +339,7 @@ function ManagerOffersPage() {
             return (
               <div
                 key={o.id}
+                data-offer-card
                 className="rounded-2xl border border-border bg-card p-4 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -473,7 +474,20 @@ function ManagerOffersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setExpanded((p) => ({ ...p, [o.id]: !isOpen }))}
+                    onClick={(e) => {
+                      const willOpen = !isOpen;
+                      setExpanded((p) => ({ ...p, [o.id]: willOpen }));
+                      if (willOpen) {
+                        const btn = e.currentTarget;
+                        setTimeout(() => {
+                          const card = btn.closest("[data-offer-card]");
+                          const panel = card?.querySelector("[data-offer-responses]") as HTMLElement | null;
+                          if (panel) {
+                            panel.scrollIntoView({ behavior: "smooth", block: "center" });
+                          }
+                        }, 50);
+                      }
+                    }}
                   >
                     {isOpen ? (
                       <ChevronUp className="h-4 w-4" />
@@ -486,7 +500,7 @@ function ManagerOffersPage() {
                 </div>
 
                 {isOpen && (
-                  <div className="mt-3 overflow-x-auto">
+                  <div data-offer-responses className="mt-3 overflow-x-auto scroll-mt-24">
                     {o.responses.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Поки немає відгуків</p>
                     ) : (
