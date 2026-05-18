@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
+import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -43,6 +44,7 @@ function BranchDashboard() {
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
+  const [board, setBoard] = useState<BoardView>("active");
 
   const { data: dists } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
@@ -93,11 +95,12 @@ function BranchDashboard() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta,country")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
+        unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null; status: string;
       }>;
     },
   });
@@ -151,6 +154,16 @@ function BranchDashboard() {
           const it = iMap.get(di.shipment_item_id);
           if (!it) return null;
           const s = sMap.get(d.shipment_id);
+          // Lifecycle filter
+          const unloaded = !!s?.unloaded_at;
+          const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
+          const archived = !!s?.archived_at;
+          if (archived) return null;
+          if (board === "unloaded") {
+            if (!unloaded || cancelled) return null;
+          } else {
+            if (unloaded || cancelled) return null;
+          }
           return {
             key: `${d.id}-${it.id}`,
             shipment_item_id: it.id,
@@ -169,7 +182,7 @@ function BranchDashboard() {
         })
         .filter(Boolean) as Row[],
     );
-  }, [dists, items, ships]);
+  }, [dists, items, ships, board]);
 
 
   const drillRows = useMemo(() => {
@@ -206,8 +219,10 @@ function BranchDashboard() {
         </div>
       )}
 
+      <MainBoardToggle value={board} onChange={setBoard} />
+
       {!rows.length ? (
-        <EmptyState title="Поки немає підтвердженого товару" />
+        <EmptyState title={board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"} />
       ) : (
         <SectionCard title="Підтверджений товар">
           <div className="-mx-2 overflow-x-auto">

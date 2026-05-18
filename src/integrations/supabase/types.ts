@@ -1710,7 +1710,9 @@ export type Database = {
       }
       shipments_branch: {
         Row: {
+          archived_at: string | null
           arrived_at: string | null
+          cancelled_at: string | null
           code: string | null
           country: string | null
           created_at: string | null
@@ -1720,6 +1722,7 @@ export type Database = {
           import_manager_name: string | null
           loading_date: string | null
           status: Database["public"]["Enums"]["shipment_status"] | null
+          unloaded_at: string | null
           updated_at: string | null
         }
         Relationships: [
