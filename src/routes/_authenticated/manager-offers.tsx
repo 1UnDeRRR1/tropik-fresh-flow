@@ -364,6 +364,44 @@ function ManagerOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const approveAllPending = useMutation({
+    mutationFn: async () => {
+      const pending: { id: string; requested: number }[] = [];
+      for (const o of merged) {
+        const inScope = (branchId: string) =>
+          o.target_mode === "all" || o.targetBranchIds.includes(branchId);
+        for (const r of o.responses) {
+          if (r.approved_pallets == null && inScope(r.branch_id)) {
+            pending.push({ id: r.id, requested: Number(r.requested_pallets ?? 0) });
+          }
+        }
+      }
+      if (!pending.length) return 0;
+      const results = await Promise.all(
+        pending.map((p) =>
+          supabase
+            .from("manager_offer_responses")
+            .update({ approved_pallets: p.requested })
+            .eq("id", p.id),
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+      return pending.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`Підтверджено відгуків: ${count}`);
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [detailOfferId, setDetailOfferId] = useState<string | null>(null);
+  const detailOffer = useMemo(
+    () => merged.find((o) => o.id === detailOfferId) ?? null,
+    [merged, detailOfferId],
+  );
+
   return (
     <div>
       <PageHeader
