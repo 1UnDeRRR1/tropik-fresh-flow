@@ -231,6 +231,9 @@ function ShipmentsList() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                        {(s as unknown as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                      </td>
                       <td className="px-1 py-2">
                         {isOwner && (
                           <RowActions
