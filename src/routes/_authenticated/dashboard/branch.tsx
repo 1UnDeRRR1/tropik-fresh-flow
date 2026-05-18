@@ -1,17 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { ChevronRight } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-
 import { toUaCountry } from "@/lib/countries";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { StatusChip } from "@/components/StatusChip";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
@@ -24,23 +25,112 @@ type Row = {
   distribution_id: string;
   code: string;
   eta: string | null;
-  status: string;
+  shipment_status: string;
+  dist_status: string;
   product: string;
   country: string | null;
-  caliber: string;
+  caliber: string | null;
+  variety: string | null;
+  brand: string | null;
+  class: string | null;
+  packaging: string | null;
+  supplier_name: string | null;
+  temperature_mode: string | null;
+  manager_name: string | null;
   pallets: number;
   weight: number;
   indicative: number | null;
   invoice: number | null;
+  baseline_eta: string | null;
+  baseline_pallets: number | null;
+  baseline_ind: number | null;
+  baseline_inv: number | null;
+  seen_eta: string | null;
+  seen_pallets: number | null;
+  seen_ind: number | null;
+  seen_inv: number | null;
 };
 
 const fmtEta = (eta: string | null) =>
-  eta
-    ? new Date(eta).toLocaleDateString("uk-UA", { day: "2-digit", month: "long" })
-    : "Без дати";
+  eta ? new Date(eta).toLocaleDateString("uk-UA", { day: "2-digit", month: "long" }) : "—";
+
+const numNeq = (a: number | null | undefined, b: number | null | undefined) =>
+  Number(a ?? 0).toFixed(2) !== Number(b ?? 0).toFixed(2);
+const dateNeq = (a: string | null | undefined, b: string | null | undefined) =>
+  (a ?? "") !== (b ?? "");
+
+function ChangeBadge({
+  field,
+  oldVal,
+  newVal,
+  onAck,
+}: {
+  field: "ETA" | "Палети" | "Собівартість";
+  oldVal: string;
+  newVal: string;
+  onAck: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) onAck();
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-900 dark:bg-yellow-500/20 dark:text-yellow-200"
+          aria-label="Зміни"
+        >
+          <AlertTriangle className="h-2.5 w-2.5" />
+          зміни
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3 text-xs" align="end" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1 font-semibold">{field}</div>
+        <div className="text-muted-foreground">
+          Було: <span className="font-medium text-foreground">{oldVal}</span>
+        </div>
+        <div className="text-muted-foreground">
+          Стало: <span className="font-medium text-foreground">{newVal}</span>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DescriptionPopover({ row, children }: { row: Row; children: React.ReactNode }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button onClick={(e) => e.stopPropagation()} className="text-left">
+          {children}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 text-xs" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 font-semibold text-sm">{row.product}</div>
+        <dl className="grid grid-cols-[80px_1fr] gap-y-1 text-[11px]">
+          {row.brand && (<><dt className="text-muted-foreground">Бренд</dt><dd>{row.brand}</dd></>)}
+          {row.class && (<><dt className="text-muted-foreground">Клас</dt><dd>{row.class}</dd></>)}
+          {row.variety && (<><dt className="text-muted-foreground">Сорт</dt><dd>{row.variety}</dd></>)}
+          {row.caliber && (<><dt className="text-muted-foreground">Калібр</dt><dd>{row.caliber}</dd></>)}
+          {row.packaging && (<><dt className="text-muted-foreground">Упаковка</dt><dd>{row.packaging}</dd></>)}
+          {row.country && (<><dt className="text-muted-foreground">Країна</dt><dd>{toUaCountry(row.country)}</dd></>)}
+          {row.supplier_name && (<><dt className="text-muted-foreground">Постачальник</dt><dd>{row.supplier_name}</dd></>)}
+          {row.temperature_mode && (<><dt className="text-muted-foreground">Темп. режим</dt><dd>{row.temperature_mode}</dd></>)}
+          <dt className="text-muted-foreground">Поставка</dt><dd className="font-mono">{row.code}</dd>
+        </dl>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function BranchDashboard() {
   const { profile } = useAuth();
+  const qc = useQueryClient();
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
@@ -73,34 +163,85 @@ function BranchDashboard() {
   );
 
   const { data: items } = useQuery({
-    queryKey: ["branch-incoming-items", itemIds.join(",")],
+    queryKey: ["branch-incoming-items-v2", itemIds.join(",")],
     enabled: itemIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("shipment_items_branch")
-        .select("id,product_name,caliber,origin_country,final_cost_indicative,final_cost_invoice")
+        .from("shipment_items")
+        .select("id,product_name,caliber,origin_country,variety,brand,class,final_cost_indicative,final_cost_invoice")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; product_name: string; caliber: string | null;
-        origin_country: string | null;
+        origin_country: string | null; variety: string | null;
+        brand: string | null; class: string | null;
         final_cost_indicative: number | null; final_cost_invoice: number | null;
       }>;
     },
   });
 
   const { data: ships } = useQuery({
-    queryKey: ["branch-incoming-ships", shipmentIds.join(",")],
+    queryKey: ["branch-incoming-ships-v2", shipmentIds.join(",")],
     enabled: shipmentIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("shipments_branch")
-        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status")
+        .from("shipments")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,temperature_mode,supplier_id,import_manager_id")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
-        unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null; status: string;
+        unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null;
+        status: string; temperature_mode: string | null;
+        supplier_id: string | null; import_manager_id: string | null;
+      }>;
+    },
+  });
+
+  const supplierIds = useMemo(
+    () => Array.from(new Set((ships ?? []).map((s) => s.supplier_id).filter(Boolean) as string[])),
+    [ships],
+  );
+  const managerIds = useMemo(
+    () => Array.from(new Set((ships ?? []).map((s) => s.import_manager_id).filter(Boolean) as string[])),
+    [ships],
+  );
+
+  const { data: suppliers } = useQuery({
+    queryKey: ["branch-suppliers", supplierIds.join(",")],
+    enabled: supplierIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id,name").in("id", supplierIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string }>;
+    },
+  });
+
+  const { data: managers } = useQuery({
+    queryKey: ["branch-managers", managerIds.join(",")],
+    enabled: managerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("import_managers").select("id,full_name").in("id", managerIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; full_name: string }>;
+    },
+  });
+
+  const { data: baselines } = useQuery({
+    queryKey: ["branch-baselines", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("branch_distribution_baselines")
+        .select("distribution_id,shipment_item_id,baseline_eta,baseline_pallets,baseline_cost_ind,baseline_cost_inv,seen_eta,seen_pallets,seen_cost_ind,seen_cost_inv")
+        .eq("branch_id", branchId!);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        distribution_id: string; shipment_item_id: string;
+        baseline_eta: string | null; baseline_pallets: number | null;
+        baseline_cost_ind: number | null; baseline_cost_inv: number | null;
+        seen_eta: string | null; seen_pallets: number | null;
+        seen_cost_ind: number | null; seen_cost_inv: number | null;
       }>;
     },
   });
@@ -115,11 +256,8 @@ function BranchDashboard() {
         .eq("from_branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
-        shipment_item_id: string;
-        distribution_id: string;
-        status: string;
-        offered_pallets: number;
-        accepted_pallets: number;
+        shipment_item_id: string; distribution_id: string; status: string;
+        offered_pallets: number; accepted_pallets: number;
       }>;
     },
   });
@@ -147,6 +285,10 @@ function BranchDashboard() {
     if (!dists) return [];
     const iMap = new Map((items ?? []).map((i) => [i.id, i]));
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
+    const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
+    const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
+    const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
+
     return dists.flatMap((d) =>
       (d.distribution_items ?? [])
         .map((di) => {
@@ -154,7 +296,6 @@ function BranchDashboard() {
           const it = iMap.get(di.shipment_item_id);
           if (!it) return null;
           const s = sMap.get(d.shipment_id);
-          // Lifecycle filter
           const unloaded = !!s?.unloaded_at;
           const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
           const archived = !!s?.archived_at;
@@ -164,37 +305,57 @@ function BranchDashboard() {
           } else {
             if (unloaded || cancelled) return null;
           }
+          const b = bMap.get(`${d.id}-${it.id}`);
           return {
             key: `${d.id}-${it.id}`,
             shipment_item_id: it.id,
             distribution_id: d.id,
             code: s?.code ?? "—",
             eta: s?.eta ?? null,
-            status: d.status,
+            shipment_status: s?.status ?? "—",
+            dist_status: d.status,
             product: it.product_name,
             country: it.origin_country ?? s?.country ?? null,
-            caliber: it.caliber ?? "—",
+            caliber: it.caliber,
+            variety: it.variety,
+            brand: it.brand,
+            class: it.class,
+            packaging: null,
+            supplier_name: s?.supplier_id ? supMap.get(s.supplier_id) ?? null : null,
+            temperature_mode: s?.temperature_mode ?? null,
+            manager_name: s?.import_manager_id ? mgrMap.get(s.import_manager_id) ?? null : null,
             pallets: Number(di.pallets ?? 0),
             weight: Number(di.qty ?? 0),
             indicative: it.final_cost_indicative,
             invoice: it.final_cost_invoice,
+            baseline_eta: b?.baseline_eta ?? null,
+            baseline_pallets: b?.baseline_pallets ?? null,
+            baseline_ind: b?.baseline_cost_ind ?? null,
+            baseline_inv: b?.baseline_cost_inv ?? null,
+            seen_eta: b?.seen_eta ?? null,
+            seen_pallets: b?.seen_pallets ?? null,
+            seen_ind: b?.seen_cost_ind ?? null,
+            seen_inv: b?.seen_cost_inv ?? null,
           } as Row;
         })
         .filter(Boolean) as Row[],
     );
-  }, [dists, items, ships, board]);
+  }, [dists, items, ships, suppliers, managers, baselines, board]);
 
+  const ackChange = async (distributionId: string, shipmentItemId: string) => {
+    await (supabase as any).rpc("branch_ack_changes", {
+      p_distribution_id: distributionId,
+      p_shipment_item_id: shipmentItemId,
+    });
+    qc.invalidateQueries({ queryKey: ["branch-baselines", branchId] });
+  };
 
   const drillRows = useMemo(() => {
     if (!drill) return [];
     return rows.filter(
-      (r) =>
-        r.product === drill.product &&
-        (drill.country == null || r.country === drill.country),
+      (r) => r.product === drill.product && (drill.country == null || r.country === drill.country),
     );
   }, [drill, rows]);
-
-  // group drill rows by ETA
   const drillGrouped = useMemo(() => {
     const m = new Map<string, Row[]>();
     drillRows.forEach((r) => {
@@ -205,7 +366,6 @@ function BranchDashboard() {
     });
     return Array.from(m.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
   }, [drillRows]);
-
   const drillTotalP = drillRows.reduce((s, r) => s + r.pallets, 0);
   const drillTotalW = drillRows.reduce((s, r) => s + r.weight, 0);
 
@@ -226,60 +386,94 @@ function BranchDashboard() {
       ) : (
         <SectionCard title="Підтверджений товар">
           <div className="-mx-2 overflow-x-auto">
-            <table className="w-full min-w-[720px] text-xs">
+            <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="px-2 py-2 font-medium">Прибуття</th>
+                  <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
+                  <th className="px-2 py-2 font-medium">ETA</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
                   <th className="px-2 py-2 font-medium">Товар</th>
-                  <th className="px-2 py-2 font-medium">Країна</th>
-                  <th className="px-2 py-2 font-medium">Калібр</th>
                   <th className="px-2 py-2 text-right font-medium">Палет</th>
-                  <th className="px-2 py-2 text-right font-normal">Вага</th>
-                  <th className="px-2 py-2 text-right font-medium">Ціна</th>
-                  <th className="w-6" />
+                  <th className="px-2 py-2 text-right font-medium">Собівартість</th>
+                  <th className="px-2 py-2 font-medium">Відп. менеджер</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((r) => (
-                  <tr
-                    key={r.key}
-                    onClick={() => setDrill({ product: r.product, country: r.country })}
-                    className="cursor-pointer hover:bg-muted/40 active:bg-muted/60"
-                  >
-                    <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtEta(r.eta)}</td>
-                    <td className="px-2 py-2 font-mono text-[11px] font-semibold">{r.code}</td>
-                    <td className="px-2 py-2 font-medium">{r.product}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{r.country ? toUaCountry(r.country) : "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">
-                      {(() => {
-                        const s = statsFor(r);
-                        return s.pending > 0 ? (
+              <tbody>
+                {rows.map((r) => {
+                  const s = statsFor(r);
+                  const etaChanged = dateNeq(r.eta, r.seen_eta);
+                  const palChanged = numNeq(r.pallets, r.seen_pallets);
+                  const costChanged = numNeq(r.indicative, r.seen_ind) || numNeq(r.invoice, r.seen_inv);
+                  return (
+                    <tr
+                      key={r.key}
+                      onClick={() => setDrill({ product: r.product, country: r.country })}
+                      className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
+                    >
+                      <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
+                        <StatusChip status={r.dist_status} />
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                        {fmtEta(r.eta)}
+                        {etaChanged && (
+                          <ChangeBadge
+                            field="ETA"
+                            oldVal={fmtEta(r.seen_eta)}
+                            newVal={fmtEta(r.eta)}
+                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-2 py-2 font-mono text-[11px] font-semibold">
+                        <DescriptionPopover row={r}>
+                          <span className="underline-offset-2 hover:underline">{r.code}</span>
+                        </DescriptionPopover>
+                      </td>
+                      <td className="px-2 py-2 font-medium">
+                        <DescriptionPopover row={r}>
+                          <span className="underline-offset-2 hover:underline">{r.product}</span>
+                        </DescriptionPopover>
+                      </td>
+                      <td className="px-2 py-2 text-right font-bold tabular-nums">
+                        {s.pending > 0 ? (
                           <span>
                             {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
                             <span className="text-blue-600">{s.pending}п</span>
                           </span>
                         ) : (
-                          <span>{s.free}п</span>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-2 py-2 text-right font-normal tabular-nums">{r.weight.toLocaleString("uk-UA")} кг</td>
-                    <td className="px-2 py-2 text-right">
-                      <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
-                    </td>
-                    <td className="px-1 py-2 text-muted-foreground">
-                      <ChevronRight className="h-4 w-4" />
-                    </td>
-                  </tr>
-                ))}
+                          <span>{r.pallets}п</span>
+                        )}
+                        {palChanged && (
+                          <ChangeBadge
+                            field="Палети"
+                            oldVal={`${Number(r.seen_pallets ?? 0)}п`}
+                            newVal={`${r.pallets}п`}
+                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                        {costChanged && (
+                          <ChangeBadge
+                            field="Собівартість"
+                            oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
+                            newVal={`$${Number(r.indicative ?? 0).toFixed(2)} / $${Number(r.invoice ?? 0).toFixed(2)}`}
+                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                        {r.manager_name ?? "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </SectionCard>
       )}
-
 
       <Sheet open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
         <SheetContent side="top" className="mt-[env(safe-area-inset-top)] max-h-[85vh] overflow-y-auto rounded-b-2xl">
@@ -287,9 +481,7 @@ function BranchDashboard() {
             <SheetTitle className="pr-8">
               <span>
                 {drill?.product}
-                {drill?.country && (
-                  <span className="text-muted-foreground"> · {toUaCountry(drill.country)}</span>
-                )}
+                {drill?.country && (<span className="text-muted-foreground"> · {toUaCountry(drill.country)}</span>)}
               </span>
             </SheetTitle>
           </SheetHeader>
@@ -321,7 +513,7 @@ function BranchDashboard() {
                           <div className="min-w-0 flex-1">
                             <div className="font-mono text-[11px] font-semibold">{r.code}</div>
                             <div className="text-[11px] text-muted-foreground">
-                              {r.caliber !== "—" ? `Калібр ${r.caliber}` : ""}
+                              {r.caliber ? `Калібр ${r.caliber}` : ""}
                             </div>
                           </div>
                           <div className="text-right tabular-nums">
@@ -370,7 +562,7 @@ function BranchDashboard() {
                 shipment_item_id: offerRow.shipment_item_id,
                 distribution_id: offerRow.distribution_id,
                 product_name: offerRow.product,
-                caliber: offerRow.caliber,
+                caliber: offerRow.caliber ?? "—",
                 available_pallets: offerRow.pallets,
                 shipment_code: offerRow.code,
               }

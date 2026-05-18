@@ -1,63 +1,67 @@
-# План: статус «Розвантажено», блокування та архівація
+## Філія → «Підтверджений товар»: нова структура таблиці, трекер змін, кольори Переказ
 
-## 1. БД (migration)
+### 1. База даних (одна міграція)
 
-**`shipments` нові колонки:**
-- `unloaded_at timestamptz` — момент переходу у «Розвантажено» (день після ETA).
-- `cancelled_at timestamptz`, `cancelled_by uuid` — фіксація скасування.
-- `archive_due_at timestamptz` — дедлайн архівації (для скасованих = +48г без неділі; для розвантажених = `unloaded_at + 7 днів`).
+**Нова таблиця `branch_distribution_baselines`** — baseline на момент «ідентифікації філії з товаром»:
+```
+branch_id, distribution_id, shipment_item_id (PK),
+identified_at      timestamptz  -- момент першої "ідентифікації"
+baseline_eta       date
+baseline_pallets   numeric
+baseline_cost_ind  numeric
+baseline_cost_inv  numeric
+seen_eta, seen_pallets, seen_cost_ind, seen_cost_inv -- останнє «переглянуто» філією
+updated_at
+```
+RLS: `branch_id = user_branch_id(auth.uid())` read/update; staff/admin — все.
 
-**Нова таблиця `cancelled_shipments_archive`:**
-- `id`, `shipment_id`, `cancelled_at`, `cancelled_by`, `archived_at`, `snapshot jsonb` (поставка + позиції + розподіли + логістика + менеджер на момент скасування).
+**Тригери авто-створення baseline** (identified_at = now, baseline_* = поточні значення) при події:
+- `INSERT` у `distributions` → для кожного нового `distribution_items` ряду створити baseline
+- `INSERT` у `distribution_items` (додавання товару у вже існуючий розподіл)
+- `UPDATE` `manager_offer_responses.approved_pallets` (фактично пропозиція менеджера прийнята та зарезервовано пали — використаємо момент створення відповідного `distribution_items.reserved_offer_id`)
+- `UPDATE` `branch_transfer_offers.status='accepted'` → baseline для приймаючої філії
+- `UPDATE` `branch_requests.status='approved'` → baseline для філії-запитувача
 
-**Helper-функція `add_business_hours_excl_sunday(ts, hours)`** — додає години, пропускаючи неділю (з 00:00 нд по 00:00 пн час «зупиняється»).
+На практиці всі ці події в кінцевому підсумку матеріалізуються у `distribution_items`, тож тригер на `INSERT distribution_items` покриває 95%. Інші 5% — додамо явні тригери на acceptance, щоб identified_at був точним.
 
-**Триггер на `shipments` UPDATE:**
-- Коли `status` стає `cancelled` → проставити `cancelled_at = now()`, `cancelled_by = auth.uid()`, `archive_due_at = add_business_hours_excl_sunday(now(), 48)`.
-- Коли `pipeline_status` стає `unloaded` (або через автоперехід) → `unloaded_at = now()`, `archive_due_at = unloaded_at + interval '7 days'`.
+**RPC `branch_ack_changes(distribution_id, shipment_item_id)`** — оновлює `seen_*` поточними значеннями для філії викликача (через `auth.uid()`).
 
-**RLS / блокування редагування** (replace policies):
-- `shipments owner/logistics/broker UPDATE`: додати умову `unloaded_at IS NULL AND status <> 'cancelled'` (admin без обмежень).
-- Аналогічно для `shipment_items`, `distributions`, `distribution_items`, `branch_transfer_offers`, `manager_offers` — блок на UPDATE/INSERT/DELETE якщо батьківська поставка розвантажена або скасована (admin виключення).
+### 2. Дашборд філії (`src/routes/_authenticated/dashboard/branch.tsx`)
 
-## 2. Cron (pg_cron + TanStack route)
+Нова структура колонок (sticky 1-а):
+```
+| Статус (sticky) | ETA | Поставка | Товар | Палет | Собівартість | Відп. менеджер |
+```
 
-**Route:** `src/routes/api/public/hooks/shipments-lifecycle.ts` — викликається щогодини:
-1. **Auto-unload:** `UPDATE shipments SET pipeline_status='unloaded', unloaded_at=now(), archive_due_at=now()+interval '7 days' WHERE eta < CURRENT_DATE AND unloaded_at IS NULL AND status NOT IN ('cancelled')`.
-2. **Archive cancelled:** для всіх `status='cancelled'` з `archive_due_at <= now()` → INSERT snapshot у `cancelled_shipments_archive`, позначити archived.
-3. **Archive unloaded:** для `unloaded_at IS NOT NULL AND archive_due_at <= now()` → перевести у архів (прапор `archived_at`).
+- `Статус` — кольоровий чіп з `distribution.status` (planned / dispatched / received).
+- `ETA`, `Палет`, `Собівартість` — якщо значення ≠ `seen_*` baseline → справа `⚠️ зміни` (жовтий). Кнопка кліку → невеликий popover: «Було: X → Стало: Y» + автоматично визначеною датою останньої зміни. При закритті popover викликаємо `branch_ack_changes` → іконка зникає.
+- `Поставка` / `Товар` — клік відкриває HoverCard/Popover з: бренд, клас, сорт (variety), калібр, упаковка (packaging), країна, постачальник, темп. режим.
+- `Відп. менеджер` — `import_managers.full_name` з shipment.
 
-Cron schedule: `0 * * * *`.
+Сітка: на мобілці (вже видно 440px) — горизонтальний скрол, перша колонка `sticky left-0 bg-card`. Поточний drill-down sheet залишаємо для тапу по строці у вільних місцях.
 
-## 3. Frontend
+### 3. Нові поля `brand`, `class` у `shipment_items`
 
-**Спільний тумблер `<MainBoardToggle active|unloaded />`** зверху над кожним головним табло:
-- Менеджер/Адмін → `src/routes/_authenticated/shipments/index.tsx`: фільтр `unloaded_at IS NULL` vs `IS NOT NULL AND archived_at IS NULL`.
-- Філія → `src/routes/_authenticated/branch/...` (підтверджений товар): аналогічно по distributions/shipment.
-- Логістика → `src/routes/_authenticated/logistics.tsx`: додати таб.
+Додаємо `brand text`, `class text` колонки. UI редагування — у формі товару поставки (`src/routes/_authenticated/shipments/$id.products.tsx`) додаємо два інпути. Попап на дашборді показує їх, якщо заповнені.
 
-**Менеджер: блок «Скасувати поставку»** — при скасуванні викликає server fn `cancelShipment.functions.ts` що:
-- Перевіряє права, ставить `status='cancelled'`, тригер сам заповнить cancelled_at/by/archive_due_at.
+### 4. Сторінка Переказ — кольори вкладок та лічильників
 
-**Сторінка `/archive`** (нова, доступна всім ролям read-only):
-- Вкладки: «Розвантажено-архів» / «Скасовано-архів».
-- Скасовано показує snapshot з `cancelled_shipments_archive` + `cancelled_by` (full_name) + час скасування.
-- Жодних кнопок дії; усі форми у режимі `readOnly`.
+У `src/routes/_authenticated/offers.tsx` (або де табси Вхідні/Відправлені):
+- Вхідні: фон/текст активної вкладки — мʼяко-жовтий (`bg-yellow-100 text-yellow-900` або через токен `--accent-warning-soft`); badge — жовтий.
+- Відправлені: мʼяко-блакитний (`bg-sky-100 text-sky-900`); badge — блакитний.
 
-**Картка поставки (drawer):** якщо `unloaded_at IS NOT NULL` або `status='cancelled'` і користувач не admin — усі інпути `disabled`, кнопки збереження прибрані, банер угорі: «Поставка розвантажена/скасована — редагування заблоковано».
+У `MainBoardToggle` чи у нижній навігації — НЕ чіпаємо (за вашою відповіддю — лічильники лишаються тільки на /offers).
 
-## 4. Технічні деталі
+### 5. Технічні деталі
 
-- Логіка «без неділі» в SQL: рахуємо години підряд, якщо потрапили на діапазон [Sunday 00:00 .. Monday 00:00) — додаємо +24г.
-- Snapshot будуємо через `jsonb_build_object` з джойнами по `shipment_items`, `distributions`, `distribution_items`.
-- Тригер блокування реалізуємо через окремий `BEFORE UPDATE` тригер що RAISE EXCEPTION якщо `OLD.unloaded_at IS NOT NULL OR OLD.status='cancelled'` і користувач не admin (`is_admin(auth.uid())`). Це гарантує захист незалежно від RLS.
-- Хук pg_cron реєструється через `supabase--insert` після деплою route.
+- Лічильник змін у строці = кількість полів де `current ≠ seen_*` (показуємо ⚠️ біля кожного поля окремо, як ви і просили).
+- Зміна статусу `distribution.status` — НЕ враховується у лічильнику (по вашому уточненню). Тригерів на status не ставимо.
+- Якщо baseline відсутній (старі записи) — створимо backfill: для всіх існуючих `distribution_items` поставимо `identified_at = distributions.created_at`, baseline = поточним значенням, seen = baseline (нічого не світиться).
+- Realtime: підписку на `branch_distribution_baselines` додавати не треба — рендер реагує на зміни `shipments`/`distribution_items` через існуючий invalidation.
 
-## 5. Послідовність робіт
+### 6. Що НЕ роблю у цьому кроці
+- Не змінюю нижню навігацію (`AppShell.tsx`) — за вашою відповіддю.
+- Не додаю історію всіх змін (журнал) — popover показує лише останню різницю baseline↔current.
+- Не редагую табло менеджера/логістики/адміна — запит стосується лише дашборду філії та табів Переказ.
 
-1. Migration: колонки + helper-функція + триггери блокування + таблиця архіву.
-2. Cron route + реєстрація pg_cron.
-3. Server fn `cancelShipment` + кнопка у UI.
-4. Тумблер головного табло (3 сторінки).
-5. Сторінка `/archive` з двома вкладками.
-6. Disabled-режим картки поставки.
+Підтверджуєте — починаю з міграції БД, потім код?
