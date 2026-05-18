@@ -50,6 +50,7 @@ function ShipmentsList() {
   const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
+  const isAdmin = hasRole(["super_admin", "admin"]);
   const qc = useQueryClient();
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
