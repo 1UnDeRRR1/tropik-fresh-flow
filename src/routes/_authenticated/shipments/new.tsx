@@ -568,7 +568,7 @@ function NewShipment() {
     <div className="space-y-4">
       <PageHeader title="Нова поставка" />
 
-      <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-4">
+      <form onSubmit={onSubmit} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
         {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-2">
           <ModeButton active={mode === "new"} onClick={() => { setMode("new"); setVehicleId(""); }}>
