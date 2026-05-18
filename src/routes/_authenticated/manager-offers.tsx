@@ -500,7 +500,7 @@ function ManagerOffersPage() {
                 </div>
 
                 {isOpen && (
-                  <div className="mt-3 overflow-x-auto">
+                  <div data-offer-responses className="mt-3 overflow-x-auto scroll-mt-24">
                     {o.responses.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Поки немає відгуків</p>
                     ) : (
