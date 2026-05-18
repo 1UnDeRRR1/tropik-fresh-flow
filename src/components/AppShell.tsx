@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-        <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 pt-safe md:px-6 lg:px-10">
+        <div className="relative mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 pt-safe md:px-6 lg:px-10">
           <div className="flex items-center gap-3 lg:gap-4">
             <Link to={dashHref} aria-label="TROPIK" className="flex items-center">
               <img
@@ -189,12 +189,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </nav>
           </div>
-          <div className="flex items-center gap-2">
-            {!isBranch && (
-              <div className="self-end -mb-2">
+          {!isBranch && (
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <div className="pointer-events-auto">
                 <FxRateBadge />
               </div>
-            )}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
             {primaryRole && (
               <div className="text-right leading-tight">
                 <div className="text-sm font-semibold text-foreground">
