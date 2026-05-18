@@ -95,11 +95,12 @@ function BranchDashboard() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta,country")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
+        unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null; status: string;
       }>;
     },
   });
