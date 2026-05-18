@@ -416,9 +416,18 @@ function ManagerOffersPage() {
 
       {pendingItems.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
-            <Bell className="h-4 w-4" />
-            Нові відгуки від філій ({pendingItems.length})
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+              <Bell className="h-4 w-4" />
+              Нові відгуки від філій ({pendingItems.length})
+            </div>
+            <Button
+              size="sm"
+              onClick={() => approveAllPending.mutate()}
+              disabled={approveAllPending.isPending}
+            >
+              Підтвердити все
+            </Button>
           </div>
           <div className="space-y-1.5">
             {pendingItems.slice(0, 6).map((p, i) => (
