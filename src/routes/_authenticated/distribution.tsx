@@ -309,10 +309,10 @@ function BranchFreeList() {
                     min={0}
                     step="0.01"
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => { setPrice(e.target.value); setInvalid((s) => ({ ...s, price: false })); }}
                     placeholder="0.00"
                     inputMode="decimal"
-                    className="flex-1"
+                    className={cn("flex-1", invalid.price && "field-invalid")}
                   />
                   <select
                     value={currency}
