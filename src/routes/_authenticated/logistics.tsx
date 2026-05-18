@@ -95,6 +95,7 @@ function LogisticsPage() {
   const [filter, setFilter] = useState<LogisticsFilter>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
+  const [board, setBoard] = useState<BoardView>("active");
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["logistics-board"],
