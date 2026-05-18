@@ -460,9 +460,7 @@ function BranchDashboard() {
 
   const drillRows = useMemo(() => {
     if (!drill) return [];
-    return rows.filter(
-      (r) => r.product === drill.product && (drill.country == null || r.country === drill.country),
-    );
+    return rows.filter((r) => r.key === drill.key);
   }, [drill, rows]);
   const drillGrouped = useMemo(() => {
     const m = new Map<string, Row[]>();
