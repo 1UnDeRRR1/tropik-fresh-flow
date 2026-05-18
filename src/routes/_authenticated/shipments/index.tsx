@@ -126,6 +126,13 @@ function ShipmentsList() {
   }, [data, today, soon]);
 
   const filtered = rows
+    .filter((r) => {
+      const u = (r as { unloaded_at?: string | null; archived_at?: string | null }).unloaded_at;
+      const arch = (r as { archived_at?: string | null }).archived_at;
+      if (arch) return false;
+      if (board === "unloaded") return !!u;
+      return !u;
+    })
     .filter((r) => r.fact > 0)
     .filter((r) => {
       if (filter === "all") return true;
