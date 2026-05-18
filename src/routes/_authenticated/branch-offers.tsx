@@ -298,7 +298,7 @@ function BranchOffersPage() {
 
               {/* Desired quantity input */}
               <div className="mt-3 flex flex-wrap items-end gap-2">
-                {o.status !== "linked" ? (
+                {!["linked", "closed", "expired"].includes(o.status) ? (
                   <>
                     <label className="text-sm">
                       <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
