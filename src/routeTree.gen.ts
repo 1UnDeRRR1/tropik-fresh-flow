@@ -57,6 +57,7 @@ import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
 import { Route as AuthenticatedShipmentsIdProductsRouteImport } from './routes/_authenticated/shipments/$id.products'
+import { Route as AuthenticatedDashboardAdminStatusesRouteImport } from './routes/_authenticated/dashboard/admin.statuses'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -327,6 +328,12 @@ const AuthenticatedShipmentsIdProductsRoute =
     path: '/products',
     getParentRoute: () => AuthenticatedShipmentsIdRoute,
   } as any)
+const AuthenticatedDashboardAdminStatusesRoute =
+  AuthenticatedDashboardAdminStatusesRouteImport.update({
+    id: '/statuses',
+    path: '/statuses',
+    getParentRoute: () => AuthenticatedDashboardAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -362,7 +369,7 @@ export interface FileRoutesByFullPath {
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/admin/triggers': typeof AuthenticatedAdminTriggersRoute
   '/admin/vacations': typeof AuthenticatedAdminVacationsRoute
-  '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
+  '/dashboard/admin': typeof AuthenticatedDashboardAdminRouteWithChildren
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
@@ -374,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
   '/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
+  '/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
   '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
@@ -409,7 +417,7 @@ export interface FileRoutesByTo {
   '/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/admin/triggers': typeof AuthenticatedAdminTriggersRoute
   '/admin/vacations': typeof AuthenticatedAdminVacationsRoute
-  '/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
+  '/dashboard/admin': typeof AuthenticatedDashboardAdminRouteWithChildren
   '/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
@@ -421,6 +429,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
   '/super-admin': typeof AuthenticatedSuperAdminIndexRoute
+  '/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
   '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
@@ -460,7 +469,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/suppliers': typeof AuthenticatedAdminSuppliersRoute
   '/_authenticated/admin/triggers': typeof AuthenticatedAdminTriggersRoute
   '/_authenticated/admin/vacations': typeof AuthenticatedAdminVacationsRoute
-  '/_authenticated/dashboard/admin': typeof AuthenticatedDashboardAdminRoute
+  '/_authenticated/dashboard/admin': typeof AuthenticatedDashboardAdminRouteWithChildren
   '/_authenticated/dashboard/branch': typeof AuthenticatedDashboardBranchRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
@@ -472,6 +481,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
   '/_authenticated/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
+  '/_authenticated/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
   '/_authenticated/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
 }
@@ -523,6 +533,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/shipments/'
     | '/super-admin/'
+    | '/dashboard/admin/statuses'
     | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   fileRoutesByTo: FileRoutesByTo
@@ -570,6 +581,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/shipments'
     | '/super-admin'
+    | '/dashboard/admin/statuses'
     | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   id:
@@ -620,6 +632,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/_authenticated/shipments/'
     | '/_authenticated/super-admin/'
+    | '/_authenticated/dashboard/admin/statuses'
     | '/_authenticated/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
   fileRoutesById: FileRoutesById
@@ -968,6 +981,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShipmentsIdProductsRouteImport
       parentRoute: typeof AuthenticatedShipmentsIdRoute
     }
+    '/_authenticated/dashboard/admin/statuses': {
+      id: '/_authenticated/dashboard/admin/statuses'
+      path: '/statuses'
+      fullPath: '/dashboard/admin/statuses'
+      preLoaderRoute: typeof AuthenticatedDashboardAdminStatusesRouteImport
+      parentRoute: typeof AuthenticatedDashboardAdminRoute
+    }
   }
 }
 
@@ -1042,6 +1062,21 @@ const AuthenticatedSuperAdminRouteWithChildren =
     AuthenticatedSuperAdminRouteChildren,
   )
 
+interface AuthenticatedDashboardAdminRouteChildren {
+  AuthenticatedDashboardAdminStatusesRoute: typeof AuthenticatedDashboardAdminStatusesRoute
+}
+
+const AuthenticatedDashboardAdminRouteChildren: AuthenticatedDashboardAdminRouteChildren =
+  {
+    AuthenticatedDashboardAdminStatusesRoute:
+      AuthenticatedDashboardAdminStatusesRoute,
+  }
+
+const AuthenticatedDashboardAdminRouteWithChildren =
+  AuthenticatedDashboardAdminRoute._addFileChildren(
+    AuthenticatedDashboardAdminRouteChildren,
+  )
+
 interface AuthenticatedShipmentsIdRouteChildren {
   AuthenticatedShipmentsIdProductsRoute: typeof AuthenticatedShipmentsIdProductsRoute
 }
@@ -1077,7 +1112,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
   AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedDashboardAdminRoute: typeof AuthenticatedDashboardAdminRoute
+  AuthenticatedDashboardAdminRoute: typeof AuthenticatedDashboardAdminRouteWithChildren
   AuthenticatedDashboardBranchRoute: typeof AuthenticatedDashboardBranchRoute
   AuthenticatedDashboardManagerRoute: typeof AuthenticatedDashboardManagerRoute
   AuthenticatedDashboardSuperAdminRoute: typeof AuthenticatedDashboardSuperAdminRoute
@@ -1106,7 +1141,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
   AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedDashboardAdminRoute: AuthenticatedDashboardAdminRoute,
+  AuthenticatedDashboardAdminRoute:
+    AuthenticatedDashboardAdminRouteWithChildren,
   AuthenticatedDashboardBranchRoute: AuthenticatedDashboardBranchRoute,
   AuthenticatedDashboardManagerRoute: AuthenticatedDashboardManagerRoute,
   AuthenticatedDashboardSuperAdminRoute: AuthenticatedDashboardSuperAdminRoute,
