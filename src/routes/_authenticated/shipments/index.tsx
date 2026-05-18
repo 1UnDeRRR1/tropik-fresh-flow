@@ -202,8 +202,8 @@ function ShipmentsList() {
                 <table className="min-w-full border-separate border-spacing-0 text-xs">
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                      <th className="sticky left-0 z-20 bg-card py-2 pr-2 font-semibold w-[120px] min-w-[120px]">№</th>
-                      <th className="sticky left-[120px] z-20 bg-card px-2 py-2 w-[110px] min-w-[110px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Статус</th>
+                      <th className="sticky left-0 z-20 bg-card py-2 pr-2 font-semibold w-[120px] min-w-[120px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">№</th>
+                      <th className="px-2 py-2 w-[110px] min-w-[110px]">Статус</th>
                       <th className="px-2 py-2">Постачальник</th>
                       <th className="px-2 py-2">Країна</th>
                       <th className="px-2 py-2">ETA</th>
@@ -227,12 +227,12 @@ function ShipmentsList() {
                       const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                       return (
                         <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
-                          <td className={cn("sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px]", tone || "bg-card")}>
+                          <td className="sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px] bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
                             <Link to="/shipments/$id" params={{ id: s.id }} className={cn("font-bold whitespace-nowrap", shipmentCodeTextTone(s.status))}>
                               {s.code}
                             </Link>
                           </td>
-                          <td className={cn("sticky left-[120px] z-10 px-2 py-2 w-[110px] min-w-[110px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]", tone || "bg-card")}>
+                          <td className="px-2 py-2 w-[110px] min-w-[110px]">
                             <StatusChip status={s.status} />
                           </td>
                           <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
