@@ -58,6 +58,14 @@ function BranchFreeList() {
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("UAH");
   const [submitting, setSubmitting] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [invalid, setInvalid] = useState<{ pallets: boolean; price: boolean }>({ pallets: false, price: false });
+  const triggerShake = (inv: { pallets: boolean; price: boolean }) => {
+    setInvalid(inv);
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    window.setTimeout(() => setShake(false), 600);
+  };
 
   // Read via branch-safe views — purchase prices are not exposed at all.
   const { data: items } = useQuery({
@@ -158,12 +166,10 @@ function BranchFreeList() {
     if (!pick || !user || !profile?.branch_id) return;
     const p = Number(pallets);
     const pr = Number(price);
-    if (!p || p <= 0 || p > pick.free) {
-      toast.error(`Палет від 1 до ${pick.free}`);
-      return;
-    }
-    if (!pr || pr <= 0) {
-      toast.error("Вкажіть ціну продажу");
+    const badPallets = !p || p <= 0 || p > pick.free;
+    const badPrice = !pr || pr <= 0;
+    if (badPallets || badPrice) {
+      triggerShake({ pallets: badPallets, price: badPrice });
       return;
     }
     setSubmitting(true);
@@ -246,7 +252,7 @@ function BranchFreeList() {
       )}
 
       <Sheet open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="bottom" className={cn("max-h-[85vh] overflow-y-auto rounded-t-2xl", shake && "animate-shake")}>
           <SheetHeader className="text-left">
             <SheetTitle className="pr-8">
               <span>
@@ -286,8 +292,9 @@ function BranchFreeList() {
                   min={1}
                   max={pick.free}
                   value={pallets}
-                  onChange={(e) => setPallets(e.target.value)}
+                  onChange={(e) => { setPallets(e.target.value); setInvalid((s) => ({ ...s, pallets: false })); }}
                   inputMode="numeric"
+                  className={cn(invalid.pallets && "field-invalid")}
                 />
                 <div className="text-[11px] text-muted-foreground">
                   ≈ {(Number(pallets || 0) * pick.palletWeight).toLocaleString("uk-UA")} кг
@@ -302,10 +309,10 @@ function BranchFreeList() {
                     min={0}
                     step="0.01"
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => { setPrice(e.target.value); setInvalid((s) => ({ ...s, price: false })); }}
                     placeholder="0.00"
                     inputMode="decimal"
-                    className="flex-1"
+                    className={cn("flex-1", invalid.price && "field-invalid")}
                   />
                   <select
                     value={currency}
