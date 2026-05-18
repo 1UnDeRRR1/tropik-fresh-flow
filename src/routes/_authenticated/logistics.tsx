@@ -495,6 +495,26 @@ function EditDialog({
         </DialogHeader>
 
         <div className="grid gap-3 py-2">
+          <div className="rounded-md border border-border bg-muted/30 p-2 text-[11px]">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              <div><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
+              <div><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
+              <div><span className="text-muted-foreground">Завантаження: </span>{row.loading_date ?? "—"}</div>
+              <div><span className="text-muted-foreground">Палет / вага: </span>{totalPallets || "—"} / {totalWeight ? Math.round(totalWeight) + " кг" : "—"}</div>
+            </div>
+            {row.items.length > 0 && (
+              <div className="mt-1.5 border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
+                {row.items.map((it, i) => (
+                  <div key={i}>
+                    • {it.product_name}
+                    {it.pallet_count ? ` — ${it.pallet_count} пал.` : ""}
+                    {it.origin_country ? ` · ${it.origin_country}` : ""}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <section>
             <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
               <FileText className="h-3 w-3" /> Менеджер
@@ -525,6 +545,17 @@ function EditDialog({
                   />
                 </Labeled>
               </div>
+              <Labeled label="Орієнтовний фрахт (від менеджера)">
+                <div className="rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5 text-xs">
+                  {row.logistics_cost != null && Number(row.logistics_cost) > 0 ? (
+                    <span className="font-semibold">
+                      {Number(row.logistics_cost).toFixed(2)} {row.logistics_cost_currency ?? "EUR"}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">не вказано</span>
+                  )}
+                </div>
+              </Labeled>
             </div>
           </section>
 
@@ -565,6 +596,42 @@ function EditDialog({
                   disabled={!isLogistics}
                 />
               </Labeled>
+              <Labeled label="ETA (прибуття)">
+                <Input
+                  type="date"
+                  value={form.eta}
+                  onChange={(e) => setForm({ ...form, eta: e.target.value })}
+                  disabled={!isLogistics}
+                />
+              </Labeled>
+              <Labeled label="Фінальна вартість транспорту">
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={form.final_freight_amount}
+                    onChange={(e) => setForm({ ...form, final_freight_amount: e.target.value })}
+                    disabled={!isLogistics}
+                    placeholder="0"
+                    className="flex-1"
+                  />
+                  <Select
+                    value={form.final_freight_currency}
+                    onValueChange={(v) => setForm({ ...form, final_freight_currency: v })}
+                    disabled={!isLogistics}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="UAH">UAH</SelectItem>
+                      <SelectItem value="PLN">PLN</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </Labeled>
               <Labeled label="Статус" className="sm:col-span-2">
                 <Select
                   value={form.logistics_status}
@@ -582,6 +649,14 @@ function EditDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              </Labeled>
+              <Labeled label="Коментар логіста" className="sm:col-span-2">
+                <Textarea
+                  value={form.logistics_comment}
+                  onChange={(e) => setForm({ ...form, logistics_comment: e.target.value })}
+                  rows={2}
+                  disabled={!isLogistics}
+                />
               </Labeled>
             </div>
           </section>
