@@ -575,12 +575,15 @@ function CellInput({
 }) {
   const [text, setText] = useState<string>(value > 0 ? String(value) : "");
   const focusedRef = useRef(false);
-  // Sync external value -> text when not actively editing
+  // Sync external value -> text. Always sync when external value differs from
+  // what's parsed in the input (e.g. when the parent caps the typed value).
   useEffect(() => {
-    if (!focusedRef.current) {
+    const parsed = text === "" ? 0 : parseInt(text, 10);
+    if (parsed === value) return;
+    if (!focusedRef.current || parsed > value) {
       setText(value > 0 ? String(value) : "");
     }
-  }, [value]);
+  }, [value, text]);
   return (
     <input
       type="text"
