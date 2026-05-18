@@ -344,6 +344,42 @@ type ProductGroup = {
 
 function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
   const [openGroup, setOpenGroup] = useState<ProductGroup | null>(null);
+  const [fManager, setFManager] = useState<string>("__all__");
+  const [fProduct, setFProduct] = useState<string>("__all__");
+  const [fCountry, setFCountry] = useState<string>("__all__");
+
+  const managerOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => r.manager_name && set.add(r.manager_name));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
+  }, [rows]);
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => r.product_name && set.add(r.product_name));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
+  }, [rows]);
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => r.country && set.add(r.country));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: toUaCountry(v) }));
+  }, [rows]);
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (fManager !== "__all__" && r.manager_name !== fManager) return false;
+        if (fProduct !== "__all__" && r.product_name !== fProduct) return false;
+        if (fCountry !== "__all__" && r.country !== fCountry) return false;
+        return true;
+      }),
+    [rows, fManager, fProduct, fCountry],
+  );
+  const filtersActive = fManager !== "__all__" || fProduct !== "__all__" || fCountry !== "__all__";
+  const resetFilters = () => {
+    setFManager("__all__");
+    setFProduct("__all__");
+    setFCountry("__all__");
+  };
 
   if (!rows.length) {
     return <EmptyState title="Немає активних поставок" hint="Усі поставки вже прибули або відсутні в роботі" />;
@@ -351,7 +387,7 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
 
   const groups = new Map<string, ProductGroup>();
   const shipSets = new Map<string, Set<string>>();
-  for (const r of rows) {
+  for (const r of filteredRows) {
     const product = (r.product_name || "").trim();
     const country = toUaCountry(r.country);
     const key = `${product}__${country}`;
@@ -374,6 +410,41 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
 
   return (
     <>
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Button
+          type="button"
+          variant={filtersActive ? "outline" : "default"}
+          size="sm"
+          className="h-9 text-xs"
+          onClick={resetFilters}
+        >
+          Усі поставки
+        </Button>
+        <SearchableSelect
+          value={fManager}
+          onChange={setFManager}
+          options={managerOptions}
+          placeholder="Менеджер"
+          allLabel="Усі менеджери"
+        />
+        <SearchableSelect
+          value={fProduct}
+          onChange={setFProduct}
+          options={productOptions}
+          placeholder="Товар"
+          allLabel="Усі товари"
+        />
+        <SearchableSelect
+          value={fCountry}
+          onChange={setFCountry}
+          options={countryOptions}
+          placeholder="Країна"
+          allLabel="Усі країни"
+        />
+      </div>
+      {!list.length ? (
+        <EmptyState title="Немає товару за обраними фільтрами" />
+      ) : (
       <ul className="divide-y divide-border">
         {list.map((g) => (
           <li key={g.key}>
