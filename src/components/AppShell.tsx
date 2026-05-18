@@ -46,14 +46,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
 
   const { data: pendingManagerResponses = 0 } = useQuery({
-    queryKey: ["nav-pending-manager-responses", userId],
+    queryKey: ["nav-pending-manager-responses", userId, isAdmin],
     enabled: (isManager || isAdmin) && !!userId,
     queryFn: async () => {
-      const { data: offers } = await (supabase as any)
+      let q = (supabase as any)
         .from("manager_offers")
         .select("id")
-        .eq("created_by", userId!)
-        .eq("status", "active");
+        .in("status", ["active", "in_work", "confirmed"]);
+      if (!isAdmin) q = q.eq("created_by", userId!);
+      const { data: offers } = await q;
       const ids = (offers ?? []).map((o: any) => o.id);
       if (!ids.length) return 0;
       const { count } = await (supabase as any)
