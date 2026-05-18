@@ -237,12 +237,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={it.to}
                   to={it.to}
                   className={cn(
-                    "fruit-tap relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
+                    "fruit-tap relative flex flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
                     active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <span className="relative">
-                    <FruitIcon name={labelToFruit(it.label)} className="h-11 w-11" />
+                    <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9" />
                     {it.badge && it.badge > 0 ? (
                       <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                         {it.badge > 99 ? "99+" : it.badge}
@@ -264,12 +264,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     key={it.to}
                     to={it.to}
                     className={cn(
-                      "fruit-tap relative flex w-[72px] shrink-0 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
+                      "fruit-tap relative flex w-[64px] shrink-0 flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
                       active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     <span className="relative">
-                      <FruitIcon name={labelToFruit(it.label)} className="h-11 w-11" />
+                      <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9" />
                       {it.badge && it.badge > 0 ? (
                         <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                           {it.badge > 99 ? "99+" : it.badge}
