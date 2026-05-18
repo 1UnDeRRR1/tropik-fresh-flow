@@ -300,7 +300,7 @@ function NewShipment() {
           : (COUNTRY_DAYS[selectedVehicle.country] ?? 0);
       }
 
-      const supplierCode = selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name);
+      const supplierCode = selectedSupplier!.code_base?.trim() || buildSupplierCode(selectedSupplier!.name);
       const finalCode = codeOverride && code.trim()
         ? code.trim()
         : formatShipmentCode(vCode, supplierCode);
