@@ -213,6 +213,7 @@ function ShipmentsList() {
                       <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
                       <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
                       <th className="px-2 py-2 text-center text-foreground">Логістика</th>
+                      {isAdmin && <th className="px-2 py-2 whitespace-nowrap">Відповідальний менеджер</th>}
                       <th className="px-2 py-2"></th>
                     </tr>
                   </thead>
