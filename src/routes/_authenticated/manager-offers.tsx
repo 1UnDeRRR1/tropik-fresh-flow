@@ -352,6 +352,41 @@ function ManagerOffersPage() {
         }
       />
 
+      {pendingItems.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+            <Bell className="h-4 w-4" />
+            Нові відгуки від філій ({pendingItems.length})
+          </div>
+          <div className="space-y-1.5">
+            {pendingItems.slice(0, 6).map((p, i) => (
+              <button
+                key={`${p.offerId}-${i}`}
+                type="button"
+                onClick={() => focusOffer(p.offerId, p.offerStatus)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 text-left text-xs transition hover:bg-white dark:bg-amber-500/5 dark:hover:bg-amber-500/10"
+              >
+                <span className="min-w-0 truncate">
+                  <b>{p.branchName}</b>
+                  <span className="text-muted-foreground"> · </span>
+                  {p.productName}
+                  {p.originCountry && (
+                    <span className="text-muted-foreground"> · {p.originCountry}</span>
+                  )}
+                </span>
+                <span className="shrink-0 rounded-full bg-amber-200/80 px-2 py-0.5 text-[11px] font-bold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
+                  {p.requested} пал.
+                </span>
+              </button>
+            ))}
+            {pendingItems.length > 6 && (
+              <div className="px-1 text-[11px] text-muted-foreground">
+                та ще {pendingItems.length - 6}…
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="active">Активні</TabsTrigger>
