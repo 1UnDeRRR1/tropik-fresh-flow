@@ -68,7 +68,7 @@ function ShipmentsList() {
         .from("shipments")
         .select(`
           id, code, status, eta, country, import_manager_id, created_by,
-          loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name,
+          loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
           shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
