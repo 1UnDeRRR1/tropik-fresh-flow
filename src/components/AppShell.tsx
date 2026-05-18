@@ -168,20 +168,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             <nav className="hidden md:flex md:items-center md:gap-1 lg:gap-2">
               {items.map((it) => {
                 const active = isActive(it.to, it.label);
-                const Icon = it.icon;
                 return (
                   <Link
                     key={it.to}
                     to={it.to}
                     className={cn(
-                      "relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
+                      "fruit-tap relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
                       active
-                        ? "bg-secondary text-brand"
+                        ? "bg-secondary text-brand fruit-active"
                         : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                     )}
                   >
                     <span className="relative">
-                      <Icon className={cn("h-4 w-4", active && "stroke-[2.4]")} />
+                      <FruitIcon name={labelToFruit(it.label)} className="h-5 w-5" />
                       {it.badge && it.badge > 0 ? (
                         <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                           {it.badge > 99 ? "99+" : it.badge}
