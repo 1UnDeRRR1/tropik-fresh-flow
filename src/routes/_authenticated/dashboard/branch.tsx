@@ -228,8 +228,14 @@ function BranchDashboard() {
     [ships],
   );
   const managerIds = useMemo(
-    () => Array.from(new Set((ships ?? []).map((s) => s.import_manager_id).filter(Boolean) as string[])),
-    [ships],
+    () =>
+      Array.from(
+        new Set([
+          ...((ships ?? []).map((s) => s.import_manager_id).filter(Boolean) as string[]),
+          ...((pendingOffers ?? []).map((p) => p.manager_offers.import_manager_id).filter(Boolean) as string[]),
+        ]),
+      ),
+    [ships, pendingOffers],
   );
 
   const { data: suppliers } = useQuery({
