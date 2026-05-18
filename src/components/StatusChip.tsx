@@ -66,6 +66,16 @@ export function statusTone(status: string): string {
   return "bg-muted text-muted-foreground";
 }
 
+/** Tailwind text-color class for a shipment status, matching its StatusChip color. */
+export function shipmentCodeTextTone(status: string): string {
+  const pipeline = SHIPMENT_TO_PIPELINE[status];
+  if (pipeline) return PIPELINE_TONE[pipeline].text;
+  if (status === "completed") return "text-success";
+  if (status === "delayed") return "text-destructive";
+  if (status === "cancelled") return "text-muted-foreground";
+  return "text-brand";
+}
+
 export function StatusChip({
   status,
   kind = "shipment",
