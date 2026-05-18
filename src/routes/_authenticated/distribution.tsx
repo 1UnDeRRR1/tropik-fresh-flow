@@ -166,12 +166,10 @@ function BranchFreeList() {
     if (!pick || !user || !profile?.branch_id) return;
     const p = Number(pallets);
     const pr = Number(price);
-    if (!p || p <= 0 || p > pick.free) {
-      toast.error(`Палет від 1 до ${pick.free}`);
-      return;
-    }
-    if (!pr || pr <= 0) {
-      toast.error("Вкажіть ціну продажу");
+    const badPallets = !p || p <= 0 || p > pick.free;
+    const badPrice = !pr || pr <= 0;
+    if (badPallets || badPrice) {
+      triggerShake({ pallets: badPallets, price: badPrice });
       return;
     }
     setSubmitting(true);
