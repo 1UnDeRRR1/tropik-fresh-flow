@@ -292,8 +292,9 @@ function BranchFreeList() {
                   min={1}
                   max={pick.free}
                   value={pallets}
-                  onChange={(e) => setPallets(e.target.value)}
+                  onChange={(e) => { setPallets(e.target.value); setInvalid((s) => ({ ...s, pallets: false })); }}
                   inputMode="numeric"
+                  className={cn(invalid.pallets && "field-invalid")}
                 />
                 <div className="text-[11px] text-muted-foreground">
                   ≈ {(Number(pallets || 0) * pick.palletWeight).toLocaleString("uk-UA")} кг
