@@ -226,6 +226,14 @@ function BranchOffersPage() {
                 />
               </div>
 
+              {/* Responsible manager (confirmed/linked only) */}
+              {(o.status === "linked" || o.status === "confirmed") && managerNameById[o.created_by] && (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Відповідальний менеджер:{" "}
+                  <b className="text-foreground">{managerNameById[o.created_by]}</b>
+                </div>
+              )}
+
               {/* Expected date */}
               {etaDate && (
                 <div className="mt-1 text-sm text-muted-foreground">
