@@ -473,7 +473,20 @@ function ManagerOffersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setExpanded((p) => ({ ...p, [o.id]: !isOpen }))}
+                    onClick={(e) => {
+                      const willOpen = !isOpen;
+                      setExpanded((p) => ({ ...p, [o.id]: willOpen }));
+                      if (willOpen) {
+                        const btn = e.currentTarget;
+                        setTimeout(() => {
+                          const card = btn.closest("[data-offer-card]");
+                          const panel = card?.querySelector("[data-offer-responses]") as HTMLElement | null;
+                          if (panel) {
+                            panel.scrollIntoView({ behavior: "smooth", block: "center" });
+                          }
+                        }, 50);
+                      }
+                    }}
                   >
                     {isOpen ? (
                       <ChevronUp className="h-4 w-4" />
