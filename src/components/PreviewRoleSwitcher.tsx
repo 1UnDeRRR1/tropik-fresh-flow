@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { UserCog, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, ROLE_LABEL_UK, defaultRoutePerRole } from "@/lib/auth";
@@ -52,6 +52,8 @@ function isPreviewHost(): boolean {
   if (typeof window === "undefined") return false;
   const h = window.location.hostname;
   return (
+    h.includes("lovableproject.com") ||
+    h.includes("lovable.app") ||
     h.includes("preview--") ||
     h.includes("sandbox.lovable") ||
     h === "localhost" ||
@@ -63,11 +65,7 @@ export function PreviewRoleSwitcher() {
   const { user, primaryRole, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    setShow(isPreviewHost());
-  }, []);
+  const show = useMemo(() => isPreviewHost(), []);
 
   if (!show) return null;
 
