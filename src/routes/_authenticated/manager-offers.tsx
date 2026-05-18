@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, ChevronDown, ChevronUp, Link2, Trash2 } from "lucide-react";
@@ -1326,7 +1326,7 @@ function LinkShipmentDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,country,eta,shipment_items(product_name)")
+        .select("id,code,country,eta,shipment_items(product_name,origin_country)")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -1335,19 +1335,23 @@ function LinkShipmentDialog({
         code: string;
         country: string | null;
         eta: string | null;
-        shipment_items: { product_name: string }[] | null;
+        shipment_items: { product_name: string; origin_country: string | null }[] | null;
       }>;
     },
   });
 
-  const norm = (s: string) => s.trim().toLowerCase();
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
   const target = offer ? norm(offer.product_name) : "";
+  const targetCountry = offer ? norm(offer.origin_country) : "";
+  const itemMatches = (i: { product_name: string; origin_country: string | null }) =>
+    norm(i.product_name) === target &&
+    (!targetCountry || norm(i.origin_country) === targetCountry);
   const matching = useMemo(
     () =>
       (shipments ?? []).filter((s) =>
-        (s.shipment_items ?? []).some((i) => norm(i.product_name) === target),
+        (s.shipment_items ?? []).some(itemMatches),
       ),
-    [shipments, target],
+    [shipments, target, targetCountry],
   );
 
   const list = showAll ? (shipments ?? []) : matching;
@@ -1381,6 +1385,11 @@ function LinkShipmentDialog({
               <div className="font-semibold text-sm">{offer.product_name}</div>
             </div>
           )}
+          <Link to="/shipments/new" onClick={() => onClose()} className="block">
+            <Button size="sm" className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
+              <Plus className="mr-1 h-4 w-4" /> Нова поставка
+            </Button>
+          </Link>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
               {showAll
@@ -1406,7 +1415,9 @@ function LinkShipmentDialog({
           ) : (
             list.map((s) => {
               const items = s.shipment_items ?? [];
-              const has = items.some((i) => norm(i.product_name) === target);
+              const has = items.some(itemMatches);
+              const productOnly =
+                !has && items.some((i) => norm(i.product_name) === target);
               const uniqueProducts = Array.from(
                 new Set(items.map((i) => i.product_name)),
               );
@@ -1414,18 +1425,27 @@ function LinkShipmentDialog({
                 <button
                   key={s.id}
                   onClick={() => link.mutate(s.id)}
+                  disabled={!has}
                   className={cn(
-                    "flex w-full flex-col gap-1 rounded-lg border p-3 text-left hover:bg-secondary",
-                    has ? "border-success/50 bg-success/5" : "border-border",
+                    "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition",
+                    has
+                      ? "border-success/50 bg-success/5 hover:bg-success/10"
+                      : productOnly
+                        ? "border-warning/40 bg-warning/5 opacity-70 cursor-not-allowed"
+                        : "border-border opacity-70 cursor-not-allowed",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold">{s.code}</div>
-                    {has && (
+                    {has ? (
                       <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         є товар
                       </span>
-                    )}
+                    ) : productOnly ? (
+                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                        інша країна
+                      </span>
+                    ) : null}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {s.country ?? "—"} · ETA {s.eta ?? "—"}

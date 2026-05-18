@@ -40,9 +40,10 @@ export function OfferDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from("branches")
-        .select("id,name")
+        .select("id,name,sort_order")
         .eq("is_active", true)
         .neq("id", profile?.branch_id ?? "")
+        .order("sort_order")
         .order("name");
       return data ?? [];
     },

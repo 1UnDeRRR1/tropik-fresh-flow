@@ -67,11 +67,32 @@ function BranchOffersPage() {
     },
   });
 
+  const managerIds = useMemo(
+    () => Array.from(new Set((offers ?? []).map((o) => o.created_by).filter(Boolean))),
+    [offers],
+  );
+
+  const { data: managerNames } = useQuery({
+    queryKey: ["offer-manager-names", managerIds],
+    enabled: managerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_profile_names", { _ids: managerIds });
+      if (error) throw error;
+      return (data ?? []) as { id: string; full_name: string | null }[];
+    },
+  });
+
   const responseByOffer = useMemo(() => {
     const m: Record<string, ManagerOfferResponse> = {};
     for (const r of myResponses ?? []) m[r.offer_id] = r;
     return m;
   }, [myResponses]);
+
+  const managerNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
+    return m;
+  }, [managerNames]);
 
   const shipmentById = useMemo(() => {
     const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
@@ -204,6 +225,14 @@ function BranchOffersPage() {
                   linked={o.status === "linked"}
                 />
               </div>
+
+              {/* Responsible manager (confirmed/linked only) */}
+              {(o.status === "linked" || o.status === "confirmed") && managerNameById[o.created_by] && (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Відповідальний менеджер:{" "}
+                  <b className="text-foreground">{managerNameById[o.created_by]}</b>
+                </div>
+              )}
 
               {/* Expected date */}
               {etaDate && (
