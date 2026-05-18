@@ -1380,9 +1380,32 @@ function LinkShipmentDialog({
         </SheetHeader>
         <div className="mt-4 space-y-3">
           {offer && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs">
-              <div className="text-muted-foreground">Товар пропозиції</div>
-              <div className="font-semibold text-sm">{offer.product_name}</div>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs space-y-1.5">
+              <div>
+                <div className="text-muted-foreground">Товар пропозиції</div>
+                <div className="font-semibold text-sm">{offer.product_name}</div>
+              </div>
+              {(() => {
+                const rows: Array<[string, string | null | undefined]> = [
+                  ["Країна", offer.origin_country],
+                  ["Сорт", offer.variety],
+                  ["Калібр", offer.caliber],
+                  ["Пакування", offer.packaging],
+                  ["Специфікація", offer.specification],
+                ];
+                const visible = rows.filter(([, v]) => v && String(v).trim());
+                if (!visible.length) return null;
+                return (
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 pt-1 border-t border-primary/15">
+                    {visible.map(([k, v]) => (
+                      <div key={k} className="contents">
+                        <dt className="text-muted-foreground">{k}</dt>
+                        <dd className="font-medium text-foreground">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                );
+              })()}
             </div>
           )}
           <Link to="/shipments/new" onClick={() => onClose()} className="block">
