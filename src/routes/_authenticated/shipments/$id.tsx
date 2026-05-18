@@ -74,6 +74,19 @@ function ShipmentDetail() {
     { key: "logistics", label: "Логістика" },
   ];
 
+  const isUnloaded = !!sh.unloaded_at;
+  const isCancelled = sh.status === "cancelled" || !!sh.cancelled_at;
+  const isLocked = isUnloaded || isCancelled;
+
+  const cancelShipment = async () => {
+    if (!confirm("Скасувати поставку? Через 48 годин (неділя не враховується) вона потрапить до архіву.")) return;
+    const { error } = await supabase.from("shipments").update({ status: "cancelled" as const }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Поставку скасовано");
+    qc.invalidateQueries({ queryKey: ["shipment", id] });
+    qc.invalidateQueries({ queryKey: ["shipments"] });
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -81,6 +94,33 @@ function ShipmentDetail() {
         subtitle={sh.suppliers?.name ?? toUaCountry(sh.country) ?? ""}
         action={<StatusChip status={sh.status} />}
       />
+
+      {isLocked && (
+        <div className="flex items-start gap-2 rounded-2xl border border-warning/40 bg-warning/10 p-3 text-sm">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="flex-1">
+            <div className="font-semibold">
+              {isCancelled ? "Поставку скасовано" : "Поставку розвантажено"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Редагування заблоковано. Зміни може робити лише адміністратор.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isLocked && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/10"
+            onClick={cancelShipment}
+          >
+            Скасувати поставку
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Факт палет" value={fact} tone="primary" />
