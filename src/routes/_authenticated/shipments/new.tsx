@@ -463,9 +463,9 @@ function NewShipment() {
   );
 
   const loadingDateField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("loadingDate") && "field-invalid")}>
       <Label htmlFor="ld">Дата завантаження</Label>
-      <Input id="ld" type="date" required value={loadingDate} onChange={(e) => setLoadingDate(e.target.value)} />
+      <Input id="ld" type="date" value={loadingDate} onChange={(e) => { setLoadingDate(e.target.value); if (e.target.value) clearInvalid("loadingDate"); }} />
     </div>
   );
 
