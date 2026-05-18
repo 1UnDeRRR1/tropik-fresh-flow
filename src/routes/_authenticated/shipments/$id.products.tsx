@@ -346,14 +346,17 @@ function ProductsFullscreen() {
 
   const [shake, setShake] = useState(false);
   const [flashTransport, setFlashTransport] = useState(false);
+  const [pulseFields, setPulseFields] = useState(false);
   const triggerShake = (flashTr: boolean) => {
     setFlashTransport(flashTr);
+    setPulseFields(true);
     setShake(false);
     requestAnimationFrame(() => setShake(true));
     window.setTimeout(() => {
       setShake(false);
+      setPulseFields(false);
       if (flashTr) setFlashTransport(false);
-    }, 1200);
+    }, 1500);
   };
 
   useEffect(() => {
