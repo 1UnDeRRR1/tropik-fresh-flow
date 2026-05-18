@@ -25,7 +25,8 @@ import { useFocusHighlight } from "@/lib/use-focus-highlight";
 import { useStableQueryData } from "@/lib/query-stability";
 
 import { StaffOnly } from "@/components/StaffOnly";
-import { CostPair } from "@/components/CostPair";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
@@ -67,6 +68,7 @@ function ShipmentsList() {
         .from("shipments")
         .select(`
           id, code, status, eta, country, import_manager_id, created_by,
+          loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name,
           suppliers(name, country),
           import_managers(full_name),
           shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
@@ -208,8 +210,7 @@ function ShipmentsList() {
                       <th className="px-2 py-2 text-right text-foreground">Факт</th>
                       <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
                       <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
-                      <th className="px-2 py-2 text-right text-foreground">Собів. $/кг</th>
-                      <th className="px-2 py-2">Менеджер</th>
+                      <th className="px-2 py-2 text-center text-foreground">Логістика</th>
                       <th className="px-2 py-2"></th>
                     </tr>
                   </thead>
@@ -251,15 +252,13 @@ function ShipmentsList() {
                           <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
                             {s.remaining}
                           </td>
-                          <td className="px-2 py-2 text-right whitespace-nowrap">
-                            {(s.avgInd || s.avgInv) ? (
-                              <CostPair indicative={s.avgInd} invoice={s.avgInv} suffix=" кг" size="xs" />
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                            {(s as unknown as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                          <td className="px-2 py-2 text-center">
+                            <LogisticsIndicator
+                              vehicle={s.tractor_plate ?? s.vehicle_plate ?? null}
+                              driver={s.driver_name ?? null}
+                              address={s.loading_address ?? null}
+                              reference={s.loading_reference ?? null}
+                            />
                           </td>
                           <td className="px-1 py-2">
                             {isOwner && (
@@ -321,6 +320,73 @@ function StatusFilterPill({
     >
       {children}
     </button>
+  );
+}
+
+function LogisticsIndicator({
+  vehicle,
+  driver,
+  address,
+  reference,
+}: {
+  vehicle: string | null;
+  driver: string | null;
+  address: string | null;
+  reference: string | null;
+}) {
+  const items = [
+    { label: "Авто", value: vehicle },
+    { label: "Водій", value: driver },
+    { label: "Адреса завантаження", value: address },
+    { label: "Номер завантаження", value: reference },
+  ];
+  const done = items.filter((i) => !!i.value && String(i.value).trim() !== "").length;
+  const total = items.length;
+  const missing = total - done;
+  const tone =
+    done === total
+      ? "bg-success/15 text-success border-success/30"
+      : done === 0
+        ? "bg-destructive/15 text-destructive border-destructive/30"
+        : done >= total - 1
+          ? "bg-success/10 text-success border-success/30"
+          : "bg-destructive/10 text-destructive border-destructive/30";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold tabular-nums",
+            tone,
+          )}
+        >
+          <span className="text-success">{done}</span>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-destructive">{missing}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-56 p-2">
+        <ul className="space-y-1 text-xs">
+          {items.map((i) => {
+            const ok = !!i.value && String(i.value).trim() !== "";
+            return (
+              <li key={i.label} className="flex items-center gap-2">
+                {ok ? (
+                  <Check className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <X className="h-3.5 w-3.5 text-destructive" />
+                )}
+                <span className={cn(ok ? "text-foreground" : "text-muted-foreground")}>
+                  {i.label}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 

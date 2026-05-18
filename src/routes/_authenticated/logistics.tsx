@@ -316,14 +316,18 @@ function BoardTable({
                   >
                     <TableCell className="font-mono text-xs font-bold">{r.code}</TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                          LOGISTICS_STATUS_CLASS[r.logistics_status],
-                        )}
-                      >
-                        {LOGISTICS_STATUS_LABEL[r.logistics_status]}
-                      </span>
+                      {r.logistics_status === "pending_planning" ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            LOGISTICS_STATUS_CLASS[r.logistics_status],
+                          )}
+                        >
+                          {LOGISTICS_STATUS_LABEL[r.logistics_status]}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs">{r.loading_date ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.eta ?? "—"}</TableCell>
