@@ -190,7 +190,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
           {!isBranch && (
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2">
               <div className="pointer-events-auto">
                 <FxRateBadge />
               </div>
