@@ -331,15 +331,16 @@ function BranchDashboard() {
           const it = iMap.get(di.shipment_item_id);
           if (!it) return null;
           const s = sMap.get(d.shipment_id);
-          const unloaded = !!s?.unloaded_at;
+          const unloadedShip = s?.pipeline_status === "unloaded" || !!s?.unloaded_at;
           const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
           const archived = !!s?.archived_at;
           if (archived) return null;
           if (board === "unloaded") {
-            if (!unloaded || cancelled) return null;
+            if (!unloadedShip || cancelled) return null;
           } else {
-            if (unloaded || cancelled) return null;
+            if (unloadedShip || cancelled) return null;
           }
+          if (Number(di.pallets ?? 0) <= 0) return null;
           const b = bMap.get(`${d.id}-${it.id}`);
           return {
             key: `${d.id}-${it.id}`,
@@ -347,8 +348,9 @@ function BranchDashboard() {
             distribution_id: d.id,
             code: s?.code ?? "—",
             eta: s?.eta ?? null,
-            shipment_status: s?.status ?? "—",
+            pipeline: (s?.pipeline_status ?? "confirmed") as PipelineStatus,
             dist_status: d.status,
+            approved_qty_note: null,
             product: it.product_name,
             country: it.origin_country ?? s?.country ?? null,
             caliber: it.caliber,
