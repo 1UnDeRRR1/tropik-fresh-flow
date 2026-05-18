@@ -231,18 +231,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
           {items.map((it) => {
             const active = isActive(it.to, it.label);
-            const Icon = it.icon;
             return (
               <Link
                 key={it.to}
                 to={it.to}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
-                  active ? "text-brand" : "text-muted-foreground hover:text-foreground",
+                  "fruit-tap relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
+                  active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span className="relative">
-                  <Icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
+                  <FruitIcon name={labelToFruit(it.label)} className="h-6 w-6" />
                   {it.badge && it.badge > 0 ? (
                     <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                       {it.badge > 99 ? "99+" : it.badge}
