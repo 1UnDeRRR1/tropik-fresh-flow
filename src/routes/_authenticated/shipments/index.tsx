@@ -202,11 +202,11 @@ function ShipmentsList() {
                 <table className="min-w-full border-separate border-spacing-0 text-xs">
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                      <th className="sticky left-0 z-10 bg-card py-2 pr-2 font-semibold">№</th>
+                      <th className="sticky left-0 z-20 bg-card py-2 pr-2 font-semibold w-[120px] min-w-[120px]">№</th>
+                      <th className="sticky left-[120px] z-20 bg-card px-2 py-2 w-[110px] min-w-[110px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Статус</th>
                       <th className="px-2 py-2">Постачальник</th>
                       <th className="px-2 py-2">Країна</th>
                       <th className="px-2 py-2">ETA</th>
-                      <th className="px-2 py-2">Статус</th>
                       <th className="px-2 py-2 text-right text-foreground">Факт</th>
                       <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
                       <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
@@ -226,17 +226,12 @@ function ShipmentsList() {
                       const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                       return (
                         <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
-                          <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
+                          <td className={cn("sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px]", tone || "bg-card")}>
                             <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
                               {s.code}
                             </Link>
                           </td>
-                          <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
-                          <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
-                          <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
-                            {s.eta ?? "—"}
-                          </td>
-                          <td className="px-2 py-2">
+                          <td className={cn("sticky left-[120px] z-10 px-2 py-2 w-[110px] min-w-[110px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]", tone || "bg-card")}>
                             {s.fact > 0 && s.remaining === 0 ? (
                               <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
                             ) : s.fact > 0 && s.dist === 0 ? (
@@ -246,6 +241,11 @@ function ShipmentsList() {
                             ) : (
                               <StatusChip status={s.status} />
                             )}
+                          </td>
+                          <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
+                          <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
+                            {s.eta ?? "—"}
                           </td>
                           <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
                           <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>{s.dist}</td>
