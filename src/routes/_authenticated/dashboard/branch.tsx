@@ -12,7 +12,8 @@ import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { StatusChip } from "@/components/StatusChip";
+import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
@@ -25,8 +26,9 @@ type Row = {
   distribution_id: string;
   code: string;
   eta: string | null;
-  shipment_status: string;
+  pipeline: PipelineStatus;
   dist_status: string;
+  approved_qty_note: string | null;
   product: string;
   country: string | null;
   caliber: string | null;
@@ -153,20 +155,22 @@ function BranchDashboard() {
     },
   });
 
-  // Approved manager-offer responses for this branch — used to surface "pending shipment" rows
+  // All manager-offer responses for this branch (any decision state).
+  // approved_pallets IS NULL → "Чекаю підтвердження";
+  // approved_pallets = 0    → "Відмовлено";
+  // approved_pallets > 0    → "В опрацюванні" (until linked to shipment).
   const { data: pendingOffers } = useQuery({
-    queryKey: ["branch-pending-mor", branchId],
+    queryKey: ["branch-all-mor", branchId],
     enabled: !!branchId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("manager_offer_responses")
-        .select(`id,offer_id,approved_pallets,
+        .select(`id,offer_id,approved_pallets,requested_pallets,
           manager_offers!inner(id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
-        .eq("branch_id", branchId!)
-        .gt("approved_pallets", 0);
+        .eq("branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
-        id: string; offer_id: string; approved_pallets: number;
+        id: string; offer_id: string; approved_pallets: number | null; requested_pallets: number;
         manager_offers: {
           id: string; product_name: string; origin_country: string | null;
           caliber: string | null; variety: string | null; expected_eta: string | null;
@@ -206,18 +210,18 @@ function BranchDashboard() {
   });
 
   const { data: ships } = useQuery({
-    queryKey: ["branch-incoming-ships-v2", shipmentIds.join(",")],
+    queryKey: ["branch-incoming-ships-v3", shipmentIds.join(",")],
     enabled: shipmentIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments")
-        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,temperature_mode,supplier_id,import_manager_id")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,pipeline_status,temperature_mode,supplier_id,import_manager_id")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
         unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null;
-        status: string; temperature_mode: string | null;
+        status: string; pipeline_status: PipelineStatus; temperature_mode: string | null;
         supplier_id: string | null; import_manager_id: string | null;
       }>;
     },
@@ -327,15 +331,16 @@ function BranchDashboard() {
           const it = iMap.get(di.shipment_item_id);
           if (!it) return null;
           const s = sMap.get(d.shipment_id);
-          const unloaded = !!s?.unloaded_at;
+          const unloadedShip = s?.pipeline_status === "unloaded" || !!s?.unloaded_at;
           const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
           const archived = !!s?.archived_at;
           if (archived) return null;
           if (board === "unloaded") {
-            if (!unloaded || cancelled) return null;
+            if (!unloadedShip || cancelled) return null;
           } else {
-            if (unloaded || cancelled) return null;
+            if (unloadedShip || cancelled) return null;
           }
+          if (Number(di.pallets ?? 0) <= 0) return null;
           const b = bMap.get(`${d.id}-${it.id}`);
           return {
             key: `${d.id}-${it.id}`,
@@ -343,8 +348,9 @@ function BranchDashboard() {
             distribution_id: d.id,
             code: s?.code ?? "—",
             eta: s?.eta ?? null,
-            shipment_status: s?.status ?? "—",
+            pipeline: (s?.pipeline_status ?? "confirmed") as PipelineStatus,
             dist_status: d.status,
+            approved_qty_note: null,
             product: it.product_name,
             country: it.origin_country ?? s?.country ?? null,
             caliber: it.caliber,
@@ -384,16 +390,37 @@ function BranchDashboard() {
             .filter((p) => !materialisedOfferIds.has(p.offer_id))
             .map((p) => {
               const o = p.manager_offers;
-              const pallets = Number(p.approved_pallets || 0);
+              const approved = p.approved_pallets;
+              const requested = Number(p.requested_pallets || 0);
+              let pipeline: PipelineStatus;
+              let codeLabel: string;
+              let note: string | null = null;
+              if (approved === null) {
+                pipeline = "awaiting_confirmation";
+                codeLabel = "Чекаю підтвердження";
+              } else if (Number(approved) <= 0) {
+                pipeline = "rejected";
+                codeLabel = "Відмовлено";
+              } else if (o.linked_shipment_id) {
+                pipeline = "confirmed";
+                codeLabel = "Підтверджено";
+                if (Number(approved) < requested) note = `${approved} з ${requested}п`;
+              } else {
+                pipeline = "processing";
+                codeLabel = "В опрацюванні";
+                if (Number(approved) < requested) note = `${approved} з ${requested}п`;
+              }
+              const pallets = Number(approved ?? requested ?? 0);
               const weight = pallets * Number(o.pallet_weight ?? 0);
               return {
-                key: `pending-${p.id}`,
-                shipment_item_id: `pending-${p.id}`,
-                distribution_id: `pending-${p.id}`,
-                code: "Очікує поставку",
+                key: `mor-${p.id}`,
+                shipment_item_id: `mor-${p.id}`,
+                distribution_id: `mor-${p.id}`,
+                code: codeLabel,
                 eta: o.expected_eta,
-                shipment_status: "pending",
+                pipeline,
                 dist_status: "pending",
+                approved_qty_note: note,
                 product: o.product_name,
                 country: o.origin_country,
                 caliber: o.caliber,
@@ -502,12 +529,9 @@ function BranchDashboard() {
                       className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
-                        {r.dist_status === "pending" ? (
-                          <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
-                            Очікує поставку
-                          </span>
-                        ) : (
-                          <StatusChip status={r.dist_status} kind="distribution" />
+                        <PipelineStatusBadge status={r.pipeline} variant="animated" size="sm" />
+                        {r.approved_qty_note && (
+                          <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
                         )}
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">

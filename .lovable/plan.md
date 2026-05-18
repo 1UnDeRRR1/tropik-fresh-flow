@@ -1,67 +1,101 @@
-## Філія → «Підтверджений товар»: нова структура таблиці, трекер змін, кольори Переказ
+## Що треба зробити
 
-### 1. База даних (одна міграція)
+Привести систему до єдиного, прозорого життєвого циклу позиції товару, як описав користувач: від моменту коли менеджер запропонував товар, до моменту коли поставку вивантажили і вона пішла в архів. Філіал у «Головній» бачить лише свої позиції зі своїм статусом — у реальному часі, без «застиглих» дат.
 
-**Нова таблиця `branch_distribution_baselines`** — baseline на момент «ідентифікації філії з товаром»:
-```
-branch_id, distribution_id, shipment_item_id (PK),
-identified_at      timestamptz  -- момент першої "ідентифікації"
-baseline_eta       date
-baseline_pallets   numeric
-baseline_cost_ind  numeric
-baseline_cost_inv  numeric
-seen_eta, seen_pallets, seen_cost_ind, seen_cost_inv -- останнє «переглянуто» філією
-updated_at
-```
-RLS: `branch_id = user_branch_id(auth.uid())` read/update; staff/admin — все.
+## Канонічний ланцюжок статусів (єдиний для всіх ролей)
 
-**Тригери авто-створення baseline** (identified_at = now, baseline_* = поточні значення) при події:
-- `INSERT` у `distributions` → для кожного нового `distribution_items` ряду створити baseline
-- `INSERT` у `distribution_items` (додавання товару у вже існуючий розподіл)
-- `UPDATE` `manager_offer_responses.approved_pallets` (фактично пропозиція менеджера прийнята та зарезервовано пали — використаємо момент створення відповідного `distribution_items.reserved_offer_id`)
-- `UPDATE` `branch_transfer_offers.status='accepted'` → baseline для приймаючої філії
-- `UPDATE` `branch_requests.status='approved'` → baseline для філії-запитувача
-
-На практиці всі ці події в кінцевому підсумку матеріалізуються у `distribution_items`, тож тригер на `INSERT distribution_items` покриває 95%. Інші 5% — додамо явні тригери на acceptance, щоб identified_at був точним.
-
-**RPC `branch_ack_changes(distribution_id, shipment_item_id)`** — оновлює `seen_*` поточними значеннями для філії викликача (через `auth.uid()`).
-
-### 2. Дашборд філії (`src/routes/_authenticated/dashboard/branch.tsx`)
-
-Нова структура колонок (sticky 1-а):
-```
-| Статус (sticky) | ETA | Поставка | Товар | Палет | Собівартість | Відп. менеджер |
+```text
+(нема статусу)                  ← менеджер запропонував товар
+   ↓ філіал відповів кількістю
+Чекаю підтвердження
+   ↓ менеджер відмовив         → Відмовлено
+   ↓ менеджер підтвердив (повн./част.)
+В опрацюванні (+ к-ть/палети, якщо частково)
+   ↓ менеджер прив'язав до поставки
+Підтверджено
+   ↓ у логістиці заповнені 3 поля (авто, reference, адреса)
+Чекає на завантаження
+   ↓ настав день ETD (онлайн-перевірка)
+На завантаженні   (auto, якщо не виставлено вручну)
+   ↓ настав наступний день після ETD
+В дорозі           (auto, якщо не виставлено вручну)
+   ↓ брокер вручну
+На митниці
+   ↓ брокер вручну
+Їде на склад
+   ↓ склад вручну
+На складі
+   ↓ наступний день
+Вивантажено  (auto) → в архів
 ```
 
-- `Статус` — кольоровий чіп з `distribution.status` (planned / dispatched / received).
-- `ETA`, `Палет`, `Собівартість` — якщо значення ≠ `seen_*` baseline → справа `⚠️ зміни` (жовтий). Кнопка кліку → невеликий popover: «Було: X → Стало: Y» + автоматично визначеною датою останньої зміни. При закритті popover викликаємо `branch_ack_changes` → іконка зникає.
-- `Поставка` / `Товар` — клік відкриває HoverCard/Popover з: бренд, клас, сорт (variety), калібр, упаковка (packaging), країна, постачальник, темп. режим.
-- `Відп. менеджер` — `import_managers.full_name` з shipment.
+Принцип: **жодних «застиглих» ETA/ETD у статусі**. Статус щодня обчислюється від актуальних значень `loading_date` та `eta` у `shipments` — змінив логіст дату, наступний tick перерахує статус.
 
-Сітка: на мобілці (вже видно 440px) — горизонтальний скрол, перша колонка `sticky left-0 bg-card`. Поточний drill-down sheet залишаємо для тапу по строці у вільних місцях.
+## Скоуп змін
 
-### 3. Нові поля `brand`, `class` у `shipment_items`
+### 1) База даних (міграція)
 
-Додаємо `brand text`, `class text` колонки. UI редагування — у формі товару поставки (`src/routes/_authenticated/shipments/$id.products.tsx`) додаємо два інпути. Попап на дашборді показує їх, якщо заповнені.
+- Розширити enum `pipeline_status` (або привести label-мапінг) до повного списку вище: додати/перейменувати `awaiting_confirmation` («Чекаю підтвердження»), `rejected` («Відмовлено»), `confirmed` («Підтверджено»), `unloaded` («Вивантажено»). Інші вже є.
+- Тригер `manager_offer_responses_after_decision`: коли `approved_pallets` стає `> 0` → ставити `pipeline_status = processing` («В опрацюванні»); коли `= 0` після рішення → `rejected`; під час очікування — `awaiting_confirmation`.
+- Тригер на `shipment_items` (linked_offer_id): коли позиція оффера прив'язана до `shipment_id` → `pipeline_status = confirmed` («Підтверджено») для відповідного `manager_offer_responses`.
+- Тригер `branch_transfer_offers` after accept: створювати/перенаправляти `distribution_items` від `from_branch` до `to_branch` зі збереженням поточного `pipeline_status` поставки; у віддавача позиція зникає.
+- Cron job (`pg_cron`, щогодини) `tick_shipment_pipeline()`:
+  - `loading_date = CURRENT_DATE` AND `pipeline_status = awaiting_loading` → `loading`
+  - `loading_date < CURRENT_DATE` AND `pipeline_status IN (awaiting_loading, loading)` → `in_transit`
+  - `at_warehouse_at::date < CURRENT_DATE` AND `pipeline_status = at_warehouse` → `unloaded`, виставити `unloaded_at = now()`
+  - `unloaded_at < now() - interval '24h'` → `archived_at = now()`
+  Ручні переходи (manual override flag) cron не відкочує.
+- Уточнити `shipments_logistics_autobump`: 3 критичних поля (`vehicle_plate`, `loading_reference`, `loading_address`) → `pipeline_status = awaiting_loading` (зараз вимагає 5, у т.ч. водія і температуру — прибрати з критичних, лишити як «бажані»).
 
-### 4. Сторінка Переказ — кольори вкладок та лічильників
+### 2) Дашборд філіалу `/dashboard/branch`
 
-У `src/routes/_authenticated/offers.tsx` (або де табси Вхідні/Відправлені):
-- Вхідні: фон/текст активної вкладки — мʼяко-жовтий (`bg-yellow-100 text-yellow-900` або через токен `--accent-warning-soft`); badge — жовтий.
-- Відправлені: мʼяко-блакитний (`bg-sky-100 text-sky-900`); badge — блакитний.
+- Об'єднати у один список усі джерела товару для філіалу (вже частково реалізовано):
+  - matrialised `distribution_items` (підтверджені розподіли з поставок),
+  - approved `manager_offer_responses` без прив'язки до поставки (статус «В опрацюванні»),
+  - `manager_offer_responses` з `approved_pallets IS NULL` (статус «Чекаю підтвердження») — **додати**,
+  - відмовлені оффери з прапорцем «нове» — **додати** (хоча б до ack),
+  - вхідні `branch_transfer_offers` зі статусом accepted — **додати** як окреме джерело,
+  - `branch_requests` (запити на вільні залишки) у стадіях pending/approved — **додати**.
+- Для кожного рядка показувати один єдиний `pipeline_status` за канонічним ланцюгом вище (через `StatusChip`/`PipelineStatusBadge`).
+- Видалені (для філіалу-відправника) позиції після прийнятого transfer не показувати.
+- Toggle «Активні / Вивантажено» — лишити; «Вивантажено» = `pipeline_status = unloaded` AND `archived_at IS NULL`.
 
-У `MainBoardToggle` чи у нижній навігації — НЕ чіпаємо (за вашою відповіддю — лічильники лишаються тільки на /offers).
+### 3) Логістика `/logistics`
 
-### 5. Технічні деталі
+- 3 критичні поля підсвітити як обов'язкові; інші (водій, температура) — опційні. Кнопка «Готово до завантаження» розблоковується після 3 полів.
+- Статус-чип у таблиці тягнути з `pipeline_status` (а не `logistics_status`), щоб усі ролі бачили однакове.
 
-- Лічильник змін у строці = кількість полів де `current ≠ seen_*` (показуємо ⚠️ біля кожного поля окремо, як ви і просили).
-- Зміна статусу `distribution.status` — НЕ враховується у лічильнику (по вашому уточненню). Тригерів на status не ставимо.
-- Якщо baseline відсутній (старі записи) — створимо backfill: для всіх існуючих `distribution_items` поставимо `identified_at = distributions.created_at`, baseline = поточним значенням, seen = baseline (нічого не світиться).
-- Realtime: підписку на `branch_distribution_baselines` додавати не треба — рендер реагує на зміни `shipments`/`distribution_items` через існуючий invalidation.
+### 4) Brokerage / склад
 
-### 6. Що НЕ роблю у цьому кроці
-- Не змінюю нижню навігацію (`AppShell.tsx`) — за вашою відповіддю.
-- Не додаю історію всіх змін (журнал) — popover показує лише останню різницю baseline↔current.
-- Не редагую табло менеджера/логістики/адміна — запит стосується лише дашборду філії та табів Переказ.
+- На картці поставки додати 3 кнопки ручної зміни:
+  - «На митниці» (роль broker) → `at_customs`,
+  - «Їде на склад» (broker) → `left_customs`,
+  - «На складі» (warehouse/admin) → `at_warehouse`, виставити `at_warehouse_at`.
 
-Підтверджуєте — починаю з міграції БД, потім код?
+### 5) Архів
+
+- Cron перекидає в архів через 24 год після `unloaded`; сторінка `/archive` вже фільтрує `archived_at IS NOT NULL` — лишити.
+
+## Технічні деталі
+
+- Усі автопереходи — у БД (тригери + cron `tick_shipment_pipeline`). Frontend лише читає `pipeline_status`. Це гарантує консистентність незалежно від того, відкрита сторінка чи ні.
+- Поле «manual_status_override BOOLEAN» на `shipments`: якщо логіст/брокер вручну перевів статус — `tick` не перезаписує.
+- Збереження історії: писати в `system_logs` кожну авто-зміну (`module='pipeline'`, `action='auto_advance'`).
+- RLS не міняємо — лише доповнюємо політики на нові SELECT-джерела дашборду філіалу (transfer_offers вхідні, branch_requests own — вже відкриті).
+
+## Послідовність робіт
+
+1. Міграція БД (enum, тригери, cron, override-флаг).
+2. Перевірити дашборд філіалу — додати відсутні джерела (waiting/rejected offers, incoming transfers, free-stock requests).
+3. Перевести `StatusChip` філіалу й логістики на `pipeline_status`.
+4. Кнопки ручних статусів для брокера/складу.
+5. Сценарне тестування за 9 кроками з ТЗ.
+
+## Що НЕ міняємо
+
+- UI карток поставки, нові сторінки, нові ролі — поза скоупом цього циклу.
+- Логіку оплат/собівартості — не чіпаємо.
+
+---
+
+Підтверди план — або скажи, що скоротити (наприклад, спершу лише пп. 1–3, без брокер-кнопок), і я починаю міграцію.

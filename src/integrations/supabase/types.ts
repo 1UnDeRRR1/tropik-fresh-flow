@@ -1208,6 +1208,7 @@ export type Database = {
           logistics_cost_usd: number | null
           logistics_days: number | null
           logistics_status: Database["public"]["Enums"]["logistics_status"]
+          manual_status_override: boolean
           notes: string | null
           other_costs: number | null
           pipeline_status: Database["public"]["Enums"]["pipeline_status"]
@@ -1260,6 +1261,7 @@ export type Database = {
           logistics_cost_usd?: number | null
           logistics_days?: number | null
           logistics_status?: Database["public"]["Enums"]["logistics_status"]
+          manual_status_override?: boolean
           notes?: string | null
           other_costs?: number | null
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
@@ -1312,6 +1314,7 @@ export type Database = {
           logistics_cost_usd?: number | null
           logistics_days?: number | null
           logistics_status?: Database["public"]["Enums"]["logistics_status"]
+          manual_status_override?: boolean
           notes?: string | null
           other_costs?: number | null
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
@@ -1922,6 +1925,7 @@ export type Database = {
         Args: { _offer_id: string }
         Returns: undefined
       }
+      tick_shipment_pipeline: { Args: never; Returns: undefined }
       tropik_calendar_aggregate: {
         Args: never
         Returns: {
@@ -2001,6 +2005,10 @@ export type Database = {
         | "at_customs"
         | "left_customs"
         | "at_warehouse"
+        | "awaiting_confirmation"
+        | "rejected"
+        | "confirmed"
+        | "unloaded"
       shipment_status:
         | "draft"
         | "loading"
@@ -2202,6 +2210,10 @@ export const Constants = {
         "at_customs",
         "left_customs",
         "at_warehouse",
+        "awaiting_confirmation",
+        "rejected",
+        "confirmed",
+        "unloaded",
       ],
       shipment_status: [
         "draft",
