@@ -262,6 +262,7 @@ function ShipmentsList() {
                               driver={s.driver_name ?? null}
                               address={s.loading_address ?? null}
                               reference={s.loading_reference ?? null}
+                              temperature={(s as { temperature_mode?: string | null }).temperature_mode ?? null}
                             />
                           </td>
                           <td className="px-1 py-2">
