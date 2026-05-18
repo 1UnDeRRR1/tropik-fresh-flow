@@ -191,8 +191,10 @@ function LogisticsPage() {
         subtitle="Єдине табло поставок з номером, постачальником та позиціями. Клікніть рядок для деталей."
       />
 
+      <div className="mb-3"><MainBoardToggle value={board} onChange={setBoard} /></div>
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {(Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
+        {board === "active" && (Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
           const active = filter === f;
           return (
             <button
