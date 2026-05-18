@@ -26,8 +26,9 @@ type Row = {
   distribution_id: string;
   code: string;
   eta: string | null;
-  shipment_status: string;
+  pipeline: PipelineStatus;
   dist_status: string;
+  approved_qty_note: string | null;
   product: string;
   country: string | null;
   caliber: string | null;
