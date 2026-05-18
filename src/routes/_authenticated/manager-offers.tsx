@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, ChevronDown, ChevronUp, Link2, Trash2 } from "lucide-react";
+import { Plus, Pencil, ChevronDown, ChevronUp, Link2, Trash2, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -155,6 +155,22 @@ function ManagerOffersPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
+    // Switch to the tab that contains this offer
+    if (["active", "in_work", "confirmed"].includes(offerStatus)) setTab("active");
+    else if (offerStatus === "draft") setTab("drafts");
+    else if (offerStatus === "linked") setTab("linked");
+    else if (["closed", "expired"].includes(offerStatus)) setTab("archive");
+    setExpanded((prev) => ({ ...prev, [offerId]: true }));
+    setHighlightedId(offerId);
+    setTimeout(() => {
+      const el = document.getElementById(`offer-${offerId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
+  }
 
   const { data: branches } = useQuery({
     queryKey: ["branches-min"],
@@ -273,6 +289,35 @@ function ManagerOffersPage() {
     return merged;
   }, [merged, tab]);
 
+  // New responses from branches that the manager hasn't acted on yet
+  const pendingItems = useMemo(() => {
+    const items: {
+      offerId: string;
+      offerStatus: ManagerOfferStatus;
+      productName: string;
+      originCountry: string | null;
+      branchName: string;
+      requested: number;
+      createdAt: string;
+    }[] = [];
+    for (const o of merged) {
+      for (const r of o.responses) {
+        if (r.approved_pallets == null) {
+          items.push({
+            offerId: o.id,
+            offerStatus: o.status,
+            productName: o.product_name,
+            originCountry: o.origin_country ?? null,
+            branchName: r.branch_name ?? "Філія",
+            requested: Number(r.requested_pallets ?? 0),
+            createdAt: (r as { created_at?: string }).created_at ?? "",
+          });
+        }
+      }
+    }
+    return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }, [merged]);
+
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ManagerOfferStatus }) => {
       const { error } = await supabase.from("manager_offers").update({ status }).eq("id", id);
@@ -307,6 +352,41 @@ function ManagerOffersPage() {
         }
       />
 
+      {pendingItems.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+            <Bell className="h-4 w-4" />
+            Нові відгуки від філій ({pendingItems.length})
+          </div>
+          <div className="space-y-1.5">
+            {pendingItems.slice(0, 6).map((p, i) => (
+              <button
+                key={`${p.offerId}-${i}`}
+                type="button"
+                onClick={() => focusOffer(p.offerId, p.offerStatus)}
+                className="flex w-full items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 text-left text-xs transition hover:bg-white dark:bg-amber-500/5 dark:hover:bg-amber-500/10"
+              >
+                <span className="min-w-0 truncate">
+                  <b>{p.branchName}</b>
+                  <span className="text-muted-foreground"> · </span>
+                  {p.productName}
+                  {p.originCountry && (
+                    <span className="text-muted-foreground"> · {p.originCountry}</span>
+                  )}
+                </span>
+                <span className="shrink-0 rounded-full bg-amber-200/80 px-2 py-0.5 text-[11px] font-bold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
+                  {p.requested} пал.
+                </span>
+              </button>
+            ))}
+            {pendingItems.length > 6 && (
+              <div className="px-1 text-[11px] text-muted-foreground">
+                та ще {pendingItems.length - 6}…
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="active">Активні</TabsTrigger>
@@ -336,11 +416,17 @@ function ManagerOffersPage() {
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const isOpen = expanded[o.id] ?? false;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
+            const hasPending = o.responses.some((r) => r.approved_pallets == null);
             return (
               <div
                 key={o.id}
+                id={`offer-${o.id}`}
                 data-offer-card
-                className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+                className={cn(
+                  "rounded-2xl border bg-card p-4 shadow-sm transition-all",
+                  hasPending ? "border-amber-400/70 ring-1 ring-amber-300/40" : "border-border",
+                  highlightedId === o.id && "ring-4 ring-amber-400 shadow-lg",
+                )}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
