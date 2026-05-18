@@ -429,6 +429,7 @@ function EditDialog({
     final_freight_amount:
       row.final_freight_amount != null ? String(row.final_freight_amount) : "",
     final_freight_currency: row.final_freight_currency ?? "EUR",
+    temperature_mode: row.temperature_mode ?? "",
   });
 
   const save = useMutation({
