@@ -15,6 +15,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
