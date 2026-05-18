@@ -50,6 +50,7 @@ function ShipmentsList() {
   const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
+  const isAdmin = hasRole(["super_admin", "admin"]);
   const qc = useQueryClient();
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
@@ -212,6 +213,7 @@ function ShipmentsList() {
                       <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
                       <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
                       <th className="px-2 py-2 text-center text-foreground">Логістика</th>
+                      {isAdmin && <th className="px-2 py-2 whitespace-nowrap">Відповідальний менеджер</th>}
                       <th className="px-2 py-2"></th>
                     </tr>
                   </thead>
@@ -265,6 +267,11 @@ function ShipmentsList() {
                               temperature={(s as { temperature_mode?: string | null }).temperature_mode ?? null}
                             />
                           </td>
+                          {isAdmin && (
+                            <td className="px-2 py-2 whitespace-nowrap text-foreground">
+                              {(s as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                            </td>
+                          )}
                           <td className="px-1 py-2">
                             {isOwner && (
                               <RowActions
