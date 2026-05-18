@@ -5,7 +5,7 @@ import { Plus, MoreVertical, Pencil, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { StatusChip, SHIPMENT_LABEL } from "@/components/StatusChip";
+import { StatusChip, SHIPMENT_LABEL, shipmentCodeTextTone } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -228,7 +228,7 @@ function ShipmentsList() {
                       return (
                         <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
                           <td className={cn("sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px]", tone || "bg-card")}>
-                            <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
+                            <Link to="/shipments/$id" params={{ id: s.id }} className={cn("font-bold whitespace-nowrap", shipmentCodeTextTone(s.status))}>
                               {s.code}
                             </Link>
                           </td>

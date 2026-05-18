@@ -31,14 +31,14 @@ function transliterate(input: string): string {
  *   "Bury"                → "Bury"
  */
 export function buildSupplierCode(name: string): string {
-  if (!name) return "Supplier";
+  if (!name) return "SUPPLIER";
   const words = transliterate(name)
     .replace(/[^a-zA-Z0-9 ]/g, " ")
     .split(/\s+/)
     .filter(Boolean)
     .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
-  const joined = words.join("") || "Supplier";
-  return joined.slice(0, 10);
+  const joined = words.join("") || "SUPPLIER";
+  return joined.slice(0, 10).toUpperCase();
 }
 
 /** ISO3 code from Ukrainian country name. Falls back to 3 first letters. */
@@ -55,9 +55,9 @@ export function formatVehicleCode(countryCode: string, sequenceNo: number): stri
   return `${String(sequenceNo).padStart(2, "0")}-${countryCode}`;
 }
 
-/** Shipment code: `${supplierBase}${vehicleCode}` e.g. "Nava01-ITA". */
+/** Shipment code: `${supplierBase}${vehicleCode}` e.g. "NAVA01-ITA". */
 export function formatShipmentCode(vehicleCode: string, supplierCode: string): string {
-  return `${supplierCode}${vehicleCode}`;
+  return `${supplierCode}${vehicleCode}`.toUpperCase();
 }
 
 /** Reads next sequence_no for a country code via DB. */

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
-import type { PipelineStatus } from "@/lib/pipeline-status";
+import { PIPELINE_TONE, type PipelineStatus } from "@/lib/pipeline-status";
 
 const SHIPMENT_TO_PIPELINE: Record<string, PipelineStatus | null> = {
   draft: "proposed",
@@ -64,6 +64,16 @@ export function statusTone(status: string): string {
   if (status === "in_transit" || status === "dispatched" || status === "distributing")
     return "bg-info/15 text-info";
   return "bg-muted text-muted-foreground";
+}
+
+/** Tailwind text-color class for a shipment status, matching its StatusChip color. */
+export function shipmentCodeTextTone(status: string): string {
+  const pipeline = SHIPMENT_TO_PIPELINE[status];
+  if (pipeline) return PIPELINE_TONE[pipeline].text;
+  if (status === "completed") return "text-success";
+  if (status === "delayed") return "text-destructive";
+  if (status === "cancelled") return "text-muted-foreground";
+  return "text-brand";
 }
 
 export function StatusChip({
