@@ -245,8 +245,12 @@ function ShipmentsList() {
                               {s.code}
                             </Link>
                           </td>
-                          <td className="px-2 py-2 w-[110px] min-w-[110px]">
-                            <StatusChip status={s.status} />
+                          <td className="px-2 py-2 w-[130px] min-w-[130px]">
+                            {s.pipeline_status ? (
+                              <PipelineStatusBadge status={s.pipeline_status as PipelineStatus} variant="animated" />
+                            ) : (
+                              <StatusChip status={s.status} />
+                            )}
                           </td>
                           <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
                           <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
