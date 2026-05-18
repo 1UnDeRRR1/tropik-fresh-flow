@@ -508,7 +508,7 @@ function NewShipment() {
   );
 
   const vehicleField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("vehicle") && "field-invalid")}>
       <Label>Відкрите авто</Label>
       <Popover open={vehicleOpen} onOpenChange={setVehicleOpen}>
         <PopoverTrigger asChild>
@@ -541,6 +541,7 @@ function NewShipment() {
                         setVehicleId(v.id);
                         setCountry(v.country);
                         setCountryTouched(true);
+                        clearInvalid("vehicle");
                         setVehicleOpen(false);
                       }}
                     >
