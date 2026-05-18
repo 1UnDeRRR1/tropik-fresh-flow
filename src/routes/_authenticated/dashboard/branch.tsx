@@ -390,16 +390,37 @@ function BranchDashboard() {
             .filter((p) => !materialisedOfferIds.has(p.offer_id))
             .map((p) => {
               const o = p.manager_offers;
-              const pallets = Number(p.approved_pallets || 0);
+              const approved = p.approved_pallets;
+              const requested = Number(p.requested_pallets || 0);
+              let pipeline: PipelineStatus;
+              let codeLabel: string;
+              let note: string | null = null;
+              if (approved === null) {
+                pipeline = "awaiting_confirmation";
+                codeLabel = "Чекаю підтвердження";
+              } else if (Number(approved) <= 0) {
+                pipeline = "rejected";
+                codeLabel = "Відмовлено";
+              } else if (o.linked_shipment_id) {
+                pipeline = "confirmed";
+                codeLabel = "Підтверджено";
+                if (Number(approved) < requested) note = `${approved} з ${requested}п`;
+              } else {
+                pipeline = "processing";
+                codeLabel = "В опрацюванні";
+                if (Number(approved) < requested) note = `${approved} з ${requested}п`;
+              }
+              const pallets = Number(approved ?? requested ?? 0);
               const weight = pallets * Number(o.pallet_weight ?? 0);
               return {
-                key: `pending-${p.id}`,
-                shipment_item_id: `pending-${p.id}`,
-                distribution_id: `pending-${p.id}`,
-                code: "Очікує поставку",
+                key: `mor-${p.id}`,
+                shipment_item_id: `mor-${p.id}`,
+                distribution_id: `mor-${p.id}`,
+                code: codeLabel,
                 eta: o.expected_eta,
-                shipment_status: "pending",
+                pipeline,
                 dist_status: "pending",
+                approved_qty_note: note,
                 product: o.product_name,
                 country: o.origin_country,
                 caliber: o.caliber,
