@@ -1385,6 +1385,11 @@ function LinkShipmentDialog({
               <div className="font-semibold text-sm">{offer.product_name}</div>
             </div>
           )}
+          <Link to="/shipments/new" onClick={() => onClose()} className="block">
+            <Button size="sm" className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
+              <Plus className="mr-1 h-4 w-4" /> Нова поставка
+            </Button>
+          </Link>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
               {showAll
