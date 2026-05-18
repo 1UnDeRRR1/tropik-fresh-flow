@@ -121,10 +121,8 @@ function DescriptionPopover({ row, children }: { row: Row; children: React.React
           {row.variety && (<><dt className="text-muted-foreground">Сорт</dt><dd>{row.variety}</dd></>)}
           {row.caliber && (<><dt className="text-muted-foreground">Калібр</dt><dd>{row.caliber}</dd></>)}
           {row.packaging && (<><dt className="text-muted-foreground">Упаковка</dt><dd>{row.packaging}</dd></>)}
-          {row.country && (<><dt className="text-muted-foreground">Країна</dt><dd>{toUaCountry(row.country)}</dd></>)}
           {row.supplier_name && (<><dt className="text-muted-foreground">Постачальник</dt><dd>{row.supplier_name}</dd></>)}
           {row.temperature_mode && (<><dt className="text-muted-foreground">Темп. режим</dt><dd>{row.temperature_mode}</dd></>)}
-          <dt className="text-muted-foreground">Поставка</dt><dd className="font-mono">{row.code}</dd>
         </dl>
       </PopoverContent>
     </Popover>
