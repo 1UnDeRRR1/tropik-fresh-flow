@@ -429,7 +429,18 @@ function EditDialog({
     driver_phone: row.driver_phone ?? "",
     logistics_status: row.logistics_status,
     temperature_mode: row.temperature_mode ?? "",
+    eta: row.eta ?? "",
+    final_freight_amount:
+      row.final_freight_amount != null ? String(row.final_freight_amount) : "",
+    final_freight_currency: row.final_freight_currency ?? row.logistics_cost_currency ?? "EUR",
+    logistics_comment: row.logistics_comment ?? "",
   });
+
+  const totalPallets = row.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
+  const totalWeight = row.items.reduce(
+    (s, i) => s + (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0),
+    0,
+  );
 
   const save = useMutation({
     mutationFn: async () => {
@@ -445,6 +456,11 @@ function EditDialog({
         patch.driver_name = form.driver_name || null;
         patch.driver_phone = form.driver_phone || null;
         patch.logistics_status = form.logistics_status;
+        patch.eta = form.eta || null;
+        patch.logistics_comment = form.logistics_comment || null;
+        const amt = form.final_freight_amount.trim();
+        patch.final_freight_amount = amt === "" ? null : Number(amt);
+        patch.final_freight_currency = amt === "" ? null : form.final_freight_currency;
       }
       if (Object.keys(patch).length === 0) return;
       const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
