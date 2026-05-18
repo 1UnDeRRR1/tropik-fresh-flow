@@ -273,7 +273,6 @@ function BoardTable({
               <TableHead className="text-xs">Водій</TableHead>
               <TableHead className="text-xs">Менеджер</TableHead>
               <TableHead className="text-xs">Freight</TableHead>
-              <TableHead className="text-xs">Попередж.</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -288,79 +287,93 @@ function BoardTable({
               const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
               const missingDriver = !r.driver_name;
               const missingFinalFreight = r.final_freight_amount == null;
+              const hasWarnings =
+                missingVehicle || missingDriver || missingAddress || missingRef || missingFinalFreight;
               const tractor = r.tractor_plate ?? r.vehicle_plate ?? null;
               const trailer = r.trailer_plate ?? null;
               const managerLabel = resolveManagerName(r, managerMap);
               return (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => onOpen(r)}>
-                  <TableCell className="font-mono text-xs font-bold">{r.code}</TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        LOGISTICS_STATUS_CLASS[r.logistics_status],
-                      )}
+                <Fragment key={r.id}>
+                  {hasWarnings && (
+                    <TableRow
+                      className="cursor-pointer border-b-0 hover:bg-muted/40"
+                      onClick={() => onOpen(r)}
                     >
-                      {LOGISTICS_STATUS_LABEL[r.logistics_status]}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs">{r.loading_date ?? "—"}</TableCell>
-                  <TableCell className="text-xs">{r.eta ?? "—"}</TableCell>
-                  <TableCell className="text-xs">{r.supplier?.name ?? "—"}</TableCell>
-                  <TableCell className="text-xs">{r.country ?? "—"}</TableCell>
-                  <TableCell className="text-xs">
-                    {r.temperature_mode === "cold" ? (
-                      <span className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900 dark:bg-sky-900/40 dark:text-sky-200">
-                        Холод
+                      <TableCell colSpan={13} className="px-2 py-1">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {missingVehicle && <Warning text="без авто" />}
+                          {missingDriver && <Warning text="без водія" />}
+                          {missingAddress && <Warning text="без адреси" />}
+                          {missingRef && <Warning text="без reference" />}
+                          {missingFinalFreight && <Warning text="без final freight" />}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  <TableRow
+                    className="cursor-pointer [&_td]:py-1"
+                    onClick={() => onOpen(r)}
+                  >
+                    <TableCell className="font-mono text-xs font-bold">{r.code}</TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          LOGISTICS_STATUS_CLASS[r.logistics_status],
+                        )}
+                      >
+                        {LOGISTICS_STATUS_LABEL[r.logistics_status]}
                       </span>
-                    ) : r.temperature_mode === "warm" ? (
-                      <span className="inline-block rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-900 dark:bg-orange-900/40 dark:text-orange-200">
-                        Тепло
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right text-xs">{totalPallets || "—"}</TableCell>
-                  <TableCell className="text-right text-xs">
-                    {totalWeight ? Math.round(totalWeight) : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs font-mono whitespace-nowrap">
-                    {tractor ? (
-                      <span>
-                        {tractor}
-                        {trailer ? <span className="text-muted-foreground"> / {trailer}</span> : null}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs">{r.driver_name ?? "—"}</TableCell>
-                  <TableCell className="text-xs">{managerLabel ?? "—"}</TableCell>
-                  <TableCell className="text-xs">
-                    {r.final_freight_amount != null ? (
-                      <span className="font-semibold text-foreground">
-                        {Number(r.final_freight_amount).toFixed(0)}{" "}
-                        {r.final_freight_currency ?? "EUR"}
-                      </span>
-                    ) : r.logistics_cost ? (
-                      <span className="text-muted-foreground">
-                        ~{Number(r.logistics_cost).toFixed(0)} {r.logistics_cost_currency ?? "EUR"}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {missingVehicle && <Warning text="без авто" />}
-                      {missingDriver && <Warning text="без водія" />}
-                      {missingAddress && <Warning text="без адреси" />}
-                      {missingRef && <Warning text="без reference" />}
-                      {missingFinalFreight && <Warning text="без final freight" />}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    </TableCell>
+                    <TableCell className="text-xs">{r.loading_date ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{r.eta ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{r.supplier?.name ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{r.country ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {r.temperature_mode === "cold" ? (
+                        <span className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900 dark:bg-sky-900/40 dark:text-sky-200">
+                          Холод
+                        </span>
+                      ) : r.temperature_mode === "warm" ? (
+                        <span className="inline-block rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-900 dark:bg-orange-900/40 dark:text-orange-200">
+                          Тепло
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right text-xs">{totalPallets || "—"}</TableCell>
+                    <TableCell className="text-right text-xs">
+                      {totalWeight ? Math.round(totalWeight) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap">
+                      {tractor ? (
+                        <span>
+                          {tractor}
+                          {trailer ? <span className="text-muted-foreground"> / {trailer}</span> : null}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs">{r.driver_name ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{managerLabel ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {r.final_freight_amount != null ? (
+                        <span className="font-semibold text-foreground">
+                          {Number(r.final_freight_amount).toFixed(0)}{" "}
+                          {r.final_freight_currency ?? "EUR"}
+                        </span>
+                      ) : r.logistics_cost ? (
+                        <span className="text-muted-foreground">
+                          ~{Number(r.logistics_cost).toFixed(0)} {r.logistics_cost_currency ?? "EUR"}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
               );
             })}
           </TableBody>
