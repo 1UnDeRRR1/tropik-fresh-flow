@@ -155,6 +155,22 @@ function ManagerOffersPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
+    // Switch to the tab that contains this offer
+    if (["active", "in_work", "confirmed"].includes(offerStatus)) setTab("active");
+    else if (offerStatus === "draft") setTab("drafts");
+    else if (offerStatus === "linked") setTab("linked");
+    else if (["closed", "expired"].includes(offerStatus)) setTab("archive");
+    setExpanded((prev) => ({ ...prev, [offerId]: true }));
+    setHighlightedId(offerId);
+    setTimeout(() => {
+      const el = document.getElementById(`offer-${offerId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
+  }
 
   const { data: branches } = useQuery({
     queryKey: ["branches-min"],
