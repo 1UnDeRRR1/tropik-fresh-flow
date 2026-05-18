@@ -267,7 +267,7 @@ function BranchDashboard() {
 
 
       <Sheet open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="top" className="mt-[env(safe-area-inset-top)] max-h-[85vh] overflow-y-auto rounded-b-2xl">
           <SheetHeader className="text-left">
             <SheetTitle className="pr-8">
               <span>
