@@ -58,6 +58,14 @@ function BranchFreeList() {
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("UAH");
   const [submitting, setSubmitting] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [invalid, setInvalid] = useState<{ pallets: boolean; price: boolean }>({ pallets: false, price: false });
+  const triggerShake = (inv: { pallets: boolean; price: boolean }) => {
+    setInvalid(inv);
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    window.setTimeout(() => setShake(false), 600);
+  };
 
   // Read via branch-safe views — purchase prices are not exposed at all.
   const { data: items } = useQuery({
