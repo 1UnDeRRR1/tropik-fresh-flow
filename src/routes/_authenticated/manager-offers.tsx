@@ -773,7 +773,7 @@ function OfferEditor({
         const payload = items[0].payload!;
         const { error: offerError } = await supabase
           .from("manager_offers")
-          .update({ ...payload, status: "active", target_mode: mode })
+          .update({ ...(payload as any), status: "active", target_mode: mode } as any)
           .eq("id", offer.id);
         if (offerError) throw offerError;
 
