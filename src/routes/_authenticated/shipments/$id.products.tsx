@@ -339,6 +339,23 @@ function ProductsFullscreen() {
     ? currentShipmentEditable
     : !!user?.id && !!vehicleContext?.ownerShipment && vehicleContext.ownerShipment.id === sh.id && sh.vehicle_owner_id === user.id);
 
+  const transportCostValue = Number(
+    (vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost) ?? 0,
+  );
+  const transportMissing = canEditTransport && transportCostValue <= 0;
+
+  const [shake, setShake] = useState(false);
+  const [flashTransport, setFlashTransport] = useState(false);
+  const triggerShake = (flashTr: boolean) => {
+    setFlashTransport(flashTr);
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    window.setTimeout(() => {
+      setShake(false);
+      if (flashTr) setFlashTransport(false);
+    }, 1200);
+  };
+
   useEffect(() => {
     const onUnload = () => {
       void deleteShipmentIfEmpty(id);
@@ -399,7 +416,7 @@ function ProductsFullscreen() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
@@ -425,6 +442,7 @@ function ProductsFullscreen() {
           currentUserId={user?.id ?? null}
           vehicleContext={vehicleContext}
           canEditTransport={canEditTransport}
+          flash={flashTransport}
         />
       )}
       {vehicleContext && (
@@ -471,29 +489,27 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          if (incompleteCount > 0) {
+          if (incompleteCount > 0 || !hasRealPallets || transportMissing) {
             e.preventDefault();
-            toast.error(`Заповніть всі обов'язкові поля (${incompleteCount} поз.)`);
-            return;
-          }
-          if (!hasRealPallets) {
-            e.preventDefault();
-            toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
+            triggerShake(transportMissing);
             return;
           }
           e.preventDefault();
           void leaveProducts();
         }}>
           <Button
-            disabled={incompleteCount > 0}
             className={cn(
-              "w-full disabled:cursor-not-allowed disabled:opacity-70",
-              incompleteCount > 0
+              "w-full",
+              (incompleteCount > 0 || transportMissing)
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
-            {incompleteCount > 0 ? `Заповніть обов'язкові поля (${incompleteCount})` : "Готово"}
+            {transportMissing
+              ? "Вкажіть вартість перевезення"
+              : incompleteCount > 0
+                ? `Заповніть обов'язкові поля (${incompleteCount})`
+                : "Готово"}
           </Button>
         </Link>
       </footer>
@@ -506,11 +522,13 @@ function TransportBar({
   currentUserId,
   vehicleContext,
   canEditTransport,
+  flash,
 }: {
   shipment: ShipmentRow;
   currentUserId: string | null;
   vehicleContext: VehicleContext | null;
   canEditTransport: boolean;
+  flash?: boolean;
 }) {
   const lockedByOwner =
     !!shipment.vehicle_id &&
@@ -590,6 +608,7 @@ function TransportBar({
     <div className={cn(
       "flex items-center gap-2 border-b px-3 py-1.5 transition-colors",
       isEmpty ? "border-destructive bg-destructive/10" : "border-border bg-muted/40",
+      flash && "field-invalid",
     )}>
       <span className={cn(
         "text-[11px] font-semibold uppercase tracking-wide",
