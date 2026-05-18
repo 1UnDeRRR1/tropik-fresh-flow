@@ -134,7 +134,7 @@ function BranchDashboard() {
   const { profile } = useAuth();
   const qc = useQueryClient();
   const branchId = profile?.branch_id;
-  const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
+  const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
 
