@@ -100,7 +100,7 @@ export function PreviewRoleSwitcher() {
   };
 
   return (
-    <div className="fixed bottom-24 right-3 z-[60] md:bottom-4 md:right-4">
+    <div className="fixed right-3 top-3 z-[9999] md:right-4 md:top-4">
       {open ? (
         <div className="w-64 rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur">
           <div className="mb-2 flex items-center justify-between">
