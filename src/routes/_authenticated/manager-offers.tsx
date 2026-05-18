@@ -339,6 +339,7 @@ function ManagerOffersPage() {
             return (
               <div
                 key={o.id}
+                data-offer-card
                 className="rounded-2xl border border-border bg-card p-4 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
