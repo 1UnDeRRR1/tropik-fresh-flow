@@ -12,29 +12,56 @@ export function MainBoardToggle({
   className?: string;
 }) {
   return (
-    <div className={cn("inline-flex rounded-full border border-border bg-card p-1 text-xs", className)}>
+    <div
+      role="tablist"
+      aria-label="Перемикач табло"
+      className={cn(
+        "relative z-10 grid w-full max-w-sm grid-cols-2 rounded-xl border border-border bg-muted/70 p-1 text-xs",
+        className,
+      )}
+    >
       <button
         type="button"
+        role="tab"
+        aria-selected={value === "active"}
+        aria-pressed={value === "active"}
         onClick={() => onChange("active")}
         className={cn(
-          "rounded-full px-3 py-1.5 font-semibold transition",
+          "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-semibold transition touch-manipulation select-none",
           value === "active"
-            ? "bg-brand text-brand-foreground"
+            ? "bg-card text-foreground shadow-sm ring-1 ring-border"
             : "text-muted-foreground hover:text-foreground",
         )}
       >
+        <span
+          className={cn(
+            "h-2 w-2 rounded-full transition",
+            value === "active" ? "bg-brand" : "bg-border",
+          )}
+          aria-hidden="true"
+        />
         Активні
       </button>
       <button
         type="button"
+        role="tab"
+        aria-selected={value === "unloaded"}
+        aria-pressed={value === "unloaded"}
         onClick={() => onChange("unloaded")}
         className={cn(
-          "rounded-full px-3 py-1.5 font-semibold transition",
+          "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-semibold transition touch-manipulation select-none",
           value === "unloaded"
-            ? "bg-brand text-brand-foreground"
+            ? "bg-card text-foreground shadow-sm ring-1 ring-border"
             : "text-muted-foreground hover:text-foreground",
         )}
       >
+        <span
+          className={cn(
+            "h-2 w-2 rounded-full transition",
+            value === "unloaded" ? "bg-brand" : "bg-border",
+          )}
+          aria-hidden="true"
+        />
         Розвантажено
       </button>
     </div>

@@ -460,7 +460,17 @@ function BranchDashboard() {
         </div>
       )}
 
-      <MainBoardToggle value={board} onChange={setBoard} />
+      <div className="space-y-2">
+        <MainBoardToggle value={board} onChange={setBoard} />
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <div className="font-semibold text-foreground">
+            {board === "active" ? "Активний товар у роботі" : "Розвантажений товар"}
+          </div>
+          <div className="text-muted-foreground">
+            {rows.length} {rows.length === 1 ? "рядок" : rows.length < 5 ? "рядки" : "рядків"}
+          </div>
+        </div>
+      </div>
 
       {!rows.length ? (
         <EmptyState title={board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"} />
