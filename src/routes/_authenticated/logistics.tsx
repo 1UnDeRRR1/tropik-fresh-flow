@@ -439,6 +439,7 @@ function EditDialog({
         patch.loading_address = form.loading_address || null;
         patch.loading_reference = form.loading_reference || null;
         patch.notes = form.notes || null;
+        patch.temperature_mode = form.temperature_mode || null;
       }
       if (isLogistics) {
         patch.tractor_plate = form.tractor_plate || null;
