@@ -55,9 +55,8 @@ function isoDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function shortName(full: string) {
+function surname(full: string) {
   const parts = full.trim().split(/\s+/);
-  if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
   return parts[0] ?? "";
 }
 
@@ -234,14 +233,14 @@ function CalendarPage() {
                             <span className="font-mono text-xs font-bold text-brand">{e.sh.code}</span>
                             <CostPair indicative={e.it.final_cost_indicative} invoice={e.it.final_cost_invoice} suffix=" кг" size="xs" />
                           </div>
-                          <div className="mt-0.5 text-muted-foreground">
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
                             <span className="font-medium text-foreground">{e.it.product_name}</span>
                             {(e.it.origin_country || e.sh.country) ? (
                               <span> · {e.it.origin_country || e.sh.country}</span>
                             ) : null}
                             <span> · <span className="font-bold tabular-nums text-brand">{Number(e.it.pallet_count ?? 0)}п</span></span>
                             {isStaffAll && mgrName ? (
-                              <span> · <span className="text-foreground">{shortName(mgrName)}</span></span>
+                              <span> · <span className="text-foreground">{surname(mgrName)}</span></span>
                             ) : null}
                           </div>
                         </button>
@@ -266,7 +265,7 @@ function CalendarPage() {
                 {openItem?.sh.code} · {(openItem?.it.origin_country || openItem?.sh.country) ?? ""}
                 {openItem ? (() => {
                   const mn = mgrMap.get(openItem.sh.import_manager_id ?? "");
-                  return mn ? <> · {shortName(mn)}</> : null;
+                  return mn ? <> · {surname(mn)}</> : null;
                 })() : null}
               </div>
             </DialogTitle>

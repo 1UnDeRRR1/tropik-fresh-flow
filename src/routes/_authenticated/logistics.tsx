@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Truck, FileText, Save, AlertTriangle, Search, Wallet } from "lucide-react";
+import { Truck, FileText, Save, AlertTriangle, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -297,10 +297,9 @@ function BoardTable({
               const missingRef = !r.loading_reference;
               const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
               const missingDriver = !r.driver_name;
-              const missingFinalFreight = r.final_freight_amount == null;
               const missingTemperature = !r.temperature_mode;
               const hasWarnings =
-                missingVehicle || missingDriver || missingAddress || missingRef || missingFinalFreight || missingTemperature;
+                missingVehicle || missingDriver || missingAddress || missingRef || missingTemperature;
               const tractor = r.tractor_plate ?? r.vehicle_plate ?? null;
               const trailer = r.trailer_plate ?? null;
               const managerLabel = resolveManagerName(r, managerMap);
@@ -317,7 +316,6 @@ function BoardTable({
                           {missingDriver && <Warning text="без водія" />}
                           {missingAddress && <Warning text="без адреси" />}
                           {missingRef && <Warning text="без reference" />}
-                          {missingFinalFreight && <Warning text="без final freight" />}
                           {missingTemperature && <Warning text="без температури" />}
                         </div>
                       </TableCell>
@@ -429,13 +427,7 @@ function EditDialog({
     trailer_plate: row.trailer_plate ?? "",
     driver_name: row.driver_name ?? "",
     driver_phone: row.driver_phone ?? "",
-    eta: row.eta ?? "",
-    notes: row.notes ?? "",
-    logistics_comment: row.logistics_comment ?? "",
     logistics_status: row.logistics_status,
-    final_freight_amount:
-      row.final_freight_amount != null ? String(row.final_freight_amount) : "",
-    final_freight_currency: row.final_freight_currency ?? "EUR",
     temperature_mode: row.temperature_mode ?? "",
   });
 
@@ -445,7 +437,6 @@ function EditDialog({
       if (isManager) {
         patch.loading_address = form.loading_address || null;
         patch.loading_reference = form.loading_reference || null;
-        patch.notes = form.notes || null;
         patch.temperature_mode = form.temperature_mode || null;
       }
       if (isLogistics) {
@@ -453,17 +444,7 @@ function EditDialog({
         patch.trailer_plate = form.trailer_plate || null;
         patch.driver_name = form.driver_name || null;
         patch.driver_phone = form.driver_phone || null;
-        patch.eta = form.eta || null;
         patch.logistics_status = form.logistics_status;
-        patch.logistics_comment = form.logistics_comment || null;
-        const finalNum = form.final_freight_amount.trim()
-          ? Number(form.final_freight_amount.replace(",", "."))
-          : null;
-        if (finalNum !== null && Number.isNaN(finalNum)) {
-          throw new Error("Невірна сума final freight");
-        }
-        patch.final_freight_amount = finalNum;
-        patch.final_freight_currency = finalNum != null ? form.final_freight_currency : null;
       }
       if (Object.keys(patch).length === 0) return;
       const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
@@ -477,53 +458,11 @@ function EditDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const startLoading = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any)
-        .from("shipments")
-        .update({
-          logistics_status: "loading",
-          loading_started_at: new Date().toISOString(),
-        })
-        .eq("id", row.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Завантаження розпочато");
-      qc.invalidateQueries({ queryKey: ["logistics-board"] });
-      onClose();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const finishLoading = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any)
-        .from("shipments")
-        .update({
-          logistics_status: "in_transit",
-          status: "in_transit",
-          loading_ended_at: new Date().toISOString(),
-        })
-        .eq("id", row.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Поставка в дорозі");
-      qc.invalidateQueries({ queryKey: ["logistics-board"] });
-      onClose();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const estimatedFreight = row.logistics_cost;
-  const estimatedCurrency = row.logistics_cost_currency ?? "EUR";
-
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-sm">
             <span className="font-mono">{row.code}</span>
             <span
               className={cn(
@@ -533,16 +472,19 @@ function EditDialog({
             >
               {LOGISTICS_STATUS_LABEL[row.logistics_status]}
             </span>
+            {managerName ? (
+              <span className="ml-auto text-[11px] font-normal text-muted-foreground">{managerName}</span>
+            ) : null}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2">
+        <div className="grid gap-3 py-2">
           <section>
-            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase text-muted-foreground">
-              <FileText className="h-3 w-3" /> Менеджер: завантаження
+            <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
+              <FileText className="h-3 w-3" /> Менеджер
             </h3>
-            <div className="grid gap-2 md:grid-cols-2">
-              <Labeled label="Loading address">
+            <div className="grid gap-2">
+              <Labeled label="Адреса завантаження">
                 <Textarea
                   value={form.loading_address}
                   onChange={(e) => setForm({ ...form, loading_address: e.target.value })}
@@ -550,53 +492,47 @@ function EditDialog({
                   disabled={!isManager}
                 />
               </Labeled>
-              <Labeled label="Loading reference">
-                <Input
-                  value={form.loading_reference}
-                  onChange={(e) => setForm({ ...form, loading_reference: e.target.value })}
-                  disabled={!isManager}
-                />
-              </Labeled>
-              <Labeled label="Температура перевезення">
-                <Input
-                  value={form.temperature_mode}
-                  onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
-                  disabled={!isManager}
-                  placeholder="напр. +2…+6 °C"
-                />
-              </Labeled>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Labeled label="Loading reference">
+                  <Input
+                    value={form.loading_reference}
+                    onChange={(e) => setForm({ ...form, loading_reference: e.target.value })}
+                    disabled={!isManager}
+                  />
+                </Labeled>
+                <Labeled label="Температура">
+                  <Input
+                    value={form.temperature_mode}
+                    onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
+                    disabled={!isManager}
+                    placeholder="+2…+6 °C"
+                  />
+                </Labeled>
+              </div>
             </div>
           </section>
 
           <section>
-            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase text-muted-foreground">
-              <Truck className="h-3 w-3" /> Логістика: авто та водій
+            <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
+              <Truck className="h-3 w-3" /> Логіст
             </h3>
-            <div className="grid gap-2 md:grid-cols-2">
-              <Labeled label="Номер тягача">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Labeled label="Тягач">
                 <Input
                   value={form.tractor_plate}
                   onChange={(e) => setForm({ ...form, tractor_plate: e.target.value })}
                   disabled={!isLogistics}
-                  placeholder="напр. AA1113TT"
+                  placeholder="AA1113TT"
                   autoCapitalize="characters"
                 />
               </Labeled>
-              <Labeled label="Номер причепа">
+              <Labeled label="Причіп">
                 <Input
                   value={form.trailer_plate}
                   onChange={(e) => setForm({ ...form, trailer_plate: e.target.value })}
                   disabled={!isLogistics}
-                  placeholder="напр. AX3111PC"
+                  placeholder="AX3111PC"
                   autoCapitalize="characters"
-                />
-              </Labeled>
-              <Labeled label="ETA">
-                <Input
-                  type="date"
-                  value={form.eta}
-                  onChange={(e) => setForm({ ...form, eta: e.target.value })}
-                  disabled={!isLogistics}
                 />
               </Labeled>
               <Labeled label="Водій">
@@ -606,75 +542,14 @@ function EditDialog({
                   disabled={!isLogistics}
                 />
               </Labeled>
-              <Labeled label="Телефон водія">
+              <Labeled label="Телефон">
                 <Input
                   value={form.driver_phone}
                   onChange={(e) => setForm({ ...form, driver_phone: e.target.value })}
                   disabled={!isLogistics}
                 />
               </Labeled>
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Заповнення номера авто автоматично переведе статус у «Авто призначено».
-            </p>
-          </section>
-
-          <section>
-            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase text-muted-foreground">
-              <Wallet className="h-3 w-3" /> Вартість транспорту
-            </h3>
-            <div className="rounded-md border border-border/50 bg-muted/30 p-2 text-xs">
-              <div>
-                <span className="text-muted-foreground">Estimated (менеджер):</span>{" "}
-                <span className="font-semibold">
-                  {estimatedFreight && row.final_freight_amount == null
-                    ? `${Number(estimatedFreight).toFixed(2)} ${estimatedCurrency}`
-                    : "—"}
-                </span>
-              </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Final freight має пріоритет над estimated.
-              </p>
-            </div>
-            <div className="mt-2 grid gap-2 md:grid-cols-[1fr_120px]">
-              <Labeled label="Final freight (фактична)">
-                <Input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={form.final_freight_amount}
-                  onChange={(e) => setForm({ ...form, final_freight_amount: e.target.value })}
-                  disabled={!isLogistics}
-                  placeholder="напр. 2600"
-                />
-              </Labeled>
-              <Labeled label="Валюта">
-                <Select
-                  value={form.final_freight_currency}
-                  onValueChange={(v) => setForm({ ...form, final_freight_currency: v })}
-                  disabled={!isLogistics}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["EUR", "USD", "UAH", "PLN"].map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Labeled>
-            </div>
-          </section>
-
-          <section>
-            <h3 className="mb-2 text-xs font-bold uppercase text-muted-foreground">
-              Статус та коментарі
-            </h3>
-            <div className="grid gap-2 md:grid-cols-2">
-              <Labeled label="Logistics status">
+              <Labeled label="Статус" className="sm:col-span-2">
                 <Select
                   value={form.logistics_status}
                   onValueChange={(v) => setForm({ ...form, logistics_status: v as LogisticsStatus })}
@@ -693,74 +568,10 @@ function EditDialog({
                 </Select>
               </Labeled>
             </div>
-            <Labeled label="Logistics коментар (логіст)" className="mt-2">
-              <Textarea
-                value={form.logistics_comment}
-                onChange={(e) => setForm({ ...form, logistics_comment: e.target.value })}
-                rows={2}
-                disabled={!isLogistics}
-              />
-            </Labeled>
-            <Labeled label="Manager коментар / loading instructions" className="mt-2">
-              <Textarea
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                rows={2}
-                disabled={!isManager}
-              />
-            </Labeled>
-          </section>
-
-          <section className="rounded-lg border border-border/50 bg-muted/30 p-2 text-xs">
-            <div className="grid gap-1 md:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground">Постачальник:</span>{" "}
-                <span className="font-medium">{row.supplier?.name ?? "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Країна:</span>{" "}
-                <span className="font-medium">{row.country ?? "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Дата завантаження:</span>{" "}
-                <span className="font-medium">{row.loading_date ?? "—"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Менеджер:</span>{" "}
-                <span className="font-medium">{managerName ?? "—"}</span>
-              </div>
-            </div>
-            {row.items.length > 0 && (
-              <div className="mt-2 border-t border-border/50 pt-2">
-                {row.items.map((i, idx) => (
-                  <div key={idx} className="text-[11px]">
-                    {i.product_name} — {i.pallet_count ?? 0} пал · {i.origin_country ?? "—"}
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          {isLogistics && row.logistics_status === "vehicle_assigned" && (
-            <Button
-              variant="secondary"
-              onClick={() => startLoading.mutate()}
-              disabled={startLoading.isPending}
-            >
-              Розпочати завантаження
-            </Button>
-          )}
-          {isLogistics && row.logistics_status === "loading" && (
-            <Button
-              variant="secondary"
-              onClick={() => finishLoading.mutate()}
-              disabled={finishLoading.isPending}
-            >
-              Завантаження завершено → В дорозі
-            </Button>
-          )}
+        <DialogFooter>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
             <Save className="mr-1 h-4 w-4" /> Зберегти
           </Button>
