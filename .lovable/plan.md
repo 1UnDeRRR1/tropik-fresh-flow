@@ -1,116 +1,63 @@
-# Сквозной статус "Status Pipeline"
+# План: статус «Розвантажено», блокування та архівація
 
-Создаём единую систему статусов, которая сопровождает товар от пропозиції менеджера до прибуття на склад. Виден всем ролям (менеджер, філія, логіст, адмін, брокер) в их таблицях.
+## 1. БД (migration)
 
-## 1. Модель данных (миграция)
+**`shipments` нові колонки:**
+- `unloaded_at timestamptz` — момент переходу у «Розвантажено» (день після ETA).
+- `cancelled_at timestamptz`, `cancelled_by uuid` — фіксація скасування.
+- `archive_due_at timestamptz` — дедлайн архівації (для скасованих = +48г без неділі; для розвантажених = `unloaded_at + 7 днів`).
 
-Добавляем единый enum `pipeline_status`:
+**Нова таблиця `cancelled_shipments_archive`:**
+- `id`, `shipment_id`, `cancelled_at`, `cancelled_by`, `archived_at`, `snapshot jsonb` (поставка + позиції + розподіли + логістика + менеджер на момент скасування).
 
-```text
-proposed          → Запропоновано
-processing        → В опрацюванні
-ordered           → Замовлено
-awaiting_loading  → Чекає завантаження
-loading           → Завантаження
-in_transit        → В дорозі
-at_customs        → На митниці
-left_customs      → Виїхала на склад
-at_warehouse      → На складі
-```
+**Helper-функція `add_business_hours_excl_sunday(ts, hours)`** — додає години, пропускаючи неділю (з 00:00 нд по 00:00 пн час «зупиняється»).
 
-Изменения:
-- `manager_offers.pipeline_status` — статус позиції (proposed → processing).
-- `shipments.pipeline_status` — статус поставки (ordered → at_warehouse).
-- `shipment_items` наследуют статус поставки (отображается, не хранится отдельно — либо хранится для истории).
-- Новое поле `shipments.left_customs_at timestamptz` (для брокера).
-- Новая роль в `app_role` enum: `broker`.
+**Триггер на `shipments` UPDATE:**
+- Коли `status` стає `cancelled` → проставити `cancelled_at = now()`, `cancelled_by = auth.uid()`, `archive_due_at = add_business_hours_excl_sunday(now(), 48)`.
+- Коли `pipeline_status` стає `unloaded` (або через автоперехід) → `unloaded_at = now()`, `archive_due_at = unloaded_at + interval '7 days'`.
 
-Триггеры/функции БД для автоматики:
-- При `INSERT manager_offers` (active) → `pipeline_status='proposed'`.
-- При `UPDATE manager_offers.status='closed'` → `processing`.
-- При `manager_offers.linked_shipment_id` set → `ordered` (наследует shipment).
-- При создании shipment → `ordered`.
-- Когда у shipment заполнены `vehicle_plate`/`driver_name` И `loading_address`/`loading_reference` → `awaiting_loading`.
-- Когда `loading_date = today` → `loading` (cron daily).
-- На следующий день после `loading_date`, если статус остался `loading` → `in_transit` (cron daily).
-- `at_customs` / `left_customs` / `at_warehouse` — ручные.
+**RLS / блокування редагування** (replace policies):
+- `shipments owner/logistics/broker UPDATE`: додати умову `unloaded_at IS NULL AND status <> 'cancelled'` (admin без обмежень).
+- Аналогічно для `shipment_items`, `distributions`, `distribution_items`, `branch_transfer_offers`, `manager_offers` — блок на UPDATE/INSERT/DELETE якщо батьківська поставка розвантажена або скасована (admin виключення).
 
-## 2. RLS / роль брокера
+## 2. Cron (pg_cron + TanStack route)
 
-- Добавить `broker` в `app_role`.
-- Брокер: `SELECT` shipments + `UPDATE pipeline_status` только из `in_transit` → `at_customs` → `left_customs`.
-- В is_staff() брокера НЕ включаем (ограниченный доступ).
+**Route:** `src/routes/api/public/hooks/shipments-lifecycle.ts` — викликається щогодини:
+1. **Auto-unload:** `UPDATE shipments SET pipeline_status='unloaded', unloaded_at=now(), archive_due_at=now()+interval '7 days' WHERE eta < CURRENT_DATE AND unloaded_at IS NULL AND status NOT IN ('cancelled')`.
+2. **Archive cancelled:** для всіх `status='cancelled'` з `archive_due_at <= now()` → INSERT snapshot у `cancelled_shipments_archive`, позначити archived.
+3. **Archive unloaded:** для `unloaded_at IS NOT NULL AND archive_due_at <= now()` → перевести у архів (прапор `archived_at`).
 
-## 3. UI компонент `<PipelineStatusBadge />`
+Cron schedule: `0 * * * *`.
 
-Один компонент с пропсами `status`, `size`, `variant`.
+## 3. Frontend
 
-Цвета (спокойные, oklch токены в `src/styles.css`):
-- proposed — soft slate
-- processing — soft amber
-- ordered — soft indigo
-- awaiting_loading — soft teal
-- loading — soft violet (анимация — pulse)
-- in_transit — soft blue (иконка машинки, лёгкое движение)
-- at_customs — soft orange
-- left_customs — soft cyan
-- at_warehouse — soft emerald (галочка)
+**Спільний тумблер `<MainBoardToggle active|unloaded />`** зверху над кожним головним табло:
+- Менеджер/Адмін → `src/routes/_authenticated/shipments/index.tsx`: фільтр `unloaded_at IS NULL` vs `IS NOT NULL AND archived_at IS NULL`.
+- Філія → `src/routes/_authenticated/branch/...` (підтверджений товар): аналогічно по distributions/shipment.
+- Логістика → `src/routes/_authenticated/logistics.tsx`: додати таб.
 
-### Стили визуализации (для демо — выбор пользователя)
+**Менеджер: блок «Скасувати поставку»** — при скасуванні викликає server fn `cancelShipment.functions.ts` що:
+- Перевіряє права, ставить `status='cancelled'`, тригер сам заповнить cancelled_at/by/archive_due_at.
 
-Создаём страницу `/admin/status-preview` где показаны ВСЕ 9 статусов в 4 вариантах:
-1. **Minimal** — плоский чип с иконкой, без анимации.
-2. **Soft glow** — чип с лёгким свечением соответствующего цвета.
-3. **Animated icon** — иконка с микро-анимацией (грузовик едет, спиннер загрузки, пульс).
-4. **Pill + progress** — чип с тонкой progress-полоской снизу, показывающей этап в пайплайне (1/9 … 9/9).
+**Сторінка `/archive`** (нова, доступна всім ролям read-only):
+- Вкладки: «Розвантажено-архів» / «Скасовано-архів».
+- Скасовано показує snapshot з `cancelled_shipments_archive` + `cancelled_by` (full_name) + час скасування.
+- Жодних кнопок дії; усі форми у режимі `readOnly`.
 
-После выбора оставляем один стиль, остальные удаляем.
+**Картка поставки (drawer):** якщо `unloaded_at IS NOT NULL` або `status='cancelled'` і користувач не admin — усі інпути `disabled`, кнопки збереження прибрані, банер угорі: «Поставка розвантажена/скасована — редагування заблоковано».
 
-## 4. Отображения в таблицах
+## 4. Технічні деталі
 
-### Менеджер — `/shipments`
-- Колонки `Номер` и `Статус` делаем `sticky left-0` (закреплены при горизонтальном скролле).
-- Статус берётся из `shipments.pipeline_status`.
+- Логіка «без неділі» в SQL: рахуємо години підряд, якщо потрапили на діапазон [Sunday 00:00 .. Monday 00:00) — додаємо +24г.
+- Snapshot будуємо через `jsonb_build_object` з джойнами по `shipment_items`, `distributions`, `distribution_items`.
+- Тригер блокування реалізуємо через окремий `BEFORE UPDATE` тригер що RAISE EXCEPTION якщо `OLD.unloaded_at IS NOT NULL OR OLD.status='cancelled'` і користувач не admin (`is_admin(auth.uid())`). Це гарантує захист незалежно від RLS.
+- Хук pg_cron реєструється через `supabase--insert` після деплою route.
 
-### Філія — `/branch-offers` (і поставки філії)
-- Порядок колонок: Товар → Статус → Кількість → Номер поставки → Вхідна ціна → Індикативні.
-- Без sticky.
+## 5. Послідовність робіт
 
-### Логіст — `/logistics`
-- Добавляем колонку Статус (pipeline) рядом с logistics_status (или заменяем — уточнить позже).
-
-### Адмін — `/admin` поставки
-- Аналогично менеджеру, sticky номер+статус.
-
-### Брокер
-- Окреме табло `/broker` зі списком shipments у статусах `in_transit`/`at_customs` і кнопками «На митниці» / «Виїхала на склад».
-
-## 5. Ручне змінення
-
-Dropdown у бейджа статусу (тільки для менеджера-власника поставки / логіста / адміна) — дозволяє переключити на будь-який статус ≥ поточного. Брокер — лише дві кнопки.
-
-## 6. Cron (pg_cron + pg_net)
-
-Щодня о 00:30 викликаємо `/api/public/hooks/advance-pipeline`:
-- ставить `loading` коли настав день;
-- ставить `in_transit` на наступний день після loading_date.
-
-## Технічні деталі
-
-- Файли: 
-  - migration (enum, колонки, тригери, RLS, роль broker, cron job).
-  - `src/lib/pipeline-status.ts` (labels, color tokens, icons, order).
-  - `src/components/PipelineStatusBadge.tsx` (з 4 варіантами через prop `variant`).
-  - `src/components/PipelineStatusSelect.tsx` (ручна зміна).
-  - `src/routes/_authenticated/admin/status-preview.tsx` (демо-страница).
-  - `src/routes/_authenticated/broker.tsx` (нова роль).
-  - Update: `shipments/index.tsx`, `branch-offers.tsx`, `logistics.tsx`, `manager-offers.tsx`.
-  - Server route: `src/routes/api/public/hooks/advance-pipeline.ts`.
-
-## План виконання
-
-1. **Шаг 1 (цей PR):** міграція + бейдж + демо-сторінка `/admin/status-preview` з 4 стилями.
-2. **Очікую від тебе вибір стилю.**
-3. **Шаг 2:** інтегруємо обраний стиль у всі табло, додаємо роль брокера, cron, ручну зміну.
-
-Так ми спочатку зафіксуємо візуал, потім розгорнемо логіку без переробок.
+1. Migration: колонки + helper-функція + триггери блокування + таблиця архіву.
+2. Cron route + реєстрація pg_cron.
+3. Server fn `cancelShipment` + кнопка у UI.
+4. Тумблер головного табло (3 сторінки).
+5. Сторінка `/archive` з двома вкладками.
+6. Disabled-режим картки поставки.
