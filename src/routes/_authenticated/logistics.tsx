@@ -346,14 +346,10 @@ function BoardTable({
                     <TableCell className="text-xs">{r.eta ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.supplier?.name ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.country ?? "—"}</TableCell>
-                    <TableCell className="text-xs">
-                      {r.temperature_mode === "cold" ? (
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {r.temperature_mode ? (
                         <span className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900 dark:bg-sky-900/40 dark:text-sky-200">
-                          Холод
-                        </span>
-                      ) : r.temperature_mode === "warm" ? (
-                        <span className="inline-block rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-900 dark:bg-orange-900/40 dark:text-orange-200">
-                          Тепло
+                          {r.temperature_mode}
                         </span>
                       ) : (
                         "—"
@@ -562,22 +558,12 @@ function EditDialog({
                 />
               </Labeled>
               <Labeled label="Температура перевезення">
-                <Select
-                  value={form.temperature_mode || "none"}
-                  onValueChange={(v) =>
-                    setForm({ ...form, temperature_mode: v === "none" ? "" : v })
-                  }
+                <Input
+                  value={form.temperature_mode}
+                  onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
                   disabled={!isManager}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Оберіть режим" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— не вказано —</SelectItem>
-                    <SelectItem value="cold">Холод</SelectItem>
-                    <SelectItem value="warm">Тепло</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="напр. +2…+6 °C"
+                />
               </Labeled>
             </div>
           </section>
