@@ -152,7 +152,7 @@ function ManagerOffersPage() {
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
-  const [, setExpanded] = useState<Record<string, boolean>>({});
+  
   const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
