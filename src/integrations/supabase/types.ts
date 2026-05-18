@@ -1169,6 +1169,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "shipments_import_manager_id_fkey"
+            columns: ["import_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shipments_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -1610,7 +1617,15 @@ export type Database = {
           status: Database["public"]["Enums"]["shipment_status"] | null
           updated_at: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "shipments_import_manager_id_fkey"
+            columns: ["import_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

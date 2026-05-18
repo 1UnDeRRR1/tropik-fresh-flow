@@ -1,0 +1,2 @@
+UPDATE public.shipments SET import_manager_id = NULL WHERE import_manager_id IS NOT NULL AND import_manager_id NOT IN (SELECT id FROM public.import_managers);
+ALTER TABLE public.shipments ADD CONSTRAINT shipments_import_manager_id_fkey FOREIGN KEY (import_manager_id) REFERENCES public.import_managers(id) ON DELETE SET NULL;
