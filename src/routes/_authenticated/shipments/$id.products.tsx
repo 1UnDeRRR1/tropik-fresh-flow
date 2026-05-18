@@ -416,7 +416,7 @@ function ProductsFullscreen() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
@@ -442,6 +442,7 @@ function ProductsFullscreen() {
           currentUserId={user?.id ?? null}
           vehicleContext={vehicleContext}
           canEditTransport={canEditTransport}
+          flash={flashTransport}
         />
       )}
       {vehicleContext && (
