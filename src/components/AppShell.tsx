@@ -113,6 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     : isLogisticsRole
     ? [
         { to: "/logistics", label: "Логістика", icon: RouteIcon },
+        { to: "/archive", label: "Архів", icon: Archive },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
     : [
