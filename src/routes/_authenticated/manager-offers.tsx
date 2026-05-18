@@ -373,7 +373,7 @@ function ManagerOffersPage() {
           }
         }
       }
-      if (!pending.length) return 0;
+      if (!pending.length) return { ok: 0, failed: 0 };
       const results = await Promise.all(
         pending.map((p) =>
           supabase
@@ -382,16 +382,18 @@ function ManagerOffersPage() {
             .eq("id", p.id),
         ),
       );
-      const failed = results.find((r) => r.error);
-      if (failed?.error) throw failed.error;
-      return pending.length;
+      const failed = results.filter((r) => r.error).length;
+      return { ok: pending.length - failed, failed };
     },
-    onSuccess: (count) => {
-      toast.success(`Підтверджено відгуків: ${count}`);
+    onSuccess: ({ ok, failed }) => {
+      if (ok > 0) toast.success(`Підтверджено відгуків: ${ok}`);
+      if (failed > 0) toast.error(`Не вдалося підтвердити: ${failed}`);
       qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const [showAllPending, setShowAllPending] = useState(false);
 
   const [detailOfferId, setDetailOfferId] = useState<string | null>(null);
   const detailOffer = useMemo(
@@ -427,7 +429,7 @@ function ManagerOffersPage() {
             </Button>
           </div>
           <div className="space-y-1.5">
-            {pendingItems.slice(0, 6).map((p, i) => (
+            {(showAllPending ? pendingItems : pendingItems.slice(0, 6)).map((p, i) => (
               <button
                 key={`${p.offerId}-${i}`}
                 type="button"
@@ -448,9 +450,13 @@ function ManagerOffersPage() {
               </button>
             ))}
             {pendingItems.length > 6 && (
-              <div className="px-1 text-[11px] text-muted-foreground">
-                та ще {pendingItems.length - 6}…
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllPending((v) => !v)}
+                className="w-full rounded-lg px-1 py-1 text-left text-[11px] font-medium text-amber-900 hover:underline dark:text-amber-200"
+              >
+                {showAllPending ? "Згорнути" : `Показати ще ${pendingItems.length - 6}…`}
+              </button>
             )}
           </div>
         </div>
