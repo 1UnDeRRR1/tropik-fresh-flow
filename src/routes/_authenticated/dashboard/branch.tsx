@@ -320,7 +320,7 @@ function BranchDashboard() {
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
 
-    return dists.flatMap((d) =>
+    const materialized: Row[] = dists.flatMap((d) =>
       (d.distribution_items ?? [])
         .map((di) => {
           if (!di.shipment_item_id) return null;
@@ -371,7 +371,57 @@ function BranchDashboard() {
         })
         .filter(Boolean) as Row[],
     );
-  }, [dists, items, ships, suppliers, managers, baselines, board]);
+
+    // Pending rows: approved manager-offer responses with no materialised distribution_item yet.
+    // Hidden in the "unloaded" board (no shipment to unload yet).
+    const materialisedOfferIds = new Set(
+      dists.flatMap((d) => (d.distribution_items ?? []).map((di) => di.reserved_offer_id).filter(Boolean) as string[]),
+    );
+    const pending: Row[] =
+      board === "unloaded"
+        ? []
+        : (pendingOffers ?? [])
+            .filter((p) => !materialisedOfferIds.has(p.offer_id))
+            .map((p) => {
+              const o = p.manager_offers;
+              const pallets = Number(p.approved_pallets || 0);
+              const weight = pallets * Number(o.pallet_weight ?? 0);
+              return {
+                key: `pending-${p.id}`,
+                shipment_item_id: `pending-${p.id}`,
+                distribution_id: `pending-${p.id}`,
+                code: "Очікує поставку",
+                eta: o.expected_eta,
+                shipment_status: "pending",
+                dist_status: "pending",
+                product: o.product_name,
+                country: o.origin_country,
+                caliber: o.caliber,
+                variety: o.variety,
+                brand: null,
+                class: null,
+                packaging: null,
+                supplier_name: null,
+                temperature_mode: null,
+                manager_name: o.import_manager_id ? mgrMap.get(o.import_manager_id) ?? null : null,
+                pallets,
+                weight,
+                indicative: o.indicative_cost_usd,
+                invoice: o.invoice_cost_usd,
+                baseline_eta: o.expected_eta,
+                baseline_pallets: pallets,
+                baseline_ind: o.indicative_cost_usd,
+                baseline_inv: o.invoice_cost_usd,
+                seen_eta: o.expected_eta,
+                seen_pallets: pallets,
+                seen_ind: o.indicative_cost_usd,
+                seen_inv: o.invoice_cost_usd,
+              } as Row;
+            });
+
+    return [...materialized, ...pending];
+  }, [dists, items, ships, suppliers, managers, baselines, board, pendingOffers]);
+
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
     await (supabase as any).rpc("branch_ack_changes", {
