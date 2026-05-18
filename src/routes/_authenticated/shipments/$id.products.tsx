@@ -627,12 +627,8 @@ function TransportBar({
         autoCapitalize="off"
         spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
-        onBlur={(e) => {
-          if (isEmpty) {
-            e.preventDefault();
-            toast.error("Вкажіть вартість перевезення");
-            setTimeout(() => inputRef.current?.focus(), 0);
-          }
+        onBlur={() => {
+          // Visual cue only: the field already pulses red while empty.
         }}
         onChange={(e) => {
           dirty.current = true;
