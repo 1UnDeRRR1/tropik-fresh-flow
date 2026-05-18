@@ -228,31 +228,61 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Bottom nav: mobile only */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe md:hidden">
-        <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
-          {items.map((it) => {
-            const active = isActive(it.to, it.label);
-            return (
-              <Link
-                key={it.to}
-                to={it.to}
-                className={cn(
-                  "fruit-tap relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
-                  active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <span className="relative">
-                  <FruitIcon name={labelToFruit(it.label)} className="h-6 w-6" />
-                  {it.badge && it.badge > 0 ? (
-                    <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                      {it.badge > 99 ? "99+" : it.badge}
+        {isBranch ? (
+          <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
+            {items.map((it) => {
+              const active = isActive(it.to, it.label);
+              return (
+                <Link
+                  key={it.to}
+                  to={it.to}
+                  className={cn(
+                    "fruit-tap relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
+                    active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span className="relative">
+                    <FruitIcon name={labelToFruit(it.label)} className="h-11 w-11" />
+                    {it.badge && it.badge > 0 ? (
+                      <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
+                        {it.badge > 99 ? "99+" : it.badge}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span>{it.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:auto] [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max gap-1 px-2">
+              {items.map((it) => {
+                const active = isActive(it.to, it.label);
+                return (
+                  <Link
+                    key={it.to}
+                    to={it.to}
+                    className={cn(
+                      "fruit-tap relative flex w-[72px] shrink-0 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition",
+                      active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <span className="relative">
+                      <FruitIcon name={labelToFruit(it.label)} className="h-11 w-11" />
+                      {it.badge && it.badge > 0 ? (
+                        <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
+                          {it.badge > 99 ? "99+" : it.badge}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
-                <span>{it.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+                    <span className="whitespace-nowrap">{it.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
     </div>
   );
