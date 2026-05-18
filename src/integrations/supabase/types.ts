@@ -1088,26 +1088,40 @@ export type Database = {
           created_by: string | null
           currency: string | null
           customs_cost: number | null
+          driver_name: string | null
+          driver_phone: string | null
           eta: string | null
           eur_usd_rate: number | null
           eur_usd_rate_date: string | null
           eur_usd_rate_manual: boolean
           eur_usd_rate_source: string | null
+          final_freight_amount: number | null
+          final_freight_currency: string | null
           fx_rate: number | null
           id: string
           import_manager_id: string | null
+          loading_address: string | null
           loading_date: string | null
+          loading_ended_at: string | null
+          loading_reference: string | null
+          loading_started_at: string | null
+          logistics_comment: string | null
           logistics_cost: number | null
           logistics_cost_currency: string
           logistics_cost_usd: number | null
           logistics_days: number | null
+          logistics_status: Database["public"]["Enums"]["logistics_status"]
           notes: string | null
           other_costs: number | null
           status: Database["public"]["Enums"]["shipment_status"]
           supplier_id: string | null
+          temperature_mode: string | null
           total_weight_kg: number | null
+          tractor_plate: string | null
+          trailer_plate: string | null
           updated_at: string
           vehicle_id: string | null
+          vehicle_plate: string | null
         }
         Insert: {
           arrived_at?: string | null
@@ -1117,26 +1131,40 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           customs_cost?: number | null
+          driver_name?: string | null
+          driver_phone?: string | null
           eta?: string | null
           eur_usd_rate?: number | null
           eur_usd_rate_date?: string | null
           eur_usd_rate_manual?: boolean
           eur_usd_rate_source?: string | null
+          final_freight_amount?: number | null
+          final_freight_currency?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
+          loading_address?: string | null
           loading_date?: string | null
+          loading_ended_at?: string | null
+          loading_reference?: string | null
+          loading_started_at?: string | null
+          logistics_comment?: string | null
           logistics_cost?: number | null
           logistics_cost_currency?: string
           logistics_cost_usd?: number | null
           logistics_days?: number | null
+          logistics_status?: Database["public"]["Enums"]["logistics_status"]
           notes?: string | null
           other_costs?: number | null
           status?: Database["public"]["Enums"]["shipment_status"]
           supplier_id?: string | null
+          temperature_mode?: string | null
           total_weight_kg?: number | null
+          tractor_plate?: string | null
+          trailer_plate?: string | null
           updated_at?: string
           vehicle_id?: string | null
+          vehicle_plate?: string | null
         }
         Update: {
           arrived_at?: string | null
@@ -1146,26 +1174,40 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           customs_cost?: number | null
+          driver_name?: string | null
+          driver_phone?: string | null
           eta?: string | null
           eur_usd_rate?: number | null
           eur_usd_rate_date?: string | null
           eur_usd_rate_manual?: boolean
           eur_usd_rate_source?: string | null
+          final_freight_amount?: number | null
+          final_freight_currency?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
+          loading_address?: string | null
           loading_date?: string | null
+          loading_ended_at?: string | null
+          loading_reference?: string | null
+          loading_started_at?: string | null
+          logistics_comment?: string | null
           logistics_cost?: number | null
           logistics_cost_currency?: string
           logistics_cost_usd?: number | null
           logistics_days?: number | null
+          logistics_status?: Database["public"]["Enums"]["logistics_status"]
           notes?: string | null
           other_costs?: number | null
           status?: Database["public"]["Enums"]["shipment_status"]
           supplier_id?: string | null
+          temperature_mode?: string | null
           total_weight_kg?: number | null
+          tractor_plate?: string | null
+          trailer_plate?: string | null
           updated_at?: string
           vehicle_id?: string | null
+          vehicle_plate?: string | null
         }
         Relationships: [
           {
@@ -1775,6 +1817,7 @@ export type Database = {
         | "branch"
         | "calendar_branch"
         | "calendar_tropik"
+        | "logistics"
       branch_offer_status:
         | "pending"
         | "partially_accepted"
@@ -1788,6 +1831,16 @@ export type Database = {
         | "fulfilled"
         | "cancelled"
       distribution_status: "planned" | "dispatched" | "received" | "cancelled"
+      logistics_status:
+        | "pending_planning"
+        | "planning"
+        | "vehicle_assigned"
+        | "ready_for_loading"
+        | "loading"
+        | "in_transit"
+        | "at_customs"
+        | "delayed"
+        | "arrived"
       manager_offer_status:
         | "draft"
         | "active"
@@ -1949,6 +2002,7 @@ export const Constants = {
         "branch",
         "calendar_branch",
         "calendar_tropik",
+        "logistics",
       ],
       branch_offer_status: [
         "pending",
@@ -1965,6 +2019,17 @@ export const Constants = {
         "cancelled",
       ],
       distribution_status: ["planned", "dispatched", "received", "cancelled"],
+      logistics_status: [
+        "pending_planning",
+        "planning",
+        "vehicle_assigned",
+        "ready_for_loading",
+        "loading",
+        "in_transit",
+        "at_customs",
+        "delayed",
+        "arrived",
+      ],
       manager_offer_status: [
         "draft",
         "active",

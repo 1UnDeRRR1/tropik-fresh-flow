@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield } from "lucide-react";
+import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon } from "lucide-react";
 import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAdmin = hasRole(["admin", "super_admin"]);
   const isSuper = hasRole("super_admin");
   const isManager = primaryRole === "import_manager";
+  const isLogisticsRole = primaryRole === "logistics";
+  const canSeeLogistics = isAdmin || isManager || hasRole("logistics");
 
   const branchId = profile?.branch_id ?? null;
   const userId = profile?.id ?? null;
@@ -108,6 +110,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/offers", label: "Переказ", icon: Send, badge: pendingOffers },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
+    : isLogisticsRole
+    ? [
+        { to: "/logistics", label: "Логістика", icon: RouteIcon },
+        { to: "/settings", label: "Профіль", icon: Settings },
+      ]
     : [
         ...(isSuper
           ? [
@@ -116,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ]
           : [{ to: dashHref, label: "Головна", icon: Home }]),
         { to: "/shipments", label: "Поставки", icon: Package },
+        ...(canSeeLogistics ? [{ to: "/logistics", label: "Логістика", icon: RouteIcon }] : []),
         ...(isAdmin ? [] : [{ to: "/distribution", label: "Розподіл", icon: Truck }]),
         ...(isManager || isAdmin
           ? [{ to: "/manager-offers", label: "Запропонувати", icon: Megaphone, badge: pendingManagerResponses }]

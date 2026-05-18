@@ -7,6 +7,7 @@ export type AppRole =
   | "super_admin"
   | "admin"
   | "import_manager"
+  | "logistics"
   | "branch"
   | "calendar_branch"
   | "calendar_tropik";
@@ -38,6 +39,7 @@ const ROLE_PRIORITY: AppRole[] = [
   "super_admin",
   "admin",
   "import_manager",
+  "logistics",
   "calendar_branch",
   "calendar_tropik",
   "branch",
@@ -353,6 +355,7 @@ export const ROLE_LABEL_UK: Record<AppRole, string> = {
   super_admin: "Супер-адмін",
   admin: "Адміністратор",
   import_manager: "Менеджер ЗЕД",
+  logistics: "Логіст",
   branch: "Філія",
   calendar_branch: "Календар філії",
   calendar_tropik: "Календар Tropik",
@@ -366,6 +369,8 @@ export function defaultRoutePerRole(role: AppRole | null): string {
       return "/dashboard/admin";
     case "import_manager":
       return "/dashboard/manager";
+    case "logistics":
+      return "/logistics";
     case "branch":
       return "/dashboard/branch";
     case "calendar_branch":
