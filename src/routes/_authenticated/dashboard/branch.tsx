@@ -633,6 +633,9 @@ function BranchDashboard() {
                           <span className="underline-offset-2 hover:underline">{r.product}</span>
                         </DescriptionPopover>
                       </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                        {r.country ? toUaCountry(r.country) : "—"}
+                      </td>
                       <td className="px-2 py-2 text-right font-bold tabular-nums">
                         {s.pending > 0 ? (
                           <span>
