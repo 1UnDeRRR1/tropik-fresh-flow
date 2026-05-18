@@ -5,7 +5,7 @@ import { Plus, MoreVertical, Pencil, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { StatusChip, SHIPMENT_LABEL } from "@/components/StatusChip";
+import { StatusChip, SHIPMENT_LABEL, shipmentCodeTextTone } from "@/components/StatusChip";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
