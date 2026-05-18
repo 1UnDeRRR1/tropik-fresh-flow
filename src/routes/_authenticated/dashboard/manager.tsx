@@ -13,6 +13,8 @@ import { CostPair } from "@/components/CostPair";
 import { useAuth } from "@/lib/auth";
 import { useStableQueryData } from "@/lib/query-stability";
 import { toUaCountry } from "@/lib/countries";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { useMemo } from "react";
 
 interface ActiveOverviewRow {
   shipment_id: string;
