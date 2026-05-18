@@ -489,29 +489,27 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          if (incompleteCount > 0) {
+          if (incompleteCount > 0 || !hasRealPallets || transportMissing) {
             e.preventDefault();
-            toast.error(`Заповніть всі обов'язкові поля (${incompleteCount} поз.)`);
-            return;
-          }
-          if (!hasRealPallets) {
-            e.preventDefault();
-            toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
+            triggerShake(transportMissing);
             return;
           }
           e.preventDefault();
           void leaveProducts();
         }}>
           <Button
-            disabled={incompleteCount > 0}
             className={cn(
-              "w-full disabled:cursor-not-allowed disabled:opacity-70",
-              incompleteCount > 0
+              "w-full",
+              (incompleteCount > 0 || transportMissing)
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
-            {incompleteCount > 0 ? `Заповніть обов'язкові поля (${incompleteCount})` : "Готово"}
+            {transportMissing
+              ? "Вкажіть вартість перевезення"
+              : incompleteCount > 0
+                ? `Заповніть обов'язкові поля (${incompleteCount})`
+                : "Готово"}
           </Button>
         </Link>
       </footer>
@@ -524,11 +522,13 @@ function TransportBar({
   currentUserId,
   vehicleContext,
   canEditTransport,
+  flash,
 }: {
   shipment: ShipmentRow;
   currentUserId: string | null;
   vehicleContext: VehicleContext | null;
   canEditTransport: boolean;
+  flash?: boolean;
 }) {
   const lockedByOwner =
     !!shipment.vehicle_id &&
