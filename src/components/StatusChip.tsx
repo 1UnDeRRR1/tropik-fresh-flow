@@ -73,6 +73,13 @@ export function StatusChip({
   status: string;
   kind?: "shipment" | "distribution" | "transfer" | "branch_request";
 }) {
+  if (kind === "shipment") {
+    const pipeline = SHIPMENT_TO_PIPELINE[status];
+    if (pipeline) {
+      return <PipelineStatusBadge status={pipeline} variant="animated" size="sm" />;
+    }
+  }
+
   const label =
     kind === "shipment"
       ? SHIPMENT_LABEL[status as ShipmentStatus] ?? status
