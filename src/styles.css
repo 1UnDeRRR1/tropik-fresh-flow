@@ -287,42 +287,22 @@
 }
 .anim-check-pop { animation: check-pop 1.8s ease-in-out infinite; }
 
-/* Fruit emoji nav animations — flat color emoji with bounce */
+/* Fruit emoji nav — stable color emoji, gentle tap feedback */
 .fruit-emoji {
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", emoji;
   font-style: normal;
-  font-variant-emoji: emoji;
   -webkit-font-smoothing: antialiased;
-}
-
-@keyframes fruit-pop {
-  0% { transform: scale(0.6) rotate(-8deg); opacity: 0.6; }
-  60% { transform: scale(1.22) rotate(6deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0); opacity: 1; }
-}
-.anim-fruit-pop { animation: fruit-pop 360ms cubic-bezier(.34,1.56,.64,1); transform-origin: 50% 80%; display: inline-block; }
-
-@keyframes fruit-bounce {
-  0%   { transform: translateY(0) scale(1); }
-  25%  { transform: translateY(-6px) scale(1.18, 0.92); }
-  45%  { transform: translateY(0) scale(0.9, 1.12); }
-  65%  { transform: translateY(-3px) scale(1.08, 0.96); }
-  85%  { transform: translateY(0) scale(0.98, 1.02); }
-  100% { transform: translateY(0) scale(1); }
-}
-.fruit-tap:active .fruit-emoji {
-  animation: fruit-bounce 520ms cubic-bezier(.34,1.56,.64,1);
-  transform-origin: 50% 90%;
-  filter: saturate(1.4) brightness(1.05);
-}
-
-@keyframes fruit-idle {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50% { transform: translateY(-1.5px) rotate(-3deg); }
-}
-.fruit-active .fruit-emoji {
-  animation: fruit-idle 2.4s ease-in-out infinite;
   transform-origin: 50% 80%;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18)) saturate(1.15);
+  transition: transform 180ms cubic-bezier(.34,1.56,.64,1), filter 180ms ease;
+  will-change: transform;
+}
+
+.fruit-tap:active .fruit-emoji {
+  transform: scale(1.18);
+  filter: saturate(1.25) brightness(1.05);
+}
+
+.fruit-active .fruit-emoji {
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18)) saturate(1.1);
 }
 
