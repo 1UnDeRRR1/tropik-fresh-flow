@@ -523,7 +523,7 @@ function BranchDashboard() {
                   return (
                     <tr
                       key={r.key}
-                      onClick={() => setDrill({ product: r.product, country: r.country })}
+                      onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
