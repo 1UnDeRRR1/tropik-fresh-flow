@@ -373,7 +373,7 @@ function ManagerOffersPage() {
           }
         }
       }
-      if (!pending.length) return 0;
+      if (!pending.length) return { ok: 0, failed: 0 };
       const results = await Promise.all(
         pending.map((p) =>
           supabase
@@ -382,16 +382,18 @@ function ManagerOffersPage() {
             .eq("id", p.id),
         ),
       );
-      const failed = results.find((r) => r.error);
-      if (failed?.error) throw failed.error;
-      return pending.length;
+      const failed = results.filter((r) => r.error).length;
+      return { ok: pending.length - failed, failed };
     },
-    onSuccess: (count) => {
-      toast.success(`Підтверджено відгуків: ${count}`);
+    onSuccess: ({ ok, failed }) => {
+      if (ok > 0) toast.success(`Підтверджено відгуків: ${ok}`);
+      if (failed > 0) toast.error(`Не вдалося підтвердити: ${failed}`);
       qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const [showAllPending, setShowAllPending] = useState(false);
 
   const [detailOfferId, setDetailOfferId] = useState<string | null>(null);
   const detailOffer = useMemo(
