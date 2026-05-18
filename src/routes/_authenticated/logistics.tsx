@@ -158,6 +158,11 @@ function LogisticsPage() {
   const filtered = useMemo(() => {
     const list = LOGISTICS_FILTER_STATUSES[filter];
     let out = list ? rows.filter((r) => list.includes(r.logistics_status)) : rows;
+    out = out.filter((r) => {
+      if (r.archived_at) return false;
+      if (board === "unloaded") return !!r.unloaded_at && r.status !== "cancelled";
+      return !r.unloaded_at && r.status !== "cancelled";
+    });
     const q = search.trim().toLowerCase();
     if (q) {
       out = out.filter((r) =>
