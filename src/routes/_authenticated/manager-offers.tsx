@@ -1410,7 +1410,9 @@ function LinkShipmentDialog({
           ) : (
             list.map((s) => {
               const items = s.shipment_items ?? [];
-              const has = items.some((i) => norm(i.product_name) === target);
+              const has = items.some(itemMatches);
+              const productOnly =
+                !has && items.some((i) => norm(i.product_name) === target);
               const uniqueProducts = Array.from(
                 new Set(items.map((i) => i.product_name)),
               );
@@ -1418,18 +1420,27 @@ function LinkShipmentDialog({
                 <button
                   key={s.id}
                   onClick={() => link.mutate(s.id)}
+                  disabled={!has}
                   className={cn(
-                    "flex w-full flex-col gap-1 rounded-lg border p-3 text-left hover:bg-secondary",
-                    has ? "border-success/50 bg-success/5" : "border-border",
+                    "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition",
+                    has
+                      ? "border-success/50 bg-success/5 hover:bg-success/10"
+                      : productOnly
+                        ? "border-warning/40 bg-warning/5 opacity-70 cursor-not-allowed"
+                        : "border-border opacity-70 cursor-not-allowed",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold">{s.code}</div>
-                    {has && (
+                    {has ? (
                       <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         є товар
                       </span>
-                    )}
+                    ) : productOnly ? (
+                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                        інша країна
+                      </span>
+                    ) : null}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {s.country ?? "—"} · ETA {s.eta ?? "—"}
