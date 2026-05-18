@@ -49,6 +49,7 @@ function isOwnedShipment(
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
   const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
+  const [board, setBoard] = useState<BoardView>("active");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const isAdmin = hasRole(["super_admin", "admin"]);
