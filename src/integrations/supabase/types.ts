@@ -285,6 +285,39 @@ export type Database = {
           },
         ]
       }
+      cancelled_shipments_archive: {
+        Row: {
+          archived_at: string
+          cancelled_at: string
+          cancelled_by: string | null
+          cancelled_by_name: string | null
+          id: string
+          shipment_code: string
+          shipment_id: string
+          snapshot: Json
+        }
+        Insert: {
+          archived_at?: string
+          cancelled_at: string
+          cancelled_by?: string | null
+          cancelled_by_name?: string | null
+          id?: string
+          shipment_code: string
+          shipment_id: string
+          snapshot: Json
+        }
+        Update: {
+          archived_at?: string
+          cancelled_at?: string
+          cancelled_by?: string | null
+          cancelled_by_name?: string | null
+          id?: string
+          shipment_code?: string
+          shipment_id?: string
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       countries: {
         Row: {
           code: string | null
@@ -1084,9 +1117,13 @@ export type Database = {
       }
       shipments: {
         Row: {
+          archive_due_at: string | null
+          archived_at: string | null
           arrived_at: string | null
           at_customs_at: string | null
           at_warehouse_at: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           code: string
           country: string | null
           created_at: string
@@ -1126,14 +1163,19 @@ export type Database = {
           total_weight_kg: number | null
           tractor_plate: string | null
           trailer_plate: string | null
+          unloaded_at: string | null
           updated_at: string
           vehicle_id: string | null
           vehicle_plate: string | null
         }
         Insert: {
+          archive_due_at?: string | null
+          archived_at?: string | null
           arrived_at?: string | null
           at_customs_at?: string | null
           at_warehouse_at?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           code: string
           country?: string | null
           created_at?: string
@@ -1173,14 +1215,19 @@ export type Database = {
           total_weight_kg?: number | null
           tractor_plate?: string | null
           trailer_plate?: string | null
+          unloaded_at?: string | null
           updated_at?: string
           vehicle_id?: string | null
           vehicle_plate?: string | null
         }
         Update: {
+          archive_due_at?: string | null
+          archived_at?: string | null
           arrived_at?: string | null
           at_customs_at?: string | null
           at_warehouse_at?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           code?: string
           country?: string | null
           created_at?: string
@@ -1220,6 +1267,7 @@ export type Database = {
           total_weight_kg?: number | null
           tractor_plate?: string | null
           trailer_plate?: string | null
+          unloaded_at?: string | null
           updated_at?: string
           vehicle_id?: string | null
           vehicle_plate?: string | null
@@ -1705,6 +1753,13 @@ export type Database = {
           status: string
         }[]
       }
+      add_hours_excl_sunday: {
+        Args: { _from: string; _hours: number }
+        Returns: string
+      }
+      archive_due_cancelled_shipments: { Args: never; Returns: number }
+      archive_due_unloaded_shipments: { Args: never; Returns: number }
+      auto_unload_shipments: { Args: never; Returns: number }
       can_access_manager_offer: {
         Args: { _branch_id: string; _offer_id: string }
         Returns: boolean
@@ -1742,6 +1797,7 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_calendar_active: { Args: { _user_id: string }; Returns: boolean }
       is_eu_country: { Args: { _country: string }; Returns: boolean }
+      is_shipment_locked: { Args: { _shipment_id: string }; Returns: boolean }
       is_shipment_owner: {
         Args: { _shipment_id: string; _user_id: string }
         Returns: boolean

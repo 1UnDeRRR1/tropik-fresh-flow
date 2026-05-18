@@ -34,6 +34,7 @@ import {
   type LogisticsStatus,
   type LogisticsFilter,
 } from "@/lib/logistics";
+import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/logistics")({
   component: LogisticsGate,
@@ -74,6 +75,8 @@ type LogisticsRow = {
   temperature_mode: string | null;
   supplier: { name: string | null; import_manager_id: string | null } | null;
   import_manager_id: string | null;
+  unloaded_at: string | null;
+  archived_at: string | null;
   items: Array<{
     product_name: string;
     pallet_count: number | null;
@@ -95,6 +98,7 @@ function LogisticsPage() {
   const [filter, setFilter] = useState<LogisticsFilter>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
+  const [board, setBoard] = useState<BoardView>("active");
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["logistics-board"],
@@ -103,6 +107,7 @@ function LogisticsPage() {
         .from("shipments")
         .select(
           `id, code, status, logistics_status, loading_date, eta, country,
+           unloaded_at, archived_at,
            loading_address, loading_reference, driver_name, driver_phone,
            vehicle_plate, tractor_plate, trailer_plate,
            notes, logistics_comment, loading_started_at, loading_ended_at,
@@ -113,7 +118,6 @@ function LogisticsPage() {
            supplier:suppliers(name, import_manager_id),
            items:shipment_items(product_name, pallet_count, pallet_weight, origin_country)`,
         )
-        .neq("status", "cancelled")
         .or("notes.is.null,notes.not.ilike.%[proposal-draft]%")
         .not("supplier_id", "is", null)
         .order("loading_date", { ascending: true, nullsFirst: false })
@@ -154,6 +158,11 @@ function LogisticsPage() {
   const filtered = useMemo(() => {
     const list = LOGISTICS_FILTER_STATUSES[filter];
     let out = list ? rows.filter((r) => list.includes(r.logistics_status)) : rows;
+    out = out.filter((r) => {
+      if (r.archived_at) return false;
+      if (board === "unloaded") return !!r.unloaded_at && r.status !== "cancelled";
+      return !r.unloaded_at && r.status !== "cancelled";
+    });
     const q = search.trim().toLowerCase();
     if (q) {
       out = out.filter((r) =>
@@ -182,8 +191,10 @@ function LogisticsPage() {
         subtitle="Єдине табло поставок з номером, постачальником та позиціями. Клікніть рядок для деталей."
       />
 
+      <div className="mb-3"><MainBoardToggle value={board} onChange={setBoard} /></div>
+
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {(Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
+        {board === "active" && (Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
           const active = filter === f;
           return (
             <button

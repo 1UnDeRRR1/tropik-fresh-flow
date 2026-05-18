@@ -27,6 +27,7 @@ import { useStableQueryData } from "@/lib/query-stability";
 import { StaffOnly } from "@/components/StaffOnly";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
+import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
@@ -48,6 +49,7 @@ function isOwnedShipment(
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
   const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
+  const [board, setBoard] = useState<BoardView>("active");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const isAdmin = hasRole(["super_admin", "admin"]);
@@ -68,7 +70,7 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, eta, country, import_manager_id, created_by,
+          id, code, status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at,
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
@@ -124,6 +126,13 @@ function ShipmentsList() {
   }, [data, today, soon]);
 
   const filtered = rows
+    .filter((r) => {
+      const u = (r as { unloaded_at?: string | null; archived_at?: string | null }).unloaded_at;
+      const arch = (r as { archived_at?: string | null }).archived_at;
+      if (arch) return false;
+      if (board === "unloaded") return !!u;
+      return !u;
+    })
     .filter((r) => r.fact > 0)
     .filter((r) => {
       if (filter === "all") return true;
@@ -153,6 +162,8 @@ function ShipmentsList() {
           </Link>
         }
       />
+
+      <MainBoardToggle value={board} onChange={setBoard} />
 
       {isStaff && (
         <div className="inline-flex rounded-full border border-border bg-card p-1 text-xs">
