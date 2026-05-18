@@ -82,8 +82,8 @@ export function AutocompleteCell({
       if (aliased) return aliased;
       return aliases[l];
     }
-    // Unique substring fallback (e.g. "македонія" → "ПІВНІЧНА МАКЕДОНІЯ")
-    const subs = options.filter((o) => o.toLowerCase().includes(l));
+    // Unique prefix fallback (e.g. "македон" → "ПІВНІЧНА МАКЕДОНІЯ" only if it's the sole prefix match)
+    const subs = options.filter((o) => o.toLowerCase().startsWith(l));
     if (subs.length === 1) return subs[0];
     return null;
   };
@@ -91,11 +91,10 @@ export function AutocompleteCell({
   const canonical = resolveCanonical(trimmed);
   const isExactMatch = !trimmed || !!canonical;
 
-  // Suggestions: match canonical options by query (substring),
-  // OR by alias keys whose value maps to an option.
+  // Suggestions: prefix match only, after 2+ characters, max 3 rows.
   const aliasMatchedCanonicals = aliases
     ? Object.entries(aliases)
-        .filter(([k]) => k.includes(lower) && lower.length >= 2)
+        .filter(([k]) => k.startsWith(lower) && lower.length >= 2)
         .map(([, v]) => {
           const t = v.toLowerCase();
           return options.find((o) => o.toLowerCase() === t) ?? v;
@@ -108,7 +107,7 @@ export function AutocompleteCell({
             ...options.filter((o) => matchesQuery(o, trimmed)),
             ...aliasMatchedCanonicals,
           ]),
-        ).slice(0, 8)
+        ).slice(0, 3)
       : [];
 
   useEffect(() => {
