@@ -100,7 +100,7 @@ export function PreviewRoleSwitcher() {
   };
 
   return (
-    <div className="fixed bottom-24 right-3 z-[60] md:bottom-4 md:right-4">
+    <div className="fixed right-3 top-3 z-[9999] md:right-4 md:top-4">
       {open ? (
         <div className="w-64 rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur">
           <div className="mb-2 flex items-center justify-between">
@@ -163,10 +163,10 @@ export function PreviewRoleSwitcher() {
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur hover:bg-secondary"
+          className="flex items-center gap-2 rounded-full border-2 border-brand bg-brand px-4 py-2 text-xs font-bold text-brand-foreground shadow-2xl hover:bg-brand/90"
         >
           <UserCog className="h-4 w-4" />
-          <span className="hidden sm:inline">Ролі</span>
+          <span>Ролі (preview)</span>
         </button>
       )}
     </div>
