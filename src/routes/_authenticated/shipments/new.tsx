@@ -372,6 +372,7 @@ function NewShipment() {
                     value={`${s.name} ${toUaCountry(s.country ?? "")}`}
                     onSelect={() => {
                       setSupplierId(s.id);
+                      clearInvalid("supplier");
                       setSupplierOpen(false);
                     }}
                   >
