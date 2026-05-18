@@ -307,6 +307,8 @@ function NewShipment() {
 
       const shipmentId = crypto.randomUUID();
 
+      const assignedManagerId = currentManagerId ?? selectedSupplier?.import_manager_id ?? null;
+
       const insertPayload = {
         id: shipmentId,
         code: finalCode,
@@ -315,7 +317,7 @@ function NewShipment() {
         loading_date: useLoadingDate || null,
         logistics_days: useDays,
         eta: useEta || null,
-        import_manager_id: currentManagerId ?? user?.id ?? null,
+        import_manager_id: assignedManagerId,
         created_by: user?.id ?? null,
         vehicle_id: vId,
       } as never;

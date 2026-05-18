@@ -6,6 +6,7 @@ import {
   HeadContent,
   Scripts,
   Link,
+  Navigate,
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
@@ -15,6 +16,10 @@ import { useEffect } from "react";
 import { installGlobalErrorLogger, logSystem } from "@/lib/system-log";
 
 function NotFoundComponent() {
+  if (typeof window !== "undefined" && /^\/index\/?$/.test(window.location.pathname)) {
+    return <Navigate to="/" />;
+  }
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
