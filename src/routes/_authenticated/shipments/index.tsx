@@ -267,6 +267,11 @@ function ShipmentsList() {
                               temperature={(s as { temperature_mode?: string | null }).temperature_mode ?? null}
                             />
                           </td>
+                          {isAdmin && (
+                            <td className="px-2 py-2 whitespace-nowrap text-foreground">
+                              {(s as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                            </td>
+                          )}
                           <td className="px-1 py-2">
                             {isOwner && (
                               <RowActions
