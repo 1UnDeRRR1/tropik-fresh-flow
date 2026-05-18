@@ -24,6 +24,7 @@ function MasterDataPage() {
           <Link to="/admin/countries-master" className="rounded-xl bg-secondary p-3">Країни</Link>
           <Link to="/admin/countries" className="rounded-xl bg-secondary p-3">Логістика</Link>
           <Link to="/analytics" className="rounded-xl bg-secondary p-3">Аналітика</Link>
+          <Link to="/admin/status-preview" className="rounded-xl bg-info/10 p-3 text-foreground">Статуси</Link>
           <Link to="/admin/triggers" className="rounded-xl bg-destructive/10 p-3 text-destructive">Тригери</Link>
           <Link to="/admin/vacations" className="rounded-xl bg-warning/10 p-3">Відпустки</Link>
         </div>
