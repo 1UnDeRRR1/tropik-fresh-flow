@@ -68,7 +68,7 @@ function ShipmentsList() {
         .from("shipments")
         .select(`
           id, code, status, eta, country, import_manager_id, created_by,
-          loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name,
+          loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
           shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
@@ -262,6 +262,7 @@ function ShipmentsList() {
                               driver={s.driver_name ?? null}
                               address={s.loading_address ?? null}
                               reference={s.loading_reference ?? null}
+                              temperature={(s as { temperature_mode?: string | null }).temperature_mode ?? null}
                             />
                           </td>
                           <td className="px-1 py-2">
@@ -332,17 +333,20 @@ function LogisticsIndicator({
   driver,
   address,
   reference,
+  temperature,
 }: {
   vehicle: string | null;
   driver: string | null;
   address: string | null;
   reference: string | null;
+  temperature: string | null;
 }) {
   const items = [
     { label: "Авто", value: vehicle },
     { label: "Водій", value: driver },
     { label: "Адреса завантаження", value: address },
     { label: "Номер завантаження", value: reference },
+    { label: "Температура", value: temperature },
   ];
   const done = items.filter((i) => !!i.value && String(i.value).trim() !== "").length;
   const total = items.length;

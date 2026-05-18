@@ -287,8 +287,9 @@ function BoardTable({
               const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
               const missingDriver = !r.driver_name;
               const missingFinalFreight = r.final_freight_amount == null;
+              const missingTemperature = !r.temperature_mode;
               const hasWarnings =
-                missingVehicle || missingDriver || missingAddress || missingRef || missingFinalFreight;
+                missingVehicle || missingDriver || missingAddress || missingRef || missingFinalFreight || missingTemperature;
               const tractor = r.tractor_plate ?? r.vehicle_plate ?? null;
               const trailer = r.trailer_plate ?? null;
               const managerLabel = resolveManagerName(r, managerMap);
@@ -306,6 +307,7 @@ function BoardTable({
                           {missingAddress && <Warning text="без адреси" />}
                           {missingRef && <Warning text="без reference" />}
                           {missingFinalFreight && <Warning text="без final freight" />}
+                          {missingTemperature && <Warning text="без температури" />}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -427,6 +429,7 @@ function EditDialog({
     final_freight_amount:
       row.final_freight_amount != null ? String(row.final_freight_amount) : "",
     final_freight_currency: row.final_freight_currency ?? "EUR",
+    temperature_mode: row.temperature_mode ?? "",
   });
 
   const save = useMutation({
@@ -436,6 +439,7 @@ function EditDialog({
         patch.loading_address = form.loading_address || null;
         patch.loading_reference = form.loading_reference || null;
         patch.notes = form.notes || null;
+        patch.temperature_mode = form.temperature_mode || null;
       }
       if (isLogistics) {
         patch.tractor_plate = form.tractor_plate || null;
@@ -545,6 +549,24 @@ function EditDialog({
                   onChange={(e) => setForm({ ...form, loading_reference: e.target.value })}
                   disabled={!isManager}
                 />
+              </Labeled>
+              <Labeled label="Температура перевезення">
+                <Select
+                  value={form.temperature_mode || "none"}
+                  onValueChange={(v) =>
+                    setForm({ ...form, temperature_mode: v === "none" ? "" : v })
+                  }
+                  disabled={!isManager}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Оберіть режим" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— не вказано —</SelectItem>
+                    <SelectItem value="cold">Холод</SelectItem>
+                    <SelectItem value="warm">Тепло</SelectItem>
+                  </SelectContent>
+                </Select>
               </Labeled>
             </div>
           </section>
