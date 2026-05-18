@@ -242,7 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   <span className="relative">
-                    <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9" />
+                    <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
                     {it.badge && it.badge > 0 ? (
                       <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                         {it.badge > 99 ? "99+" : it.badge}
@@ -269,7 +269,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     )}
                   >
                     <span className="relative">
-                      <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9" />
+                      <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
                       {it.badge && it.badge > 0 ? (
                         <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                           {it.badge > 99 ? "99+" : it.badge}
