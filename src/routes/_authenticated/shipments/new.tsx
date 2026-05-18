@@ -98,6 +98,20 @@ function NewShipment() {
   const [countryOpen, setCountryOpen] = useState(false);
   const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
+  const [shake, setShake] = useState(false);
+  const clearInvalid = (key: string) => setInvalid((prev) => {
+    if (!prev.has(key)) return prev;
+    const next = new Set(prev);
+    next.delete(key);
+    return next;
+  });
+  const triggerShake = (missing: string[]) => {
+    setInvalid(new Set(missing));
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    window.setTimeout(() => setShake(false), 600);
+  };
 
   const { data: managerProfiles } = useQuery({
     queryKey: ["manager-profiles", user?.id],
@@ -233,7 +247,19 @@ function NewShipment() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!supplierId || !selectedSupplier) return toast.error("Виберіть постачальника");
+    const missing: string[] = [];
+    if (!supplierId || !selectedSupplier) missing.push("supplier");
+    if (mode === "new") {
+      if (!country) missing.push("country");
+      if (!loadingDate) missing.push("loadingDate");
+    } else {
+      if (!selectedVehicle) missing.push("vehicle");
+    }
+    if (missing.length) {
+      triggerShake(missing);
+      return;
+    }
+    setInvalid(new Set());
 
     setSubmitting(true);
     try {
@@ -245,9 +271,7 @@ function NewShipment() {
       let useDays = days;
 
       if (mode === "new") {
-        if (!country) throw new Error("Виберіть країну завантаження");
-        if (!loadingDate) throw new Error("Вкажіть дату завантаження");
-        const cc = selectedSupplier.iso3?.trim() || getCountryCode(country);
+        const cc = selectedSupplier!.iso3?.trim() || getCountryCode(country);
         const seq = await fetchNextVehicleSequence(cc);
         vCode = formatVehicleCode(cc, seq);
         const { data: vRow, error: vErr } = await supabase
@@ -276,7 +300,7 @@ function NewShipment() {
           : (COUNTRY_DAYS[selectedVehicle.country] ?? 0);
       }
 
-      const supplierCode = selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name);
+      const supplierCode = selectedSupplier!.code_base?.trim() || buildSupplierCode(selectedSupplier!.name);
       const finalCode = codeOverride && code.trim()
         ? code.trim()
         : formatShipmentCode(vCode, supplierCode);
@@ -321,7 +345,8 @@ function NewShipment() {
   }
 
   const supplierField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("supplier") && "field-invalid")}>
+      {/* invalid: supplier */}
       <Label>Постачальник</Label>
       <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
         <PopoverTrigger asChild>
@@ -347,6 +372,7 @@ function NewShipment() {
                     value={`${s.name} ${toUaCountry(s.country ?? "")}`}
                     onSelect={() => {
                       setSupplierId(s.id);
+                      clearInvalid("supplier");
                       setSupplierOpen(false);
                     }}
                   >
@@ -368,7 +394,7 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("country") && "field-invalid")}>
       <Label>Країна завантаження</Label>
       <Popover open={countryOpen} onOpenChange={setCountryOpen}>
         <PopoverTrigger asChild>
@@ -396,6 +422,7 @@ function NewShipment() {
                       setCountry(c);
                       setCountryTouched(true);
                       setVehicleId("");
+                      clearInvalid("country");
                       setCountryOpen(false);
                     }}
                   >
@@ -436,9 +463,9 @@ function NewShipment() {
   );
 
   const loadingDateField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("loadingDate") && "field-invalid")}>
       <Label htmlFor="ld">Дата завантаження</Label>
-      <Input id="ld" type="date" required value={loadingDate} onChange={(e) => setLoadingDate(e.target.value)} />
+      <Input id="ld" type="date" value={loadingDate} onChange={(e) => { setLoadingDate(e.target.value); if (e.target.value) clearInvalid("loadingDate"); }} />
     </div>
   );
 
@@ -481,7 +508,7 @@ function NewShipment() {
   );
 
   const vehicleField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("vehicle") && "field-invalid")}>
       <Label>Відкрите авто</Label>
       <Popover open={vehicleOpen} onOpenChange={setVehicleOpen}>
         <PopoverTrigger asChild>
@@ -514,6 +541,7 @@ function NewShipment() {
                         setVehicleId(v.id);
                         setCountry(v.country);
                         setCountryTouched(true);
+                        clearInvalid("vehicle");
                         setVehicleOpen(false);
                       }}
                     >
@@ -540,7 +568,7 @@ function NewShipment() {
     <div className="space-y-4">
       <PageHeader title="Нова поставка" />
 
-      <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-4">
+      <form onSubmit={onSubmit} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
         {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-2">
           <ModeButton active={mode === "new"} onClick={() => { setMode("new"); setVehicleId(""); }}>
