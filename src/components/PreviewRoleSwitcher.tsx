@@ -163,10 +163,10 @@ export function PreviewRoleSwitcher() {
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-full border border-border bg-card/95 px-3 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur hover:bg-secondary"
+          className="flex items-center gap-2 rounded-full border-2 border-brand bg-brand px-4 py-2 text-xs font-bold text-brand-foreground shadow-2xl hover:bg-brand/90"
         >
           <UserCog className="h-4 w-4" />
-          <span className="hidden sm:inline">Ролі</span>
+          <span>Ролі (preview)</span>
         </button>
       )}
     </div>
