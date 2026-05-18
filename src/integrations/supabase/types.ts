@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      branch_distribution_baselines: {
+        Row: {
+          baseline_cost_ind: number | null
+          baseline_cost_inv: number | null
+          baseline_eta: string | null
+          baseline_pallets: number | null
+          branch_id: string
+          distribution_id: string
+          identified_at: string
+          seen_cost_ind: number | null
+          seen_cost_inv: number | null
+          seen_eta: string | null
+          seen_pallets: number | null
+          shipment_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          baseline_cost_ind?: number | null
+          baseline_cost_inv?: number | null
+          baseline_eta?: string | null
+          baseline_pallets?: number | null
+          branch_id: string
+          distribution_id: string
+          identified_at?: string
+          seen_cost_ind?: number | null
+          seen_cost_inv?: number | null
+          seen_eta?: string | null
+          seen_pallets?: number | null
+          shipment_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          baseline_cost_ind?: number | null
+          baseline_cost_inv?: number | null
+          baseline_eta?: string | null
+          baseline_pallets?: number | null
+          branch_id?: string
+          distribution_id?: string
+          identified_at?: string
+          seen_cost_ind?: number | null
+          seen_cost_inv?: number | null
+          seen_eta?: string | null
+          seen_pallets?: number | null
+          shipment_item_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branch_request_items: {
         Row: {
           branch_request_id: string
@@ -1008,7 +1056,9 @@ export type Database = {
       }
       shipment_items: {
         Row: {
+          brand: string | null
           caliber: string | null
+          class: string | null
           cost_price_usd: number | null
           created_at: string
           customs_cost_indicative: number | null
@@ -1036,7 +1086,9 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          brand?: string | null
           caliber?: string | null
+          class?: string | null
           cost_price_usd?: number | null
           created_at?: string
           customs_cost_indicative?: number | null
@@ -1064,7 +1116,9 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          brand?: string | null
           caliber?: string | null
+          class?: string | null
           cost_price_usd?: number | null
           created_at?: string
           customs_cost_indicative?: number | null
@@ -1763,6 +1817,10 @@ export type Database = {
       archive_due_cancelled_shipments: { Args: never; Returns: number }
       archive_due_unloaded_shipments: { Args: never; Returns: number }
       auto_unload_shipments: { Args: never; Returns: number }
+      branch_ack_changes: {
+        Args: { p_distribution_id: string; p_shipment_item_id: string }
+        Returns: undefined
+      }
       can_access_manager_offer: {
         Args: { _branch_id: string; _offer_id: string }
         Returns: boolean
