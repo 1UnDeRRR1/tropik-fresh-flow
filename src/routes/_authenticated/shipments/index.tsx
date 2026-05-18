@@ -323,6 +323,73 @@ function StatusFilterPill({
   );
 }
 
+function LogisticsIndicator({
+  vehicle,
+  driver,
+  address,
+  reference,
+}: {
+  vehicle: string | null;
+  driver: string | null;
+  address: string | null;
+  reference: string | null;
+}) {
+  const items = [
+    { label: "Авто", value: vehicle },
+    { label: "Водій", value: driver },
+    { label: "Адреса завантаження", value: address },
+    { label: "Номер завантаження", value: reference },
+  ];
+  const done = items.filter((i) => !!i.value && String(i.value).trim() !== "").length;
+  const total = items.length;
+  const missing = total - done;
+  const tone =
+    done === total
+      ? "bg-success/15 text-success border-success/30"
+      : done === 0
+        ? "bg-destructive/15 text-destructive border-destructive/30"
+        : done >= total - 1
+          ? "bg-success/10 text-success border-success/30"
+          : "bg-destructive/10 text-destructive border-destructive/30";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold tabular-nums",
+            tone,
+          )}
+        >
+          <span className="text-success">{done}</span>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-destructive">{missing}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-56 p-2">
+        <ul className="space-y-1 text-xs">
+          {items.map((i) => {
+            const ok = !!i.value && String(i.value).trim() !== "";
+            return (
+              <li key={i.label} className="flex items-center gap-2">
+                {ok ? (
+                  <Check className="h-3.5 w-3.5 text-success" />
+                ) : (
+                  <X className="h-3.5 w-3.5 text-destructive" />
+                )}
+                <span className={cn(ok ? "text-foreground" : "text-muted-foreground")}>
+                  {i.label}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code: string; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
