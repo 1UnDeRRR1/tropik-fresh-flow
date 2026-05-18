@@ -154,6 +154,16 @@ function BranchDashboard() {
           const it = iMap.get(di.shipment_item_id);
           if (!it) return null;
           const s = sMap.get(d.shipment_id);
+          // Lifecycle filter
+          const unloaded = !!s?.unloaded_at;
+          const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
+          const archived = !!s?.archived_at;
+          if (archived) return null;
+          if (board === "unloaded") {
+            if (!unloaded || cancelled) return null;
+          } else {
+            if (unloaded || cancelled) return null;
+          }
           return {
             key: `${d.id}-${it.id}`,
             shipment_item_id: it.id,
@@ -172,7 +182,7 @@ function BranchDashboard() {
         })
         .filter(Boolean) as Row[],
     );
-  }, [dists, items, ships]);
+  }, [dists, items, ships, board]);
 
 
   const drillRows = useMemo(() => {
