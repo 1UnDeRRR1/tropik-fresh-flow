@@ -38,7 +38,7 @@ function BranchOffersPage() {
       const { data, error } = await supabase
         .from("manager_offers")
         .select("*")
-        .in("status", ["active", "in_work", "confirmed", "linked"])
+        .in("status", ["active", "in_work", "confirmed", "linked", "closed", "expired"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ManagerOffer[];
@@ -87,6 +87,18 @@ function BranchOffersPage() {
     for (const r of myResponses ?? []) m[r.offer_id] = r;
     return m;
   }, [myResponses]);
+
+  const visibleOffers = useMemo(() => {
+    const list = offers ?? [];
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return list.filter((o) => {
+      if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
+      // closed / expired: show only to branches that responded, and only for 7 days
+      if (!responseByOffer[o.id]) return false;
+      const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+      return ts >= cutoff;
+    });
+  }, [offers, responseByOffer]);
 
   const managerNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -140,11 +152,11 @@ function BranchOffersPage() {
         subtitle="Активні пропозиції менеджерів. Введіть бажану кількість палет."
       />
       {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
-      {!isLoading && (offers ?? []).length === 0 && (
+      {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
       )}
       <div className="space-y-3">
-        {(offers ?? []).map((o) => {
+        {visibleOffers.map((o) => {
           const r = responseByOffer[o.id];
           const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
           const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
@@ -177,7 +189,15 @@ function BranchOffersPage() {
             .join(" • ");
 
           return (
-            <div key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div
+              key={o.id}
+              className={cn(
+                "rounded-2xl border bg-card p-4 shadow-sm",
+                o.status === "closed"
+                  ? "border-destructive/40 bg-destructive/5"
+                  : "border-border",
+              )}
+            >
               {/* Header: product (country) + status */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-base font-bold">{o.product_name}</span>
@@ -187,12 +207,18 @@ function BranchOffersPage() {
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    o.status === "linked"
+                    o.status === "closed"
+                      ? "bg-destructive/15 text-destructive"
+                      : o.status === "linked"
                       ? "bg-success/15 text-success"
                       : STATUS_CLASS[o.status],
                   )}
                 >
-                  {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
+                  {o.status === "closed"
+                    ? "Пропозиція скасована"
+                    : o.status === "linked"
+                    ? "Підтверджено"
+                    : STATUS_LABEL[o.status]}
                 </span>
                 {ship && (
                   <span className="text-sm text-success">
@@ -272,7 +298,7 @@ function BranchOffersPage() {
 
               {/* Desired quantity input */}
               <div className="mt-3 flex flex-wrap items-end gap-2">
-                {o.status !== "linked" ? (
+                {!["linked", "closed", "expired"].includes(o.status) ? (
                   <>
                     <label className="text-sm">
                       <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
