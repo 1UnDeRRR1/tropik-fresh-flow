@@ -202,11 +202,11 @@ function ShipmentsList() {
                 <table className="min-w-full border-separate border-spacing-0 text-xs">
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                      <th className="sticky left-0 z-10 bg-card py-2 pr-2 font-semibold">№</th>
+                      <th className="sticky left-0 z-20 bg-card py-2 pr-2 font-semibold w-[120px] min-w-[120px]">№</th>
+                      <th className="sticky left-[120px] z-20 bg-card px-2 py-2 w-[110px] min-w-[110px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Статус</th>
                       <th className="px-2 py-2">Постачальник</th>
                       <th className="px-2 py-2">Країна</th>
                       <th className="px-2 py-2">ETA</th>
-                      <th className="px-2 py-2">Статус</th>
                       <th className="px-2 py-2 text-right text-foreground">Факт</th>
                       <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
                       <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
