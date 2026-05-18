@@ -339,6 +339,23 @@ function ProductsFullscreen() {
     ? currentShipmentEditable
     : !!user?.id && !!vehicleContext?.ownerShipment && vehicleContext.ownerShipment.id === sh.id && sh.vehicle_owner_id === user.id);
 
+  const transportCostValue = Number(
+    (vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost) ?? 0,
+  );
+  const transportMissing = canEditTransport && transportCostValue <= 0;
+
+  const [shake, setShake] = useState(false);
+  const [flashTransport, setFlashTransport] = useState(false);
+  const triggerShake = (flashTr: boolean) => {
+    setFlashTransport(flashTr);
+    setShake(false);
+    requestAnimationFrame(() => setShake(true));
+    window.setTimeout(() => {
+      setShake(false);
+      if (flashTr) setFlashTransport(false);
+    }, 1200);
+  };
+
   useEffect(() => {
     const onUnload = () => {
       void deleteShipmentIfEmpty(id);
