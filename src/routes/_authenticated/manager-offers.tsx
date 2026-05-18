@@ -416,11 +416,17 @@ function ManagerOffersPage() {
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const isOpen = expanded[o.id] ?? false;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
+            const hasPending = o.responses.some((r) => r.approved_pallets == null);
             return (
               <div
                 key={o.id}
+                id={`offer-${o.id}`}
                 data-offer-card
-                className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+                className={cn(
+                  "rounded-2xl border bg-card p-4 shadow-sm transition-all",
+                  hasPending ? "border-amber-400/70 ring-1 ring-amber-300/40" : "border-border",
+                  highlightedId === o.id && "ring-4 ring-amber-400 shadow-lg",
+                )}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
