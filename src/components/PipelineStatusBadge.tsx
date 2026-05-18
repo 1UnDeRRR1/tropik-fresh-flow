@@ -16,7 +16,7 @@ interface Props {
   className?: string;
 }
 
-export function PipelineStatusBadge({ status, variant = "minimal", size = "sm", className }: Props) {
+export function PipelineStatusBadge({ status, variant = "animated", size = "sm", className }: Props) {
   const Icon = PIPELINE_ICON[status];
   const tone = PIPELINE_TONE[status];
   const label = PIPELINE_LABEL[status];
