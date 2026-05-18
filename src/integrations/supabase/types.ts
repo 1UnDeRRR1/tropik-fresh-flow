@@ -1725,6 +1725,13 @@ export type Database = {
       }
       expire_branch_transfer_offers: { Args: never; Returns: number }
       expire_manager_offers: { Args: never; Returns: number }
+      get_profile_names: {
+        Args: { _ids: string[] }
+        Returns: {
+          full_name: string
+          id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
