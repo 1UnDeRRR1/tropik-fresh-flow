@@ -55,9 +55,9 @@ export function formatVehicleCode(countryCode: string, sequenceNo: number): stri
   return `${String(sequenceNo).padStart(2, "0")}-${countryCode}`;
 }
 
-/** Shipment code: `${supplierBase}${vehicleCode}` e.g. "Nava01-ITA". */
+/** Shipment code: `${supplierBase}${vehicleCode}` e.g. "NAVA01-ITA". */
 export function formatShipmentCode(vehicleCode: string, supplierCode: string): string {
-  return `${supplierCode}${vehicleCode}`;
+  return `${supplierCode}${vehicleCode}`.toUpperCase();
 }
 
 /** Reads next sequence_no for a country code via DB. */
