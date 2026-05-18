@@ -701,6 +701,7 @@ export type Database = {
           origin_country: string | null
           packaging: string | null
           pallet_weight: number | null
+          pipeline_status: Database["public"]["Enums"]["pipeline_status"]
           prev_expected_eta: string | null
           prev_indicative_cost_usd: number | null
           prev_invoice_cost_usd: number | null
@@ -733,6 +734,7 @@ export type Database = {
           origin_country?: string | null
           packaging?: string | null
           pallet_weight?: number | null
+          pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           prev_expected_eta?: string | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
@@ -765,6 +767,7 @@ export type Database = {
           origin_country?: string | null
           packaging?: string | null
           pallet_weight?: number | null
+          pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           prev_expected_eta?: string | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
@@ -1082,6 +1085,8 @@ export type Database = {
       shipments: {
         Row: {
           arrived_at: string | null
+          at_customs_at: string | null
+          at_warehouse_at: string | null
           code: string
           country: string | null
           created_at: string
@@ -1100,6 +1105,7 @@ export type Database = {
           fx_rate: number | null
           id: string
           import_manager_id: string | null
+          left_customs_at: string | null
           loading_address: string | null
           loading_date: string | null
           loading_ended_at: string | null
@@ -1113,6 +1119,7 @@ export type Database = {
           logistics_status: Database["public"]["Enums"]["logistics_status"]
           notes: string | null
           other_costs: number | null
+          pipeline_status: Database["public"]["Enums"]["pipeline_status"]
           status: Database["public"]["Enums"]["shipment_status"]
           supplier_id: string | null
           temperature_mode: string | null
@@ -1125,6 +1132,8 @@ export type Database = {
         }
         Insert: {
           arrived_at?: string | null
+          at_customs_at?: string | null
+          at_warehouse_at?: string | null
           code: string
           country?: string | null
           created_at?: string
@@ -1143,6 +1152,7 @@ export type Database = {
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
+          left_customs_at?: string | null
           loading_address?: string | null
           loading_date?: string | null
           loading_ended_at?: string | null
@@ -1156,6 +1166,7 @@ export type Database = {
           logistics_status?: Database["public"]["Enums"]["logistics_status"]
           notes?: string | null
           other_costs?: number | null
+          pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           status?: Database["public"]["Enums"]["shipment_status"]
           supplier_id?: string | null
           temperature_mode?: string | null
@@ -1168,6 +1179,8 @@ export type Database = {
         }
         Update: {
           arrived_at?: string | null
+          at_customs_at?: string | null
+          at_warehouse_at?: string | null
           code?: string
           country?: string | null
           created_at?: string
@@ -1186,6 +1199,7 @@ export type Database = {
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
+          left_customs_at?: string | null
           loading_address?: string | null
           loading_date?: string | null
           loading_ended_at?: string | null
@@ -1199,6 +1213,7 @@ export type Database = {
           logistics_status?: Database["public"]["Enums"]["logistics_status"]
           notes?: string | null
           other_costs?: number | null
+          pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           status?: Database["public"]["Enums"]["shipment_status"]
           supplier_id?: string | null
           temperature_mode?: string | null
@@ -1852,6 +1867,16 @@ export type Database = {
         | "expired"
         | "deleted"
       manager_offer_target_mode: "all" | "selected"
+      pipeline_status:
+        | "proposed"
+        | "processing"
+        | "ordered"
+        | "awaiting_loading"
+        | "loading"
+        | "in_transit"
+        | "at_customs"
+        | "left_customs"
+        | "at_warehouse"
       shipment_status:
         | "draft"
         | "loading"
@@ -2043,6 +2068,17 @@ export const Constants = {
         "deleted",
       ],
       manager_offer_target_mode: ["all", "selected"],
+      pipeline_status: [
+        "proposed",
+        "processing",
+        "ordered",
+        "awaiting_loading",
+        "loading",
+        "in_transit",
+        "at_customs",
+        "left_customs",
+        "at_warehouse",
+      ],
       shipment_status: [
         "draft",
         "loading",
