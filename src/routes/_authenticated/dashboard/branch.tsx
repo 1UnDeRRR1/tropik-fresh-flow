@@ -44,6 +44,7 @@ function BranchDashboard() {
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
+  const [board, setBoard] = useState<BoardView>("active");
 
   const { data: dists } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
