@@ -163,7 +163,7 @@ function ManagerOffersPage() {
     else if (offerStatus === "draft") setTab("drafts");
     else if (offerStatus === "linked") setTab("linked");
     else if (["closed", "expired"].includes(offerStatus)) setTab("archive");
-    setExpanded((prev) => ({ ...prev, [offerId]: true }));
+    
     setHighlightedId(offerId);
     setDetailOfferId(offerId);
     setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
