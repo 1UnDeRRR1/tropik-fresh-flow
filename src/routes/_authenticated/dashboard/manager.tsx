@@ -468,6 +468,7 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
           </li>
         ))}
       </ul>
+      )}
 
       <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
