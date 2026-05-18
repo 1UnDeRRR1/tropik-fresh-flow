@@ -394,7 +394,7 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("country") && "field-invalid")}>
       <Label>Країна завантаження</Label>
       <Popover open={countryOpen} onOpenChange={setCountryOpen}>
         <PopoverTrigger asChild>
