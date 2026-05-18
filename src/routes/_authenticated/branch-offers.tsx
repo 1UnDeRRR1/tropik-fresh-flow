@@ -189,7 +189,15 @@ function BranchOffersPage() {
             .join(" • ");
 
           return (
-            <div key={o.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div
+              key={o.id}
+              className={cn(
+                "rounded-2xl border bg-card p-4 shadow-sm",
+                o.status === "closed"
+                  ? "border-destructive/40 bg-destructive/5"
+                  : "border-border",
+              )}
+            >
               {/* Header: product (country) + status */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-base font-bold">{o.product_name}</span>
@@ -199,12 +207,18 @@ function BranchOffersPage() {
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    o.status === "linked"
+                    o.status === "closed"
+                      ? "bg-destructive/15 text-destructive"
+                      : o.status === "linked"
                       ? "bg-success/15 text-success"
                       : STATUS_CLASS[o.status],
                   )}
                 >
-                  {o.status === "linked" ? "Підтверджено" : STATUS_LABEL[o.status]}
+                  {o.status === "closed"
+                    ? "Пропозиція скасована"
+                    : o.status === "linked"
+                    ? "Підтверджено"
+                    : STATUS_LABEL[o.status]}
                 </span>
                 {ship && (
                   <span className="text-sm text-success">
