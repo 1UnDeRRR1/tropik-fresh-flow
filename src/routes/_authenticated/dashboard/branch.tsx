@@ -12,7 +12,8 @@ import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { StatusChip } from "@/components/StatusChip";
+import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
