@@ -1631,11 +1631,6 @@ function PublishOfferDialog({
               ))}
             </div>
           )}
-          <Link to="/shipments/new" onClick={() => onClose()}>
-            <Button size="sm" className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова поставка
-            </Button>
-          </Link>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose}>
