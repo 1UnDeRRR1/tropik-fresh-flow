@@ -165,6 +165,14 @@ function DistributionMatrix() {
   };
   const setCell = (itemId: string, branchId: string, val: number) => {
     const capped = capValue(itemId, branchId, val);
+    if (Math.floor(val) > capped) {
+      const item = data?.items.find((i) => i.id === itemId);
+      const total = Number(item?.pallet_count ?? 0);
+      const others = Object.entries(grid[itemId] ?? {})
+        .filter(([bid]) => bid !== branchId)
+        .reduce((s, [, n]) => s + Number(n || 0), 0);
+      toast.error(`Доступно лише ${Math.max(0, total - others)} палет`);
+    }
     setGrid((g) => ({ ...g, [itemId]: { ...(g[itemId] ?? {}), [branchId]: capped } }));
   };
   const bump = (itemId: string, branchId: string, delta: number) => {
@@ -567,12 +575,15 @@ function CellInput({
 }) {
   const [text, setText] = useState<string>(value > 0 ? String(value) : "");
   const focusedRef = useRef(false);
-  // Sync external value -> text when not actively editing
+  // Sync external value -> text. Always sync when external value differs from
+  // what's parsed in the input (e.g. when the parent caps the typed value).
   useEffect(() => {
-    if (!focusedRef.current) {
+    const parsed = text === "" ? 0 : parseInt(text, 10);
+    if (parsed === value) return;
+    if (!focusedRef.current || parsed > value) {
       setText(value > 0 ? String(value) : "");
     }
-  }, [value]);
+  }, [value, text]);
   return (
     <input
       type="text"
