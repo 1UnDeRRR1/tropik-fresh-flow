@@ -247,7 +247,19 @@ function NewShipment() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!supplierId || !selectedSupplier) return toast.error("Виберіть постачальника");
+    const missing: string[] = [];
+    if (!supplierId || !selectedSupplier) missing.push("supplier");
+    if (mode === "new") {
+      if (!country) missing.push("country");
+      if (!loadingDate) missing.push("loadingDate");
+    } else {
+      if (!selectedVehicle) missing.push("vehicle");
+    }
+    if (missing.length) {
+      triggerShake(missing);
+      return;
+    }
+    setInvalid(new Set());
 
     setSubmitting(true);
     try {
@@ -259,9 +271,7 @@ function NewShipment() {
       let useDays = days;
 
       if (mode === "new") {
-        if (!country) throw new Error("Виберіть країну завантаження");
-        if (!loadingDate) throw new Error("Вкажіть дату завантаження");
-        const cc = selectedSupplier.iso3?.trim() || getCountryCode(country);
+        const cc = selectedSupplier!.iso3?.trim() || getCountryCode(country);
         const seq = await fetchNextVehicleSequence(cc);
         vCode = formatVehicleCode(cc, seq);
         const { data: vRow, error: vErr } = await supabase
