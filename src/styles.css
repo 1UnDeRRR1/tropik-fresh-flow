@@ -219,9 +219,16 @@
   0%, 100% { background-color: var(--color-background); }
   50% { background-color: color-mix(in oklab, var(--color-destructive) 35%, var(--color-background)); }
 }
-.field-invalid, .field-invalid > button, .field-invalid input {
-  animation: pulse-error-fill 1.6s ease-in-out infinite;
+.field-invalid {
   border-radius: var(--radius-md);
+  overflow: hidden;
+  isolation: isolate;
+}
+.field-invalid > button,
+.field-invalid input,
+.field-invalid:not(:has(> button, input)) {
+  animation: pulse-error-fill 1.6s ease-in-out infinite;
+  border-radius: inherit;
   transition: background-color 0.4s ease-in-out;
 }
 
