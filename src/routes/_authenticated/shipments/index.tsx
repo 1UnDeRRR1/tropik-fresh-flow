@@ -252,15 +252,13 @@ function ShipmentsList() {
                           <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
                             {s.remaining}
                           </td>
-                          <td className="px-2 py-2 text-right whitespace-nowrap">
-                            {(s.avgInd || s.avgInv) ? (
-                              <CostPair indicative={s.avgInd} invoice={s.avgInv} suffix=" кг" size="xs" />
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                            {(s as unknown as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                          <td className="px-2 py-2 text-center">
+                            <LogisticsIndicator
+                              vehicle={s.tractor_plate ?? s.vehicle_plate ?? null}
+                              driver={s.driver_name ?? null}
+                              address={s.loading_address ?? null}
+                              reference={s.loading_reference ?? null}
+                            />
                           </td>
                           <td className="px-1 py-2">
                             {isOwner && (
