@@ -30,10 +30,10 @@ function matchesQuery(option: string, query: string) {
   if (!query) return false;
   const o = option.toLowerCase();
   const q = query.toLowerCase();
-  if (o.includes(q)) return true;
-  if (o.includes(uaToLat(q))) return true;
-  if (o.includes(latToUa(q))) return true;
-  if (uaToLat(o).includes(uaToLat(q))) return true;
+  if (o.startsWith(q)) return true;
+  if (o.startsWith(uaToLat(q))) return true;
+  if (o.startsWith(latToUa(q))) return true;
+  if (uaToLat(o).startsWith(uaToLat(q))) return true;
   return false;
 }
 
