@@ -550,6 +550,24 @@ function EditDialog({
                   disabled={!isManager}
                 />
               </Labeled>
+              <Labeled label="Температура перевезення">
+                <Select
+                  value={form.temperature_mode || "none"}
+                  onValueChange={(v) =>
+                    setForm({ ...form, temperature_mode: v === "none" ? "" : v })
+                  }
+                  disabled={!isManager}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Оберіть режим" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— не вказано —</SelectItem>
+                    <SelectItem value="cold">Холод</SelectItem>
+                    <SelectItem value="warm">Тепло</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Labeled>
             </div>
           </section>
 
