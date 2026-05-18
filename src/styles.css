@@ -225,11 +225,11 @@
   border-radius: var(--radius-md);
 }
 
-/* Subtle logo shimmer: diagonal highlight sweep every ~30s */
+/* Subtle logo shimmer: diagonal highlight sweep every ~10s */
 @keyframes logo-shimmer {
-  0%, 92% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
-  94% { opacity: 1; }
-  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+  0%, 80% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  82% { opacity: 1; }
+  100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
 }
 .logo-shimmer {
   position: relative;
@@ -242,16 +242,16 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 40%;
+  width: 55%;
   height: 100%;
   background: linear-gradient(
     100deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.85) 50%,
     transparent 100%
   );
-  filter: blur(2px);
+  filter: blur(1.5px);
   mix-blend-mode: screen;
   pointer-events: none;
-  animation: logo-shimmer 30s ease-in-out infinite;
+  animation: logo-shimmer 10s ease-in-out infinite;
 }
