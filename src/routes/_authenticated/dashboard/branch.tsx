@@ -142,13 +142,38 @@ function BranchDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distributions")
-        .select(`id,status,shipment_id,distribution_items(pallets,qty,shipment_item_id)`)
+        .select(`id,status,shipment_id,distribution_items(pallets,qty,shipment_item_id,reserved_offer_id)`)
         .eq("branch_id", branchId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; status: string; shipment_id: string;
-        distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string | null }> | null;
+        distribution_items: Array<{ pallets: number | null; qty: number | null; shipment_item_id: string | null; reserved_offer_id: string | null }> | null;
+      }>;
+    },
+  });
+
+  // Approved manager-offer responses for this branch — used to surface "pending shipment" rows
+  const { data: pendingOffers } = useQuery({
+    queryKey: ["branch-pending-mor", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("manager_offer_responses")
+        .select(`id,offer_id,approved_pallets,
+          manager_offers!inner(id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
+        .eq("branch_id", branchId!)
+        .gt("approved_pallets", 0);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; offer_id: string; approved_pallets: number;
+        manager_offers: {
+          id: string; product_name: string; origin_country: string | null;
+          caliber: string | null; variety: string | null; expected_eta: string | null;
+          indicative_cost_usd: number | null; invoice_cost_usd: number | null;
+          linked_shipment_id: string | null; status: string;
+          import_manager_id: string | null; pallet_weight: number | null;
+        };
       }>;
     },
   });
@@ -203,8 +228,14 @@ function BranchDashboard() {
     [ships],
   );
   const managerIds = useMemo(
-    () => Array.from(new Set((ships ?? []).map((s) => s.import_manager_id).filter(Boolean) as string[])),
-    [ships],
+    () =>
+      Array.from(
+        new Set([
+          ...((ships ?? []).map((s) => s.import_manager_id).filter(Boolean) as string[]),
+          ...((pendingOffers ?? []).map((p) => p.manager_offers.import_manager_id).filter(Boolean) as string[]),
+        ]),
+      ),
+    [ships, pendingOffers],
   );
 
   const { data: suppliers } = useQuery({
@@ -289,7 +320,7 @@ function BranchDashboard() {
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
 
-    return dists.flatMap((d) =>
+    const materialized: Row[] = dists.flatMap((d) =>
       (d.distribution_items ?? [])
         .map((di) => {
           if (!di.shipment_item_id) return null;
@@ -340,7 +371,57 @@ function BranchDashboard() {
         })
         .filter(Boolean) as Row[],
     );
-  }, [dists, items, ships, suppliers, managers, baselines, board]);
+
+    // Pending rows: approved manager-offer responses with no materialised distribution_item yet.
+    // Hidden in the "unloaded" board (no shipment to unload yet).
+    const materialisedOfferIds = new Set(
+      dists.flatMap((d) => (d.distribution_items ?? []).map((di) => di.reserved_offer_id).filter(Boolean) as string[]),
+    );
+    const pending: Row[] =
+      board === "unloaded"
+        ? []
+        : (pendingOffers ?? [])
+            .filter((p) => !materialisedOfferIds.has(p.offer_id))
+            .map((p) => {
+              const o = p.manager_offers;
+              const pallets = Number(p.approved_pallets || 0);
+              const weight = pallets * Number(o.pallet_weight ?? 0);
+              return {
+                key: `pending-${p.id}`,
+                shipment_item_id: `pending-${p.id}`,
+                distribution_id: `pending-${p.id}`,
+                code: "Очікує поставку",
+                eta: o.expected_eta,
+                shipment_status: "pending",
+                dist_status: "pending",
+                product: o.product_name,
+                country: o.origin_country,
+                caliber: o.caliber,
+                variety: o.variety,
+                brand: null,
+                class: null,
+                packaging: null,
+                supplier_name: null,
+                temperature_mode: null,
+                manager_name: o.import_manager_id ? mgrMap.get(o.import_manager_id) ?? null : null,
+                pallets,
+                weight,
+                indicative: o.indicative_cost_usd,
+                invoice: o.invoice_cost_usd,
+                baseline_eta: o.expected_eta,
+                baseline_pallets: pallets,
+                baseline_ind: o.indicative_cost_usd,
+                baseline_inv: o.invoice_cost_usd,
+                seen_eta: o.expected_eta,
+                seen_pallets: pallets,
+                seen_ind: o.indicative_cost_usd,
+                seen_inv: o.invoice_cost_usd,
+              } as Row;
+            });
+
+    return [...materialized, ...pending];
+  }, [dists, items, ships, suppliers, managers, baselines, board, pendingOffers]);
+
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
     await (supabase as any).rpc("branch_ack_changes", {
@@ -411,7 +492,13 @@ function BranchDashboard() {
                       className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
-                        <StatusChip status={r.dist_status} />
+                        {r.dist_status === "pending" ? (
+                          <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+                            Очікує поставку
+                          </span>
+                        ) : (
+                          <StatusChip status={r.dist_status} kind="distribution" />
+                        )}
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
                         {fmtEta(r.eta)}
