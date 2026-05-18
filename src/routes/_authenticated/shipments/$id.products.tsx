@@ -379,14 +379,9 @@ function ProductsFullscreen() {
   };
 
   const blockExit = (e: React.MouseEvent) => {
-    if (incompleteCount > 0) {
+    if (incompleteCount > 0 || !hasRealPallets) {
       e.preventDefault();
-      toast.error(`Заповніть всі обов'язкові поля (${incompleteCount} поз.)`);
-      return;
-    }
-    if (!hasRealPallets) {
-      e.preventDefault();
-      toast.error("Додайте хоча б 1 товар з палетами або поставку буде видалено");
+      triggerShake(false);
     }
   };
 
