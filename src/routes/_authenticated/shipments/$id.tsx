@@ -177,7 +177,16 @@ type ShipmentRow = {
 function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentId: string; shipment: ShipmentRow }) {
   const fallbackCountry = toUaCountry(shipment.country) || "—";
   const fmt = (v: number) => (Number(v) || 0).toFixed(2);
+  const [search, setSearch] = useState("");
   useFocusHighlight([items]);
+  const visible = items.filter((it) => (it.product_name || "").trim() !== "" || Number(it.pallet_count ?? 0) > 0);
+  const q = search.trim().toLowerCase();
+  const filtered = q.length >= 3
+    ? visible.filter((it) =>
+        [it.product_name, it.variety, it.origin_country, it.caliber, it.sku]
+          .some((v) => (v || "").toLowerCase().includes(q)),
+      )
+    : visible;
   return (
     <SectionCard
       title="Товари"
@@ -197,34 +206,46 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
           <EmptyState title="Позицій ще немає — натисніть, щоб додати" />
         </Link>
       ) : (
-        <div className="-mx-4 overflow-x-auto px-4">
-          <table className="w-full min-w-[640px] text-[11px] tabular-nums">
-            <thead className="text-muted-foreground">
-              <tr className="border-b border-border">
-                <th className="py-1.5 px-1 text-left font-medium">Товар</th>
-                <th className="py-1.5 px-1 text-left font-medium">Сорт</th>
-                <th className="py-1.5 px-1 text-left font-medium">Країна</th>
-                <th className="py-1.5 px-1 text-left font-medium">Калібр</th>
-                <th className="py-1.5 px-1 text-left font-medium">Спец.</th>
-                <th className="py-1.5 px-1 text-right font-medium">Пал.</th>
-                <th className="py-1.5 px-1 text-right font-medium">Собів. $</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.filter((it) => (it.product_name || "").trim() !== "" || Number(it.pallet_count ?? 0) > 0).map((it) => (
-                <tr key={it.id} data-focus-id={`item:${it.id}`} className="border-b border-border/40">
-                  <td className="py-1.5 px-1 font-medium">{it.product_name || "—"}</td>
-                  <td className="py-1.5 px-1 text-muted-foreground">{it.variety || "—"}</td>
-                  <td className="py-1.5 px-1 text-muted-foreground">{it.origin_country || fallbackCountry}</td>
-                  <td className="py-1.5 px-1">{it.caliber || "—"}</td>
-                  <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
-                  <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
-                  <td className="py-1.5 px-1 text-right"><CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} /></td>
+        <>
+          <div className="mb-2">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Пошук по товару (від 3 літер)…"
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="-mx-4 overflow-x-auto px-4">
+            <table className="w-full min-w-[640px] text-[11px] tabular-nums">
+              <thead className="text-muted-foreground">
+                <tr className="border-b border-border">
+                  <th className="py-1.5 px-1 text-left font-medium">Товар</th>
+                  <th className="py-1.5 px-1 text-left font-medium">Сорт</th>
+                  <th className="py-1.5 px-1 text-left font-medium">Країна</th>
+                  <th className="py-1.5 px-1 text-left font-medium">Калібр</th>
+                  <th className="py-1.5 px-1 text-left font-medium">Спец.</th>
+                  <th className="py-1.5 px-1 text-right font-medium">Пал.</th>
+                  <th className="py-1.5 px-1 text-right font-medium">Собів. $</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="py-3 text-center text-muted-foreground">Нічого не знайдено</td></tr>
+                ) : filtered.map((it) => (
+                  <tr key={it.id} data-focus-id={`item:${it.id}`} className="border-b border-border/40">
+                    <td className="py-1.5 px-1 font-medium">{it.product_name || "—"}</td>
+                    <td className="py-1.5 px-1 text-muted-foreground">{it.variety || "—"}</td>
+                    <td className="py-1.5 px-1 text-muted-foreground">{it.origin_country || fallbackCountry}</td>
+                    <td className="py-1.5 px-1">{it.caliber || "—"}</td>
+                    <td className="py-1.5 px-1 text-muted-foreground">{it.sku || "—"}</td>
+                    <td className="py-1.5 px-1 text-right">{Number(it.pallet_count ?? 0)}</td>
+                    <td className="py-1.5 px-1 text-right"><CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </SectionCard>
   );
