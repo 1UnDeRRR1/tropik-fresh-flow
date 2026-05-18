@@ -530,30 +530,72 @@ function BranchDashboard() {
             {board === "active" ? "Активний товар у роботі" : "Розвантажений товар"}
           </div>
           <div className="text-muted-foreground">
-            {rows.length} {rows.length === 1 ? "рядок" : rows.length < 5 ? "рядки" : "рядків"}
+            {filteredRows.length} {filteredRows.length === 1 ? "рядок" : filteredRows.length < 5 ? "рядки" : "рядків"}
+            {filtersActive && rows.length !== filteredRows.length && (
+              <span className="ml-1 opacity-70">з {rows.length}</span>
+            )}
           </div>
         </div>
+        {rows.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Button
+              type="button"
+              variant={filtersActive ? "outline" : "default"}
+              size="sm"
+              className="h-9 text-xs"
+              onClick={resetFilters}
+            >
+              Усі поставки
+            </Button>
+            <SearchableSelect
+              value={fManager}
+              onChange={setFManager}
+              options={managerOptions}
+              placeholder="Менеджер"
+              allLabel="Усі менеджери"
+            />
+            <SearchableSelect
+              value={fProduct}
+              onChange={setFProduct}
+              options={productOptions}
+              placeholder="Товар"
+              allLabel="Усі товари"
+            />
+            <SearchableSelect
+              value={fCountry}
+              onChange={setFCountry}
+              options={countryOptions}
+              placeholder="Країна"
+              allLabel="Усі країни"
+            />
+          </div>
+        )}
       </div>
 
-      {!rows.length ? (
-        <EmptyState title={board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"} />
+      {!filteredRows.length ? (
+        <EmptyState title={
+          filtersActive
+            ? "Немає товару за обраними фільтрами"
+            : board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"
+        } />
       ) : (
         <SectionCard title="Підтверджений товар">
           <div className="-mx-2 overflow-x-auto">
-            <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
+            <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                   <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
                   <th className="px-2 py-2 font-medium">ETA</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
                   <th className="px-2 py-2 font-medium">Товар</th>
+                  <th className="px-2 py-2 font-medium">Країна походження</th>
                   <th className="px-2 py-2 text-right font-medium">Палет</th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Відп. менеджер</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {filteredRows.map((r) => {
                   const s = statsFor(r);
                   const etaChanged = dateNeq(r.eta, r.seen_eta);
                   const palChanged = numNeq(r.pallets, r.seen_pallets);
