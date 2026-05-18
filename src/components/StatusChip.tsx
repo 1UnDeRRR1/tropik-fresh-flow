@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
-import type { PipelineStatus } from "@/lib/pipeline-status";
+import { PIPELINE_TONE, type PipelineStatus } from "@/lib/pipeline-status";
 
 const SHIPMENT_TO_PIPELINE: Record<string, PipelineStatus | null> = {
   draft: "proposed",
