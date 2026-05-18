@@ -31,14 +31,14 @@ function transliterate(input: string): string {
  *   "Bury"                → "Bury"
  */
 export function buildSupplierCode(name: string): string {
-  if (!name) return "Supplier";
+  if (!name) return "SUPPLIER";
   const words = transliterate(name)
     .replace(/[^a-zA-Z0-9 ]/g, " ")
     .split(/\s+/)
     .filter(Boolean)
     .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
-  const joined = words.join("") || "Supplier";
-  return joined.slice(0, 10);
+  const joined = words.join("") || "SUPPLIER";
+  return joined.slice(0, 10).toUpperCase();
 }
 
 /** ISO3 code from Ukrainian country name. Falls back to 3 first letters. */
