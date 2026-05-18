@@ -671,19 +671,20 @@ function VehicleCard({
           onPointerCancel={handlePointerEnd}
           style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
           className={cn(
-            "relative z-10 cursor-pointer select-none rounded-xl bg-card p-3 active:scale-[0.99]",
+            "relative z-10 cursor-pointer select-none rounded-xl bg-card p-2 active:scale-[0.99]",
             dragging ? "transition-none" : "transition-transform duration-[260ms] ease-out",
           )}
         >
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="font-bold text-brand">{v.code}</div>
-              <div className="truncate text-xs text-muted-foreground">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
+              <div className="text-sm font-bold text-brand leading-tight">{v.code}</div>
+              <div className="truncate text-[10px] text-muted-foreground leading-tight">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
             </div>
             <div className="flex shrink-0 gap-1">
               <Button
                 size="sm"
                 variant="secondary"
+                className="h-7 px-2 text-[11px]"
                 onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
               >
                 + Постач.
@@ -691,6 +692,7 @@ function VehicleCard({
               <Button
                 size="sm"
                 variant="ghost"
+                className="h-7 px-2 text-[11px]"
                 disabled={!isAdmin && !ownShipment}
                 title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -700,25 +702,25 @@ function VehicleCard({
             </div>
           </div>
           {sups.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-1 flex flex-wrap gap-1">
               {sups.map((s, i) => (
-                <span key={i} className="rounded-full bg-secondary px-2 py-0.5 text-[10px]">{s}</span>
+                <span key={i} className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px]">{s}</span>
               ))}
             </div>
           )}
-          <div className="mt-2 space-y-1.5 text-[11px]">
+          <div className="mt-1.5 space-y-1 text-[10px]">
             <div className="flex items-center justify-between">
               <span>Палети {pallets}/26</span>
               <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-1 overflow-hidden rounded-full bg-secondary">
               <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
             </div>
             <div className="flex items-center justify-between">
               <span>Вага {Math.round(weight)}/21500 кг</span>
               <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-1 overflow-hidden rounded-full bg-secondary">
               <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
             </div>
           </div>
