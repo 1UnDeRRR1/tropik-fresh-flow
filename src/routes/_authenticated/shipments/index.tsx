@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip, SHIPMENT_LABEL, shipmentCodeTextTone } from "@/components/StatusChip";
+import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import type { PipelineStatus } from "@/lib/pipeline-status";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -70,7 +72,7 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at,
+          id, code, status, pipeline_status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at,
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
@@ -245,8 +247,12 @@ function ShipmentsList() {
                               {s.code}
                             </Link>
                           </td>
-                          <td className="px-2 py-2 w-[110px] min-w-[110px]">
-                            <StatusChip status={s.status} />
+                          <td className="px-2 py-2 w-[130px] min-w-[130px]">
+                            {s.pipeline_status ? (
+                              <PipelineStatusBadge status={s.pipeline_status as PipelineStatus} variant="animated" />
+                            ) : (
+                              <StatusChip status={s.status} />
+                            )}
                           </td>
                           <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
                           <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
