@@ -152,12 +152,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="relative mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 pt-safe md:px-6 lg:px-10">
           <div className="flex items-center gap-3 lg:gap-4">
             <Link to={dashHref} aria-label="TROPIK" className="flex items-center">
-              <img
-                src={logoSrc}
-                alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
-                className="h-14 w-auto max-h-full object-contain md:h-16"
-                draggable={false}
-              />
+              <span className="logo-shimmer">
+                <img
+                  src={logoSrc}
+                  alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
+                  className="h-14 w-auto max-h-full object-contain md:h-16"
+                  draggable={false}
+                />
+              </span>
             </Link>
             {/* Top nav for tablet/desktop */}
             <nav className="hidden md:flex md:items-center md:gap-1 lg:gap-2">
