@@ -345,7 +345,8 @@ function NewShipment() {
   }
 
   const supplierField = (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", invalid.has("supplier") && "field-invalid")}>
+      {/* invalid: supplier */}
       <Label>Постачальник</Label>
       <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
         <PopoverTrigger asChild>
