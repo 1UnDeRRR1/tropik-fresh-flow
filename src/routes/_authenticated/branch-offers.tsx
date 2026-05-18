@@ -152,11 +152,11 @@ function BranchOffersPage() {
         subtitle="Активні пропозиції менеджерів. Введіть бажану кількість палет."
       />
       {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
-      {!isLoading && (offers ?? []).length === 0 && (
+      {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
       )}
       <div className="space-y-3">
-        {(offers ?? []).map((o) => {
+        {visibleOffers.map((o) => {
           const r = responseByOffer[o.id];
           const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
           const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
