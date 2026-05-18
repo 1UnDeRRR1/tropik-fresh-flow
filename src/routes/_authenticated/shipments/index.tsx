@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip, SHIPMENT_LABEL, shipmentCodeTextTone } from "@/components/StatusChip";
+import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import type { PipelineStatus } from "@/lib/pipeline-status";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
