@@ -453,10 +453,11 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
   useFocusHighlight([data]);
 
-  if (!data?.length) return null;
-
   return (
-    <SectionCard title={`🚛 Відкриті авто (${data.length})`}>
+    <SectionCard title={`🚛 Відкриті авто (${data?.length ?? 0})`}>
+      {!data?.length ? (
+        <EmptyState title="Відкритих авто немає" />
+      ) : (
       <div className="grid gap-2 sm:grid-cols-2">
         {data.map((v) => {
           const sups = (v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[];
