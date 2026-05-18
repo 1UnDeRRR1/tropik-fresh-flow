@@ -134,7 +134,7 @@ function BranchDashboard() {
   const { profile } = useAuth();
   const qc = useQueryClient();
   const branchId = profile?.branch_id;
-  const [drill, setDrill] = useState<{ product: string; country: string | null } | null>(null);
+  const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
 
@@ -460,9 +460,7 @@ function BranchDashboard() {
 
   const drillRows = useMemo(() => {
     if (!drill) return [];
-    return rows.filter(
-      (r) => r.product === drill.product && (drill.country == null || r.country === drill.country),
-    );
+    return rows.filter((r) => r.key === drill.key);
   }, [drill, rows]);
   const drillGrouped = useMemo(() => {
     const m = new Map<string, Row[]>();
@@ -525,7 +523,7 @@ function BranchDashboard() {
                   return (
                     <tr
                       key={r.key}
-                      onClick={() => setDrill({ product: r.product, country: r.country })}
+                      onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
