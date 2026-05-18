@@ -46,6 +46,7 @@ function isOwnedShipment(
 
 function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
+  const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const qc = useQueryClient();
@@ -150,107 +151,135 @@ function ShipmentsList() {
         }
       />
 
-      {isStaff && <OpenVehiclesBlock currentManagerId={currentManagerId} />}
-
-      <div className="-mx-4 overflow-x-auto px-4">
-        <div className="flex gap-2 pb-1">
-          <StatusFilterPill active={filter === "done"} onClick={() => setFilter(filter === "done" ? "all" : "done")} tone="success">Виконано</StatusFilterPill>
-          <StatusFilterPill active={filter === "none"} onClick={() => setFilter(filter === "none" ? "all" : "none")} tone="destructive">Не розпод.</StatusFilterPill>
-          <StatusFilterPill active={filter === "partial"} onClick={() => setFilter(filter === "partial" ? "all" : "partial")} tone="warning">Дорозподіл</StatusFilterPill>
+      {isStaff && (
+        <div className="inline-flex rounded-full border border-border bg-card p-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setTab("shipments")}
+            className={cn(
+              "rounded-full px-3 py-1.5 font-semibold transition",
+              tab === "shipments" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Поставки
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("vehicles")}
+            className={cn(
+              "rounded-full px-3 py-1.5 font-semibold transition",
+              tab === "vehicles" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Відкриті авто
+          </button>
         </div>
-      </div>
+      )}
 
-
-      <SectionCard title={`Поставки (${filtered.length})`}>
-        {!filtered.length ? (
-          shipmentsQuery.isFetching || !shipmentsQuery.isSuccess ? (
-            <p className="text-sm text-muted-foreground">Оновлення даних…</p>
-          ) : (
-          <EmptyState title="Поставок немає" />
-          )
-        ) : (
+      {tab === "vehicles" && isStaff ? (
+        <OpenVehiclesBlock currentManagerId={currentManagerId} />
+      ) : (
+        <>
           <div className="-mx-4 overflow-x-auto px-4">
-            <table className="min-w-full border-separate border-spacing-0 text-xs">
-              <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-10 bg-card py-2 pr-2 font-semibold">№</th>
-                  <th className="px-2 py-2">Постачальник</th>
-                  <th className="px-2 py-2">Країна</th>
-                  <th className="px-2 py-2">ETA</th>
-                  <th className="px-2 py-2">Статус</th>
-                  <th className="px-2 py-2 text-right text-foreground">Факт</th>
-                  <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
-                  <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
-                  <th className="px-2 py-2 text-right text-foreground">Собів. $/кг</th>
-                  <th className="px-2 py-2">Менеджер</th>
-                  <th className="px-2 py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => {
-                  const tone = s.isDelayed
-                    ? "bg-destructive/5"
-                    : s.isCompleted
-                      ? "bg-success/5"
-                      : s.isSoon
-                        ? "bg-warning/5"
-                        : "";
-                  const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
-                  return (
-                    <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
-                      <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
-                        <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
-                          {s.code}
-                        </Link>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
-                      <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
-                        {s.eta ?? "—"}
-                      </td>
-                      <td className="px-2 py-2">
-                        {s.fact > 0 && s.remaining === 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
-                        ) : s.fact > 0 && s.dist === 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive whitespace-nowrap">Не розпод.</span>
-                        ) : s.dist > 0 && s.remaining > 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">Дорозподіл</span>
-                        ) : (
-                          <StatusChip status={s.status} />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
-                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>{s.dist}</td>
-                      <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
-                        {s.remaining}
-                      </td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap">
-                        {(s.avgInd || s.avgInv) ? (
-                          <CostPair indicative={s.avgInd} invoice={s.avgInv} suffix=" кг" size="xs" />
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                        {(s as unknown as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
-                      </td>
-                      <td className="px-1 py-2">
-                        {isOwner && (
-                          <RowActions
-                            shipmentId={s.id}
-                            code={s.code}
-                            onChanged={() => qc.invalidateQueries({ queryKey: ["shipments-list"] })}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="flex gap-2 pb-1">
+              <StatusFilterPill active={filter === "done"} onClick={() => setFilter(filter === "done" ? "all" : "done")} tone="success">Виконано</StatusFilterPill>
+              <StatusFilterPill active={filter === "none"} onClick={() => setFilter(filter === "none" ? "all" : "none")} tone="destructive">Не розпод.</StatusFilterPill>
+              <StatusFilterPill active={filter === "partial"} onClick={() => setFilter(filter === "partial" ? "all" : "partial")} tone="warning">Дорозподіл</StatusFilterPill>
+            </div>
           </div>
-        )}
-      </SectionCard>
+
+          <SectionCard title={`Поставки (${filtered.length})`}>
+            {!filtered.length ? (
+              shipmentsQuery.isFetching || !shipmentsQuery.isSuccess ? (
+                <p className="text-sm text-muted-foreground">Оновлення даних…</p>
+              ) : (
+              <EmptyState title="Поставок немає" />
+              )
+            ) : (
+              <div className="-mx-4 overflow-x-auto px-4">
+                <table className="min-w-full border-separate border-spacing-0 text-xs">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <th className="sticky left-0 z-10 bg-card py-2 pr-2 font-semibold">№</th>
+                      <th className="px-2 py-2">Постачальник</th>
+                      <th className="px-2 py-2">Країна</th>
+                      <th className="px-2 py-2">ETA</th>
+                      <th className="px-2 py-2">Статус</th>
+                      <th className="px-2 py-2 text-right text-foreground">Факт</th>
+                      <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
+                      <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
+                      <th className="px-2 py-2 text-right text-foreground">Собів. $/кг</th>
+                      <th className="px-2 py-2">Менеджер</th>
+                      <th className="px-2 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((s) => {
+                      const tone = s.isDelayed
+                        ? "bg-destructive/5"
+                        : s.isCompleted
+                          ? "bg-success/5"
+                          : s.isSoon
+                            ? "bg-warning/5"
+                            : "";
+                      const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
+                      return (
+                        <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
+                          <td className="sticky left-0 z-10 bg-card py-2 pr-2 whitespace-nowrap">
+                            <Link to="/shipments/$id" params={{ id: s.id }} className="font-bold text-brand whitespace-nowrap">
+                              {s.code}
+                            </Link>
+                          </td>
+                          <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
+                          <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
+                            {s.eta ?? "—"}
+                          </td>
+                          <td className="px-2 py-2">
+                            {s.fact > 0 && s.remaining === 0 ? (
+                              <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
+                            ) : s.fact > 0 && s.dist === 0 ? (
+                              <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive whitespace-nowrap">Не розпод.</span>
+                            ) : s.dist > 0 && s.remaining > 0 ? (
+                              <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">Дорозподіл</span>
+                            ) : (
+                              <StatusChip status={s.status} />
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
+                          <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>{s.dist}</td>
+                          <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
+                            {s.remaining}
+                          </td>
+                          <td className="px-2 py-2 text-right whitespace-nowrap">
+                            {(s.avgInd || s.avgInv) ? (
+                              <CostPair indicative={s.avgInd} invoice={s.avgInv} suffix=" кг" size="xs" />
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                            {(s as unknown as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                          </td>
+                          <td className="px-1 py-2">
+                            {isOwner && (
+                              <RowActions
+                                shipmentId={s.id}
+                                code={s.code}
+                                onChanged={() => qc.invalidateQueries({ queryKey: ["shipments-list"] })}
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+        </>
+      )}
 
     </div>
   );
@@ -424,10 +453,11 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
   useFocusHighlight([data]);
 
-  if (!data?.length) return null;
-
   return (
-    <SectionCard title={`🚛 Відкриті авто (${data.length})`}>
+    <SectionCard title={`🚛 Відкриті авто (${data?.length ?? 0})`}>
+      {!data?.length ? (
+        <EmptyState title="Відкритих авто немає" />
+      ) : (
       <div className="grid gap-2 sm:grid-cols-2">
         {data.map((v) => {
           const sups = (v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[];
@@ -463,6 +493,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           );
         })}
       </div>
+      )}
     </SectionCard>
   );
 }
