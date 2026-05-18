@@ -258,6 +258,30 @@ function ManagerOffersPage() {
     return m;
   }, [linkedShipments]);
 
+  const creatorIds = useMemo(
+    () => Array.from(new Set((offers ?? []).map((o) => o.created_by).filter(Boolean))),
+    [offers],
+  );
+
+  const { data: creators } = useQuery({
+    queryKey: ["manager-offer-creators", creatorIds],
+    enabled: creatorIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", creatorIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const creatorById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of creators ?? []) m[c.id] = c.full_name ?? "—";
+    return m;
+  }, [creators]);
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
