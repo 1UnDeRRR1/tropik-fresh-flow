@@ -55,6 +55,7 @@ import { Route as AuthenticatedAdminCustomsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminCountriesMasterRouteImport } from './routes/_authenticated/admin/countries-master'
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
+import { Route as ApiPublicHooksShipmentsLifecycleRouteImport } from './routes/api/public/hooks/shipments-lifecycle'
 import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
 import { Route as AuthenticatedShipmentsIdProductsRouteImport } from './routes/_authenticated/shipments/$id.products'
 import { Route as AuthenticatedDashboardAdminStatusesRouteImport } from './routes/_authenticated/dashboard/admin.statuses'
@@ -317,6 +318,12 @@ const AuthenticatedAdminBranchesRoute =
     path: '/branches',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const ApiPublicHooksShipmentsLifecycleRoute =
+  ApiPublicHooksShipmentsLifecycleRouteImport.update({
+    id: '/api/public/hooks/shipments-lifecycle',
+    path: '/api/public/hooks/shipments-lifecycle',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksRefreshFxRoute = ApiPublicHooksRefreshFxRouteImport.update({
   id: '/api/public/hooks/refresh-fx',
   path: '/api/public/hooks/refresh-fx',
@@ -384,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
   '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
+  '/api/public/hooks/shipments-lifecycle': typeof ApiPublicHooksShipmentsLifecycleRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -432,6 +440,7 @@ export interface FileRoutesByTo {
   '/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
   '/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
+  '/api/public/hooks/shipments-lifecycle': typeof ApiPublicHooksShipmentsLifecycleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -484,6 +493,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
   '/_authenticated/shipments/$id/products': typeof AuthenticatedShipmentsIdProductsRoute
   '/api/public/hooks/refresh-fx': typeof ApiPublicHooksRefreshFxRoute
+  '/api/public/hooks/shipments-lifecycle': typeof ApiPublicHooksShipmentsLifecycleRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -536,6 +546,7 @@ export interface FileRouteTypes {
     | '/dashboard/admin/statuses'
     | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
+    | '/api/public/hooks/shipments-lifecycle'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -584,6 +595,7 @@ export interface FileRouteTypes {
     | '/dashboard/admin/statuses'
     | '/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
+    | '/api/public/hooks/shipments-lifecycle'
   id:
     | '__root__'
     | '/_authenticated'
@@ -635,12 +647,14 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/admin/statuses'
     | '/_authenticated/shipments/$id/products'
     | '/api/public/hooks/refresh-fx'
+    | '/api/public/hooks/shipments-lifecycle'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
+  ApiPublicHooksShipmentsLifecycleRoute: typeof ApiPublicHooksShipmentsLifecycleRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -967,6 +981,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBranchesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/api/public/hooks/shipments-lifecycle': {
+      id: '/api/public/hooks/shipments-lifecycle'
+      path: '/api/public/hooks/shipments-lifecycle'
+      fullPath: '/api/public/hooks/shipments-lifecycle'
+      preLoaderRoute: typeof ApiPublicHooksShipmentsLifecycleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/refresh-fx': {
       id: '/api/public/hooks/refresh-fx'
       path: '/api/public/hooks/refresh-fx'
@@ -1159,6 +1180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
+  ApiPublicHooksShipmentsLifecycleRoute: ApiPublicHooksShipmentsLifecycleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
