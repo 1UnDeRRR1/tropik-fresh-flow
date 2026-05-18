@@ -12,6 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { PreviewRoleSwitcher } from "@/components/PreviewRoleSwitcher";
 import { useEffect } from "react";
 import { installGlobalErrorLogger, logSystem } from "@/lib/system-log";
 
