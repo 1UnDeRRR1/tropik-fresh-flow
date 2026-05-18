@@ -800,11 +800,11 @@ function OfferEditor({
           const { data: created, error: createError } = await supabase
             .from("manager_offers")
             .insert({
-              ...payload,
+              ...(payload as any),
               created_by: user.id,
               status: initialStatus,
               target_mode: mode,
-            })
+            } as any)
             .select("id")
             .single();
           if (createError) throw createError;
