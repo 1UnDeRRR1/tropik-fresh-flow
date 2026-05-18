@@ -161,7 +161,7 @@ function ShipmentsList() {
       </div>
 
 
-      <SectionCard title={`Реєстр (${filtered.length})`}>
+      <SectionCard title={`Поставки (${filtered.length})`}>
         {!filtered.length ? (
           shipmentsQuery.isFetching || !shipmentsQuery.isSuccess ? (
             <p className="text-sm text-muted-foreground">Оновлення даних…</p>
