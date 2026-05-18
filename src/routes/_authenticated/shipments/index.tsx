@@ -333,17 +333,20 @@ function LogisticsIndicator({
   driver,
   address,
   reference,
+  temperature,
 }: {
   vehicle: string | null;
   driver: string | null;
   address: string | null;
   reference: string | null;
+  temperature: string | null;
 }) {
   const items = [
     { label: "Авто", value: vehicle },
     { label: "Водій", value: driver },
     { label: "Адреса завантаження", value: address },
     { label: "Номер завантаження", value: reference },
+    { label: "Температура", value: temperature },
   ];
   const done = items.filter((i) => !!i.value && String(i.value).trim() !== "").length;
   const total = items.length;
