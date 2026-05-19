@@ -769,12 +769,13 @@ function ManagerOffersPage() {
                         <tbody>
                           {[...activeResponses, ...excludedResponses].map((r) => {
                             const excluded = !inScope(r.branch_id);
+                            const rejected = r.approved_pallets === 0;
                             return (
                               <tr
                                 key={r.id}
                                 className={cn(
                                   "border-t border-border",
-                                  excluded && "opacity-60",
+                                  (excluded || rejected) && "opacity-60",
                                 )}
                               >
                                 <td className="py-1">
@@ -784,15 +785,21 @@ function ManagerOffersPage() {
                                       виключено з таргетингу
                                     </span>
                                   )}
+                                  {rejected && !excluded && (
+                                    <span className="ml-2 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive">
+                                      Відмовлено
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-1">{Number(r.requested_pallets)}</td>
                                 <td className="py-1">
                                   <div className="flex items-center gap-1">
                                     <Input
+                                      key={`${r.id}-${r.approved_pallets ?? "null"}`}
                                       className="h-8 w-20"
                                       type="number"
                                       min={0}
-                                      disabled={excluded}
+                                      disabled={excluded || rejected}
                                       defaultValue={r.approved_pallets ?? r.requested_pallets}
                                       onBlur={(e) => {
                                         const v = e.target.value === "" ? null : Number(e.target.value);
@@ -801,15 +808,17 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                      disabled={excluded || updateApproved.isPending}
-                                      onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
-                                    >
-                                      Відмовити
-                                    </Button>
+                                    {!rejected && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
+                                        disabled={excluded || updateApproved.isPending}
+                                        onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
+                                      >
+                                        Відмовити
+                                      </Button>
+                                    )}
                                   </div>
                                 </td>
 
