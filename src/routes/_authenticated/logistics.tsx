@@ -651,7 +651,6 @@ function EditDialog({
                   placeholder="+2…+6 °C"
                 />
               </Labeled>
-              </div>
               <Labeled label="Орієнтовний фрахт (від менеджера)">
                 <div className="rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5 text-xs">
                   {row.logistics_cost != null && Number(row.logistics_cost) > 0 ? (
