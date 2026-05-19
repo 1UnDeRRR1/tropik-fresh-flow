@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { countPositions, countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
@@ -60,6 +61,7 @@ type Flat = {
 function Analytics() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
+  const navigate = useNavigate();
   const today = todayISO();
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
@@ -572,6 +574,20 @@ function Analytics() {
                     ) : (
                       <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
                     )}
+
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        const sid = openItem?.shipment.id;
+                        if (!sid) return;
+                        setOpenItem(null);
+                        setOpenGroup(null);
+                        setOpenOwner(null);
+                        navigate({ to: "/distribution/$shipmentId", params: { shipmentId: sid } });
+                      }}
+                    >
+                      Розподілити
+                    </Button>
                   </div>
                 );
               })()
