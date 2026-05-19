@@ -449,7 +449,7 @@ function StatisticsPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </table>
           </div>
         )}
       </SectionCard>
