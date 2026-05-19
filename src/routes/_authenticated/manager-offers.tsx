@@ -553,7 +553,7 @@ function ManagerOffersPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </TableScroller>
           )}
         </TabsContent>
       </Tabs>
