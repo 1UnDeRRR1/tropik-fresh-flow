@@ -1193,6 +1193,7 @@ export type Database = {
           eur_usd_rate_source: string | null
           final_freight_amount: number | null
           final_freight_currency: string | null
+          final_freight_payment: string | null
           fx_rate: number | null
           id: string
           import_manager_id: string | null
@@ -1246,6 +1247,7 @@ export type Database = {
           eur_usd_rate_source?: string | null
           final_freight_amount?: number | null
           final_freight_currency?: string | null
+          final_freight_payment?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
@@ -1299,6 +1301,7 @@ export type Database = {
           eur_usd_rate_source?: string | null
           final_freight_amount?: number | null
           final_freight_currency?: string | null
+          final_freight_payment?: string | null
           fx_rate?: number | null
           id?: string
           import_manager_id?: string | null
