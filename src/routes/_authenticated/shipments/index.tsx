@@ -225,10 +225,43 @@ function ShipmentsList() {
       ) : (
         <>
           <div className="-mx-4 overflow-x-auto px-4">
-            <div className="flex gap-2 pb-1">
+            <div className="flex flex-wrap items-center gap-2 pb-1">
               <StatusFilterPill active={filter === "done"} onClick={() => setFilter(filter === "done" ? "all" : "done")} tone="success">Виконано</StatusFilterPill>
               <StatusFilterPill active={filter === "none"} onClick={() => setFilter(filter === "none" ? "all" : "none")} tone="destructive">Не розпод.</StatusFilterPill>
               <StatusFilterPill active={filter === "partial"} onClick={() => setFilter(filter === "partial" ? "all" : "partial")} tone="warning">Дорозподіл</StatusFilterPill>
+              {isAdmin && (
+                <>
+                  <select
+                    value={managerFilter}
+                    onChange={(e) => setManagerFilter(e.target.value)}
+                    className="h-7 shrink-0 rounded-full border border-border bg-card px-2 text-[11px] font-semibold text-foreground"
+                  >
+                    <option value="all">Усі менеджери</option>
+                    {managerOptions.map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={supplierFilter}
+                    onChange={(e) => setSupplierFilter(e.target.value)}
+                    className="h-7 shrink-0 rounded-full border border-border bg-card px-2 text-[11px] font-semibold text-foreground"
+                  >
+                    <option value="all">Усі постачальники</option>
+                    {supplierOptions.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  {(managerFilter !== "all" || supplierFilter !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => { setManagerFilter("all"); setSupplierFilter("all"); }}
+                      className="shrink-0 rounded-full border border-border bg-card px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                      Скинути
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
