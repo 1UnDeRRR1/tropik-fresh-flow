@@ -91,15 +91,21 @@ export function TableScroller({
         return;
       }
       const { table, thead } = res;
-      const rect = wrap.getBoundingClientRect();
-      const theadH = thead.getBoundingClientRect().height;
+      const tableRect = table.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const theadRect = thead.getBoundingClientRect();
+      const theadH = theadRect.height;
+      // Only show the fixed overlay AFTER the original thead has fully scrolled
+      // under the app header. This avoids the overlay covering the first data
+      // rows while the original thead is still partially visible.
       const shouldStick =
-        rect.top < APP_HEADER_PX && rect.bottom > APP_HEADER_PX + theadH;
+        theadRect.bottom <= APP_HEADER_PX &&
+        tableRect.bottom > APP_HEADER_PX + theadH;
       if (shouldStick) {
         syncWidths(table, thead);
         overlay.style.display = "block";
-        overlay.style.left = `${rect.left}px`;
-        overlay.style.width = `${rect.width}px`;
+        overlay.style.left = `${wrapRect.left}px`;
+        overlay.style.width = `${wrapRect.width}px`;
         overlay.style.height = `${theadH}px`;
         inner.scrollLeft = wrap.scrollLeft;
       } else {
