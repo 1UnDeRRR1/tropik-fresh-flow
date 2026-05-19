@@ -240,13 +240,13 @@ function AdminDashboard() {
       <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-4">
         <Link
           to="/admin/triggers"
-          className="block h-full rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-left shadow-card"
+          className="block h-full rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-left shadow-card transition-transform duration-150 active:scale-[0.9]"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide text-foreground">
               Тригери
             </span>
-            <AlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5 animate-pulse" />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-base font-bold">
             <span className="text-destructive">Червоні</span>
@@ -264,19 +264,19 @@ function AdminDashboard() {
         <button
           type="button"
           onClick={() => setDetail("transit")}
-          className="h-full rounded-2xl border border-success/30 bg-success/10 p-4 text-left text-foreground shadow-card"
+          className="h-full rounded-2xl border border-success/30 bg-success/10 p-4 text-left text-foreground shadow-card transition-transform duration-150 active:scale-[0.9]"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide">В дорозі</span>
-            <Truck className="h-5 w-5" />
+            <Truck className="h-5 w-5 animate-pulse" />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-base font-bold">
-            <span className="text-success">Поставок</span>
-            <span className="font-normal text-success">{data?.transit.count ?? 0}</span>
+            <span>Поставок</span>
+            <span className="font-normal">{data?.transit.count ?? 0}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
-            <span className="text-success">Позицій</span>
-            <span className="font-normal text-success">
+            <span>Позицій</span>
+            <span className="font-normal">
               {(() => {
                 const list = data?.transit.list ?? [];
                 const base = new Set(list.map((r) => r.product.trim().toLowerCase()).filter(Boolean));
@@ -288,8 +288,8 @@ function AdminDashboard() {
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
-            <span className="text-success">Палет</span>
-            <span className="font-normal text-success">{data?.transit.pallets ?? 0}</span>
+            <span>Палет</span>
+            <span className="font-normal">{data?.transit.pallets ?? 0}</span>
           </div>
         </button>
         <button type="button" onClick={() => setDetail("branches")} className="h-full text-left">
@@ -297,7 +297,7 @@ function AdminDashboard() {
             label="Філія товари"
             value={data?.branchCount ?? 0}
             hint="Розподілено по філіям"
-            icon={<Building2 className="h-5 w-5" />}
+            icon={<Building2 className="h-5 w-5 animate-pulse" />}
             tone="warning-soft"
           />
         </button>
@@ -306,7 +306,7 @@ function AdminDashboard() {
             label="Товари по філіям"
             value={formatPositions(countPositionsFromGroups(data?.products ?? [], (p) => p.product))}
             hint="Розподілено в дорозі"
-            icon={<Package className="h-5 w-5" />}
+            icon={<Package className="h-5 w-5 animate-pulse" />}
             tone="info-soft"
           />
         </button>
