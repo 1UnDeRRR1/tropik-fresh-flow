@@ -574,6 +574,20 @@ function Analytics() {
                     ) : (
                       <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
                     )}
+
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        const sid = openItem?.shipment.id;
+                        if (!sid) return;
+                        setOpenItem(null);
+                        setOpenGroup(null);
+                        setOpenOwner(null);
+                        navigate({ to: "/distribution/$shipmentId", params: { shipmentId: sid } });
+                      }}
+                    >
+                      Розподілити
+                    </Button>
                   </div>
                 );
               })()
