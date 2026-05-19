@@ -204,14 +204,20 @@ function BranchOffersPage() {
                 {o.origin_country && (
                   <span className="text-sm text-muted-foreground">({o.origin_country})</span>
                 )}
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    STATUS_CLASS[o.status],
-                  )}
-                >
-                  {STATUS_LABEL[o.status]}
-                </span>
+                {apprQty === 0 ? (
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
+                    Відмовлено
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                      STATUS_CLASS[o.status],
+                    )}
+                  >
+                    {STATUS_LABEL[o.status]}
+                  </span>
+                )}
                 {ship && (
                   <span className="text-sm text-success">
                     Поставка <b>{ship.code}</b>
