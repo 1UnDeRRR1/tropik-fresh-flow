@@ -272,7 +272,7 @@ function BoardTable({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card">
-      <div className="w-full overflow-x-auto">
+      <div className="-mx-4 px-4 md:mx-0 md:px-0">
         <table className="w-full min-w-[1100px] caption-bottom text-sm">
           <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-table-head [&_th]:font-bold">
             <TableRow className="hover:bg-transparent">
