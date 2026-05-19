@@ -582,7 +582,7 @@ function BranchDashboard() {
         } />
       ) : (
         <SectionCard title="Підтверджений товар">
-          <div className="-mx-2 overflow-x-auto">
+          <TableScroller className="-mx-2">
             <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
