@@ -7,20 +7,16 @@ import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TableScroller } from "@/components/TableScroller";
+import { CostPair } from "@/components/CostPair";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   STATUS_LABEL,
   STATUS_CLASS,
-  formatRemaining,
   type ManagerOffer,
   type ManagerOfferResponse,
 } from "@/lib/manager-offers";
-
-type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
-
-const fmtDate = (d: string | null | undefined) =>
-  d ? new Date(d).toLocaleDateString("uk-UA") : "—";
 
 export const Route = createFileRoute("/_authenticated/branch-offers")({
   component: BranchOffersPage,
@@ -58,15 +54,6 @@ function BranchOffersPage() {
     },
   });
 
-  const { data: shipments } = useQuery({
-    queryKey: ["branch-offer-shipments"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("shipments").select("id,code,eta,arrived_at");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   const managerIds = useMemo(
     () => Array.from(new Set((offers ?? []).map((o) => o.created_by).filter(Boolean))),
     [offers],
@@ -93,7 +80,6 @@ function BranchOffersPage() {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return list.filter((o) => {
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
-      // closed / expired: show only to branches that responded, and only for 7 days
       if (!responseByOffer[o.id]) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
@@ -105,12 +91,6 @@ function BranchOffersPage() {
     for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
     return m;
   }, [managerNames]);
-
-  const shipmentById = useMemo(() => {
-    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
-    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
-    return m;
-  }, [shipments]);
 
   const submit = useMutation({
     mutationFn: async ({ offerId, pallets }: { offerId: string; pallets: number }) => {
@@ -155,268 +135,142 @@ function BranchOffersPage() {
       {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
       )}
-      <div className="space-y-3">
-        {visibleOffers.map((o) => {
-          const r = responseByOffer[o.id];
-          const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
-          const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
-
-          // cost change indicator
-          const indDelta =
-            o.prev_indicative_cost_usd != null
-              ? Number(o.indicative_cost_usd ?? 0) - Number(o.prev_indicative_cost_usd)
-              : 0;
-          const invDelta =
-            o.prev_invoice_cost_usd != null
-              ? Number(o.invoice_cost_usd ?? 0) - Number(o.prev_invoice_cost_usd)
-              : 0;
-
-          // pallets diff
-          const reqQty = r ? Number(r.requested_pallets) : 0;
-          const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
-          const palletDelta = apprQty != null ? apprQty - reqQty : 0;
-
-          const etaDate = ship?.arrived_at
-            ? { label: "Дата прибуття", value: new Date(ship.arrived_at).toLocaleDateString("uk-UA") }
-            : ship?.eta
-            ? { label: "Очікувана дата", value: new Date(ship.eta).toLocaleDateString("uk-UA") }
-            : o.expected_eta
-            ? { label: "Очікувана дата", value: new Date(o.expected_eta).toLocaleDateString("uk-UA"), plan: true }
-            : null;
-
-          const details = [o.variety, o.caliber, o.packaging, o.specification]
-            .filter(Boolean)
-            .join(" • ");
-
-          return (
-            <div
-              key={o.id}
-              className={cn(
-                "rounded-2xl border bg-card p-4 shadow-sm",
-                o.status === "closed"
-                  ? "border-destructive/40 bg-destructive/5"
-                  : "border-border",
-              )}
-            >
-              {/* Header: product (country) + status */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-base font-bold">{o.product_name}</span>
-                {o.origin_country && (
-                  <span className="text-sm text-muted-foreground">({o.origin_country})</span>
-                )}
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    o.status === "closed"
-                      ? "bg-destructive/15 text-destructive"
-                      : o.status === "linked"
-                      ? "bg-success/15 text-success"
-                      : STATUS_CLASS[o.status],
-                  )}
-                >
-                  {o.status === "closed"
-                    ? "Пропозиція скасована"
+      {visibleOffers.length > 0 && (
+        <TableScroller className="-mx-2">
+          <table className="w-full min-w-[820px] text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+              <tr className="border-b">
+                <th className="px-2 py-2 text-left font-medium">Товар (Країна)</th>
+                <th className="px-2 py-2 text-left font-medium">Сорт</th>
+                <th className="px-2 py-2 text-left font-medium">Калібр</th>
+                <th className="px-2 py-2 text-left font-medium">Специфікація</th>
+                <th className="px-2 py-2 text-right font-medium">Собівартість</th>
+                <th className="px-2 py-2 text-left font-medium">Менеджер</th>
+                <th className="px-2 py-2 text-right font-medium">Доступно</th>
+                <th className="px-2 py-2 text-right font-medium">Замовлення</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleOffers.map((o) => {
+                const r = responseByOffer[o.id];
+                const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
+                const reqQty = r ? Number(r.requested_pallets) : 0;
+                const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
+                const palletDelta = apprQty != null ? apprQty - reqQty : 0;
+                const locked = ["linked", "closed", "expired"].includes(o.status);
+                const statusLabel =
+                  o.status === "closed"
+                    ? "Скасовано"
                     : o.status === "linked"
-                    ? "Підтверджено"
-                    : STATUS_LABEL[o.status]}
-                </span>
-                {ship && (
-                  <span className="text-sm text-success">
-                    Поставка <b>{ship.code}</b>
-                  </span>
-                )}
-              </div>
+                    ? "Підтв."
+                    : STATUS_LABEL[o.status];
+                const statusCls =
+                  o.status === "closed"
+                    ? "bg-destructive/15 text-destructive"
+                    : o.status === "linked"
+                    ? "bg-success/15 text-success"
+                    : STATUS_CLASS[o.status];
 
-              {/* Details line */}
-              {details && (
-                <div className="mt-1 text-sm text-muted-foreground">{details}</div>
-              )}
-
-              {/* Costs */}
-              <div className="mt-2 space-y-0.5">
-                <CostLine
-                  label="Собівартість індикативна"
-                  tone="success"
-                  curr={Number(o.indicative_cost_usd ?? 0)}
-                  prev={o.prev_indicative_cost_usd}
-                  delta={indDelta}
-                  linked={o.status === "linked"}
-                />
-                <CostLine
-                  label="Собівартість інвойсна"
-                  tone="destructive"
-                  curr={Number(o.invoice_cost_usd ?? 0)}
-                  prev={o.prev_invoice_cost_usd}
-                  delta={invDelta}
-                  linked={o.status === "linked"}
-                />
-              </div>
-
-              {/* Responsible manager (confirmed/linked only) */}
-              {(o.status === "linked" || o.status === "confirmed") && managerNameById[o.created_by] && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Відповідальний менеджер:{" "}
-                  <b className="text-foreground">{managerNameById[o.created_by]}</b>
-                </div>
-              )}
-
-              {/* Expected date */}
-              {etaDate && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {etaDate.label}:{" "}
-                  <b className="text-foreground tabular-nums">{etaDate.value}</b>
-                  {etaDate.plan && (
-                    <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
-                  )}
-                </div>
-              )}
-
-              {/* ETA change notice (after link) */}
-              {o.status === "linked" && (o as OfferWithEtaPrev).prev_expected_eta &&
-                (o as OfferWithEtaPrev).prev_expected_eta !== o.expected_eta && (
-                <div className="mt-1 rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
-                  <b>Дата заходу змінена:</b> було{" "}
-                  <span className="line-through tabular-nums">
-                    {fmtDate((o as OfferWithEtaPrev).prev_expected_eta)}
-                  </span>{" "}
-                  → стало <b className="tabular-nums">{fmtDate(o.expected_eta)}</b>
-                </div>
-              )}
-
-              {/* Available quantity */}
-              {o.offered_pallets != null && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Доступна кількість: <b className="text-foreground tabular-nums">{o.offered_pallets}</b> палет
-                </div>
-              )}
-
-              {o.expires_at && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Залишок: <b className="text-foreground">{formatRemaining(o.expires_at)}</b>
-                </div>
-              )}
-
-              {/* Desired quantity input */}
-              <div className="mt-3 flex flex-wrap items-end gap-2">
-                {!["linked", "closed", "expired"].includes(o.status) ? (
-                  <>
-                    <label className="text-sm">
-                      <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        className="h-9 w-32 font-bold tabular-nums"
-                        value={draft}
-                        onChange={(e) => setDrafts((p) => ({ ...p, [o.id]: e.target.value }))}
-                      />
-                    </label>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const n = Number(draft);
-                        if (!Number.isFinite(n) || n < 0) {
-                          toast.error("Введіть кількість");
-                          return;
-                        }
-                        submit.mutate({ offerId: o.id, pallets: n });
-                      }}
-                    >
-                      {r ? "Оновити" : "Запитати"}
-                    </Button>
-                  </>
-                ) : null}
-
-                {r && (
-                  <div className="ml-auto text-right text-sm">
-                    <div className="text-muted-foreground">
-                      Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
-                    </div>
-                    {apprQty != null && (
-                      <div className="text-muted-foreground">
-                        Підтв.:{" "}
-                        <b
-                          className={cn(
-                            "tabular-nums",
-                            palletDelta < 0 && "text-destructive",
-                            palletDelta > 0 && "text-success",
-                            palletDelta === 0 && "text-foreground",
-                          )}
-                        >
-                          {apprQty}
-                          {palletDelta !== 0 && (
-                            <span className="ml-1">
-                              ({palletDelta > 0 ? "+" : ""}
-                              {palletDelta})
-                            </span>
-                          )}
-                        </b>
-                      </div>
+                return (
+                  <tr
+                    key={o.id}
+                    className={cn(
+                      "border-b align-top",
+                      o.status === "closed" && "bg-destructive/5",
                     )}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function CostLine({
-  label,
-  tone,
-  curr,
-  prev,
-  delta,
-  linked,
-}: {
-  label: string;
-  tone: "success" | "destructive";
-  curr: number;
-  prev: number | null;
-  delta: number;
-  linked?: boolean;
-}) {
-  const changed = prev != null && delta !== 0;
-  const toneCls = tone === "success" ? "text-success" : "text-destructive";
-  return (
-    <div className={cn("text-sm", toneCls)}>
-      <span>{label}: </span>
-      <b className="font-bold tabular-nums">${curr.toFixed(2)}</b>
-      {changed && !linked && (
-        <>
-          <span className="ml-1 text-xs font-normal text-muted-foreground line-through">
-            ${Number(prev).toFixed(2)}
-          </span>
-          <span
-            className={cn(
-              "ml-1 text-xs font-bold",
-              delta < 0 ? "text-success" : "text-destructive",
-            )}
-          >
-            ({delta > 0 ? "+" : ""}
-            {delta.toFixed(2)})
-          </span>
-        </>
-      )}
-      {changed && linked && (
-        <div
-          className={cn(
-            "mt-0.5 rounded-md px-2 py-1 text-xs font-normal",
-            delta > 0
-              ? "bg-destructive/10 text-destructive"
-              : "bg-success/10 text-success",
-          )}
-        >
-          <b>Собівартість змінено:</b> було{" "}
-          <span className="line-through tabular-nums">${Number(prev).toFixed(2)}</span>{" "}
-          → стало <b className="tabular-nums">${curr.toFixed(2)}</b>{" "}
-          <b className="tabular-nums">
-            ({delta > 0 ? "+" : ""}
-            {delta.toFixed(2)})
-          </b>
-        </div>
+                  >
+                    <td className="px-2 py-2">
+                      <div className="font-semibold">
+                        {o.product_name}
+                        {o.origin_country && (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}({o.origin_country})
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          "mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase",
+                          statusCls,
+                        )}
+                      >
+                        {statusLabel}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2">{o.variety || "—"}</td>
+                    <td className="px-2 py-2">{o.caliber || "—"}</td>
+                    <td className="px-2 py-2">
+                      {[o.packaging, o.specification].filter(Boolean).join(" • ") || "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <CostPair
+                        indicative={o.indicative_cost_usd}
+                        invoice={o.invoice_cost_usd}
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-xs">
+                      {managerNameById[o.created_by] ?? "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right tabular-nums">
+                      {o.offered_pallets != null ? `${o.offered_pallets}п` : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {!locked ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            className="h-8 w-16 text-right font-bold tabular-nums"
+                            value={draft}
+                            onChange={(e) =>
+                              setDrafts((p) => ({ ...p, [o.id]: e.target.value }))
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            onClick={() => {
+                              const n = Number(draft);
+                              if (!Number.isFinite(n) || n < 0) {
+                                toast.error("Введіть кількість");
+                                return;
+                              }
+                              submit.mutate({ offerId: o.id, pallets: n });
+                            }}
+                          >
+                            {r ? "OK" : "Запит"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                      {r && (
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
+                          {apprQty != null && (
+                            <>
+                              {" · "}Підтв.:{" "}
+                              <b
+                                className={cn(
+                                  "tabular-nums",
+                                  palletDelta < 0 && "text-destructive",
+                                  palletDelta > 0 && "text-success",
+                                  palletDelta === 0 && "text-foreground",
+                                )}
+                              >
+                                {apprQty}
+                              </b>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </TableScroller>
       )}
     </div>
   );

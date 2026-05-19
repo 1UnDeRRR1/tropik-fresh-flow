@@ -103,6 +103,7 @@ export function labelToFruit(label: string): FruitName {
     case "Календар":
       return "kiwi";
     case "Переказ":
+    case "Переміщення":
       return "strawberry";
     case "Запропонувати":
       return "pineapple";
