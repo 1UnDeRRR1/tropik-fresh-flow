@@ -267,110 +267,108 @@ function ShipmentsList() {
             </div>
           </div>
 
-          <SectionCard title={`Поставки (${filtered.length})`}>
-            {!filtered.length ? (
-              shipmentsQuery.isFetching || !shipmentsQuery.isSuccess ? (
-                <p className="text-sm text-muted-foreground">Оновлення даних…</p>
-              ) : (
-              <EmptyState title="Поставок немає" />
-              )
+          {!filtered.length ? (
+            shipmentsQuery.isFetching || !shipmentsQuery.isSuccess ? (
+              <p className="text-sm text-muted-foreground">Оновлення даних…</p>
             ) : (
-              <TableScroller>
-                <table className="min-w-[1100px] w-full border-separate border-spacing-0 text-xs">
-                  <thead className="[&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
-                    <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                      <th className="sticky left-0 z-40 py-2 pr-2 w-[120px] min-w-[120px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">№</th>
-                      <th className="px-2 py-2 w-[110px] min-w-[110px]">Статус</th>
-                      <th className="px-2 py-2">Постачальник</th>
-                      <th className="px-2 py-2">Країна</th>
-                      <th className="px-2 py-2">ETA</th>
-                      <th className="px-2 py-2">Розподілено</th>
-                      <th className="px-2 py-2 text-right text-foreground">Факт</th>
-                      <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
-                      <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
-                      <th className="px-2 py-2 text-center text-foreground">Логістика</th>
-                      {isAdmin && <th className="px-2 py-2 whitespace-nowrap">Відповідальний менеджер</th>}
-                      <th className="px-2 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((s) => {
-                      const tone = s.isDelayed
-                        ? "bg-destructive/5"
-                        : s.isCompleted
-                          ? "bg-success/5"
-                          : s.isSoon
-                            ? "bg-warning/5"
-                            : "";
-                      const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
-                      return (
-                        <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
-                          <td className="sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px] bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                            <ShipmentQuickView
+              <EmptyState title="Поставок немає" />
+            )
+          ) : (
+            <TableScroller>
+              <table className="min-w-[1100px] w-full border-separate border-spacing-0 text-xs">
+                <thead className="[&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
+                  <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <th className="sticky left-0 z-40 py-2 pr-2 w-[120px] min-w-[120px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">№</th>
+                    <th className="px-2 py-2 w-[110px] min-w-[110px]">Статус</th>
+                    <th className="px-2 py-2">Постачальник</th>
+                    <th className="px-2 py-2">Країна</th>
+                    <th className="px-2 py-2">ETA</th>
+                    <th className="px-2 py-2">Розподілено</th>
+                    <th className="px-2 py-2 text-right text-foreground">Факт</th>
+                    <th className="px-2 py-2 text-right text-foreground">Розпод.</th>
+                    <th className="px-2 py-2 text-right text-foreground">Залиш.</th>
+                    <th className="px-2 py-2 text-center text-foreground">Логістика</th>
+                    {isAdmin && <th className="px-2 py-2 whitespace-nowrap">Відповідальний менеджер</th>}
+                    <th className="px-2 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((s) => {
+                    const tone = s.isDelayed
+                      ? "bg-destructive/5"
+                      : s.isCompleted
+                        ? "bg-success/5"
+                        : s.isSoon
+                          ? "bg-warning/5"
+                          : "";
+                    const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
+                    return (
+                      <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
+                        <td className="sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px] bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                          <ShipmentQuickView
+                            shipmentId={s.id}
+                            code={s.code}
+                            className={cn("font-bold whitespace-nowrap text-left", shipmentCodeTextTone(s.status))}
+                          />
+                        </td>
+                        <td className="px-2 py-2 w-[130px] min-w-[130px]">
+                          {s.pipeline_status ? (
+                            <PipelineStatusBadge status={s.pipeline_status as PipelineStatus} variant="animated" />
+                          ) : (
+                            <StatusChip status={s.status} />
+                          )}
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
+                        <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
+                        <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
+                          {s.eta ?? "—"}
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          {s.fact > 0 && s.remaining === 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
+                          ) : s.fact > 0 && s.dist === 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive whitespace-nowrap">Не розпод.</span>
+                          ) : s.dist > 0 && s.remaining > 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">Дорозподіл</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
+                        <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>{s.dist}</td>
+                        <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
+                          {s.remaining}
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <LogisticsIndicator
+                            vehicle={s.tractor_plate ?? s.vehicle_plate ?? null}
+                            driver={s.driver_name ?? null}
+                            address={s.loading_address ?? null}
+                            reference={s.loading_reference ?? null}
+                            temperature={(s as { temperature_mode?: string | null }).temperature_mode ?? null}
+                          />
+                        </td>
+                        {isAdmin && (
+                          <td className="px-2 py-2 whitespace-nowrap text-foreground">
+                            {(s as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
+                          </td>
+                        )}
+                        <td className="px-1 py-2">
+                          {isOwner && (
+                            <RowActions
                               shipmentId={s.id}
                               code={s.code}
-                              className={cn("font-bold whitespace-nowrap text-left", shipmentCodeTextTone(s.status))}
+                              onChanged={() => qc.invalidateQueries({ queryKey: ["shipments-list"] })}
                             />
-                          </td>
-                          <td className="px-2 py-2 w-[130px] min-w-[130px]">
-                            {s.pipeline_status ? (
-                              <PipelineStatusBadge status={s.pipeline_status as PipelineStatus} variant="animated" />
-                            ) : (
-                              <StatusChip status={s.status} />
-                            )}
-                          </td>
-                          <td className="px-2 py-2 whitespace-nowrap">{s.suppliers?.name ?? "—"}</td>
-                          <td className="px-2 py-2 whitespace-nowrap">{toUaCountry(s.country ?? s.suppliers?.country ?? "") || "—"}</td>
-                          <td className={cn("px-2 py-2 whitespace-nowrap", s.isDelayed && "font-bold text-destructive", s.isSoon && "font-bold text-warning")}>
-                            {s.eta ?? "—"}
-                          </td>
-                          <td className="px-2 py-2 whitespace-nowrap">
-                            {s.fact > 0 && s.remaining === 0 ? (
-                              <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">Виконано</span>
-                            ) : s.fact > 0 && s.dist === 0 ? (
-                              <span className="inline-flex items-center rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold text-destructive whitespace-nowrap">Не розпод.</span>
-                            ) : s.dist > 0 && s.remaining > 0 ? (
-                              <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">Дорозподіл</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2 text-right tabular-nums text-foreground">{s.fact}</td>
-                          <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.dist === s.fact ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>{s.dist}</td>
-                          <td className={cn("px-2 py-2 text-right tabular-nums font-semibold", s.remaining === 0 ? "text-success" : s.dist > 0 && s.remaining > 0 ? "text-warning" : "text-destructive")}>
-                            {s.remaining}
-                          </td>
-                          <td className="px-2 py-2 text-center">
-                            <LogisticsIndicator
-                              vehicle={s.tractor_plate ?? s.vehicle_plate ?? null}
-                              driver={s.driver_name ?? null}
-                              address={s.loading_address ?? null}
-                              reference={s.loading_reference ?? null}
-                              temperature={(s as { temperature_mode?: string | null }).temperature_mode ?? null}
-                            />
-                          </td>
-                          {isAdmin && (
-                            <td className="px-2 py-2 whitespace-nowrap text-foreground">
-                              {(s as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name ?? "—"}
-                            </td>
                           )}
-                          <td className="px-1 py-2">
-                            {isOwner && (
-                              <RowActions
-                                shipmentId={s.id}
-                                code={s.code}
-                                onChanged={() => qc.invalidateQueries({ queryKey: ["shipments-list"] })}
-                              />
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </TableScroller>
-            )}
-          </SectionCard>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroller>
+          )}
         </>
       )}
 
