@@ -410,6 +410,33 @@ function Warning({ text }: { text: string }) {
   );
 }
 
+function StatusDot({
+  icon: Icon,
+  ok,
+  labelOk,
+  labelMissing,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  ok: boolean;
+  labelOk: string;
+  labelMissing: string;
+}) {
+  return (
+    <span
+      title={ok ? labelOk : labelMissing}
+      aria-label={ok ? labelOk : labelMissing}
+      className={cn(
+        "inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors",
+        ok
+          ? "bg-emerald-500 text-white dark:bg-emerald-600"
+          : "bg-red-500 text-white dark:bg-red-600",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
 function EditDialog({
   row,
   managerName,
