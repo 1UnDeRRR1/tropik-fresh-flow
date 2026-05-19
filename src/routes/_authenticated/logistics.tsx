@@ -486,9 +486,12 @@ function EditDialog({
   const save = useMutation({
     mutationFn: async () => {
       const patch: Record<string, unknown> = {};
+      const cleanPickups = pickups.map((p) => ({ address: p.address.trim(), reference: p.reference.trim() }));
+      const joinedAddress = cleanPickups.map((p) => p.address).filter(Boolean).join("\n");
+      const joinedRef = cleanPickups.map((p) => p.reference).filter(Boolean).join("\n");
       if (isManager) {
-        patch.loading_address = form.loading_address || null;
-        patch.loading_reference = form.loading_reference || null;
+        patch.loading_address = joinedAddress || null;
+        patch.loading_reference = joinedRef || null;
         patch.temperature_mode = form.temperature_mode || null;
       }
       if (isLogistics) {
@@ -508,8 +511,8 @@ function EditDialog({
         const hasVehicle = !!(form.tractor_plate.trim() && form.trailer_plate.trim());
         const hasDriver = !!form.driver_name.trim();
         const hasFreight = amt !== "";
-        const hasAddress = !!form.loading_address.trim();
-        const hasRef = !!form.loading_reference.trim();
+        const hasAddress = !!joinedAddress;
+        const hasRef = !!joinedRef;
         const earlyStates: LogisticsStatus[] = [
           "pending_planning",
           "planning",
