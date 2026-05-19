@@ -72,6 +72,7 @@ type LogisticsRow = {
   logistics_cost_currency: string | null;
   final_freight_amount: number | null;
   final_freight_currency: string | null;
+  final_freight_payment: string | null;
   temperature_mode: string | null;
   supplier: { name: string | null; import_manager_id: string | null } | null;
   import_manager_id: string | null;
