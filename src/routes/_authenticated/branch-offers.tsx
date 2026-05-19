@@ -184,8 +184,9 @@ function BranchOffersPage() {
                     key={o.id}
                     className={cn(
                       "border-b align-top",
-                      o.status === "closed" && "bg-destructive/5",
+                      o.status === "deleted" && "bg-destructive/5",
                     )}
+
                   >
                     <td className="px-2 py-2">
                       <div className="font-semibold">
