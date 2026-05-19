@@ -1,25 +1,15 @@
-import { useEffect, useRef, type HTMLAttributes } from "react";
+import { useEffect, useRef, useState, type HTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 /**
  * Unified mobile-first table scroll wrapper with dynamic sticky header.
  *
- * Layout:
- *  - The wrapper scrolls only horizontally (overflow-x: auto). Vertical scroll
- *    stays on the page.
- *  - CSS `position: sticky` on the <thead> cannot work here because the
- *    horizontal scroll container also becomes a vertical scroll container per
- *    spec (overflow-y: clip + overflow-x: auto computes as overflow-y: hidden,
- *    which is still a scrolling-ancestor for sticky).
- *
- * Dynamic sticky:
- *  - The component clones the table's <thead> into a `position: fixed` overlay
- *    pinned just below the app header (top: 64px = h-16).
- *  - The overlay only appears once the original thead reaches the app header
- *    and disappears again when the table scrolls back down past it (so the
- *    header "unsticks" exactly when the first data row reaches it).
- *  - The overlay's horizontal scroll is kept in sync with the wrapper, so the
- *    cloned columns track the data columns 1:1.
+ * The cloned <thead> overlay is rendered through a React portal into
+ * document.body so that ancestors with `transform`, `filter`, or
+ * `backdrop-filter` (which create a containing block) cannot pin our
+ * `position: fixed` overlay inside the page card — that was causing the
+ * sticky header to render in the middle of the table.
  */
 
 const APP_HEADER_PX = 64;
@@ -32,8 +22,12 @@ export function TableScroller({
   const wrapRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    if (!mounted) return;
     const wrap = wrapRef.current;
     const overlay = overlayRef.current;
     const inner = innerRef.current;
@@ -55,25 +49,21 @@ export function TableScroller({
         cloneTable = document.createElement("table");
         cloneTable.className = table.className;
         cloneTable.style.tableLayout = getComputedStyle(table).tableLayout;
+        cloneTable.style.borderCollapse = getComputedStyle(table).borderCollapse;
+        cloneTable.style.borderSpacing = getComputedStyle(table).borderSpacing;
         inner.appendChild(cloneTable);
       }
-      // Refresh cloned thead (in case columns changed).
       const existing = cloneTable.querySelector("thead");
       const fresh = thead.cloneNode(true) as HTMLTableSectionElement;
-      // Strip sticky positioning from the clone so it just sits at the top of
-      // the overlay table.
-      fresh.querySelectorAll("[class*='sticky']").forEach((el) => {
-        (el as HTMLElement).classList.forEach((c) => {
+      const strip = (el: HTMLElement) => {
+        Array.from(el.classList).forEach((c) => {
           if (c.startsWith("sticky") || c.startsWith("top-") || c.startsWith("z-")) {
-            (el as HTMLElement).classList.remove(c);
+            el.classList.remove(c);
           }
         });
-      });
-      fresh.classList.forEach((c) => {
-        if (c.startsWith("sticky") || c.startsWith("top-") || c.startsWith("z-")) {
-          fresh.classList.remove(c);
-        }
-      });
+      };
+      strip(fresh);
+      fresh.querySelectorAll<HTMLElement>("*").forEach(strip);
       if (existing) cloneTable.replaceChild(fresh, existing);
       else cloneTable.appendChild(fresh);
       return { table, thead };
@@ -131,7 +121,7 @@ export function TableScroller({
       if (inner) inner.scrollLeft = wrap.scrollLeft;
       schedule();
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     window.addEventListener("resize", onScroll);
     wrap.addEventListener("scroll", onWrapScroll, { passive: true });
 
@@ -142,7 +132,7 @@ export function TableScroller({
     ro.observe(wrap);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll, { capture: true } as any);
       window.removeEventListener("resize", onScroll);
       wrap.removeEventListener("scroll", onWrapScroll);
       mo.disconnect();
@@ -151,7 +141,7 @@ export function TableScroller({
       inner.innerHTML = "";
       cloneTable = null;
     };
-  }, []);
+  }, [mounted]);
 
   return (
     <>
@@ -167,26 +157,30 @@ export function TableScroller({
       >
         {children}
       </div>
-      <div
-        ref={overlayRef}
-        aria-hidden
-        className="bg-background/95 backdrop-blur"
-        style={{
-          display: "none",
-          position: "fixed",
-          top: APP_HEADER_PX,
-          left: 0,
-          width: 0,
-          overflow: "hidden",
-          zIndex: 40,
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          ref={innerRef}
-          style={{ overflow: "hidden", width: "100%", height: "100%" }}
-        />
-      </div>
+      {mounted &&
+        createPortal(
+          <div
+            ref={overlayRef}
+            aria-hidden
+            className="bg-background/95 backdrop-blur"
+            style={{
+              display: "none",
+              position: "fixed",
+              top: APP_HEADER_PX,
+              left: 0,
+              width: 0,
+              overflow: "hidden",
+              zIndex: 30,
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              ref={innerRef}
+              style={{ overflow: "hidden", width: "100%", height: "100%" }}
+            />
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
