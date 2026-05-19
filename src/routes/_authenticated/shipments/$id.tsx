@@ -217,7 +217,7 @@ function ProductsTab({ items, shipmentId, shipment }: { items: Item[]; shipmentI
           </div>
           <div className="-mx-4 overflow-x-auto px-4">
             <table className="w-full min-w-[640px] text-[11px] tabular-nums">
-              <thead className="text-muted-foreground">
+              <thead className="text-muted-foreground [&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="border-b border-border">
                   <th className="py-1.5 px-1 text-left font-medium">Товар</th>
                   <th className="py-1.5 px-1 text-left font-medium">Сорт</th>
@@ -666,7 +666,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
           {!alloc.shipmentTotalWeight ? <EmptyState title="Додайте позиції щоб побачити розподіл" /> : (
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="w-full min-w-[520px] text-xs">
-                <thead className="text-muted-foreground">
+                <thead className="text-muted-foreground [&_th]:bg-table-head [&_th]:font-bold">
                   <tr className="border-b border-border">
                     <th className="py-2 text-left font-medium">Товар</th>
                     <th className="py-2 text-right font-medium">Вага</th>

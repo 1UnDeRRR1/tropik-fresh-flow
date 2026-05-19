@@ -580,7 +580,7 @@ function BranchDashboard() {
         <SectionCard title="Підтверджений товар">
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
-              <thead>
+              <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                   <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
                   <th className="px-2 py-2 font-medium">ETA</th>

@@ -414,7 +414,7 @@ function DistributionMatrix() {
       <SectionCard title="Матриця розподілу" action={SaveButton}>
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="min-w-full border-separate border-spacing-0 text-xs">
-            <thead>
+            <thead className="[&_th]:bg-table-head [&_th]:font-bold">
               <tr>
                 <th className="sticky left-0 z-10 bg-card px-2 py-2 text-left font-semibold">Товар</th>
                 <th className="bg-card px-2 py-2 text-right font-semibold">Факт</th>

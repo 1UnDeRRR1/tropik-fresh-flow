@@ -460,7 +460,7 @@ function ProductsFullscreen() {
           </div>
         ) : (
           <table className="w-full min-w-[860px] text-[12px] tabular-nums">
-            <thead className="sticky top-0 z-10 bg-card text-muted-foreground shadow-sm">
+            <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
               <tr className="border-b border-border">
                 <th className="px-1.5 py-2 text-left font-medium">Товар</th>
                 <th className="px-1.5 py-2 text-left font-medium">Сорт</th>

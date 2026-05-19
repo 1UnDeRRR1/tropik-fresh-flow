@@ -38,7 +38,7 @@ function Costs() {
         ) : (
           <div className="-mx-4 overflow-x-auto px-4">
             <table className="w-full text-xs">
-              <thead className="text-left text-muted-foreground">
+              <thead className="text-left text-muted-foreground [&_th]:bg-table-head [&_th]:font-bold">
                 <tr>
                   <th className="py-1 pr-2">Товар</th>
                   <th className="py-1 pr-2 text-right">Ціна $</th>

@@ -82,7 +82,7 @@ function ArchivePage() {
           ) : (
             <div className="-mx-2 overflow-x-auto">
               <table className="w-full min-w-[640px] text-xs">
-                <thead>
+                <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                   <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                     <th className="px-2 py-2 font-medium">Поставка</th>
                     <th className="px-2 py-2 font-medium">Країна</th>
