@@ -690,6 +690,7 @@ export type Database = {
           branch_id: string
           created_at: string
           id: string
+          linked_pallets: number
           offer_id: string
           prev_approved_pallets: number | null
           requested_pallets: number
@@ -700,6 +701,7 @@ export type Database = {
           branch_id: string
           created_at?: string
           id?: string
+          linked_pallets?: number
           offer_id: string
           prev_approved_pallets?: number | null
           requested_pallets?: number
@@ -710,6 +712,7 @@ export type Database = {
           branch_id?: string
           created_at?: string
           id?: string
+          linked_pallets?: number
           offer_id?: string
           prev_approved_pallets?: number | null
           requested_pallets?: number
