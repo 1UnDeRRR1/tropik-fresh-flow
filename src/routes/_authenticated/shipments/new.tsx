@@ -25,8 +25,9 @@ import {
 import { StaffOnly } from "@/components/StaffOnly";
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
-  validateSearch: (search: Record<string, unknown>): { vehicleId?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
     vehicleId: typeof search.vehicleId === "string" ? search.vehicleId : undefined,
+    fromOffer: typeof search.fromOffer === "string" ? search.fromOffer : undefined,
   }),
   component: () => <StaffOnly><NewShipment /></StaffOnly>,
 });
