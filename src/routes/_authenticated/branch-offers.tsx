@@ -38,7 +38,7 @@ function BranchOffersPage() {
       const { data, error } = await supabase
         .from("manager_offers")
         .select("*")
-        .in("status", ["active", "in_work", "confirmed", "linked", "closed", "expired"])
+        .in("status", ["active", "in_work", "confirmed", "linked", "closed", "expired", "deleted"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ManagerOffer[];
