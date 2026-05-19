@@ -304,7 +304,7 @@ function ShipmentsList() {
                     const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                     return (
                       <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
-                        <td className="sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px] bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                        <td className="sticky left-0 z-10 py-2 pl-3 pr-2 whitespace-nowrap w-[120px] min-w-[120px] bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
                           <ShipmentQuickView
                             shipmentId={s.id}
                             code={s.code}
