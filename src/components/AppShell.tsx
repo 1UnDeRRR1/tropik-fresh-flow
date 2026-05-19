@@ -146,7 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/distribution", label: "Вільно", icon: Package },
         { to: "/branch-offers", label: "Про. ЗЕД", icon: Inbox },
         { to: "/branch-calendar", label: "Календар", icon: CalendarDays },
-        { to: "/offers", label: "Переказ", icon: Send, badge: pendingOffers },
+        { to: "/offers", label: "Переміщення", icon: Send, badge: pendingOffers },
         { to: "/archive", label: "Архів", icon: Archive },
         { to: "/settings", label: "Профіль", icon: Settings },
       ]
