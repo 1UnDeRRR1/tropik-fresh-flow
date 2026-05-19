@@ -193,7 +193,7 @@ function BranchOffersPage() {
               key={o.id}
               className={cn(
                 "rounded-2xl border bg-card p-4 shadow-sm",
-                o.status === "closed"
+                o.status === "deleted"
                   ? "border-destructive/40 bg-destructive/5"
                   : "border-border",
               )}
@@ -207,18 +207,10 @@ function BranchOffersPage() {
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    o.status === "closed"
-                      ? "bg-destructive/15 text-destructive"
-                      : o.status === "linked"
-                      ? "bg-success/15 text-success"
-                      : STATUS_CLASS[o.status],
+                    STATUS_CLASS[o.status],
                   )}
                 >
-                  {o.status === "closed"
-                    ? "Пропозиція скасована"
-                    : o.status === "linked"
-                    ? "Підтверджено"
-                    : STATUS_LABEL[o.status]}
+                  {STATUS_LABEL[o.status]}
                 </span>
                 {ship && (
                   <span className="text-sm text-success">
