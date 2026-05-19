@@ -275,9 +275,9 @@ function ShipmentsList() {
               <EmptyState title="Поставок немає" />
               )
             ) : (
-              <div className="-mx-4 overflow-x-auto overflow-y-clip overscroll-x-contain">
+              <TableScroller>
                 <table className="min-w-[1100px] w-full border-separate border-spacing-0 text-xs">
-                  <thead className="sticky top-16 z-30 [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
+                  <thead className="[&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
                     <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                       <th className="sticky left-0 z-40 py-2 pr-2 w-[120px] min-w-[120px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">№</th>
                       <th className="px-2 py-2 w-[110px] min-w-[110px]">Статус</th>
