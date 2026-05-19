@@ -381,10 +381,17 @@ function BranchDashboard() {
         .filter(Boolean) as Row[],
     );
 
-    // Pending rows: approved manager-offer responses with no materialised distribution_item yet.
+    // Pending rows: manager-offer responses without a real shipment_item yet.
+    // We only treat an offer as "materialised" when distribution_items has BOTH
+    // reserved_offer_id AND shipment_item_id — i.e. it became part of a real shipment.
     // Hidden in the "unloaded" board (no shipment to unload yet).
     const materialisedOfferIds = new Set(
-      dists.flatMap((d) => (d.distribution_items ?? []).map((di) => di.reserved_offer_id).filter(Boolean) as string[]),
+      dists.flatMap((d) =>
+        (d.distribution_items ?? [])
+          .filter((di) => di.shipment_item_id)
+          .map((di) => di.reserved_offer_id)
+          .filter(Boolean) as string[],
+      ),
     );
     const pending: Row[] =
       board === "unloaded"
@@ -398,13 +405,24 @@ function BranchDashboard() {
               let pipeline: PipelineStatus;
               let codeLabel: string;
               let note: string | null = null;
-              if (approved === null) {
+              if (o.status === "deleted") {
+                // Manager removed the whole offer — branch keeps a record marked cancelled.
+                pipeline = "rejected";
+                codeLabel = "Скасовано";
+              } else if (o.linked_shipment_id) {
+                // Once a shipment number is assigned, status is "Замовлено" for everyone.
+                pipeline = "ordered";
+                codeLabel = "Замовлено";
+                if (approved != null && Number(approved) < requested)
+                  note = `${approved} з ${requested}п`;
+              } else if (approved === null) {
                 pipeline = "awaiting_confirmation";
                 codeLabel = "Чекаю підтвердження";
               } else if (Number(approved) <= 0) {
                 pipeline = "rejected";
                 codeLabel = "Відмовлено";
-              } else if (o.linked_shipment_id) {
+              } else if (o.status === "closed") {
+                // Manager closed the offer — final approved quantity for this branch.
                 pipeline = "confirmed";
                 codeLabel = "Підтверджено";
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
@@ -448,6 +466,7 @@ function BranchDashboard() {
                 seen_inv: o.invoice_cost_usd,
               } as Row;
             });
+
 
     return [...materialized, ...pending];
   }, [dists, items, ships, suppliers, managers, baselines, board, pendingOffers]);
