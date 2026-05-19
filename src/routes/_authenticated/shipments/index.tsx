@@ -274,7 +274,7 @@ function ShipmentsList() {
               <EmptyState title="Поставок немає" />
               )
             ) : (
-              <div className="-mx-4 overflow-x-auto px-4">
+              <div className="-mx-4 px-4">
                 <table className="min-w-full border-separate border-spacing-0 text-xs">
                   <thead className="sticky top-16 z-30 [&_th]:bg-muted/60 [&_th]:backdrop-blur [&_th]:font-bold">
                     <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
