@@ -52,6 +52,8 @@ function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
   const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
   const [board, setBoard] = useState<BoardView>("active");
+  const [managerFilter, setManagerFilter] = useState<string>("all");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const isAdmin = hasRole(["super_admin", "admin"]);
@@ -127,6 +129,24 @@ function ShipmentsList() {
     });
   }, [data, today, soon]);
 
+  const managerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      const id = (r as { import_manager_id?: string | null }).import_manager_id;
+      const name = (r as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name;
+      if (id && name) map.set(id, name);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows]);
+  const supplierOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const name = (r as { suppliers?: { name?: string | null } | null }).suppliers?.name;
+      if (name) set.add(name);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
   const filtered = rows
     .filter((r) => {
       const u = (r as { unloaded_at?: string | null; archived_at?: string | null }).unloaded_at;
@@ -142,6 +162,14 @@ function ShipmentsList() {
       if (filter === "none") return r.fact > 0 && r.dist === 0;
       if (filter === "partial") return r.dist > 0 && r.remaining > 0;
       return true;
+    })
+    .filter((r) => {
+      if (!isAdmin || managerFilter === "all") return true;
+      return (r as { import_manager_id?: string | null }).import_manager_id === managerFilter;
+    })
+    .filter((r) => {
+      if (!isAdmin || supplierFilter === "all") return true;
+      return (r as { suppliers?: { name?: string | null } | null }).suppliers?.name === supplierFilter;
     })
     .sort((a, b) => {
       if (!a.eta && !b.eta) return 0;
@@ -197,10 +225,43 @@ function ShipmentsList() {
       ) : (
         <>
           <div className="-mx-4 overflow-x-auto px-4">
-            <div className="flex gap-2 pb-1">
+            <div className="flex flex-wrap items-center gap-2 pb-1">
               <StatusFilterPill active={filter === "done"} onClick={() => setFilter(filter === "done" ? "all" : "done")} tone="success">Виконано</StatusFilterPill>
               <StatusFilterPill active={filter === "none"} onClick={() => setFilter(filter === "none" ? "all" : "none")} tone="destructive">Не розпод.</StatusFilterPill>
               <StatusFilterPill active={filter === "partial"} onClick={() => setFilter(filter === "partial" ? "all" : "partial")} tone="warning">Дорозподіл</StatusFilterPill>
+              {isAdmin && (
+                <>
+                  <select
+                    value={managerFilter}
+                    onChange={(e) => setManagerFilter(e.target.value)}
+                    className="h-7 shrink-0 rounded-full border border-border bg-card px-2 text-[11px] font-semibold text-foreground"
+                  >
+                    <option value="all">Усі менеджери</option>
+                    {managerOptions.map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={supplierFilter}
+                    onChange={(e) => setSupplierFilter(e.target.value)}
+                    className="h-7 shrink-0 rounded-full border border-border bg-card px-2 text-[11px] font-semibold text-foreground"
+                  >
+                    <option value="all">Усі постачальники</option>
+                    {supplierOptions.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  {(managerFilter !== "all" || supplierFilter !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => { setManagerFilter("all"); setSupplierFilter("all"); }}
+                      className="shrink-0 rounded-full border border-border bg-card px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                      Скинути
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
