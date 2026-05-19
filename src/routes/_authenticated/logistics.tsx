@@ -452,9 +452,17 @@ function EditDialog({
   const isManager = isAdmin || hasRole("import_manager");
   const isLogistics = isAdmin || hasRole("logistics");
 
+  const initialPickups = (() => {
+    const addrs = (row.loading_address ?? "").split(/\n+/).map((s) => s.trim());
+    const refs = (row.loading_reference ?? "").split(/\n+/).map((s) => s.trim());
+    const n = Math.max(addrs.length, refs.length, 1);
+    const out: Array<{ address: string; reference: string }> = [];
+    for (let i = 0; i < n; i++) out.push({ address: addrs[i] ?? "", reference: refs[i] ?? "" });
+    return out;
+  })();
+
+  const [pickups, setPickups] = useState(initialPickups);
   const [form, setForm] = useState({
-    loading_address: row.loading_address ?? "",
-    loading_reference: row.loading_reference ?? "",
     tractor_plate: row.tractor_plate ?? "",
     trailer_plate: row.trailer_plate ?? "",
     driver_name: row.driver_name ?? "",
