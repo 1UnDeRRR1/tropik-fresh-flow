@@ -639,6 +639,20 @@ function EditDialog({
                   </Select>
                 </div>
               </Labeled>
+              <Labeled label="Спосіб оплати">
+                <Select
+                  value={form.final_freight_payment}
+                  onValueChange={(v) => setForm({ ...form, final_freight_payment: v })}
+                  disabled={!isLogistics}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">гот.</SelectItem>
+                    <SelectItem value="bank">б.р.</SelectItem>
+                  </SelectContent>
+                </Select>
               <Labeled label="Статус" className="sm:col-span-2">
                 <Select
                   value={form.logistics_status}
