@@ -438,6 +438,7 @@ function EditDialog({
     final_freight_amount:
       row.final_freight_amount != null ? String(row.final_freight_amount) : "",
     final_freight_currency: row.final_freight_currency ?? row.logistics_cost_currency ?? "EUR",
+    final_freight_payment: row.final_freight_payment ?? "bank",
     logistics_comment: row.logistics_comment ?? "",
   });
 
