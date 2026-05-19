@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Truck, FileText, Save, AlertTriangle, Search } from "lucide-react";
+import { Truck, FileText, Save, AlertTriangle, Search, User, MapPin, Hash, Thermometer, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -303,8 +303,9 @@ function BoardTable({
               const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
               const missingDriver = !r.driver_name;
               const missingTemperature = !r.temperature_mode;
+              const missingFreight = r.final_freight_amount == null;
               const hasWarnings =
-                missingVehicle || missingDriver || missingAddress || missingRef || missingTemperature;
+                missingVehicle || missingDriver || missingAddress || missingRef || missingTemperature || missingFreight;
               const tractor = r.tractor_plate ?? r.vehicle_plate ?? null;
               const trailer = r.trailer_plate ?? null;
               const managerLabel = resolveManagerName(r, managerMap);
@@ -316,12 +317,13 @@ function BoardTable({
                       onClick={() => onOpen(r)}
                     >
                       <TableCell colSpan={13} className="px-2 py-1">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {missingVehicle && <Warning text="без авто" />}
-                          {missingDriver && <Warning text="без водія" />}
-                          {missingAddress && <Warning text="без адреси" />}
-                          {missingRef && <Warning text="без reference" />}
-                          {missingTemperature && <Warning text="без температури" />}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusDot icon={Truck} ok={!missingVehicle} labelOk="Авто вказано" labelMissing="Без авто" />
+                          <StatusDot icon={User} ok={!missingDriver} labelOk="Водій вказано" labelMissing="Без водія" />
+                          <StatusDot icon={Banknote} ok={!missingFreight} labelOk="Фрахт вказано" labelMissing="Без фрахту" />
+                          <StatusDot icon={MapPin} ok={!missingAddress} labelOk="Адресу вказано" labelMissing="Без адреси" />
+                          <StatusDot icon={Hash} ok={!missingRef} labelOk="Reference вказано" labelMissing="Без reference" />
+                          <StatusDot icon={Thermometer} ok={!missingTemperature} labelOk="Температуру вказано" labelMissing="Без температури" />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -404,6 +406,33 @@ function Warning({ text }: { text: string }) {
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
       <AlertTriangle className="h-2.5 w-2.5" />
       {text}
+    </span>
+  );
+}
+
+function StatusDot({
+  icon: Icon,
+  ok,
+  labelOk,
+  labelMissing,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  ok: boolean;
+  labelOk: string;
+  labelMissing: string;
+}) {
+  return (
+    <span
+      title={ok ? labelOk : labelMissing}
+      aria-label={ok ? labelOk : labelMissing}
+      className={cn(
+        "inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors",
+        ok
+          ? "bg-emerald-500 text-white dark:bg-emerald-600"
+          : "bg-red-500 text-white dark:bg-red-600",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
     </span>
   );
 }
