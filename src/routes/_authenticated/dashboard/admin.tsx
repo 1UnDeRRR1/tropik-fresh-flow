@@ -297,7 +297,7 @@ function AdminDashboard() {
             label="Філія товари"
             value={data?.branchCount ?? 0}
             hint="Розподілено по філіям"
-            icon={<Building2 className="h-5 w-5 animate-pulse" />}
+            icon={<Building2 className="h-5 w-5 anim-soft-bounce" />}
             tone="warning-soft"
           />
         </button>
