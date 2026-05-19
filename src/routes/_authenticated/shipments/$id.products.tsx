@@ -28,6 +28,9 @@ import { countPositions, formatPositions } from "@/lib/positions";
 import { StaffOnly } from "@/components/StaffOnly";
 
 export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
+  validateSearch: (search: Record<string, unknown>): { fromOffer?: string } => ({
+    fromOffer: typeof search.fromOffer === "string" ? search.fromOffer : undefined,
+  }),
   component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
