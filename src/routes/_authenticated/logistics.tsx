@@ -271,10 +271,9 @@ function BoardTable({
   onOpen: (r: LogisticsRow) => void;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="w-full overflow-x-auto">
-        <table className="w-full min-w-[1100px] caption-bottom text-sm">
-          <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-table-head [&_th]:font-bold">
+    <div className="rounded-lg border border-border bg-card overflow-auto max-h-[calc(100dvh-12rem)]">
+      <table className="w-full min-w-[1100px] caption-bottom text-sm">
+          <TableHeader className="sticky top-0 z-20 [&_th]:bg-table-head [&_th]:font-bold shadow-[0_1px_0_0_hsl(var(--border))]">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-xs">Код</TableHead>
               <TableHead className="text-xs">Статус</TableHead>
@@ -396,7 +395,6 @@ function BoardTable({
             })}
           </TableBody>
         </table>
-      </div>
     </div>
   );
 }
@@ -454,9 +452,17 @@ function EditDialog({
   const isManager = isAdmin || hasRole("import_manager");
   const isLogistics = isAdmin || hasRole("logistics");
 
+  const initialPickups = (() => {
+    const addrs = (row.loading_address ?? "").split(/\n+/).map((s) => s.trim());
+    const refs = (row.loading_reference ?? "").split(/\n+/).map((s) => s.trim());
+    const n = Math.max(addrs.length, refs.length, 1);
+    const out: Array<{ address: string; reference: string }> = [];
+    for (let i = 0; i < n; i++) out.push({ address: addrs[i] ?? "", reference: refs[i] ?? "" });
+    return out;
+  })();
+
+  const [pickups, setPickups] = useState(initialPickups);
   const [form, setForm] = useState({
-    loading_address: row.loading_address ?? "",
-    loading_reference: row.loading_reference ?? "",
     tractor_plate: row.tractor_plate ?? "",
     trailer_plate: row.trailer_plate ?? "",
     driver_name: row.driver_name ?? "",
@@ -480,9 +486,12 @@ function EditDialog({
   const save = useMutation({
     mutationFn: async () => {
       const patch: Record<string, unknown> = {};
+      const cleanPickups = pickups.map((p) => ({ address: p.address.trim(), reference: p.reference.trim() }));
+      const joinedAddress = cleanPickups.map((p) => p.address).filter(Boolean).join("\n");
+      const joinedRef = cleanPickups.map((p) => p.reference).filter(Boolean).join("\n");
       if (isManager) {
-        patch.loading_address = form.loading_address || null;
-        patch.loading_reference = form.loading_reference || null;
+        patch.loading_address = joinedAddress || null;
+        patch.loading_reference = joinedRef || null;
         patch.temperature_mode = form.temperature_mode || null;
       }
       if (isLogistics) {
@@ -502,8 +511,8 @@ function EditDialog({
         const hasVehicle = !!(form.tractor_plate.trim() && form.trailer_plate.trim());
         const hasDriver = !!form.driver_name.trim();
         const hasFreight = amt !== "";
-        const hasAddress = !!form.loading_address.trim();
-        const hasRef = !!form.loading_reference.trim();
+        const hasAddress = !!joinedAddress;
+        const hasRef = !!joinedRef;
         const earlyStates: LogisticsStatus[] = [
           "pending_planning",
           "planning",
@@ -580,31 +589,68 @@ function EditDialog({
               <FileText className="h-3 w-3" /> Менеджер
             </h3>
             <div className="grid gap-2">
-              <Labeled label="Адреса завантаження">
-                <Textarea
-                  value={form.loading_address}
-                  onChange={(e) => setForm({ ...form, loading_address: e.target.value })}
-                  rows={2}
+              <div className="space-y-2">
+                {pickups.map((p, idx) => (
+                  <div key={idx} className="rounded-md border border-border/60 bg-muted/20 p-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Точка завантаження {pickups.length > 1 ? `#${idx + 1}` : ""}
+                      </span>
+                      {isManager && pickups.length > 1 && (
+                        <button
+                          type="button"
+                          className="text-[10px] font-semibold text-destructive hover:underline"
+                          onClick={() => setPickups(pickups.filter((_, i) => i !== idx))}
+                        >
+                          Видалити
+                        </button>
+                      )}
+                    </div>
+                    <Labeled label="Адреса завантаження">
+                      <Textarea
+                        value={p.address}
+                        onChange={(e) => {
+                          const next = [...pickups];
+                          next[idx] = { ...next[idx], address: e.target.value };
+                          setPickups(next);
+                        }}
+                        rows={2}
+                        disabled={!isManager}
+                      />
+                    </Labeled>
+                    <Labeled label="Loading reference">
+                      <Input
+                        value={p.reference}
+                        onChange={(e) => {
+                          const next = [...pickups];
+                          next[idx] = { ...next[idx], reference: e.target.value };
+                          setPickups(next);
+                        }}
+                        disabled={!isManager}
+                      />
+                    </Labeled>
+                  </div>
+                ))}
+                {isManager && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setPickups([...pickups, { address: "", reference: "" }])}
+                  >
+                    + Додати точку завантаження
+                  </Button>
+                )}
+              </div>
+              <Labeled label="Температура">
+                <Input
+                  value={form.temperature_mode}
+                  onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
                   disabled={!isManager}
+                  placeholder="+2…+6 °C"
                 />
               </Labeled>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Labeled label="Loading reference">
-                  <Input
-                    value={form.loading_reference}
-                    onChange={(e) => setForm({ ...form, loading_reference: e.target.value })}
-                    disabled={!isManager}
-                  />
-                </Labeled>
-                <Labeled label="Температура">
-                  <Input
-                    value={form.temperature_mode}
-                    onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
-                    disabled={!isManager}
-                    placeholder="+2…+6 °C"
-                  />
-                </Labeled>
-              </div>
               <Labeled label="Орієнтовний фрахт (від менеджера)">
                 <div className="rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5 text-xs">
                   {row.logistics_cost != null && Number(row.logistics_cost) > 0 ? (
