@@ -192,49 +192,53 @@ function LogisticsPage() {
         subtitle="Єдине табло поставок з номером, постачальником та позиціями. Клікніть рядок для деталей."
       />
 
-      <div className="mb-3"><MainBoardToggle value={board} onChange={setBoard} /></div>
+      <div className="mb-3"><MainBoardToggle value={board} onChange={setBoard} showSummary /></div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {board === "active" && (Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
-          const active = filter === f;
-          return (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {LOGISTICS_FILTER_LABEL[f]}
-              <span
+      {board !== "summary" && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {board === "active" && (Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
+            const active = filter === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
                 className={cn(
-                  "rounded-full px-1.5 text-[10px]",
-                  active ? "bg-primary-foreground/20" : "bg-secondary",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted",
                 )}
               >
-                {counts[f]}
-              </span>
-            </button>
-          );
-        })}
+                {LOGISTICS_FILTER_LABEL[f]}
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 text-[10px]",
+                    active ? "bg-primary-foreground/20" : "bg-secondary",
+                  )}
+                >
+                  {counts[f]}
+                </span>
+              </button>
+            );
+          })}
 
-        <div className="relative ml-auto">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук: код, постачальник, авто, водій…"
-            className="h-8 w-64 pl-7 text-xs"
-          />
+          <div className="relative ml-auto">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Пошук: код, постачальник, авто, водій…"
+              className="h-8 w-64 pl-7 text-xs"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
+      ) : board === "summary" ? (
+        <SummaryTable rows={rows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
       ) : filtered.length === 0 ? (
         <EmptyState title="Порожньо" hint="Немає поставок для обраного фільтру." />
       ) : (
