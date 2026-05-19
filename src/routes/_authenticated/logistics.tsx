@@ -461,13 +461,37 @@ function EditDialog({
         patch.trailer_plate = form.trailer_plate || null;
         patch.driver_name = form.driver_name || null;
         patch.driver_phone = form.driver_phone || null;
-        patch.logistics_status = form.logistics_status;
         patch.eta = form.eta || null;
         patch.logistics_comment = form.logistics_comment || null;
         const amt = form.final_freight_amount.trim();
         patch.final_freight_amount = amt === "" ? null : Number(amt);
         patch.final_freight_currency = amt === "" ? null : form.final_freight_currency;
         patch.final_freight_payment = amt === "" ? null : form.final_freight_payment;
+
+        // Auto-compute status from filled fields. Only override early states;
+        // don't touch later ones like loading/in_transit/at_customs/delayed/arrived.
+        const hasVehicle = !!(form.tractor_plate.trim() && form.trailer_plate.trim());
+        const hasDriver = !!form.driver_name.trim();
+        const hasFreight = amt !== "";
+        const hasAddress = !!form.loading_address.trim();
+        const hasRef = !!form.loading_reference.trim();
+        const earlyStates: LogisticsStatus[] = [
+          "pending_planning",
+          "planning",
+          "vehicle_assigned",
+          "ready_for_loading",
+        ];
+        let nextStatus: LogisticsStatus = form.logistics_status;
+        if (earlyStates.includes(form.logistics_status)) {
+          if (hasVehicle && hasDriver && hasFreight && hasAddress && hasRef) {
+            nextStatus = "ready_for_loading";
+          } else if (hasVehicle && hasDriver && hasFreight) {
+            nextStatus = "vehicle_assigned";
+          } else {
+            nextStatus = "pending_planning";
+          }
+        }
+        patch.logistics_status = nextStatus;
       }
       if (Object.keys(patch).length === 0) return;
       const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
