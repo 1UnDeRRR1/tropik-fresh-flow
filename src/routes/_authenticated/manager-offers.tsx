@@ -160,10 +160,10 @@ function ManagerOffersPage() {
 
   function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
     // Switch to the tab that contains this offer
-    if (["active", "in_work", "confirmed"].includes(offerStatus)) setTab("active");
+    if (["active", "in_work", "confirmed", "closed"].includes(offerStatus)) setTab("active");
     else if (offerStatus === "draft") setTab("drafts");
     else if (offerStatus === "linked") setTab("linked");
-    else if (["closed", "expired"].includes(offerStatus)) setTab("archive");
+    else if (offerStatus === "expired") setTab("archive");
     
     setHighlightedId(offerId);
     setDetailOfferId(offerId);
@@ -303,11 +303,11 @@ function ManagerOffersPage() {
     if (tab === "drafts") return merged.filter((o) => o.status === "draft");
     if (tab === "active")
       return merged.filter((o) =>
-        ["active", "in_work", "confirmed"].includes(o.status),
+        ["active", "in_work", "confirmed", "closed"].includes(o.status),
       );
     if (tab === "linked") return merged.filter((o) => o.status === "linked");
     if (tab === "archive")
-      return merged.filter((o) => ["closed", "expired"].includes(o.status));
+      return merged.filter((o) => o.status === "expired");
     return merged;
   }, [merged, tab]);
 
