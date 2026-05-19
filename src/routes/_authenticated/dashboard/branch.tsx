@@ -680,7 +680,7 @@ function BranchDashboard() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScroller>
         </SectionCard>
       )}
 
