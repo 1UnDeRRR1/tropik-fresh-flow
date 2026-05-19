@@ -633,6 +633,19 @@ function ManagerOffersPage() {
                       )}
                     </div>
                   )}
+                  {o.linked_shipment_id && ship && (
+                    <div>
+                      <span className="text-muted-foreground">Поставка: </span>
+                      <Link
+                        to="/shipments/$id"
+                        params={{ id: o.linked_shipment_id }}
+                        className="font-semibold text-primary underline-offset-2 hover:underline"
+                        onClick={() => setDetailOfferId(null)}
+                      >
+                        {ship.code}
+                      </Link>
+                    </div>
+                  )}
                   <div>
                     <span className="text-muted-foreground">Менеджер: </span>
                     <b>{creatorById[o.created_by] ?? "—"}</b>
