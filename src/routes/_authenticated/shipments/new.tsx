@@ -235,17 +235,11 @@ function NewShipment() {
       return data;
     },
   });
-  useEffect(() => {
-    if (!fromOfferData) return;
-    if (fromOfferData.origin_country && !countryTouched && !country) {
-      const ua = toUaCountry(fromOfferData.origin_country) ?? fromOfferData.origin_country;
-      setCountry(ua);
-    }
-    if (fromOfferData.expected_eta && !etaTouched) {
-      setEtaOverride(fromOfferData.expected_eta);
-      setEtaTouched(true);
-    }
-  }, [fromOfferData]);
+  // NOTE: Do NOT prefill country from offer.origin_country — origin (where
+  // the product grew) is not the loading country (where the truck loads).
+  // ETA is also intentionally not prefilled: it is auto-calculated from
+  // loading_date + country logistics days once the user sets the country
+  // and loading date.
 
   // Preview next sequence per country
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
