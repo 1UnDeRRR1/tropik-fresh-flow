@@ -303,8 +303,9 @@ function BoardTable({
               const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
               const missingDriver = !r.driver_name;
               const missingTemperature = !r.temperature_mode;
+              const missingFreight = r.final_freight_amount == null;
               const hasWarnings =
-                missingVehicle || missingDriver || missingAddress || missingRef || missingTemperature;
+                missingVehicle || missingDriver || missingAddress || missingRef || missingTemperature || missingFreight;
               const tractor = r.tractor_plate ?? r.vehicle_plate ?? null;
               const trailer = r.trailer_plate ?? null;
               const managerLabel = resolveManagerName(r, managerMap);
@@ -316,12 +317,13 @@ function BoardTable({
                       onClick={() => onOpen(r)}
                     >
                       <TableCell colSpan={13} className="px-2 py-1">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {missingVehicle && <Warning text="без авто" />}
-                          {missingDriver && <Warning text="без водія" />}
-                          {missingAddress && <Warning text="без адреси" />}
-                          {missingRef && <Warning text="без reference" />}
-                          {missingTemperature && <Warning text="без температури" />}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusDot icon={Truck} ok={!missingVehicle} labelOk="Авто вказано" labelMissing="Без авто" />
+                          <StatusDot icon={User} ok={!missingDriver} labelOk="Водій вказано" labelMissing="Без водія" />
+                          <StatusDot icon={Banknote} ok={!missingFreight} labelOk="Фрахт вказано" labelMissing="Без фрахту" />
+                          <StatusDot icon={MapPin} ok={!missingAddress} labelOk="Адресу вказано" labelMissing="Без адреси" />
+                          <StatusDot icon={Hash} ok={!missingRef} labelOk="Reference вказано" labelMissing="Без reference" />
+                          <StatusDot icon={Thermometer} ok={!missingTemperature} labelOk="Температуру вказано" labelMissing="Без температури" />
                         </div>
                       </TableCell>
                     </TableRow>
