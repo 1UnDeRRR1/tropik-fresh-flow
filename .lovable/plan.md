@@ -1,101 +1,49 @@
-## Що треба зробити
+# План виправлень логіки статусів
 
-Привести систему до єдиного, прозорого життєвого циклу позиції товару, як описав користувач: від моменту коли менеджер запропонував товар, до моменту коли поставку вивантажили і вона пішла в архів. Філіал у «Головній» бачить лише свої позиції зі своїм статусом — у реальному часі, без «застиглих» дат.
+## Що поламано і як виправити
 
-## Канонічний ланцюжок статусів (єдиний для всіх ролей)
+### 1. Менеджер натиснув «Закрити» — у філії зникає рядок
+**Зараз:** статус offer стає `closed`, тригер змінює pipeline на `processing`. У дашборді філії рядок із manager_offer_responses відображається як «В опрацюванні» — але якщо існує `distribution_items.reserved_offer_id` без `shipment_item_id`, materialized-фільтр викидає рядок.
+
+**Виправлення (`dashboard/branch.tsx`):**
+- Коли `manager_offers.status === 'closed'` і `approved_pallets > 0` → показувати pipeline = `confirmed`, лейбл «Підтверджено», з підсумком підтверджених палет.
+- Не ховати pending-рядок через `materialisedOfferIds`, поки немає реального `shipment_item_id` у distribution_items (тобто товар без номера поставки).
+
+### 2. Менеджер встановив approved = 0 (або «відмовив») — у Києва рядок зник
+**Зараз:** UI менеджера дозволяє ввести 0 або null. При null → у філії «Чекаю підтвердження». При 0 → має бути «Відмовлено», але якщо `materialisedOfferIds` ховає → зникає.
+
+**Виправлення:**
+- У `branch.tsx` залишити pending-рядок з pipeline = `rejected`, лейбл «Відмовлено», коли `approved_pallets === 0`. Не ховати такі рядки фільтром materialized.
+- Додати на UI менеджера явну кнопку «Відмовити» (ставить approved = 0), окрему від видалення.
+
+### 3. Менеджер видалив усе предложення — у філій зникло
+**Зараз:** статус стає `deleted`, дашборд філії не показує (бо інші частини логіки фільтрують).
+
+**Виправлення:**
+- У `dashboard/branch.tsx` для filed offers зі статусом `deleted`, у яких існує response від цієї філії → показувати рядок з pipeline = `rejected`, лейбл «Скасовано» (іконка XCircle, червоний тон).
+- Не змінювати DB — `deleted` залишається, але UI відображає його як «Скасовано» для філії, що встигла зробити запит/отримати підтвердження.
+
+### 4. Товар з номером поставки показує «Підтверджено» замість «Замовлено»
+**Зараз:** у `branch.tsx` рядок pending з `o.linked_shipment_id` ставить pipeline = `confirmed`, лейбл «Підтверджено».
+
+**Виправлення:**
+- Замінити на pipeline = `ordered`, лейбл «Замовлено» — як тільки `linked_shipment_id` встановлено, статус = «Замовлено» для всіх. Подальший pipeline (loading, in_transit…) бере pipeline з самої shipment.
+
+## Файли, що змінюються
+- `src/routes/_authenticated/dashboard/branch.tsx` — переписати логіку у блоці pending offers (рядки 384–445): новий вибір pipeline залежно від `o.status` + `approved_pallets` + `linked_shipment_id`; розширити query на `status='deleted'` для рядків, де є response.
+- `src/routes/_authenticated/branch-offers.tsx` — мапити `closed` → «Підтверджено» (а не «Скасовано») в активному списку, `deleted` → «Скасовано».
+- `src/routes/_authenticated/manager-offers.tsx` — додати кнопку «Відмовити філії» (set approved=0) поряд з input підтвердження у діалозі деталей offer.
+
+## Логіка нового мапінгу (для `branch.tsx`)
 
 ```text
-(нема статусу)                  ← менеджер запропонував товар
-   ↓ філіал відповів кількістю
-Чекаю підтвердження
-   ↓ менеджер відмовив         → Відмовлено
-   ↓ менеджер підтвердив (повн./част.)
-В опрацюванні (+ к-ть/палети, якщо частково)
-   ↓ менеджер прив'язав до поставки
-Підтверджено
-   ↓ у логістиці заповнені 3 поля (авто, reference, адреса)
-Чекає на завантаження
-   ↓ настав день ETD (онлайн-перевірка)
-На завантаженні   (auto, якщо не виставлено вручну)
-   ↓ настав наступний день після ETD
-В дорозі           (auto, якщо не виставлено вручну)
-   ↓ брокер вручну
-На митниці
-   ↓ брокер вручну
-Їде на склад
-   ↓ склад вручну
-На складі
-   ↓ наступний день
-Вивантажено  (auto) → в архів
+if (o.status === 'deleted')           → rejected   / «Скасовано»
+else if (o.linked_shipment_id)        → ordered    / «Замовлено»
+else if (approved === null)           → awaiting_confirmation / «Чекаю підтвердження»
+else if (Number(approved) <= 0)       → rejected   / «Відмовлено»
+else if (o.status === 'closed')       → confirmed  / «Підтверджено» (фінал — менеджер закрив)
+else                                  → processing / «В опрацюванні»
 ```
 
-Принцип: **жодних «застиглих» ETA/ETD у статусі**. Статус щодня обчислюється від актуальних значень `loading_date` та `eta` у `shipments` — змінив логіст дату, наступний tick перерахує статус.
-
-## Скоуп змін
-
-### 1) База даних (міграція)
-
-- Розширити enum `pipeline_status` (або привести label-мапінг) до повного списку вище: додати/перейменувати `awaiting_confirmation` («Чекаю підтвердження»), `rejected` («Відмовлено»), `confirmed` («Підтверджено»), `unloaded` («Вивантажено»). Інші вже є.
-- Тригер `manager_offer_responses_after_decision`: коли `approved_pallets` стає `> 0` → ставити `pipeline_status = processing` («В опрацюванні»); коли `= 0` після рішення → `rejected`; під час очікування — `awaiting_confirmation`.
-- Тригер на `shipment_items` (linked_offer_id): коли позиція оффера прив'язана до `shipment_id` → `pipeline_status = confirmed` («Підтверджено») для відповідного `manager_offer_responses`.
-- Тригер `branch_transfer_offers` after accept: створювати/перенаправляти `distribution_items` від `from_branch` до `to_branch` зі збереженням поточного `pipeline_status` поставки; у віддавача позиція зникає.
-- Cron job (`pg_cron`, щогодини) `tick_shipment_pipeline()`:
-  - `loading_date = CURRENT_DATE` AND `pipeline_status = awaiting_loading` → `loading`
-  - `loading_date < CURRENT_DATE` AND `pipeline_status IN (awaiting_loading, loading)` → `in_transit`
-  - `at_warehouse_at::date < CURRENT_DATE` AND `pipeline_status = at_warehouse` → `unloaded`, виставити `unloaded_at = now()`
-  - `unloaded_at < now() - interval '24h'` → `archived_at = now()`
-  Ручні переходи (manual override flag) cron не відкочує.
-- Уточнити `shipments_logistics_autobump`: 3 критичних поля (`vehicle_plate`, `loading_reference`, `loading_address`) → `pipeline_status = awaiting_loading` (зараз вимагає 5, у т.ч. водія і температуру — прибрати з критичних, лишити як «бажані»).
-
-### 2) Дашборд філіалу `/dashboard/branch`
-
-- Об'єднати у один список усі джерела товару для філіалу (вже частково реалізовано):
-  - matrialised `distribution_items` (підтверджені розподіли з поставок),
-  - approved `manager_offer_responses` без прив'язки до поставки (статус «В опрацюванні»),
-  - `manager_offer_responses` з `approved_pallets IS NULL` (статус «Чекаю підтвердження») — **додати**,
-  - відмовлені оффери з прапорцем «нове» — **додати** (хоча б до ack),
-  - вхідні `branch_transfer_offers` зі статусом accepted — **додати** як окреме джерело,
-  - `branch_requests` (запити на вільні залишки) у стадіях pending/approved — **додати**.
-- Для кожного рядка показувати один єдиний `pipeline_status` за канонічним ланцюгом вище (через `StatusChip`/`PipelineStatusBadge`).
-- Видалені (для філіалу-відправника) позиції після прийнятого transfer не показувати.
-- Toggle «Активні / Вивантажено» — лишити; «Вивантажено» = `pipeline_status = unloaded` AND `archived_at IS NULL`.
-
-### 3) Логістика `/logistics`
-
-- 3 критичні поля підсвітити як обов'язкові; інші (водій, температура) — опційні. Кнопка «Готово до завантаження» розблоковується після 3 полів.
-- Статус-чип у таблиці тягнути з `pipeline_status` (а не `logistics_status`), щоб усі ролі бачили однакове.
-
-### 4) Brokerage / склад
-
-- На картці поставки додати 3 кнопки ручної зміни:
-  - «На митниці» (роль broker) → `at_customs`,
-  - «Їде на склад» (broker) → `left_customs`,
-  - «На складі» (warehouse/admin) → `at_warehouse`, виставити `at_warehouse_at`.
-
-### 5) Архів
-
-- Cron перекидає в архів через 24 год після `unloaded`; сторінка `/archive` вже фільтрує `archived_at IS NOT NULL` — лишити.
-
-## Технічні деталі
-
-- Усі автопереходи — у БД (тригери + cron `tick_shipment_pipeline`). Frontend лише читає `pipeline_status`. Це гарантує консистентність незалежно від того, відкрита сторінка чи ні.
-- Поле «manual_status_override BOOLEAN» на `shipments`: якщо логіст/брокер вручну перевів статус — `tick` не перезаписує.
-- Збереження історії: писати в `system_logs` кожну авто-зміну (`module='pipeline'`, `action='auto_advance'`).
-- RLS не міняємо — лише доповнюємо політики на нові SELECT-джерела дашборду філіалу (transfer_offers вхідні, branch_requests own — вже відкриті).
-
-## Послідовність робіт
-
-1. Міграція БД (enum, тригери, cron, override-флаг).
-2. Перевірити дашборд філіалу — додати відсутні джерела (waiting/rejected offers, incoming transfers, free-stock requests).
-3. Перевести `StatusChip` філіалу й логістики на `pipeline_status`.
-4. Кнопки ручних статусів для брокера/складу.
-5. Сценарне тестування за 9 кроками з ТЗ.
-
-## Що НЕ міняємо
-
-- UI карток поставки, нові сторінки, нові ролі — поза скоупом цього циклу.
-- Логіку оплат/собівартості — не чіпаємо.
-
----
-
-Підтверди план — або скажи, що скоротити (наприклад, спершу лише пп. 1–3, без брокер-кнопок), і я починаю міграцію.
+## БД
+Змін у БД не потрібно. Усі статуси вже існують і коректно зберігаються; виправляється лише UI-мапінг та фільтрація рядків.

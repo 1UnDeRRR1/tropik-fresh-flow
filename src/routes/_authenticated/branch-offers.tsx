@@ -34,7 +34,7 @@ function BranchOffersPage() {
       const { data, error } = await supabase
         .from("manager_offers")
         .select("*")
-        .in("status", ["active", "in_work", "confirmed", "linked", "closed", "expired"])
+        .in("status", ["active", "in_work", "confirmed", "linked", "closed", "expired", "deleted"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ManagerOffer[];
@@ -80,10 +80,13 @@ function BranchOffersPage() {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return list.filter((o) => {
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
+      // Show closed/deleted/expired only if this branch already engaged with the offer,
+      // and only for the recent window so the inbox doesn't grow forever.
       if (!responseByOffer[o.id]) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
     });
+
   }, [offers, responseByOffer]);
 
   const managerNameById = useMemo(() => {
@@ -157,27 +160,33 @@ function BranchOffersPage() {
                 const reqQty = r ? Number(r.requested_pallets) : 0;
                 const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
                 const palletDelta = apprQty != null ? apprQty - reqQty : 0;
-                const locked = ["linked", "closed", "expired"].includes(o.status);
+                const locked = ["linked", "closed", "expired", "deleted"].includes(o.status);
                 const statusLabel =
-                  o.status === "closed"
+                  o.status === "deleted"
                     ? "Скасовано"
+                    : o.status === "closed"
+                    ? "Підтверджено"
                     : o.status === "linked"
-                    ? "Підтв."
+                    ? "Замовлено"
                     : STATUS_LABEL[o.status];
                 const statusCls =
-                  o.status === "closed"
+                  o.status === "deleted"
                     ? "bg-destructive/15 text-destructive"
-                    : o.status === "linked"
+                    : o.status === "closed"
                     ? "bg-success/15 text-success"
+                    : o.status === "linked"
+                    ? "bg-primary/15 text-primary"
                     : STATUS_CLASS[o.status];
+
 
                 return (
                   <tr
                     key={o.id}
                     className={cn(
                       "border-b align-top",
-                      o.status === "closed" && "bg-destructive/5",
+                      o.status === "deleted" && "bg-destructive/5",
                     )}
+
                   >
                     <td className="px-2 py-2">
                       <div className="font-semibold">

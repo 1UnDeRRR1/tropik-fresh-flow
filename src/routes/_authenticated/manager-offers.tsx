@@ -773,20 +773,32 @@ function ManagerOffersPage() {
                                 </td>
                                 <td className="py-1">{Number(r.requested_pallets)}</td>
                                 <td className="py-1">
-                                  <Input
-                                    className="h-8 w-24"
-                                    type="number"
-                                    min={0}
-                                    disabled={excluded}
-                                    defaultValue={r.approved_pallets ?? r.requested_pallets}
-                                    onBlur={(e) => {
-                                      const v = e.target.value === "" ? null : Number(e.target.value);
-                                      if (v !== r.approved_pallets) {
-                                        updateApproved.mutate({ id: r.id, approved: v });
-                                      }
-                                    }}
-                                  />
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      className="h-8 w-20"
+                                      type="number"
+                                      min={0}
+                                      disabled={excluded}
+                                      defaultValue={r.approved_pallets ?? r.requested_pallets}
+                                      onBlur={(e) => {
+                                        const v = e.target.value === "" ? null : Number(e.target.value);
+                                        if (v !== r.approved_pallets) {
+                                          updateApproved.mutate({ id: r.id, approved: v });
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
+                                      disabled={excluded || updateApproved.isPending}
+                                      onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
+                                    >
+                                      Відмовити
+                                    </Button>
+                                  </div>
                                 </td>
+
                               </tr>
                             );
                           })}
