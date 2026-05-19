@@ -211,6 +211,15 @@ function BranchOffersPage() {
                   <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
                     Відмовлено
                   </span>
+                ) : isSplit ? (
+                  <>
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
+                      Замовлено · {linkedQty}
+                    </span>
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
+                      Підтверджено · {pendingQty}
+                    </span>
+                  </>
                 ) : (
                   <span
                     className={cn(
