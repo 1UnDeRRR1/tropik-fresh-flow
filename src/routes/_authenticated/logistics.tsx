@@ -274,7 +274,7 @@ function BoardTable({
   return (
     <TableScroller className="rounded-lg border border-border bg-card">
       <table className="w-full min-w-[1100px] caption-bottom text-sm">
-          <TableHeader className="sticky top-16 z-30 [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold shadow-[0_1px_0_0_hsl(var(--border))]">
+          <TableHeader className="[&_th]:bg-table-head [&_th]:font-bold shadow-[0_1px_0_0_hsl(var(--border))]">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-xs">Код</TableHead>
               <TableHead className="text-xs">Статус</TableHead>
