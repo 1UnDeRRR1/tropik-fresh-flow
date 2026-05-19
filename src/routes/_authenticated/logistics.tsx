@@ -269,21 +269,21 @@ function BoardTable({
     <div className="rounded-lg border border-border bg-card">
       <div className="w-full">
         <table className="w-full caption-bottom text-sm">
-          <TableHeader className="sticky top-16 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
-            <TableRow className="bg-card hover:bg-card">
-              <TableHead className="bg-card text-xs">Код</TableHead>
-              <TableHead className="bg-card text-xs">Статус</TableHead>
-              <TableHead className="bg-card text-xs">Завантаження</TableHead>
-              <TableHead className="bg-card text-xs">ETA</TableHead>
-              <TableHead className="bg-card text-xs">Постачальник</TableHead>
-              <TableHead className="bg-card text-xs">Країна</TableHead>
-              <TableHead className="bg-card text-xs">Темп.</TableHead>
-              <TableHead className="bg-card text-xs text-right">Палет</TableHead>
-              <TableHead className="bg-card text-xs text-right">Вага, кг</TableHead>
-              <TableHead className="bg-card text-xs">Авто</TableHead>
-              <TableHead className="bg-card text-xs">Водій</TableHead>
-              <TableHead className="bg-card text-xs">Менеджер</TableHead>
-              <TableHead className="bg-card text-xs">Freight</TableHead>
+          <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-muted/60 [&_th]:font-bold">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="text-xs">Код</TableHead>
+              <TableHead className="text-xs">Статус</TableHead>
+              <TableHead className="text-xs">Завантаження</TableHead>
+              <TableHead className="text-xs">ETA</TableHead>
+              <TableHead className="text-xs">Постачальник</TableHead>
+              <TableHead className="text-xs">Країна</TableHead>
+              <TableHead className="text-xs">Темп.</TableHead>
+              <TableHead className="text-xs text-right">Палет</TableHead>
+              <TableHead className="text-xs text-right">Вага, кг</TableHead>
+              <TableHead className="text-xs">Авто</TableHead>
+              <TableHead className="text-xs">Водій</TableHead>
+              <TableHead className="text-xs">Менеджер</TableHead>
+              <TableHead className="text-xs">Freight</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
