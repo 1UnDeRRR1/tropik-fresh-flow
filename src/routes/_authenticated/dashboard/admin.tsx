@@ -1,15 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { AlertTriangle, Truck, Building2, Package, Sparkles } from "lucide-react";
+import { AlertTriangle, Truck, Building2, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { StatCard, SectionCard, EmptyState } from "@/components/cards";
+import { StatCard, EmptyState } from "@/components/cards";
 import { LoadingPlanManager } from "@/components/LoadingPlanManager";
 import { toUaCountry } from "@/lib/countries";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 import { computeTriggers } from "@/routes/_authenticated/admin/triggers";
-import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
-import { PIPELINE_ORDER } from "@/lib/pipeline-status";
 import {
   Dialog,
   DialogContent,
