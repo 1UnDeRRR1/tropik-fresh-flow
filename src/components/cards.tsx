@@ -16,11 +16,12 @@ export function StatCard({
   value: ReactNode;
   hint?: string;
   icon?: ReactNode;
-  tone?: "default" | "brand" | "primary" | "danger" | "warning" | "success" | "info";
+  tone?: "default" | "brand" | "primary" | "danger" | "warning" | "success" | "info" | "warning-soft" | "success-soft" | "info-soft";
   to?: string;
   hash?: string;
   pulse?: boolean;
 }) {
+  const isSoft = tone === "warning-soft" || tone === "success-soft" || tone === "info-soft";
   const body = (
     <div
       className={cn(
@@ -31,6 +32,9 @@ export function StatCard({
         tone === "warning" && "border-transparent bg-warning text-foreground shadow-lg",
         tone === "success" && "border-transparent bg-success text-foreground shadow-lg",
         tone === "info" && "border-transparent bg-info text-foreground shadow-lg",
+        tone === "warning-soft" && "border-warning/30 bg-warning/10 text-foreground",
+        tone === "success-soft" && "border-success/30 bg-success/10 text-foreground",
+        tone === "info-soft" && "border-info/30 bg-info/10 text-foreground",
         pulse && "animate-pulse",
       )}
     >
@@ -38,16 +42,20 @@ export function StatCard({
         <span
           className={cn(
             "text-sm font-bold uppercase tracking-wide",
-            tone === "default" ? "text-muted-foreground" : "opacity-90",
+            tone === "default" || isSoft ? "text-foreground" : "opacity-90",
           )}
         >
           {label}
         </span>
         {icon}
       </div>
-      <div className="mt-2 text-2xl font-normal tracking-tight">{value}</div>
+      <div className={cn("mt-2 text-2xl font-normal tracking-tight",
+        tone === "warning-soft" && "text-warning",
+        tone === "success-soft" && "text-success",
+        tone === "info-soft" && "text-info",
+      )}>{value}</div>
       {hint && (
-        <div className={cn("mt-1 text-xs", tone === "default" ? "text-muted-foreground" : "opacity-80")}>
+        <div className={cn("mt-1 text-xs", tone === "default" || isSoft ? "text-muted-foreground" : "opacity-80")}>
           {hint}
         </div>
       )}

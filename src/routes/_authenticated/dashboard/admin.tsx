@@ -264,19 +264,19 @@ function AdminDashboard() {
         <button
           type="button"
           onClick={() => setDetail("transit")}
-          className="h-full rounded-2xl border-transparent bg-success p-4 text-left text-foreground shadow-lg"
+          className="h-full rounded-2xl border border-success/30 bg-success/10 p-4 text-left text-foreground shadow-card"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide">В дорозі</span>
             <Truck className="h-5 w-5" />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-base font-bold">
-            <span>Поставок</span>
-            <span className="font-normal">{data?.transit.count ?? 0}</span>
+            <span className="text-success">Поставок</span>
+            <span className="font-normal text-success">{data?.transit.count ?? 0}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
-            <span>Позицій</span>
-            <span className="font-normal">
+            <span className="text-success">Позицій</span>
+            <span className="font-normal text-success">
               {(() => {
                 const list = data?.transit.list ?? [];
                 const base = new Set(list.map((r) => r.product.trim().toLowerCase()).filter(Boolean));
@@ -288,8 +288,8 @@ function AdminDashboard() {
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 text-base font-bold">
-            <span>Палет</span>
-            <span className="font-normal">{data?.transit.pallets ?? 0}</span>
+            <span className="text-success">Палет</span>
+            <span className="font-normal text-success">{data?.transit.pallets ?? 0}</span>
           </div>
         </button>
         <button type="button" onClick={() => setDetail("branches")} className="h-full text-left">
@@ -298,7 +298,7 @@ function AdminDashboard() {
             value={data?.branchCount ?? 0}
             hint="Розподілено по філіям"
             icon={<Building2 className="h-5 w-5" />}
-            tone="warning"
+            tone="warning-soft"
           />
         </button>
         <button type="button" onClick={() => setDetail("products")} className="h-full text-left">
@@ -307,7 +307,7 @@ function AdminDashboard() {
             value={formatPositions(countPositionsFromGroups(data?.products ?? [], (p) => p.product))}
             hint="Розподілено в дорозі"
             icon={<Package className="h-5 w-5" />}
-            tone="info"
+            tone="info-soft"
           />
         </button>
       </div>
