@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { CostPair } from "@/components/CostPair";
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
+import { TableScroller } from "@/components/TableScroller";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
