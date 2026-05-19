@@ -176,6 +176,8 @@ function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient
 
 function ProductsFullscreen() {
   const { id } = Route.useParams();
+  const search = Route.useSearch();
+  const fromOfferId = search.fromOffer;
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, loading, hasRole } = useAuth();
