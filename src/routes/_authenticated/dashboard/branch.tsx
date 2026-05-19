@@ -510,6 +510,10 @@ function BranchDashboard() {
   }, [drillRows]);
   const drillTotalP = drillRows.reduce((s, r) => s + r.pallets, 0);
   const drillTotalW = drillRows.reduce((s, r) => s + r.weight, 0);
+  const totalConfirmedPallets = useMemo(
+    () => filteredRows.reduce((s, r) => s + (Number(r.pallets) || 0), 0),
+    [filteredRows],
+  );
 
   return (
     <div className="space-y-5">
