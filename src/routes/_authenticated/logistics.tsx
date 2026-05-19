@@ -395,7 +395,6 @@ function BoardTable({
             })}
           </TableBody>
         </table>
-      </div>
     </div>
   );
 }
