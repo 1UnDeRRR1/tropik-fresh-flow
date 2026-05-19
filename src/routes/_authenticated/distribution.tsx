@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { CostPair } from "@/components/CostPair";
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
+import { TableScroller } from "@/components/TableScroller";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
@@ -207,7 +208,7 @@ function BranchFreeList() {
         <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
       ) : (
         <SectionCard title="Доступно для запиту">
-          <div className="-mx-2 overflow-x-auto">
+          <TableScroller className="-mx-2">
             <table className="w-full min-w-[720px] text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -249,7 +250,8 @@ function BranchFreeList() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroller>
+
         </SectionCard>
       )}
 

@@ -13,6 +13,7 @@ import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { SearchableSelect } from "@/components/SearchableSelect";
@@ -582,7 +583,7 @@ function BranchDashboard() {
         } />
       ) : (
         <SectionCard title="Підтверджений товар">
-          <div className="-mx-2 overflow-x-auto">
+          <TableScroller className="-mx-2">
             <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -680,7 +681,7 @@ function BranchDashboard() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScroller>
         </SectionCard>
       )}
 
