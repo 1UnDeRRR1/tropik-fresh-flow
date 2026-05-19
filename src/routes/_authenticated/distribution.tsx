@@ -249,7 +249,8 @@ function BranchFreeList() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroller>
+
         </SectionCard>
       )}
 
