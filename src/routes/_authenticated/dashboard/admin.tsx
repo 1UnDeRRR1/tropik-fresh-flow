@@ -1,15 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { AlertTriangle, Truck, Building2, Package, Sparkles } from "lucide-react";
+import { AlertTriangle, Truck, Building2, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { StatCard, SectionCard, EmptyState } from "@/components/cards";
+import { StatCard, EmptyState } from "@/components/cards";
 import { LoadingPlanManager } from "@/components/LoadingPlanManager";
 import { toUaCountry } from "@/lib/countries";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 import { computeTriggers } from "@/routes/_authenticated/admin/triggers";
-import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
-import { PIPELINE_ORDER } from "@/lib/pipeline-status";
 import {
   Dialog,
   DialogContent,
@@ -314,29 +312,6 @@ function AdminDashboard() {
 
       <LoadingPlanManager />
 
-      <SectionCard
-        title="Статуси"
-        action={
-          <Link
-            to="/admin/status-preview"
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-secondary"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Відкрити всі стилі
-          </Link>
-        }
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Блок статусів уже доступний тут. Нижче — попередній перегляд усіх етапів прямо на адмін-головній.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {PIPELINE_ORDER.map((status) => (
-              <PipelineStatusBadge key={status} status={status} variant="animated" size="md" />
-            ))}
-          </div>
-        </div>
-      </SectionCard>
 
       <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
