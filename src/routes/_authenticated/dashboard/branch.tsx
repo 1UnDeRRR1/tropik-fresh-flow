@@ -351,7 +351,7 @@ function BranchDashboard() {
             distribution_id: d.id,
             code: s?.code ?? "—",
             eta: s?.eta ?? null,
-            pipeline: (s?.pipeline_status ?? "confirmed") as PipelineStatus,
+            pipeline: (s?.pipeline_status ?? "ordered") as PipelineStatus,
             dist_status: d.status,
             approved_qty_note: null,
             product: it.product_name,
