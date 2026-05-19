@@ -272,8 +272,8 @@ function BoardTable({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card">
-      <div className="w-full">
-        <table className="w-full caption-bottom text-sm">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[1100px] caption-bottom text-sm">
           <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-table-head [&_th]:font-bold">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-xs">Код</TableHead>
@@ -426,13 +426,13 @@ function StatusDot({
       title={ok ? labelOk : labelMissing}
       aria-label={ok ? labelOk : labelMissing}
       className={cn(
-        "inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors",
+        "inline-flex h-[19px] w-[19px] items-center justify-center rounded-full transition-colors",
         ok
           ? "bg-emerald-500 text-white dark:bg-emerald-600"
           : "bg-red-500 text-white dark:bg-red-600",
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-[11px] w-[11px]" />
     </span>
   );
 }
