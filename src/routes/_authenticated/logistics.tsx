@@ -467,6 +467,7 @@ function EditDialog({
         const amt = form.final_freight_amount.trim();
         patch.final_freight_amount = amt === "" ? null : Number(amt);
         patch.final_freight_currency = amt === "" ? null : form.final_freight_currency;
+        patch.final_freight_payment = amt === "" ? null : form.final_freight_payment;
       }
       if (Object.keys(patch).length === 0) return;
       const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
