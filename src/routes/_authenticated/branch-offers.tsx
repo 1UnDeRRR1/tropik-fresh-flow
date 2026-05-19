@@ -129,8 +129,8 @@ function BranchOffersPage() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      toast.success("Запит надіслано");
+    onSuccess: (_, vars) => {
+      toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
       qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
     },
     onError: (e: Error) => toast.error(e.message),
