@@ -388,7 +388,7 @@ function BoardTable({
               );
             })}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );
