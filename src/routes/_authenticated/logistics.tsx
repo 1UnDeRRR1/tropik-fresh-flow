@@ -589,30 +589,68 @@ function EditDialog({
               <FileText className="h-3 w-3" /> Менеджер
             </h3>
             <div className="grid gap-2">
-              <Labeled label="Адреса завантаження">
-                <Textarea
-                  value={form.loading_address}
-                  onChange={(e) => setForm({ ...form, loading_address: e.target.value })}
-                  rows={2}
+              <div className="space-y-2">
+                {pickups.map((p, idx) => (
+                  <div key={idx} className="rounded-md border border-border/60 bg-muted/20 p-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Точка завантаження {pickups.length > 1 ? `#${idx + 1}` : ""}
+                      </span>
+                      {isManager && pickups.length > 1 && (
+                        <button
+                          type="button"
+                          className="text-[10px] font-semibold text-destructive hover:underline"
+                          onClick={() => setPickups(pickups.filter((_, i) => i !== idx))}
+                        >
+                          Видалити
+                        </button>
+                      )}
+                    </div>
+                    <Labeled label="Адреса завантаження">
+                      <Textarea
+                        value={p.address}
+                        onChange={(e) => {
+                          const next = [...pickups];
+                          next[idx] = { ...next[idx], address: e.target.value };
+                          setPickups(next);
+                        }}
+                        rows={2}
+                        disabled={!isManager}
+                      />
+                    </Labeled>
+                    <Labeled label="Loading reference">
+                      <Input
+                        value={p.reference}
+                        onChange={(e) => {
+                          const next = [...pickups];
+                          next[idx] = { ...next[idx], reference: e.target.value };
+                          setPickups(next);
+                        }}
+                        disabled={!isManager}
+                      />
+                    </Labeled>
+                  </div>
+                ))}
+                {isManager && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setPickups([...pickups, { address: "", reference: "" }])}
+                  >
+                    + Додати точку завантаження
+                  </Button>
+                )}
+              </div>
+              <Labeled label="Температура">
+                <Input
+                  value={form.temperature_mode}
+                  onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
                   disabled={!isManager}
+                  placeholder="+2…+6 °C"
                 />
               </Labeled>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Labeled label="Loading reference">
-                  <Input
-                    value={form.loading_reference}
-                    onChange={(e) => setForm({ ...form, loading_reference: e.target.value })}
-                    disabled={!isManager}
-                  />
-                </Labeled>
-                <Labeled label="Температура">
-                  <Input
-                    value={form.temperature_mode}
-                    onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
-                    disabled={!isManager}
-                    placeholder="+2…+6 °C"
-                  />
-                </Labeled>
               </div>
               <Labeled label="Орієнтовний фрахт (від менеджера)">
                 <div className="rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5 text-xs">
