@@ -306,7 +306,7 @@ function AdminDashboard() {
             label="Товари по філіям"
             value={formatPositions(countPositionsFromGroups(data?.products ?? [], (p) => p.product))}
             hint="Розподілено в дорозі"
-            icon={<Package className="h-5 w-5 animate-pulse" />}
+            icon={<Package className="h-5 w-5 anim-check-pop" />}
             tone="info-soft"
           />
         </button>
