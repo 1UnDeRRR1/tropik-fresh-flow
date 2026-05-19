@@ -13,6 +13,7 @@ import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { SearchableSelect } from "@/components/SearchableSelect";
