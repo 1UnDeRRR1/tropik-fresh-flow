@@ -653,6 +653,7 @@ function EditDialog({
                     <SelectItem value="bank">б.р.</SelectItem>
                   </SelectContent>
                 </Select>
+              </Labeled>
               <Labeled label="Статус" className="sm:col-span-2">
                 <Select
                   value={form.logistics_status}
