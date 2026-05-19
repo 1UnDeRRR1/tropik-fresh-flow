@@ -25,7 +25,7 @@ export const STATUS_CLASS: Record<ManagerOfferStatus, string> = {
   in_work: "bg-info/15 text-info",
   confirmed: "bg-warning/15 text-warning",
   linked: "bg-primary/15 text-primary",
-  closed: "bg-muted text-muted-foreground",
+  closed: "bg-warning/15 text-warning",
   expired: "bg-destructive/15 text-destructive",
   deleted: "bg-destructive/15 text-destructive",
 };
