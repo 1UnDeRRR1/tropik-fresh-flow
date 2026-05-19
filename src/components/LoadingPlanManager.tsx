@@ -263,6 +263,7 @@ export function LoadingPlanManager() {
                         {remaining > 0 ? `${remaining}п` : "0п"}
                       </span>
                       <input
+                        key={p.planned_pallets}
                         className="input h-8 w-20 text-xs"
                         type="number"
                         min={0}
