@@ -357,9 +357,23 @@ function ManagerOffersPage() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
-    onError: (e: Error) => toast.error(e.message),
+    onMutate: async ({ id, approved }) => {
+      // Optimistic update so the UI (input value + status pill) updates instantly
+      await qc.cancelQueries({ queryKey: ["manager-offer-responses"] });
+      const prev = qc.getQueriesData<ManagerOfferResponse[]>({ queryKey: ["manager-offer-responses"] });
+      for (const [key, data] of prev) {
+        if (!data) continue;
+        qc.setQueryData<ManagerOfferResponse[]>(key, data.map((r) =>
+          r.id === id ? { ...r, approved_pallets: approved } : r,
+        ));
+      }
+      return { prev };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.prev) for (const [key, data] of ctx.prev) qc.setQueryData(key, data);
+      toast.error(e.message);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
   });
 
   const approveAllPending = useMutation({
