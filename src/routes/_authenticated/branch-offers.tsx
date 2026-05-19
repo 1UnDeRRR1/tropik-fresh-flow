@@ -80,10 +80,13 @@ function BranchOffersPage() {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return list.filter((o) => {
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
+      // Show closed/deleted/expired only if this branch already engaged with the offer,
+      // and only for the recent window so the inbox doesn't grow forever.
       if (!responseByOffer[o.id]) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
     });
+
   }, [offers, responseByOffer]);
 
   const managerNameById = useMemo(() => {
