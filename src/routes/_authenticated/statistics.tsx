@@ -419,10 +419,10 @@ function StatisticsPage() {
         ) : rows.length === 0 ? (
           <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
         ) : (
-          <div className="-mx-4 overflow-x-auto px-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
+          <div className="-mx-4 px-4">
+            <table className="w-full caption-bottom text-sm">
+              <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-muted/60 [&_th]:font-bold">
+                <TableRow className="hover:bg-transparent">
                   <TableHead>Дата</TableHead>
                   <TableHead>Товар</TableHead>
                   <TableHead>Країна</TableHead>
@@ -449,7 +449,7 @@ function StatisticsPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </table>
           </div>
         )}
       </SectionCard>
