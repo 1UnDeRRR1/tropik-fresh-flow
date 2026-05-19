@@ -272,8 +272,8 @@ function BoardTable({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card">
-      <div className="w-full">
-        <table className="w-full caption-bottom text-sm">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[1100px] caption-bottom text-sm">
           <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-table-head [&_th]:font-bold">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-xs">Код</TableHead>
