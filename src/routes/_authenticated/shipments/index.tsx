@@ -27,6 +27,7 @@ import { useFocusHighlight } from "@/lib/use-focus-highlight";
 import { useStableQueryData } from "@/lib/query-stability";
 
 import { StaffOnly } from "@/components/StaffOnly";
+import { TableScroller } from "@/components/TableScroller";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check } from "lucide-react";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
