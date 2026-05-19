@@ -268,7 +268,7 @@ function AdminDashboard() {
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide">В дорозі</span>
-            <Truck className="h-5 w-5 animate-pulse" />
+            <Truck className="h-5 w-5 anim-drive" />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-base font-bold">
             <span>Поставок</span>
@@ -297,7 +297,7 @@ function AdminDashboard() {
             label="Філія товари"
             value={data?.branchCount ?? 0}
             hint="Розподілено по філіям"
-            icon={<Building2 className="h-5 w-5 animate-pulse" />}
+            icon={<Building2 className="h-5 w-5 anim-soft-bounce" />}
             tone="warning-soft"
           />
         </button>
@@ -306,7 +306,7 @@ function AdminDashboard() {
             label="Товари по філіям"
             value={formatPositions(countPositionsFromGroups(data?.products ?? [], (p) => p.product))}
             hint="Розподілено в дорозі"
-            icon={<Package className="h-5 w-5 animate-pulse" />}
+            icon={<Package className="h-5 w-5 anim-check-pop" />}
             tone="info-soft"
           />
         </button>
