@@ -713,10 +713,21 @@ function ManagerOffersPage() {
                       Взяти в роботу
                     </Button>
                   )}
-                  {o.status === "in_work" && (
-                    <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: "confirmed" })}>
-                      Підтвердити
-                    </Button>
+                  {o.status === "closed" && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => setLinkOffer(o)}>
+                        <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
+                      </Button>
+                      <Link
+                        to="/shipments/new"
+                        search={{ fromOffer: o.id } as never}
+                        onClick={() => setDetailOfferId(null)}
+                      >
+                        <Button size="sm">
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
+                        </Button>
+                      </Link>
+                    </>
                   )}
                   {(o.status === "confirmed" || o.status === "in_work") && (
                     <Button size="sm" variant="outline" onClick={() => setLinkOffer(o)}>
@@ -728,7 +739,7 @@ function ManagerOffersPage() {
                       <Pencil className="mr-1 h-3.5 w-3.5" /> Редагувати
                     </Button>
                   )}
-                  {!["closed", "expired"].includes(o.status) && (
+                  {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button
                       size="sm"
                       variant="outline"
