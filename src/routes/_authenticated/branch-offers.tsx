@@ -157,19 +157,24 @@ function BranchOffersPage() {
                 const reqQty = r ? Number(r.requested_pallets) : 0;
                 const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
                 const palletDelta = apprQty != null ? apprQty - reqQty : 0;
-                const locked = ["linked", "closed", "expired"].includes(o.status);
+                const locked = ["linked", "closed", "expired", "deleted"].includes(o.status);
                 const statusLabel =
-                  o.status === "closed"
+                  o.status === "deleted"
                     ? "Скасовано"
+                    : o.status === "closed"
+                    ? "Підтверджено"
                     : o.status === "linked"
-                    ? "Підтв."
+                    ? "Замовлено"
                     : STATUS_LABEL[o.status];
                 const statusCls =
-                  o.status === "closed"
+                  o.status === "deleted"
                     ? "bg-destructive/15 text-destructive"
-                    : o.status === "linked"
+                    : o.status === "closed"
                     ? "bg-success/15 text-success"
+                    : o.status === "linked"
+                    ? "bg-primary/15 text-primary"
                     : STATUS_CLASS[o.status];
+
 
                 return (
                   <tr
