@@ -475,9 +475,9 @@ function ManagerOffersPage() {
             <EmptyState title="Немає пропозицій" hint="Натисніть «Створити», щоб додати першу" />
           )}
           {filtered.length > 0 && (
-            <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm">
+            <div className="rounded-2xl border border-border bg-card shadow-sm">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <thead className="sticky top-16 z-20 text-xs uppercase text-muted-foreground [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
                   <tr>
                     <th className="px-3 py-2 text-left">Товар</th>
                     <th className="px-3 py-2 text-left">Країна</th>
