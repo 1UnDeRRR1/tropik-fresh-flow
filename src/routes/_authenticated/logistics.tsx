@@ -267,8 +267,8 @@ function BoardTable({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card">
-      <div className="overflow-x-auto">
-        <Table>
+      <div className="w-full">
+        <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-16 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
             <TableRow className="bg-card hover:bg-card">
               <TableHead className="bg-card text-xs">Код</TableHead>
@@ -388,7 +388,7 @@ function BoardTable({
               );
             })}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );
