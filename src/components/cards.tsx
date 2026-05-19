@@ -25,7 +25,7 @@ export function StatCard({
   const body = (
     <div
       className={cn(
-        "h-full rounded-2xl border border-border bg-card p-4 shadow-card transition active:scale-[0.98]",
+        "h-full rounded-2xl border border-border bg-card p-4 shadow-card transition-transform duration-150 active:scale-[0.9]",
         tone === "brand" && "border-transparent bg-brand text-brand-foreground",
         tone === "primary" && "border-transparent bg-primary text-primary-foreground",
         tone === "danger" && "border-transparent bg-destructive text-destructive-foreground shadow-lg",
@@ -50,9 +50,7 @@ export function StatCard({
         {icon}
       </div>
       <div className={cn("mt-2 text-2xl font-normal tracking-tight",
-        tone === "warning-soft" && "text-warning",
-        tone === "success-soft" && "text-success",
-        tone === "info-soft" && "text-info",
+        isSoft && "text-foreground",
       )}>{value}</div>
       {hint && (
         <div className={cn("mt-1 text-xs", tone === "default" || isSoft ? "text-muted-foreground" : "opacity-80")}>
