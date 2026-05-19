@@ -372,6 +372,90 @@ function ProductsFullscreen() {
     return () => window.removeEventListener("pagehide", onUnload);
   }, [id]);
 
+  // Auto-prefill a product row + freight from the source manager offer when
+  // creating a new shipment directly under that offer ("Створити нову
+  // поставку" button). Runs once per shipment.
+  const prefillRunRef = useRef(false);
+  useEffect(() => {
+    if (!fromOfferId || !sh || !currentShipmentEditable) return;
+    if (items.length > 0) return;
+    if (prefillRunRef.current) return;
+    prefillRunRef.current = true;
+    (async () => {
+      try {
+        const { data: offer, error: offerErr } = await supabase
+          .from("manager_offers")
+          .select(
+            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,linked_shipment_id,status",
+          )
+          .eq("id", fromOfferId)
+          .maybeSingle();
+        if (offerErr || !offer) return;
+
+        const palletWeight = Number(offer.pallet_weight ?? 0);
+        // Target: fill the truck near the 21000 kg / 26 pallet limits.
+        const TARGET_KG = 21000;
+        const palletCount = palletWeight > 0
+          ? Math.min(MAX_PALLETS, Math.max(1, Math.floor(TARGET_KG / palletWeight)))
+          : 0;
+        const totalKg = palletCount * palletWeight;
+
+        const { error: insErr } = await supabase.from("shipment_items").insert({
+          shipment_id: id,
+          product_name: offer.product_name,
+          origin_country: offer.origin_country
+            ? normalizeCountry(offer.origin_country)
+            : null,
+          caliber: offer.caliber ?? null,
+          variety: offer.variety ?? null,
+          pallet_count: palletCount,
+          pallet_weight: palletWeight,
+          unit_price: Number(offer.price_per_kg ?? 0),
+          price_currency: offer.price_currency ?? "EUR",
+          qty: totalKg,
+          unit: "kg",
+          linked_offer_id: offer.id,
+        });
+        if (insErr) {
+          prefillRunRef.current = false;
+          toast.error(insErr.message);
+          return;
+        }
+
+        // Copy freight from offer to shipment if shipment has no freight yet.
+        if (
+          (sh.logistics_cost == null || Number(sh.logistics_cost) <= 0) &&
+          Number(offer.freight_amount ?? 0) > 0
+        ) {
+          await supabase
+            .from("shipments")
+            .update({
+              logistics_cost: Number(offer.freight_amount),
+              logistics_cost_currency: offer.freight_currency ?? "EUR",
+            })
+            .eq("id", id);
+        }
+
+        // Link the offer to this shipment so the FIFO auto-distribution
+        // runs (the manager_offers trigger fires sync_manager_offer_distribution).
+        if (offer.linked_shipment_id !== id || offer.status !== "linked") {
+          await supabase
+            .from("manager_offers")
+            .update({ status: "linked", linked_shipment_id: id })
+            .eq("id", offer.id);
+        }
+
+        qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+        qc.invalidateQueries({ queryKey: ["shipment", id] });
+        invalidateVehicleAndShipmentCaches(qc);
+      } catch {
+        prefillRunRef.current = false;
+      }
+    })();
+  }, [fromOfferId, sh, items.length, currentShipmentEditable, id, qc, user?.id]);
+
+
+
   const leaveProducts = async () => {
     const hasDraftRows = items.some(
       (item) => !(item.product_name ?? "").trim() || item.product_name === "Новий товар" || Number(item.pallet_count ?? 0) <= 0,
