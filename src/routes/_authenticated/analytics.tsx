@@ -61,6 +61,7 @@ type Flat = {
 function Analytics() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
+  const navigate = useNavigate();
   const today = todayISO();
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
