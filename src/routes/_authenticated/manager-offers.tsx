@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
+import { TableScroller } from "@/components/TableScroller";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -475,9 +476,9 @@ function ManagerOffersPage() {
             <EmptyState title="Немає пропозицій" hint="Натисніть «Створити», щоб додати першу" />
           )}
           {filtered.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card shadow-sm overflow-x-auto overflow-y-clip overscroll-x-contain">
+            <TableScroller className="rounded-2xl border border-border bg-card shadow-sm">
               <table className="w-full min-w-[900px] text-sm">
-                <thead className="sticky top-16 z-30 text-xs uppercase text-muted-foreground [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
+                <thead className="text-xs uppercase text-muted-foreground [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
                   <tr>
                     <th className="px-3 py-2 text-left">Товар</th>
                     <th className="px-3 py-2 text-left">Країна</th>
@@ -552,7 +553,7 @@ function ManagerOffersPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </TableScroller>
           )}
         </TabsContent>
       </Tabs>
