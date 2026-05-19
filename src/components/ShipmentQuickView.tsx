@@ -143,9 +143,6 @@ export function ShipmentQuickView({
                   );
                 })}
               </ul>
-              <div className="pt-2">
-                <Button className="w-full" onClick={goDistribute}>Розподілити</Button>
-              </div>
             </>
           )}
         </DialogContent>
