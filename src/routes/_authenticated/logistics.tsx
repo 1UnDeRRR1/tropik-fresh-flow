@@ -712,3 +712,54 @@ function Labeled({
     </div>
   );
 }
+
+function SummaryTable({ rows }: { rows: LogisticsRow[] }) {
+  const data = rows
+    .map((r) => ({
+      id: r.id,
+      code: r.code,
+      plate:
+        [r.tractor_plate, r.trailer_plate].filter(Boolean).join(" / ") ||
+        r.vehicle_plate ||
+        "—",
+      amount: r.final_freight_amount,
+      currency: r.final_freight_currency,
+      payment: r.final_freight_payment,
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  if (data.length === 0) {
+    return <EmptyState title="Порожньо" hint="Немає поставок для підсумку." />;
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="font-semibold text-foreground">№ поставки</TableHead>
+            <TableHead className="font-semibold text-foreground">№ авто</TableHead>
+            <TableHead className="text-right font-semibold text-foreground">Вартість</TableHead>
+            <TableHead className="font-semibold text-foreground">Валюта</TableHead>
+            <TableHead className="font-semibold text-foreground">Оплата</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-mono text-xs">{r.code}</TableCell>
+              <TableCell className="font-mono text-xs">{r.plate}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {r.amount != null ? Number(r.amount).toFixed(0) : "—"}
+              </TableCell>
+              <TableCell className="text-xs">{r.currency ?? "—"}</TableCell>
+              <TableCell className="text-xs">
+                {r.payment === "cash" ? "гот." : r.payment === "bank" ? "б.р." : "—"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
