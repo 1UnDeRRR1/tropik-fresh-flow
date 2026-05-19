@@ -221,6 +221,32 @@ function NewShipment() {
     setEtaTouched(false);
   }, [mode, selectedVehicle?.id]);
 
+  // Prefill from a closed manager offer (country + ETA)
+  const { data: fromOfferData } = useQuery({
+    queryKey: ["new-shipment-from-offer", search.fromOffer],
+    enabled: !!search.fromOffer,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offers")
+        .select("origin_country,expected_eta")
+        .eq("id", search.fromOffer!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    if (!fromOfferData) return;
+    if (fromOfferData.origin_country && !countryTouched && !country) {
+      const ua = toUaCountry(fromOfferData.origin_country) ?? fromOfferData.origin_country;
+      setCountry(ua);
+    }
+    if (fromOfferData.expected_eta && !etaTouched) {
+      setEtaOverride(fromOfferData.expected_eta);
+      setEtaTouched(true);
+    }
+  }, [fromOfferData]);
+
   // Preview next sequence per country
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
   const { data: previewSeq } = useQuery({
