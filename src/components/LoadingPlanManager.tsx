@@ -123,9 +123,9 @@ export function LoadingPlanManager() {
       }));
       return { merged: false };
     },
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       setForm({ product_name: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
-      qc.invalidateQueries({ queryKey: ["admin", "loading-plan"] });
+      await qc.refetchQueries({ queryKey: ["admin", "loading-plan"], exact: false });
       toast.success(res?.merged ? "Об'єднано з існуючою позицією" : "Позицію плану додано");
     },
     onError: (e) => toast.error(translateError(e)),
