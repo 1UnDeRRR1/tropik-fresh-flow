@@ -368,7 +368,7 @@ function ShipmentsList() {
                     })}
                   </tbody>
                 </table>
-              </div>
+              </TableScroller>
             )}
           </SectionCard>
         </>
