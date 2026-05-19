@@ -357,9 +357,23 @@ function ManagerOffersPage() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
-    onError: (e: Error) => toast.error(e.message),
+    onMutate: async ({ id, approved }) => {
+      // Optimistic update so the UI (input value + status pill) updates instantly
+      await qc.cancelQueries({ queryKey: ["manager-offer-responses"] });
+      const prev = qc.getQueriesData<ManagerOfferResponse[]>({ queryKey: ["manager-offer-responses"] });
+      for (const [key, data] of prev) {
+        if (!data) continue;
+        qc.setQueryData<ManagerOfferResponse[]>(key, data.map((r) =>
+          r.id === id ? { ...r, approved_pallets: approved } : r,
+        ));
+      }
+      return { prev };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.prev) for (const [key, data] of ctx.prev) qc.setQueryData(key, data);
+      toast.error(e.message);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
   });
 
   const approveAllPending = useMutation({
@@ -699,10 +713,21 @@ function ManagerOffersPage() {
                       Взяти в роботу
                     </Button>
                   )}
-                  {o.status === "in_work" && (
-                    <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: "confirmed" })}>
-                      Підтвердити
-                    </Button>
+                  {o.status === "closed" && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => setLinkOffer(o)}>
+                        <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
+                      </Button>
+                      <Link
+                        to="/shipments/new"
+                        search={{ fromOffer: o.id } as never}
+                        onClick={() => setDetailOfferId(null)}
+                      >
+                        <Button size="sm">
+                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
+                        </Button>
+                      </Link>
+                    </>
                   )}
                   {(o.status === "confirmed" || o.status === "in_work") && (
                     <Button size="sm" variant="outline" onClick={() => setLinkOffer(o)}>
@@ -714,7 +739,7 @@ function ManagerOffersPage() {
                       <Pencil className="mr-1 h-3.5 w-3.5" /> Редагувати
                     </Button>
                   )}
-                  {!["closed", "expired"].includes(o.status) && (
+                  {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -755,12 +780,13 @@ function ManagerOffersPage() {
                         <tbody>
                           {[...activeResponses, ...excludedResponses].map((r) => {
                             const excluded = !inScope(r.branch_id);
+                            const rejected = r.approved_pallets === 0;
                             return (
                               <tr
                                 key={r.id}
                                 className={cn(
                                   "border-t border-border",
-                                  excluded && "opacity-60",
+                                  (excluded || rejected) && "opacity-60",
                                 )}
                               >
                                 <td className="py-1">
@@ -770,15 +796,21 @@ function ManagerOffersPage() {
                                       виключено з таргетингу
                                     </span>
                                   )}
+                                  {rejected && !excluded && (
+                                    <span className="ml-2 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive">
+                                      Відмовлено
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-1">{Number(r.requested_pallets)}</td>
                                 <td className="py-1">
                                   <div className="flex items-center gap-1">
                                     <Input
+                                      key={`${r.id}-${r.approved_pallets ?? "null"}`}
                                       className="h-8 w-20"
                                       type="number"
                                       min={0}
-                                      disabled={excluded}
+                                      disabled={excluded || rejected}
                                       defaultValue={r.approved_pallets ?? r.requested_pallets}
                                       onBlur={(e) => {
                                         const v = e.target.value === "" ? null : Number(e.target.value);
@@ -787,15 +819,17 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                      disabled={excluded || updateApproved.isPending}
-                                      onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
-                                    >
-                                      Відмовити
-                                    </Button>
+                                    {!rejected && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
+                                        disabled={excluded || updateApproved.isPending}
+                                        onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
+                                      >
+                                        Відмовити
+                                      </Button>
+                                    )}
                                   </div>
                                 </td>
 
@@ -1573,13 +1607,16 @@ function LinkShipmentDialog({
     if (offer) setShowAll(false);
   }, [offer?.id]);
 
+  const { user } = useAuth();
   const { data: shipments } = useQuery({
-    queryKey: ["shipments-link-options", offer?.id],
-    enabled: !!offer,
+    queryKey: ["shipments-link-options", offer?.id, user?.id],
+    enabled: !!offer && !!user,
     queryFn: async () => {
+      // Only this manager's own shipments
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,country,eta,shipment_items(product_name,origin_country)")
+        .select("id,code,country,eta,created_by,import_manager_id,shipment_items(product_name,origin_country)")
+        .or(`created_by.eq.${user!.id},import_manager_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;

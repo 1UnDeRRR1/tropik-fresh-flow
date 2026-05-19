@@ -129,8 +129,8 @@ function BranchOffersPage() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      toast.success("Запит надіслано");
+    onSuccess: (_, vars) => {
+      toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
       qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -193,7 +193,7 @@ function BranchOffersPage() {
               key={o.id}
               className={cn(
                 "rounded-2xl border bg-card p-4 shadow-sm",
-                o.status === "closed"
+                o.status === "deleted"
                   ? "border-destructive/40 bg-destructive/5"
                   : "border-border",
               )}
@@ -204,22 +204,20 @@ function BranchOffersPage() {
                 {o.origin_country && (
                   <span className="text-sm text-muted-foreground">({o.origin_country})</span>
                 )}
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    o.status === "closed"
-                      ? "bg-destructive/15 text-destructive"
-                      : o.status === "linked"
-                      ? "bg-success/15 text-success"
-                      : STATUS_CLASS[o.status],
-                  )}
-                >
-                  {o.status === "closed"
-                    ? "Пропозиція скасована"
-                    : o.status === "linked"
-                    ? "Підтверджено"
-                    : STATUS_LABEL[o.status]}
-                </span>
+                {apprQty === 0 ? (
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
+                    Відмовлено
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                      STATUS_CLASS[o.status],
+                    )}
+                  >
+                    {STATUS_LABEL[o.status]}
+                  </span>
+                )}
                 {ship && (
                   <span className="text-sm text-success">
                     Поставка <b>{ship.code}</b>
