@@ -395,7 +395,7 @@ function BoardTable({
             })}
           </TableBody>
         </table>
-    </div>
+    </TableScroller>
   );
 }
 
