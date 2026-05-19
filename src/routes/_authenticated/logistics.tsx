@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableScroller } from "@/components/TableScroller";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
