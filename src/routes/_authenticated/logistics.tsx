@@ -269,7 +269,7 @@ function BoardTable({
     <div className="rounded-lg border border-border bg-card">
       <div className="w-full">
         <table className="w-full caption-bottom text-sm">
-          <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-muted/60 [&_th]:font-bold">
+          <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-table-head [&_th]:font-bold">
             <TableRow className="hover:bg-transparent">
               <TableHead className="text-xs">Код</TableHead>
               <TableHead className="text-xs">Статус</TableHead>
