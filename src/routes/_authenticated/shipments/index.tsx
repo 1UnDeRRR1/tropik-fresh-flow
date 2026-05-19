@@ -52,6 +52,8 @@ function ShipmentsList() {
   const [filter, setFilter] = useState<string>("all");
   const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
   const [board, setBoard] = useState<BoardView>("active");
+  const [managerFilter, setManagerFilter] = useState<string>("all");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const isAdmin = hasRole(["super_admin", "admin"]);
