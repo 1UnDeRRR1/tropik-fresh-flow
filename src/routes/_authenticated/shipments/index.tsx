@@ -129,6 +129,24 @@ function ShipmentsList() {
     });
   }, [data, today, soon]);
 
+  const managerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      const id = (r as { import_manager_id?: string | null }).import_manager_id;
+      const name = (r as { import_managers?: { full_name?: string | null } | null }).import_managers?.full_name;
+      if (id && name) map.set(id, name);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows]);
+  const supplierOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const name = (r as { suppliers?: { name?: string | null } | null }).suppliers?.name;
+      if (name) set.add(name);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
   const filtered = rows
     .filter((r) => {
       const u = (r as { unloaded_at?: string | null; archived_at?: string | null }).unloaded_at;
@@ -144,6 +162,14 @@ function ShipmentsList() {
       if (filter === "none") return r.fact > 0 && r.dist === 0;
       if (filter === "partial") return r.dist > 0 && r.remaining > 0;
       return true;
+    })
+    .filter((r) => {
+      if (!isAdmin || managerFilter === "all") return true;
+      return (r as { import_manager_id?: string | null }).import_manager_id === managerFilter;
+    })
+    .filter((r) => {
+      if (!isAdmin || supplierFilter === "all") return true;
+      return (r as { suppliers?: { name?: string | null } | null }).suppliers?.name === supplierFilter;
     })
     .sort((a, b) => {
       if (!a.eta && !b.eta) return 0;
