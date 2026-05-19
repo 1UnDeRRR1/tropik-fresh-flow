@@ -1,69 +1,63 @@
 import { cn } from "@/lib/utils";
 
-export type BoardView = "active" | "unloaded";
+export type BoardView = "active" | "unloaded" | "summary";
+
+const OPTIONS: { value: BoardView; label: string }[] = [
+  { value: "active", label: "Активні" },
+  { value: "unloaded", label: "Розвантажено" },
+  { value: "summary", label: "Підсумок" },
+];
 
 export function MainBoardToggle({
   value,
   onChange,
   className,
+  showSummary = false,
 }: {
   value: BoardView;
   onChange: (v: BoardView) => void;
   className?: string;
+  showSummary?: boolean;
 }) {
+  const opts = showSummary ? OPTIONS : OPTIONS.filter((o) => o.value !== "summary");
   return (
     <div
       role="tablist"
       aria-label="Перемикач табло"
       className={cn(
-        "relative z-10 grid w-full max-w-sm grid-cols-2 rounded-xl border border-border bg-muted/70 p-1 text-xs",
+        "relative z-10 grid w-full max-w-md rounded-xl border border-border bg-muted/70 p-1 text-xs",
         className,
       )}
+      style={{ gridTemplateColumns: `repeat(${opts.length}, minmax(0, 1fr))` }}
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === "active"}
-        aria-pressed={value === "active"}
-        onClick={() => onChange("active")}
-        className={cn(
-          "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-semibold transition touch-manipulation select-none",
-          value === "active"
-            ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <span
-          className={cn(
-            "h-2 w-2 rounded-full transition",
-            value === "active" ? "bg-brand" : "bg-border",
-          )}
-          aria-hidden="true"
-        />
-        Активні
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === "unloaded"}
-        aria-pressed={value === "unloaded"}
-        onClick={() => onChange("unloaded")}
-        className={cn(
-          "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-semibold transition touch-manipulation select-none",
-          value === "unloaded"
-            ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <span
-          className={cn(
-            "h-2 w-2 rounded-full transition",
-            value === "unloaded" ? "bg-brand" : "bg-border",
-          )}
-          aria-hidden="true"
-        />
-        Розвантажено
-      </button>
+      {opts.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-pressed={active}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-semibold transition touch-manipulation select-none",
+              active
+                ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full transition",
+                active ? "bg-brand" : "bg-border",
+              )}
+              aria-hidden="true"
+            />
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
