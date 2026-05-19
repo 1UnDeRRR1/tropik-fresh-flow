@@ -304,9 +304,11 @@ function ShipmentsList() {
                       return (
                         <tr key={s.id} data-focus-id={`ship:${s.id} mgr:${s.import_manager_id ?? ""}`} className={cn("border-t border-border", tone)}>
                           <td className="sticky left-0 z-10 py-2 pr-2 whitespace-nowrap w-[120px] min-w-[120px] bg-card shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                            <Link to="/shipments/$id" params={{ id: s.id }} className={cn("font-bold whitespace-nowrap", shipmentCodeTextTone(s.status))}>
-                              {s.code}
-                            </Link>
+                            <ShipmentQuickView
+                              shipmentId={s.id}
+                              code={s.code}
+                              className={cn("font-bold whitespace-nowrap text-left", shipmentCodeTextTone(s.status))}
+                            />
                           </td>
                           <td className="px-2 py-2 w-[130px] min-w-[130px]">
                             {s.pipeline_status ? (
