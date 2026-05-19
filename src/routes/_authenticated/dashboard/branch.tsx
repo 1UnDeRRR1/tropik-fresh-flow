@@ -591,7 +591,12 @@ function BranchDashboard() {
                   <th className="px-2 py-2 font-medium">Поставка</th>
                   <th className="px-2 py-2 font-medium">Товар</th>
                   <th className="px-2 py-2 font-medium">Країна походження</th>
-                  <th className="px-2 py-2 text-right font-medium">Палет</th>
+                  <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
+                    Палет
+                    <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
+                      {totalConfirmedPallets}п
+                    </span>
+                  </th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Відп. менеджер</th>
                 </tr>
