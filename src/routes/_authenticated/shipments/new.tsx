@@ -354,9 +354,12 @@ function NewShipment() {
         throw new Error(error.message || "Помилка збереження");
       }
 
-      qc.invalidateQueries({ queryKey: ["shipments-list"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      // refetchType: "all" — force background refetch even on unmounted lists,
+      // so the manager's /shipments table is fresh on the next navigation
+      // without requiring a manual page refresh.
+      qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
       toast.success("Поставку створено. Додайте позиції товарів.");
       navigate({
         to: "/shipments/$id/products",
