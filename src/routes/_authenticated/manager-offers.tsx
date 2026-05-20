@@ -507,6 +507,38 @@ function ManagerOffersPage() {
     [merged, detailOfferId],
   );
 
+  // Check if there's at least one shipment we can link this offer to
+  const { data: detailLinkableCount } = useQuery({
+    queryKey: [
+      "detail-offer-linkable",
+      detailOffer?.id,
+      detailOffer?.product_name,
+      detailOffer?.origin_country,
+      user?.id,
+    ],
+    enabled: !!detailOffer && !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shipments")
+        .select("id,created_by,import_manager_id,shipment_items(product_name,origin_country)")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+      const target = norm(detailOffer!.product_name);
+      const targetCountry = norm(detailOffer!.origin_country);
+      const mine = (data ?? []).filter(
+        (s: { created_by?: string | null }) => s.created_by === user!.id,
+      );
+      return mine.filter((s: { shipment_items: { product_name: string; origin_country: string | null }[] | null }) =>
+        (s.shipment_items ?? []).some(
+          (i) => norm(i.product_name) === target && (!targetCountry || norm(i.origin_country) === targetCountry),
+        ),
+      ).length;
+    },
+  });
+  const hasLinkable = (detailLinkableCount ?? 0) > 0;
+
   return (
     <div>
       <PageHeader
