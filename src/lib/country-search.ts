@@ -75,36 +75,32 @@ export function resolveCountry(
     const found = options.find((o) => o.toLowerCase() === aliased.toLowerCase());
     if (found) return found;
   }
-  // Unique substring fallback (e.g. "македонія" → "ПІВНІЧНА МАКЕДОНІЯ")
-  const subs = options.filter((o) => o.toLowerCase().includes(v));
+  // Unique prefix fallback (e.g. "македон" → "ПІВНІЧНА МАКЕДОНІЯ" only if sole prefix match)
+  const subs = options.filter((o) => o.toLowerCase().startsWith(v));
   if (subs.length === 1) return subs[0];
   return null;
 }
 
-/** Suggestion list: substring match on canonical, plus alias targets whose key
- *  contains the query. Returns up to `limit` unique canonical strings. */
+/** Suggestion list: PREFIX match only on canonical, plus alias targets whose key
+ *  starts with the query. Returns up to `limit` (max 3) unique canonical strings. */
 export function suggestCountries(
   value: string,
   options: string[],
   aliases: Record<string, string> = COUNTRY_ALIASES,
-  limit = 8,
+  limit = 3,
 ): string[] {
   const v = value.trim().toLowerCase();
   if (v.length < 2) return [];
-  const direct = options.filter((o) => o.toLowerCase().includes(v));
+  const direct = options.filter((o) => o.toLowerCase().startsWith(v));
   const viaAlias = Object.entries(aliases)
-    .filter(([k]) => k.includes(v))
+    .filter(([k]) => k.startsWith(v))
     .map(([, target]) => {
       const t = target.toLowerCase();
       return options.find((o) => o.toLowerCase() === t) ?? null;
     })
     .filter((x): x is string => !!x);
-  // Prefer prefix matches first for relevance
-  const ranked = Array.from(new Set([...direct, ...viaAlias])).sort((a, b) => {
-    const ap = a.toLowerCase().startsWith(v) ? 0 : 1;
-    const bp = b.toLowerCase().startsWith(v) ? 0 : 1;
-    if (ap !== bp) return ap - bp;
-    return a.localeCompare(b, "uk");
-  });
-  return ranked.slice(0, limit);
+  const ranked = Array.from(new Set([...direct, ...viaAlias])).sort((a, b) =>
+    a.localeCompare(b, "uk"),
+  );
+  return ranked.slice(0, Math.min(limit, 3));
 }
