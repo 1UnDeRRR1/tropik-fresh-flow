@@ -369,7 +369,30 @@ function ProductsFullscreen() {
   const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
+  const customsRefs = data?.customsRefs ?? [];
+  const refById = new Map(customsRefs.map((r) => [r.id, r]));
   const country = toUaCountry(sh?.country) || "—";
+
+  // Customs match status for the header indicator.
+  // - "found": every valid item matched product+country exactly in customs base.
+  // - "fallback": at least one item matched product but country differs
+  //   (the trigger picked the row with the highest indicative).
+  // - "none": no valid items yet (hide indicator).
+  const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
+  const fallbackItems = validItems
+    .map((it) => {
+      const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
+      if (!ref) return null;
+      const sameCountry = norm(ref.country) === norm(it.origin_country);
+      return sameCountry ? null : { item: it, ref };
+    })
+    .filter((v): v is { item: ItemRow; ref: CustomsRefMini } => !!v);
+  const customsStatus: "found" | "fallback" | "none" =
+    validItems.length === 0
+      ? "none"
+      : fallbackItems.length > 0
+        ? "fallback"
+        : "found";
   
   const incompleteItems = items.filter((i) => {
     if (Number(i.pallet_count ?? 0) <= 0) return false;
