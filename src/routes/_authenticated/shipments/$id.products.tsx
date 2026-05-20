@@ -675,14 +675,9 @@ function ProductsFullscreen() {
               {country}
               {incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
             </span>
-            {customsStatus !== "none" && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems} />
-              </>
-            )}
           </div>
         </div>
+
         <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
           <Plus className="h-4 w-4" />
         </Button>
@@ -701,8 +696,11 @@ function ProductsFullscreen() {
         <SharedVehicleSummary
           vehicleContext={vehicleContext}
           currentShipmentId={id}
+          customsStatus={customsStatus}
+          fallbackItems={fallbackItems}
         />
       )}
+
 
       <ProductsScrollArea
         itemsCount={items.length}
@@ -897,7 +895,7 @@ function TransportBar({
   );
 }
 
-function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
+function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId, customsStatus, fallbackItems }: { vehicleContext: VehicleContext; currentShipmentId: string; customsStatus?: "found" | "fallback" | "none"; fallbackItems?: Array<{ item: ItemRow; ref: CustomsRefMini }> }) {
   const [open, setOpen] = useState(false);
   const totalPallets = Number(vehicleContext.vehicle.total_pallets ?? 0);
   const totalKg = Number(vehicleContext.vehicle.total_weight_kg ?? 0);
@@ -905,6 +903,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
   const tight = remainingPallets <= 1;
   const count = vehicleContext.loadedItems.length;
+
 
   return (
     <div className="border-b border-border bg-card/70">
@@ -924,10 +923,13 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
         <span className={cn("text-[11px] font-semibold", tight ? "text-destructive" : "text-emerald-600")}>
           вільно {remainingPallets}п · {Math.round(remainingKg)}кг
         </span>
-        <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">
-          {count} поз.
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        <span className="ml-auto flex items-center gap-1 text-[10px]">
+          {customsStatus && customsStatus !== "none" && (
+            <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems ?? []} />
+          )}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", open && "rotate-180")} />
         </span>
+
       </button>
       {open && (
         <div className="max-h-52 overflow-y-auto border-t border-border">
