@@ -1033,6 +1033,7 @@ function OfferEditor({
 }) {
   const { user } = useAuth();
   const dbCountries = useCountryOptions();
+  const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = useMemo(() => dbCountries, [dbCountries]);
 
   const [items, setItems] = useState<ItemEntry[]>([]);
