@@ -210,7 +210,7 @@ function ProductsScrollArea({
     prevCount.current = itemsCount;
   }, [itemsCount]);
   return (
-    <div ref={ref} className="flex-1 overflow-y-auto relative">
+    <div ref={ref} className="flex-1 overflow-auto relative">
       {empty ? emptyContent : children}
     </div>
   );
@@ -622,9 +622,7 @@ function ProductsFullscreen() {
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
-        </div>
+        <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
         {currentShipmentEditable && (
           <div className="flex justify-center pb-2 pt-3">
             <Button
