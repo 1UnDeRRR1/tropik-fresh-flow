@@ -344,10 +344,21 @@ function ProductsFullscreen() {
             }
           : null;
       }
+      const itemRows = (items.data ?? []) as ItemRow[];
+      const matchIds = Array.from(
+        new Set(itemRows.map((r) => r.customs_match_id).filter((v): v is string => !!v)),
+      );
+      const { data: refs } = matchIds.length
+        ? await supabase
+            .from("customs_reference")
+            .select("id,product_name,country")
+            .in("id", matchIds)
+        : { data: [] };
       return {
         shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId, supplier_name: sh.suppliers?.name ?? null } as ShipmentRow) : null,
-        items: (items.data ?? []) as ItemRow[],
+        items: itemRows,
         products: (prods.data ?? []) as ProductRef[],
+        customsRefs: (refs ?? []) as CustomsRefMini[],
         vehicleContext,
       };
     },
