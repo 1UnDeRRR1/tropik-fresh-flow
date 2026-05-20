@@ -507,34 +507,69 @@ function ManagerOffersPage() {
     [merged, detailOfferId],
   );
 
-  // Check if there's at least one shipment we can link this offer to
+  // Check if there's at least one shipment with a matching, undistributed item.
+  // Match by product_name + origin_country + caliber (when caliber is set on the offer).
   const { data: detailLinkableCount } = useQuery({
     queryKey: [
       "detail-offer-linkable",
       detailOffer?.id,
       detailOffer?.product_name,
       detailOffer?.origin_country,
+      detailOffer?.caliber,
       user?.id,
     ],
     enabled: !!detailOffer && !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,created_by,import_manager_id,shipment_items(product_name,origin_country)")
+        .select("id,created_by,shipment_items(id,product_name,origin_country,caliber,pallet_count)")
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(200);
       if (error) throw error;
       const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
       const target = norm(detailOffer!.product_name);
       const targetCountry = norm(detailOffer!.origin_country);
+      const targetCaliber = norm(detailOffer!.caliber);
       const mine = (data ?? []).filter(
         (s: { created_by?: string | null }) => s.created_by === user!.id,
       );
-      return mine.filter((s: { shipment_items: { product_name: string; origin_country: string | null }[] | null }) =>
-        (s.shipment_items ?? []).some(
-          (i) => norm(i.product_name) === target && (!targetCountry || norm(i.origin_country) === targetCountry),
-        ),
-      ).length;
+      type SI = { id: string; product_name: string; origin_country: string | null; caliber: string | null; pallet_count: number | null };
+      const candidateItemIds: string[] = [];
+      for (const s of mine as { shipment_items: SI[] | null }[]) {
+        for (const i of s.shipment_items ?? []) {
+          if (norm(i.product_name) !== target) continue;
+          if (targetCountry && norm(i.origin_country) !== targetCountry) continue;
+          if (targetCaliber && norm(i.caliber) !== targetCaliber) continue;
+          candidateItemIds.push(i.id);
+        }
+      }
+      if (!candidateItemIds.length) return 0;
+      // Filter to items that still have undistributed pallets.
+      const { data: dis, error: e2 } = await supabase
+        .from("distribution_items")
+        .select("shipment_item_id,pallets,reserved_pallets")
+        .in("shipment_item_id", candidateItemIds);
+      if (e2) throw e2;
+      const used = new Map<string, number>();
+      for (const d of (dis ?? []) as { shipment_item_id: string; pallets: number | null; reserved_pallets: number | null }[]) {
+        const v = Math.max(Number(d.pallets ?? 0), Number(d.reserved_pallets ?? 0));
+        used.set(d.shipment_item_id, (used.get(d.shipment_item_id) ?? 0) + v);
+      }
+      // Need original pallet_count → re-walk mine to map id→pallet_count
+      const palletCountById = new Map<string, number>();
+      for (const s of mine as { shipment_items: SI[] | null }[]) {
+        for (const i of s.shipment_items ?? []) {
+          palletCountById.set(i.id, Number(i.pallet_count ?? 0));
+        }
+      }
+      let count = 0;
+      for (const id of candidateItemIds) {
+        const total = palletCountById.get(id) ?? 0;
+        const u = used.get(id) ?? 0;
+        // Undistributed if no allocations yet, or total pallets > distributed.
+        if (total <= 0 || u < total) count++;
+      }
+      return count;
     },
   });
   const hasLinkable = (detailLinkableCount ?? 0) > 0;
@@ -901,7 +936,29 @@ function ManagerOffersPage() {
                   )}
                   {o.status === "closed" && (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => setLinkOffer(o)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn(
+                          hasLinkable
+                            ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                            : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
+                        )}
+                        onClick={() => {
+                          if (hasLinkable) {
+                            setLinkOffer(o);
+                          } else {
+                            toast.message("Немає підходящої поставки", {
+                              description: "Створіть нову поставку — товар не знайдено в наявних незаповнених поставках.",
+                            });
+                          }
+                        }}
+                        title={
+                          hasLinkable
+                            ? "Є відповідна поставка з нерозподіленим товаром"
+                            : "Немає поставки з таким товаром, країною та калібром"
+                        }
+                      >
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
                       </Button>
                       <Link
