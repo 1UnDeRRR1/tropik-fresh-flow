@@ -24,7 +24,7 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
-import { canonicalizeProductName, normalizeProductKey } from "@/lib/product-aliases";
+import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 
 
 import { StaffOnly } from "@/components/StaffOnly";
@@ -112,7 +112,10 @@ function normalizeProductValue(value: string | null | undefined) {
 function isKnownProductName(value: string | null | undefined, products: ProductRef[]) {
   const normalized = normalizeProductValue(canonicalizeProductName(value));
   if (!normalized) return false;
-  return products.some((product) => normalizeProductValue(product.name) === normalized);
+  if (products.some((product) => normalizeProductValue(product.name) === normalized)) return true;
+  // Accept unique prefix match (e.g. "ків" → "Ківі")
+  const resolved = resolveProductOption(value, products.map((p) => p.name));
+  return !!resolved;
 }
 
 function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count">) {
@@ -1070,7 +1073,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     if (readOnly) return;
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
-      const trimmedProductName = canonicalizeProductName(form.product_name);
+      const resolvedName =
+        resolveProductOption(form.product_name, products.map((p) => p.name)) ??
+        canonicalizeProductName(form.product_name);
+      const trimmedProductName = resolvedName;
       if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
         return;
       }
