@@ -1140,7 +1140,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
           options={COUNTRY_OPTIONS}
-          aliases={COUNTRY_ALIASES}
+          aliases={countryAliases}
           placeholder={invalidCountry ? "Країна*" : "Країна"}
           className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={180}
