@@ -123,9 +123,14 @@ function ValidatedAutocomplete({
             <button
               key={s}
               type="button"
-              onMouseDown={(e) => {
+              // pointerdown + preventDefault: keeps the input focused on
+              // touch devices so the first tap commits the suggestion
+              // instead of just dismissing the dropdown.
+              onPointerDown={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 onChange(s);
+                setFocused(false);
               }}
               className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
             >
