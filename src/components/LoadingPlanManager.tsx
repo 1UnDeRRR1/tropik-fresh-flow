@@ -186,6 +186,13 @@ export function LoadingPlanManager() {
               className="!h-10 !text-sm !px-3 !border-input !bg-background"
             />
           </div>
+          <VarietyAutocomplete
+            value={form.variety}
+            onChange={(v) => setForm({ ...form, variety: v })}
+            varieties={varieties}
+            placeholder="Сорт / асортимент (опціонально)"
+            inputClassName="!h-10 !text-sm !px-3 !border-input !bg-background"
+          />
           <div className="grid grid-cols-2 gap-2">
             <input
               className="input"
