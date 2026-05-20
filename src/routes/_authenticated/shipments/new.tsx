@@ -292,7 +292,7 @@ function NewShipment() {
       let useDays = days;
 
       if (mode === "new") {
-        const cc = selectedSupplier!.iso3?.trim() || getCountryCode(country);
+        const cc = getCountryCode(country);
         const seq = await fetchNextVehicleSequence(cc);
         vCode = formatVehicleCode(cc, seq);
         const { data: vRow, error: vErr } = await supabase
