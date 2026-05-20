@@ -112,7 +112,10 @@ function normalizeProductValue(value: string | null | undefined) {
 function isKnownProductName(value: string | null | undefined, products: ProductRef[]) {
   const normalized = normalizeProductValue(canonicalizeProductName(value));
   if (!normalized) return false;
-  return products.some((product) => normalizeProductValue(product.name) === normalized);
+  if (products.some((product) => normalizeProductValue(product.name) === normalized)) return true;
+  // Accept unique prefix match (e.g. "ків" → "Ківі")
+  const resolved = resolveProductOption(value, products.map((p) => p.name));
+  return !!resolved;
 }
 
 function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count">) {
