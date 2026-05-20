@@ -177,6 +177,23 @@ function ShipmentsList() {
       return (r as { suppliers?: { name?: string | null } | null }).suppliers?.name === supplierFilter;
     })
     .sort((a, b) => {
+      if (sortBy === "name") {
+        const an = ((a.shipment_items ?? []) as Array<{ product_name?: string | null }>)[0]?.product_name ?? "";
+        const bn = ((b.shipment_items ?? []) as Array<{ product_name?: string | null }>)[0]?.product_name ?? "";
+        return an.localeCompare(bn, "uk");
+      }
+      if (sortBy === "status") {
+        const ai = a.pipeline_status ? PIPELINE_ORDER.indexOf(a.pipeline_status) : -1;
+        const bi = b.pipeline_status ? PIPELINE_ORDER.indexOf(b.pipeline_status) : -1;
+        // closer to arrival → later in pipeline → higher index first
+        return bi - ai;
+      }
+      if (sortBy === "last_event") {
+        const at = new Date((a as { updated_at?: string | null }).updated_at ?? 0).getTime();
+        const bt = new Date((b as { updated_at?: string | null }).updated_at ?? 0).getTime();
+        return bt - at;
+      }
+      // default: date (ETA ascending, nulls last)
       if (!a.eta && !b.eta) return 0;
       if (!a.eta) return 1;
       if (!b.eta) return -1;
