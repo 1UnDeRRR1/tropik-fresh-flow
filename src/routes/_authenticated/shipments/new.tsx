@@ -241,25 +241,68 @@ function NewShipment() {
     setEtaTouched(false);
   }, [mode, selectedVehicle?.id]);
 
-  // Prefill from a closed manager offer (country + ETA)
-  const { data: fromOfferData } = useQuery({
+  const { data: fromOfferPrefill } = useQuery({
     queryKey: ["new-shipment-from-offer", search.fromOffer],
     enabled: !!search.fromOffer,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: offer, error } = await supabase
         .from("manager_offers")
-        .select("origin_country,expected_eta")
+        .select("origin_country,linked_shipment_id,import_manager_id")
         .eq("id", search.fromOffer!)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!offer) return null;
+
+      let linkedShipment: { supplier_id: string | null; country: string | null } | null = null;
+      if (offer.linked_shipment_id) {
+        const { data: shipment, error: shipmentError } = await supabase
+          .from("shipments")
+          .select("supplier_id,country")
+          .eq("id", offer.linked_shipment_id)
+          .maybeSingle();
+        if (shipmentError) throw shipmentError;
+        linkedShipment = shipment;
+      }
+
+      return {
+        supplierId: linkedShipment?.supplier_id ?? null,
+        country: linkedShipment?.country ?? offer.origin_country ?? null,
+        offerManagerId: offer.import_manager_id ?? null,
+      };
     },
   });
-  // NOTE: Do NOT prefill country from offer.origin_country — origin (where
-  // the product grew) is not the loading country (where the truck loads).
-  // ETA is also intentionally not prefilled: it is auto-calculated from
-  // loading_date + country logistics days once the user sets the country
-  // and loading date.
+  useEffect(() => {
+    if (!fromOfferPrefill?.country) return;
+    if (countryTouched || country) return;
+    const uaCountry = toUaCountry(fromOfferPrefill.country) || fromOfferPrefill.country;
+    if (uaCountry) setCountry(uaCountry);
+  }, [fromOfferPrefill?.country, countryTouched, country]);
+
+  useEffect(() => {
+    if (supplierId || !fromOfferPrefill || !suppliers?.length) return;
+
+    const directSupplier = fromOfferPrefill.supplierId
+      ? suppliers.find((supplier) => supplier.id === fromOfferPrefill.supplierId)
+      : null;
+    if (directSupplier) {
+      setSupplierId(directSupplier.id);
+      return;
+    }
+
+    const scopedManagerId = fromOfferPrefill.offerManagerId ?? currentManagerId ?? null;
+    const pool = scopedManagerId
+      ? suppliers.filter((supplier) => supplier.import_manager_id === scopedManagerId)
+      : suppliers;
+    const targetCountry = normalizeCountry(fromOfferPrefill.country ?? "");
+    if (!targetCountry) return;
+
+    const countryMatches = pool.filter(
+      (supplier) => normalizeCountry(supplier.country ?? "") === targetCountry,
+    );
+    if (countryMatches.length === 1) {
+      setSupplierId(countryMatches[0].id);
+    }
+  }, [fromOfferPrefill, suppliers, supplierId, currentManagerId]);
 
   // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
