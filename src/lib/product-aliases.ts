@@ -17,7 +17,8 @@ export function normalizeProductKey(value: string | null | undefined) {
     .replace(/[()]/g, " ")
     .replace(/["'`´]/g, "")
     .replace(/\s*\/\s*/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export const PRODUCT_NAME_ALIASES = Object.fromEntries(
