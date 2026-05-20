@@ -31,8 +31,14 @@ export function SearchableSelect({
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
   const selected = options.find((o) => o.value === value);
   const displayLabel = value === allValue ? allLabel : selected?.label ?? placeholder;
+  const filteredOptions = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q.length < 2) return [] as SearchableOption[];
+    return options.filter((option) => option.label.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [options, search]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -51,16 +57,10 @@ export function SearchableSelect({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command
-          filter={(itemValue, search) => {
-            const q = search.trim().toLowerCase();
-            if (!q) return 1;
-            return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-          }}
-        >
-          <CommandInput placeholder="Пошук…" />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Пошук…" value={search} onValueChange={setSearch} />
           <CommandList>
-            <CommandEmpty>Нічого не знайдено</CommandEmpty>
+            <CommandEmpty>{search.trim().length < 2 ? "Введіть 2 літери" : "Нічого не знайдено"}</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 value={allLabel}
@@ -72,12 +72,13 @@ export function SearchableSelect({
                 <Check className={cn("mr-2 h-4 w-4", value === allValue ? "opacity-100" : "opacity-0")} />
                 {allLabel}
               </CommandItem>
-              {options.map((o) => (
+              {filteredOptions.map((o) => (
                 <CommandItem
                   key={o.value}
                   value={o.label}
                   onSelect={() => {
                     onChange(o.value);
+                    setSearch("");
                     setOpen(false);
                   }}
                 >

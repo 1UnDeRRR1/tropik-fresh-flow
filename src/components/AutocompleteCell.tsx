@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -69,21 +69,25 @@ export function AutocompleteCell({
 
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
+  const normalizedOptions = useMemo(
+    () => Array.from(new Set(options.map((option) => option.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
+    [options],
+  );
 
   // Resolve an input string to a canonical option (UA), or null.
   const resolveCanonical = (s: string): string | null => {
     const l = s.trim().toLowerCase();
     if (!l) return null;
-    const direct = options.find((o) => o.toLowerCase() === l);
+    const direct = normalizedOptions.find((o) => o.toLowerCase() === l);
     if (direct) return direct;
     if (aliases && aliases[l]) {
       const target = aliases[l].toLowerCase();
-      const aliased = options.find((o) => o.toLowerCase() === target);
+      const aliased = normalizedOptions.find((o) => o.toLowerCase() === target);
       if (aliased) return aliased;
       return aliases[l];
     }
     // Unique prefix fallback (e.g. "македон" → "ПІВНІЧНА МАКЕДОНІЯ" only if it's the sole prefix match)
-    const subs = options.filter((o) => o.toLowerCase().startsWith(l));
+    const subs = normalizedOptions.filter((o) => o.toLowerCase().startsWith(l));
     if (subs.length === 1) return subs[0];
     return null;
   };
@@ -97,14 +101,14 @@ export function AutocompleteCell({
         .filter(([k]) => k.startsWith(lower) && lower.length >= 2)
         .map(([, v]) => {
           const t = v.toLowerCase();
-          return options.find((o) => o.toLowerCase() === t) ?? v;
+          return normalizedOptions.find((o) => o.toLowerCase() === t) ?? v;
         })
     : [];
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
       ? Array.from(
           new Set([
-            ...options.filter((o) => matchesQuery(o, trimmed)),
+            ...normalizedOptions.filter((o) => matchesQuery(o, trimmed)),
             ...aliasMatchedCanonicals,
           ]),
         ).slice(0, 3)

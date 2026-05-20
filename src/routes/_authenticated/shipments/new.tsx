@@ -98,8 +98,11 @@ function NewShipment() {
 
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [countrySearch, setCountrySearch] = useState("");
   const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState("");
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
   const [shake, setShake] = useState(false);
   const clearInvalid = (key: string) => setInvalid((prev) => {
@@ -197,6 +200,22 @@ function NewShipment() {
   const selectedVehicleOwnerName = selectedVehicle?.created_by
     ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
     : "Власник авто";
+  const filteredSuppliers = useMemo(() => {
+    const q = supplierSearch.trim().toLowerCase();
+    if (q.length < 2) return suppliers ?? [];
+    return (suppliers ?? []).filter((s) => s.name.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [suppliers, supplierSearch]);
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.trim().toLowerCase();
+    const base = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
+    if (q.length < 2) return base;
+    return base.filter((c: string) => c.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [countryOptions, countrySearch]);
+  const filteredVehicles = useMemo(() => {
+    const q = vehicleSearch.trim().toLowerCase();
+    if (q.length < 2) return openVehicles ?? [];
+    return (openVehicles ?? []).filter((v) => v.code.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [openVehicles, vehicleSearch]);
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
   useEffect(() => {
@@ -404,15 +423,22 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Пошук постачальника…" />
+          <Command
+            filter={(itemValue, search) => {
+              const q = search.trim().toLowerCase();
+              if (q.length < 2) return 1;
+              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
+            }}
+          >
+            <CommandInput placeholder="Пошук постачальника…" value={supplierSearch} onValueChange={setSupplierSearch} />
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
               <CommandGroup>
-                {(suppliers ?? []).map((s) => (
+                {filteredSuppliers.map((s) => (
                   <CommandItem
                     key={s.id}
-                    value={`${s.name} ${toUaCountry(s.country ?? "")}`}
+                    keywords={[toUaCountry(s.country ?? "")]}
+                    value={s.name}
                     onSelect={() => {
                       setSupplierId(s.id);
                       clearInvalid("supplier");
@@ -452,12 +478,18 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Пошук країни…" />
+          <Command
+            filter={(itemValue, search) => {
+              const q = search.trim().toLowerCase();
+              if (q.length < 2) return 1;
+              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
+            }}
+          >
+            <CommandInput placeholder="Пошук країни…" value={countrySearch} onValueChange={setCountrySearch} />
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
               <CommandGroup>
-                {(countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).map((c: string) => (
+                {filteredCountries.map((c: string) => (
                   <CommandItem
                     key={c}
                     value={c}
@@ -566,12 +598,18 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Пошук авто…" />
+          <Command
+            filter={(itemValue, search) => {
+              const q = search.trim().toLowerCase();
+              if (q.length < 2) return 1;
+              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
+            }}
+          >
+            <CommandInput placeholder="Пошук авто…" value={vehicleSearch} onValueChange={setVehicleSearch} />
             <CommandList>
               <CommandEmpty>Немає відкритих авто</CommandEmpty>
               <CommandGroup>
-                {(openVehicles ?? []).map((v) => {
+                {filteredVehicles.map((v) => {
                   const sups = (v.shipments ?? [])
                     .map((s) => s.suppliers?.name)
                     .filter(Boolean)
@@ -579,7 +617,8 @@ function NewShipment() {
                   return (
                     <CommandItem
                       key={v.id}
-                      value={`${v.code} ${v.country} ${sups}`}
+                      keywords={[v.country, sups]}
+                      value={v.code}
                       onSelect={() => {
                         setVehicleId(v.id);
                         setCountry(v.country);

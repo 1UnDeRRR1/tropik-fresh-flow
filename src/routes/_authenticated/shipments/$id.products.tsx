@@ -104,8 +104,18 @@ type VehicleContext = {
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
 
+function normalizeProductKey(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/["'`´]/g, "")
+    .replace(/\s*\/\s*/g, " ")
+    .replace(/\s+/g, " ");
+}
+
 function normalizeProductValue(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
+  return normalizeProductKey(value);
 }
 
 function isKnownProductName(value: string | null | undefined, products: ProductRef[]) {
@@ -283,7 +293,10 @@ function ProductsFullscreen() {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id").eq("shipment_id", id).order("created_at"),
-        supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
+        Promise.all([
+          supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
+          supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
+        ]),
       ]);
       const sh = s.data as {
         id: string;
@@ -395,7 +408,19 @@ function ProductsFullscreen() {
       return {
         shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId, supplier_name: sh.suppliers?.name ?? null } as ShipmentRow) : null,
         items: itemRows,
-        products: (prods.data ?? []) as ProductRef[],
+        products: Array.from(
+          new Map(
+            [
+              ...((prods[0].data ?? []) as ProductRef[]),
+              ...((prods[1].data ?? []).map((row) => ({
+                name: row.product_name_ua as string,
+                default_pallet_weight: null,
+              })) as ProductRef[]),
+            ]
+              .map((product) => [normalizeProductKey(product.name), { name: product.name.trim(), default_pallet_weight: product.default_pallet_weight ?? null }] as const)
+              .filter(([key]) => !!key),
+          ).values(),
+        ),
         customsRefs: (refs ?? []) as CustomsRefMini[],
         vehicleContext,
       };
