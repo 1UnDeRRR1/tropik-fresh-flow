@@ -44,6 +44,7 @@ function BranchOffersPage() {
   const branchId = profile?.branch_id ?? null;
   const qc = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [sortBy, setSortBy] = useState<SortKey>("date");
 
   const { data: offers, isLoading } = useQuery({
     queryKey: ["branch-active-offers"],
