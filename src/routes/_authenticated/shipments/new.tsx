@@ -242,7 +242,7 @@ function NewShipment() {
   // loading_date + country logistics days once the user sets the country
   // and loading date.
 
-  // Preview next sequence per country
+  // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
   const { data: previewSeq } = useQuery({
     queryKey: ["next-vehicle-seq", user?.id, previewCc],
@@ -250,22 +250,30 @@ function NewShipment() {
     enabled: !loading && !!user && isStaff && !!previewCc,
   });
 
-  // Auto-generate code preview
+  // Preview next per-supplier sequence
+  const { data: previewSupSeq } = useQuery({
+    queryKey: ["next-supplier-seq", user?.id, supplierId],
+    queryFn: () => fetchNextSupplierSequence(supplierId),
+    enabled: !loading && !!user && isStaff && !!supplierId,
+  });
+
+  // Auto-generate code preview: ALIAS-XXX-VVV-YYY
   useEffect(() => {
     if (codeOverride) return;
-    const supplierCode = selectedSupplier
-      ? (selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name))
-      : "";
-    if (mode === "existing" && selectedVehicle && supplierCode) {
-      setCode(formatShipmentCode(selectedVehicle.code, supplierCode));
-    } else if (mode === "new" && country && supplierCode) {
+    if (!selectedSupplier) { setCode(""); return; }
+    const alias = getSupplierAlias(selectedSupplier);
+    const supSeqStr = previewSupSeq ? String(previewSupSeq).padStart(3, "0") : "···";
+    if (mode === "existing" && selectedVehicle) {
+      // selectedVehicle.code is already in `VVV-YYY` form (or legacy form)
+      setCode(`${alias}-${supSeqStr}-${selectedVehicle.code}`.toUpperCase());
+    } else if (mode === "new" && country) {
       const cc = getCountryCode(country);
-      const seqStr = previewSeq ? String(previewSeq).padStart(2, "0") : "··";
-      setCode(formatShipmentCode(`${seqStr}-${cc}`, supplierCode));
+      const vehSeqStr = previewSeq ? String(previewSeq).padStart(3, "0") : "···";
+      setCode(`${alias}-${supSeqStr}-${cc}-${vehSeqStr}`.toUpperCase());
     } else {
       setCode("");
     }
-  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq]);
+  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq, previewSupSeq]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
