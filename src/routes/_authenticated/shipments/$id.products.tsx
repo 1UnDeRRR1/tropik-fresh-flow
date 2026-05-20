@@ -24,7 +24,7 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
-import { countPositions, formatPositions } from "@/lib/positions";
+
 
 import { StaffOnly } from "@/components/StaffOnly";
 
