@@ -721,12 +721,12 @@ function TransportBar({
 
   return (
     <div className={cn(
-      "flex items-center gap-2 border-b px-3 py-1.5 transition-colors",
+      "group flex items-center gap-2 border-b px-3 py-1.5 transition-colors focus-within:bg-primary/5",
       isEmpty ? "border-destructive bg-destructive/10" : "border-border bg-muted/40",
       flash && "field-invalid",
     )}>
       <span className={cn(
-        "text-[11px] font-semibold uppercase tracking-wide",
+        "text-[11px] font-semibold uppercase tracking-wide transition-colors group-focus-within:text-primary",
         isEmpty ? "text-destructive" : "text-muted-foreground",
       )}>
         Перевезення авто {isEmpty && "*"}
