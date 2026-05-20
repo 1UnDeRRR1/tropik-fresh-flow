@@ -1204,7 +1204,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         }}
         className={cn(
           "h-10 w-full min-w-[60px] border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus:border-input focus:bg-background",
-          focused && EXPANDED_RIGHT + " text-right",
+          focused && FOCUS_STYLE,
           isEmpty && "placeholder:text-destructive/80",
           readOnly && "cursor-default",
         )}
