@@ -399,7 +399,7 @@ function ManagerOffersPage() {
       createdAt: string;
       isPending: boolean;
     }[] = [];
-    const openStatuses: ManagerOfferStatus[] = ["draft", "active", "in_work", "confirmed", "closed"];
+    const openStatuses: ManagerOfferStatus[] = ["draft", "active", "in_work", "confirmed"];
     for (const o of merged) {
       if (!openStatuses.includes(o.status)) continue;
       const inScope = (branchId: string) =>
@@ -413,6 +413,7 @@ function ManagerOffersPage() {
         // yellow again only if the branch later edits requested_pallets, which
         // resets approved_pallets back to null (see branch-offers submit).
         const isPending = approved == null;
+        if (!isPending) continue;
         items.push({
           offerId: o.id,
           offerStatus: o.status,
@@ -591,7 +592,7 @@ function ManagerOffersPage() {
         }
       />
 
-      {pendingItems.length > 0 && (
+      {pendingCount > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
