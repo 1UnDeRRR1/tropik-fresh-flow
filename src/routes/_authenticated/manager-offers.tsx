@@ -2097,3 +2097,81 @@ function PublishOfferDialog({
     </Sheet>
   );
 }
+
+function CustomsInfoPopover({
+  ref,
+  calc,
+  country,
+  label,
+  labelClass,
+}: {
+  ref: CustomsRefRow;
+  calc: ReturnType<typeof computeOfferCost> | null;
+  country: string | null;
+  label: string;
+  labelClass?: string;
+}) {
+  const eu = isEuCountry(country ?? "");
+  const pct = eu ? Number(ref.euro1_percent || 0) : Number(ref.customs_fee_percent || 0);
+  const threshold = Number(ref.threshold_price_usd || 0);
+  const indicative = Number(ref.euro1_markup_usd || 0);
+  const unitUsd = calc?.unitUsd ?? 0;
+  const usedFlat = calc ? unitUsd <= threshold : false;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn("cursor-pointer text-left", labelClass)}>
+          {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="w-80 text-xs space-y-2">
+        <div className="font-semibold text-sm">Розрахунок митниці</div>
+        <div className="space-y-1">
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Аналог (товар)</span>
+            <span className="text-right">{ref.product_name ?? "—"}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Аналог (країна)</span>
+            <span className="text-right">{ref.country ?? "—"} {eu ? "(ЄС)" : ""}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Поріг ціни</span>
+            <span className="tabular-nums">${threshold.toFixed(2)}/кг</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Індикативне мито</span>
+            <span className="tabular-nums">${indicative.toFixed(4)}/кг</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">{eu ? "EUR1 %" : "Мито %"}</span>
+            <span className="tabular-nums">{pct.toFixed(2)}%</span>
+          </div>
+        </div>
+        {calc && (
+          <div className="border-t border-border pt-2 space-y-1">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Ціна за кг (USD)</span>
+              <span className="tabular-nums">${unitUsd.toFixed(4)}</span>
+            </div>
+            <div className="text-muted-foreground">
+              {usedFlat ? (
+                <>Ціна ≤ порогу → мито = індикатив = <b>${indicative.toFixed(4)}</b></>
+              ) : (
+                <>Ціна &gt; порогу → інвойсне мито: unit×1.20×{pct.toFixed(2)}%/100 + unit×0.20 + 0.02 = <b>${calc.invoiceDuty.toFixed(4)}</b></>
+              )}
+            </div>
+            <div className="flex justify-between gap-2 pt-1">
+              <span className="font-semibold text-success">Індикативне мито</span>
+              <span className="tabular-nums font-semibold text-success">${calc.indicativeDuty.toFixed(4)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="font-semibold text-destructive">Інвойсне мито</span>
+              <span className="tabular-nums font-semibold text-destructive">${calc.invoiceDuty.toFixed(4)}</span>
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
