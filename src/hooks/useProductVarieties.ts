@@ -2,6 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+function normalizeProductKey(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/["'`´]/g, "")
+    .replace(/\s*\/\s*/g, " ")
+    .replace(/\s+/g, " ");
+}
+
 /**
  * Loads the full variety dictionary once and groups it by Ukrainian product
  * name (lowercased). Use `useVarietiesFor(productName)` to get suggestions
@@ -24,7 +34,8 @@ export function useAllProductVarieties() {
         for (const row of data ?? []) {
           const keys = [row.product_name_ua, row.product_name_en].filter(Boolean) as string[];
           for (const k of keys) {
-            const key = k.toLowerCase();
+            const key = normalizeProductKey(k);
+            if (!key) continue;
             if (!map[key]) map[key] = [];
             if (!map[key].includes(row.variety)) map[key].push(row.variety);
           }
@@ -40,6 +51,6 @@ export function useVarietiesFor(productName: string | null | undefined): string[
   const { data } = useAllProductVarieties();
   return useMemo(() => {
     if (!productName || !data) return [];
-    return data[productName.trim().toLowerCase()] ?? [];
+    return data[normalizeProductKey(productName)] ?? [];
   }, [productName, data]);
 }
