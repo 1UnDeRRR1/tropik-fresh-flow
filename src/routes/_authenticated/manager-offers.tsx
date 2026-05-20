@@ -26,9 +26,10 @@ import {
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
-import { COUNTRY_ALIASES, resolveCountry, suggestCountries } from "@/lib/country-search";
+import { resolveCountry, suggestCountries } from "@/lib/country-search";
 
 function resolveOption(
   value: string,
