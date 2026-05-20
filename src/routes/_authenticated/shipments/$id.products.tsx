@@ -895,7 +895,7 @@ function TransportBar({
   );
 }
 
-function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
+function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId, customsStatus, fallbackItems }: { vehicleContext: VehicleContext; currentShipmentId: string; customsStatus?: "found" | "fallback" | "none"; fallbackItems?: Array<{ item: ItemRow; ref: CustomsRefMini }> }) {
   const [open, setOpen] = useState(false);
   const totalPallets = Number(vehicleContext.vehicle.total_pallets ?? 0);
   const totalKg = Number(vehicleContext.vehicle.total_weight_kg ?? 0);
@@ -903,6 +903,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
   const tight = remainingPallets <= 1;
   const count = vehicleContext.loadedItems.length;
+
 
   return (
     <div className="border-b border-border bg-card/70">
