@@ -105,14 +105,39 @@ function BranchOffersPage() {
   const visibleOffers = useMemo(() => {
     const list = offers ?? [];
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return list.filter((o) => {
+    const filtered = list.filter((o) => {
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
       // closed / expired: show only to branches that responded, and only for 7 days
       if (!responseByOffer[o.id]) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
     });
-  }, [offers, responseByOffer]);
+    const shipMap: Record<string, { eta: string | null; arrived_at: string | null }> = {};
+    for (const s of shipments ?? []) shipMap[s.id] = { eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
+    const arrivalDate = (o: ManagerOffer): string | null => {
+      const ship = o.linked_shipment_id ? shipMap[o.linked_shipment_id] : null;
+      return ship?.arrived_at || ship?.eta || o.expected_eta || null;
+    };
+    const eventTs = (o: ManagerOffer): number =>
+      new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+    const sorted = [...filtered];
+    if (sortBy === "date") {
+      sorted.sort((a, b) => {
+        const da = arrivalDate(a), db = arrivalDate(b);
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return da.localeCompare(db);
+      });
+    } else if (sortBy === "name") {
+      sorted.sort((a, b) => (a.product_name ?? "").localeCompare(b.product_name ?? "", "uk"));
+    } else if (sortBy === "status") {
+      sorted.sort((a, b) => (MO_STATUS_PRIORITY[a.status] ?? 99) - (MO_STATUS_PRIORITY[b.status] ?? 99));
+    } else if (sortBy === "last_event") {
+      sorted.sort((a, b) => eventTs(b) - eventTs(a));
+    }
+    return sorted;
+  }, [offers, responseByOffer, shipments, sortBy]);
 
   const managerNameById = useMemo(() => {
     const m: Record<string, string> = {};
