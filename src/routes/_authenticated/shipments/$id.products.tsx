@@ -1100,8 +1100,8 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       onBlur={() => setFocused(false)}
       style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
       className={cn(
-        "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
-        focused && EXPANDED,
+        "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
+        focused && FOCUS_STYLE,
         readOnly && "cursor-default",
         className,
       )}
