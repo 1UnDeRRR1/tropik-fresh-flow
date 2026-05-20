@@ -622,9 +622,7 @@ function ProductsFullscreen() {
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
-        </div>
+        <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
         {currentShipmentEditable && (
           <div className="flex justify-center pb-2 pt-3">
             <Button
