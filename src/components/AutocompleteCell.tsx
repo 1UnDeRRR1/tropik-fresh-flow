@@ -194,18 +194,13 @@ export function AutocompleteCell({
             <button
               key={s}
               type="button"
-              onMouseDown={(e) => {
+              // Fire on pointerdown (before input blur on touch) and
+              // preventDefault to keep focus, so a single tap reliably
+              // commits the suggestion instead of dismissing the dropdown.
+              onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 acceptingRef.current = true;
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation();
-                acceptingRef.current = true;
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
                 accept(s);
               }}
               className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
