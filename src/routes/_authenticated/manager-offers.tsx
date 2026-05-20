@@ -28,7 +28,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
-import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
+import { computeOfferCost, fetchCustomsRef, isEuCountry, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry, suggestCountries } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
