@@ -958,9 +958,17 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
   const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
 
+  const { setFocused } = useContext(FocusedColContext);
   return (
     <>
-    <tr className="border-b border-border/40">
+    <tr
+      className="border-b border-border/40"
+      onFocusCapture={(e) => {
+        const td = (e.target as HTMLElement).closest("td");
+        if (td?.dataset.col) setFocused(Number(td.dataset.col));
+      }}
+      onBlurCapture={() => setFocused(null)}
+    >
       <td className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
