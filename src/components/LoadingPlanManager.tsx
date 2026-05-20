@@ -17,6 +17,7 @@ import { normalizeCountry } from "@/lib/countries";
 interface PlanRow {
   id: string;
   product_name: string;
+  variety: string | null;
   caliber: string | null;
   country: string | null;
   planned_pallets: number;
