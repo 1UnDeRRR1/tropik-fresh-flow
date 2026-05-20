@@ -166,10 +166,14 @@ async function syncVehicleStateForShipment(shipmentId: string) {
 }
 
 function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ["shipments-list"] });
-  qc.invalidateQueries({ queryKey: ["open-vehicles"] });
-  qc.invalidateQueries({ queryKey: ["vehicles-list"] });
-  qc.invalidateQueries({ queryKey: ["vehicles-open"] });
+  // refetchType: "all" — also refetch queries that aren't currently mounted,
+  // so when the user navigates back to /shipments the list is already fresh
+  // (global default refetchOnMount is false in router.tsx).
+  qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["vehicles-list"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["vehicles-open"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["distribution-list"] });
   qc.invalidateQueries({ queryKey: ["shipment-products"] });
 }
