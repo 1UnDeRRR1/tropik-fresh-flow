@@ -258,7 +258,7 @@ function NewShipment() {
     if (mode === "existing" && selectedVehicle && supplierCode) {
       setCode(formatShipmentCode(selectedVehicle.code, supplierCode));
     } else if (mode === "new" && country && supplierCode) {
-      const cc = selectedSupplier?.iso3?.trim() || getCountryCode(country);
+      const cc = getCountryCode(country);
       const seqStr = previewSeq ? String(previewSeq).padStart(2, "0") : "··";
       setCode(formatShipmentCode(`${seqStr}-${cc}`, supplierCode));
     } else {
