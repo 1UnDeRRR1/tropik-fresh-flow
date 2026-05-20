@@ -69,7 +69,7 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
   // 2) fallback: same product, any country — pick row with highest indicative
   const { data: fb } = await supabase
     .from("customs_reference")
-    .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1,euro1_markup_usd".replace(",euro1,", ","))
+    .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
     .eq("active", true)
     .ilike("product_name", name)
     .order("euro1_markup_usd", { ascending: false, nullsFirst: false })
