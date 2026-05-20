@@ -132,7 +132,7 @@ function NewShipment() {
       // RLS already restricts managers to their own suppliers; admins see all.
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id,name,country,code_base,iso3,import_manager_id")
+        .select("id,name,country,code_base,alias,iso3,import_manager_id")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
