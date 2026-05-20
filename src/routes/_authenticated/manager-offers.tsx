@@ -1343,7 +1343,7 @@ function OfferItemEditor({
 
   const productCanonical = resolveOption(form.product_name, productOptions);
   const productValid = !!productCanonical;
-  const countryCanonical = resolveCountry(form.origin_country, countryOptions, COUNTRY_ALIASES);
+  const countryCanonical = resolveCountry(form.origin_country, countryOptions, countryAliases);
   const countryValid = !!countryCanonical;
 
   const priceNum = Number(form.price_per_kg);
@@ -1484,7 +1484,7 @@ function OfferItemEditor({
           value={form.origin_country}
           onChange={(v) => update({ origin_country: v })}
           options={countryOptions}
-          aliases={COUNTRY_ALIASES}
+          aliases={countryAliases}
           placeholder="Почніть вводити країну"
           required
         />
