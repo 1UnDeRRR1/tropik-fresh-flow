@@ -1605,11 +1605,13 @@ function OfferItemEditor({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Митниця</span>
             <span>
-              {customsRef
+              {customsRef?.exact
                 ? "знайдено"
-                : productCanonical && countryCanonical
-                  ? <span className="font-bold text-warning">не знайдено</span>
-                  : "—"}
+                : customsRef
+                  ? <span className="font-bold text-warning">не знайдено (індикатив за аналогом)</span>
+                  : productCanonical && countryCanonical
+                    ? <span className="font-bold text-warning">не знайдено</span>
+                    : "—"}
             </span>
           </div>
           {calc && (
