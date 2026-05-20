@@ -13,8 +13,13 @@ export async function deleteShipmentIfEmpty(shipmentId: string): Promise<boolean
     .eq("shipment_id", shipmentId);
 
   const invalidIds = (items ?? [])
-    .filter((i) => (i.product_name ?? "").trim().length === 0 && Number(i.pallet_count ?? 0) <= 0)
+    .filter((i) => {
+      const name = (i.product_name ?? "").trim();
+      const isEmptyName = name.length === 0 || name === "Новий товар";
+      return isEmptyName || Number(i.pallet_count ?? 0) <= 0;
+    })
     .map((i) => i.id);
+
 
   if (invalidIds.length > 0) {
     await supabase.from("shipment_items").delete().in("id", invalidIds);
