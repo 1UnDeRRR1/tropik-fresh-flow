@@ -1298,6 +1298,24 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
   );
 }
 
+function VarietyCell({ value, onChange, productName, readOnly }: { value: string; onChange: (v: string) => void; productName: string; readOnly: boolean }) {
+  const varieties = useVarietiesFor(productName);
+  const [focused, setFocused] = useState(false);
+  return (
+    <VarietyAutocomplete
+      value={value}
+      onChange={onChange}
+      varieties={varieties}
+      placeholder={focused ? "" : "—"}
+      inputClassName={cn(
+        "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
+        focused && FOCUS_STYLE,
+        readOnly && "cursor-default",
+      )}
+      disabled={readOnly}
+    />
+  );
+
 
 function NumCell({ value, onChange, step, readOnly = false, invalid = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean; invalid?: boolean }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
