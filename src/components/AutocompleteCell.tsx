@@ -37,8 +37,8 @@ function matchesQuery(option: string, query: string) {
   return false;
 }
 
-const EXPANDED =
-  "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
+const FOCUS_STYLE =
+  "border-brand bg-background ring-2 ring-brand/40";
 
 export function AutocompleteCell({
   value,
