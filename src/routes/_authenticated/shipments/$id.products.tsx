@@ -830,14 +830,13 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
-function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields, addItem }: {
+function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields }: {
   items: ItemRow[];
   id: string;
   products: ProductRef[];
   vehicleContext: VehicleContext | null;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
-  addItem: () => void;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
@@ -868,17 +867,10 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
             const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
             return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
           })}
-          {currentShipmentEditable && (
-            <tr>
-              <td colSpan={9} className="px-2 py-2">
-                <Button type="button" size="sm" variant="outline" onClick={addItem} className="w-full border-dashed">
-                  <Plus className="mr-1 h-4 w-4" /> Додати товар
-                </Button>
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
+      {/* currentShipmentEditable acts as the gate; floating "Додати товар" is rendered by the parent. */}
+      <span hidden>{String(currentShipmentEditable)}</span>
     </FocusedColContext.Provider>
   );
 }
