@@ -83,7 +83,7 @@ function ShipmentsList() {
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
-          shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
+          shipment_items(product_name,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
         `)
         .order("created_at", { ascending: false });
