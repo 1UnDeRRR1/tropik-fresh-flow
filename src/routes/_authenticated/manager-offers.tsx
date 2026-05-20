@@ -1496,7 +1496,6 @@ function OfferItemEditor({
           ["caliber", "Калібр"],
           ["packaging", "Упаковка"],
           ["specification", "Специфікація"],
-          ["variety", "Сорт / асортимент"],
         ] as const
       ).map(([k, label]) => (
         <label key={k} className="block text-sm">
@@ -1504,6 +1503,14 @@ function OfferItemEditor({
           <Input value={form[k]} onChange={(e) => update({ [k]: e.target.value } as Partial<FormState>)} />
         </label>
       ))}
+      <label className="block text-sm">
+        <span className="mb-1 block text-muted-foreground">Сорт / асортимент</span>
+        <VarietyField
+          value={form.variety}
+          productName={form.product_name}
+          onChange={(v) => update({ variety: v })}
+        />
+      </label>
       <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
         <div className="text-xs font-semibold uppercase text-muted-foreground">
           Розрахунок собівартості (внутрішнє)
