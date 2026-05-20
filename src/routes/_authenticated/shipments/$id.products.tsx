@@ -210,7 +210,7 @@ function ProductsScrollArea({
     prevCount.current = itemsCount;
   }, [itemsCount]);
   return (
-    <div ref={ref} className="flex-1 overflow-y-auto relative">
+    <div ref={ref} className="flex-1 overflow-auto relative">
       {empty ? emptyContent : children}
     </div>
   );
