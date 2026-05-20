@@ -380,7 +380,9 @@ function ManagerOffersPage() {
     return merged;
   }, [merged, tab]);
 
-  // New responses from branches that the manager hasn't acted on yet
+  // Responses from branches while the offer is still open (not closed/linked/expired).
+  // Yellow = new / changed and manager hasn't (re)confirmed (approved_pallets is null
+  // or no longer matches the latest requested amount). White = manager already responded.
   const pendingItems = useMemo(() => {
     const items: {
       offerId: string;
@@ -390,24 +392,40 @@ function ManagerOffersPage() {
       branchName: string;
       requested: number;
       createdAt: string;
+      isPending: boolean;
     }[] = [];
+    const openStatuses: ManagerOfferStatus[] = ["draft", "active", "in_work", "confirmed"];
     for (const o of merged) {
+      if (!openStatuses.includes(o.status)) continue;
+      const inScope = (branchId: string) =>
+        o.target_mode === "all" || o.targetBranchIds.includes(branchId);
       for (const r of o.responses) {
-        if (r.approved_pallets == null) {
-          items.push({
-            offerId: o.id,
-            offerStatus: o.status,
-            productName: o.product_name,
-            originCountry: o.origin_country ?? null,
-            branchName: r.branch_name ?? "Філія",
-            requested: Number(r.requested_pallets ?? 0),
-            createdAt: (r as { created_at?: string }).created_at ?? "",
-          });
-        }
+        if (!inScope(r.branch_id)) continue;
+        const requested = Number(r.requested_pallets ?? 0);
+        const approved = r.approved_pallets;
+        const isPending = approved == null || Number(approved) !== requested;
+        items.push({
+          offerId: o.id,
+          offerStatus: o.status,
+          productName: o.product_name,
+          originCountry: o.origin_country ?? null,
+          branchName: r.branch_name ?? "Філія",
+          requested,
+          createdAt: (r as { created_at?: string }).created_at ?? "",
+          isPending,
+        });
       }
     }
-    return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return items.sort((a, b) => {
+      if (a.isPending !== b.isPending) return a.isPending ? -1 : 1;
+      return a.createdAt < b.createdAt ? 1 : -1;
+    });
   }, [merged]);
+
+  const pendingCount = useMemo(
+    () => pendingItems.filter((p) => p.isPending).length,
+    [pendingItems],
+  );
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ManagerOfferStatus }) => {
