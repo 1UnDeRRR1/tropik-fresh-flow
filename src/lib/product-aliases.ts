@@ -1,20 +1,20 @@
 const RAW_PRODUCT_NAME_ALIASES: Record<string, string> = {
   "kiwi": "Ківі",
-  "kiwi kosh": "Ківі",
-  "kiwi кош": "Ківі",
-  "kiwi (kosh)": "Ківі",
+  "kiwi kosh": "Ківі (кош)",
+  "kiwi кош": "Ківі (кош)",
+  "kiwi (kosh)": "Ківі (кош)",
   "киви": "Ківі",
-  "киви кош": "Ківі",
-  "киви (кош)": "Ківі",
-  "ківі кош": "Ківі",
-  "ківі (кош)": "Ківі",
+  "киви кош": "Ківі (кош)",
+  "киви (кош)": "Ківі (кош)",
+  "ківі кош": "Ківі (кош)",
+  "ківі (кош)": "Ківі (кош)",
 };
 
 export function normalizeProductKey(value: string | null | undefined) {
   return (value ?? "")
     .trim()
     .toLowerCase()
-    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/[()]/g, " ")
     .replace(/["'`´]/g, "")
     .replace(/\s*\/\s*/g, " ")
     .replace(/\s+/g, " ");

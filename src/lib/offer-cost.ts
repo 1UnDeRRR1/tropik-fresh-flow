@@ -43,7 +43,6 @@ export type CustomsRefRow = {
 const PRODUCT_CUSTOMS_ALIASES: Record<string, string> = {
   "інжирний персик": "персик",
   "платерина нектарин": "нектарин",
-  "ківі (кош)": "ківі",
 };
 
 function resolveCustomsProductName(name: string): string {
