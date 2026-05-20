@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, createContext, useContext, useCallback } from "react";
 import { ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -173,6 +173,11 @@ function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient
   qc.invalidateQueries({ queryKey: ["distribution-list"] });
   qc.invalidateQueries({ queryKey: ["shipment-products"] });
 }
+
+const FocusedColContext = createContext<{ focused: number | null; setFocused: (i: number | null) => void }>({
+  focused: null,
+  setFocused: () => {},
+});
 
 function ProductsFullscreen() {
   const { id } = Route.useParams();
@@ -576,29 +581,7 @@ function ProductsFullscreen() {
             </Button>
           </div>
         ) : (
-          <table className="w-full min-w-[860px] text-[12px] tabular-nums">
-            <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
-              <tr className="border-b border-border">
-                <th className="px-1.5 py-2 text-left font-medium">Товар</th>
-                <th className="px-1.5 py-2 text-left font-medium">Сорт</th>
-                <th className="px-1.5 py-2 text-left font-medium">Країна</th>
-                <th className="px-1.5 py-2 text-left font-medium">Калібр</th>
-                <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
-                <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
-                <th className="px-1.5 py-2 text-right font-medium">Вага, кг</th>
-                <th className="px-1.5 py-2 text-right font-medium min-w-[92px]">Ціна</th>
-                <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => {
-                const capacitySource = vehicleContext?.loadedItems ?? items;
-                const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-                const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
-                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
-              })}
-            </tbody>
-          </table>
+          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} addItem={addItem} />
         )}
       </div>
 
@@ -827,6 +810,59 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
+function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields, addItem }: {
+  items: ItemRow[];
+  id: string;
+  products: ProductRef[];
+  vehicleContext: VehicleContext | null;
+  currentShipmentEditable: boolean;
+  pulseFields: boolean;
+  addItem: () => void;
+}) {
+  const [focused, setFocused] = useState<number | null>(null);
+  const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
+  const headerCls = (i: number) => cn(
+    "px-1.5 py-2 font-medium transition-colors",
+    focused === i ? "text-destructive" : "",
+  );
+  return (
+    <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
+      <table className="w-full min-w-[860px] text-[12px] tabular-nums">
+        <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
+          <tr className="border-b border-border">
+            <th className={cn(headerCls(0), "text-left")}>Товар</th>
+            <th className={cn(headerCls(1), "text-left")}>Сорт</th>
+            <th className={cn(headerCls(2), "text-left")}>Країна</th>
+            <th className={cn(headerCls(3), "text-left")}>Калібр</th>
+            <th className={cn(headerCls(4), "text-left")}>Спец.</th>
+            <th className={cn(headerCls(5), "text-right")}>Пал.</th>
+            <th className={cn(headerCls(6), "text-right")}>Вага, кг</th>
+            <th className={cn(headerCls(7), "text-right min-w-[92px]")}>Ціна</th>
+            <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => {
+            const capacitySource = vehicleContext?.loadedItems ?? items;
+            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
+            const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+            return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
+          })}
+          {currentShipmentEditable && (
+            <tr>
+              <td colSpan={9} className="px-2 py-2">
+                <Button type="button" size="sm" variant="outline" onClick={addItem} className="w-full border-dashed">
+                  <Plus className="mr-1 h-4 w-4" /> Додати товар
+                </Button>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </FocusedColContext.Provider>
+  );
+}
+
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
@@ -922,10 +958,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
   const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
 
+  const { setFocused } = useContext(FocusedColContext);
   return (
     <>
-    <tr className="border-b border-border/40">
-      <td className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
+    <tr
+      className="border-b border-border/40"
+      onFocusCapture={(e) => {
+        const td = (e.target as HTMLElement).closest("td");
+        if (td?.dataset.col) setFocused(Number(td.dataset.col));
+      }}
+      onBlurCapture={() => setFocused(null)}
+    >
+      <td data-col="0" className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
@@ -945,10 +989,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           </div>
         )}
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td data-col="1" className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
+      <td data-col="2" className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
@@ -960,13 +1004,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           readOnly={readOnly}
         />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td data-col="3" className="relative px-0.5 py-0.5">
         <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td data-col="4" className="relative px-0.5 py-0.5">
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
+      <td data-col="5" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
@@ -985,7 +1029,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", pulse && invalidWeight && "field-invalid")}>
+      <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidWeight && "field-invalid")}>
         <NumCell
           value={Math.round(totalWeight)}
           readOnly={readOnly}
@@ -1003,7 +1047,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
+      <td data-col="7" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
@@ -1077,8 +1121,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   );
 }
 
-const EXPANDED = "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
-const EXPANDED_RIGHT = "absolute right-0 left-auto top-[calc(100%+10px)] z-40 h-10 min-w-[120px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
+const FOCUS_STYLE = "border-brand bg-background ring-2 ring-brand/40";
 
 function CellInput({ value, onChange, placeholder, className, list, expandedMinWidth, readOnly = false }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; list?: string; expandedMinWidth?: number; readOnly?: boolean }) {
   const [focused, setFocused] = useState(false);
@@ -1101,8 +1144,8 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       onBlur={() => setFocused(false)}
       style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
       className={cn(
-        "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
-        focused && EXPANDED,
+        "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
+        focused && FOCUS_STYLE,
         readOnly && "cursor-default",
         className,
       )}
@@ -1152,8 +1195,8 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
         if (!Number.isNaN(n)) onChange(n);
       }}
       className={cn(
-        "h-8 border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
-        focused && EXPANDED_RIGHT + " text-right",
+        "h-8 w-full border-transparent bg-transparent px-1.5 text-right text-[12px] tabular-nums focus:border-input focus:bg-background",
+        focused && FOCUS_STYLE,
         readOnly && "cursor-default",
         invalid && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80",
       )}
@@ -1205,7 +1248,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         }}
         className={cn(
           "h-10 w-full min-w-[60px] border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus:border-input focus:bg-background",
-          focused && EXPANDED_RIGHT + " text-right",
+          focused && FOCUS_STYLE,
           isEmpty && "placeholder:text-destructive/80",
           readOnly && "cursor-default",
         )}

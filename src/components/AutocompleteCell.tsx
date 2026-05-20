@@ -37,8 +37,8 @@ function matchesQuery(option: string, query: string) {
   return false;
 }
 
-const EXPANDED =
-  "absolute left-0 top-[calc(100%+10px)] z-40 h-10 min-w-[160px] w-max max-w-[85vw] rounded-md border border-border bg-card text-sm shadow-xl ring-2 ring-brand/50";
+const FOCUS_STYLE =
+  "border-brand bg-background ring-2 ring-brand/40";
 
 export function AutocompleteCell({
   value,
@@ -177,15 +177,15 @@ export function AutocompleteCell({
         }}
         style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
         className={cn(
-          "h-8 border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
-          focused && EXPANDED,
+          "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
+          focused && FOCUS_STYLE,
           invalid && "border-destructive/70 ring-1 ring-destructive/40",
           readOnly && "cursor-default",
           className,
         )}
       />
       {focused && !readOnly && suggestions.length > 0 && (
-        <div className="absolute left-0 top-[calc(100%+54px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur">
+        <div className="absolute left-0 top-[calc(100%+2px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur">
           {suggestions.map((s) => (
             <button
               key={s}
