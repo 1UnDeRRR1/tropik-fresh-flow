@@ -380,7 +380,9 @@ function ManagerOffersPage() {
     return merged;
   }, [merged, tab]);
 
-  // New responses from branches that the manager hasn't acted on yet
+  // Responses from branches while the offer is still open (not closed/linked/expired).
+  // Yellow = new / changed and manager hasn't (re)confirmed (approved_pallets is null
+  // or no longer matches the latest requested amount). White = manager already responded.
   const pendingItems = useMemo(() => {
     const items: {
       offerId: string;
@@ -390,24 +392,40 @@ function ManagerOffersPage() {
       branchName: string;
       requested: number;
       createdAt: string;
+      isPending: boolean;
     }[] = [];
+    const openStatuses: ManagerOfferStatus[] = ["draft", "active", "in_work", "confirmed"];
     for (const o of merged) {
+      if (!openStatuses.includes(o.status)) continue;
+      const inScope = (branchId: string) =>
+        o.target_mode === "all" || o.targetBranchIds.includes(branchId);
       for (const r of o.responses) {
-        if (r.approved_pallets == null) {
-          items.push({
-            offerId: o.id,
-            offerStatus: o.status,
-            productName: o.product_name,
-            originCountry: o.origin_country ?? null,
-            branchName: r.branch_name ?? "Філія",
-            requested: Number(r.requested_pallets ?? 0),
-            createdAt: (r as { created_at?: string }).created_at ?? "",
-          });
-        }
+        if (!inScope(r.branch_id)) continue;
+        const requested = Number(r.requested_pallets ?? 0);
+        const approved = r.approved_pallets;
+        const isPending = approved == null || Number(approved) !== requested;
+        items.push({
+          offerId: o.id,
+          offerStatus: o.status,
+          productName: o.product_name,
+          originCountry: o.origin_country ?? null,
+          branchName: r.branch_name ?? "Філія",
+          requested,
+          createdAt: (r as { created_at?: string }).created_at ?? "",
+          isPending,
+        });
       }
     }
-    return items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return items.sort((a, b) => {
+      if (a.isPending !== b.isPending) return a.isPending ? -1 : 1;
+      return a.createdAt < b.createdAt ? 1 : -1;
+    });
   }, [merged]);
+
+  const pendingCount = useMemo(
+    () => pendingItems.filter((p) => p.isPending).length,
+    [pendingItems],
+  );
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ManagerOfferStatus }) => {
@@ -502,12 +520,12 @@ function ManagerOffersPage() {
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
               <Bell className="h-4 w-4" />
-              Нові відгуки від філій ({pendingItems.length})
+              Нові відгуки від філій ({pendingCount})
             </div>
             <Button
               size="sm"
               onClick={() => approveAllPending.mutate()}
-              disabled={approveAllPending.isPending}
+              disabled={approveAllPending.isPending || pendingCount === 0}
             >
               Підтвердити все
             </Button>
@@ -518,7 +536,12 @@ function ManagerOffersPage() {
                 key={`${p.offerId}-${i}`}
                 type="button"
                 onClick={() => focusOffer(p.offerId, p.offerStatus)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 text-left text-xs transition hover:bg-white dark:bg-amber-500/5 dark:hover:bg-amber-500/10"
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition",
+                  p.isPending
+                    ? "bg-amber-100/80 hover:bg-amber-100 dark:bg-amber-500/15 dark:hover:bg-amber-500/20"
+                    : "bg-white hover:bg-white/80 dark:bg-background/40 dark:hover:bg-background/60",
+                )}
               >
                 <span className="min-w-0 truncate">
                   <b>{p.branchName}</b>
@@ -528,7 +551,14 @@ function ManagerOffersPage() {
                     <span className="text-muted-foreground"> · {p.originCountry}</span>
                   )}
                 </span>
-                <span className="shrink-0 rounded-full bg-amber-200/80 px-2 py-0.5 text-[11px] font-bold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                    p.isPending
+                      ? "bg-amber-200/80 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
                   {p.requested} пал.
                 </span>
               </button>
