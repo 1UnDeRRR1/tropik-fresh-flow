@@ -146,11 +146,11 @@ async function syncVehicleStateForShipment(shipmentId: string) {
   const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
   const closedBy = (vehicle as { closed_by?: string | null } | null)?.closed_by ?? null;
   const closedAt = (vehicle as { closed_at?: string | null } | null)?.closed_at ?? null;
-  // Авто закривається автоматично лише якщо досягнуто межі по палетах (≥26)
-  // АБО вага потрапила в діапазон 21000–21500 кг включно. Інакше залишається відкритим.
+  // Авто закривається автоматично, якщо:
+  //   • завантажено ≥ 26 палет (незалежно від ваги), АБО
+  //   • завантажено ≥ 21000 кг (незалежно від кількості палет).
   const shouldBeClosed =
-    totalPallets >= MAX_PALLETS ||
-    (totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG && totalWeight <= MAX_WEIGHT_KG);
+    totalPallets >= MAX_PALLETS || totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG;
   const nextStatus = shouldBeClosed ? "closed" : "open";
 
   if (closedBy && !shouldBeClosed) return;
@@ -166,10 +166,14 @@ async function syncVehicleStateForShipment(shipmentId: string) {
 }
 
 function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ["shipments-list"] });
-  qc.invalidateQueries({ queryKey: ["open-vehicles"] });
-  qc.invalidateQueries({ queryKey: ["vehicles-list"] });
-  qc.invalidateQueries({ queryKey: ["vehicles-open"] });
+  // refetchType: "all" — also refetch queries that aren't currently mounted,
+  // so when the user navigates back to /shipments the list is already fresh
+  // (global default refetchOnMount is false in router.tsx).
+  qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["vehicles-list"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["vehicles-open"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["distribution-list"] });
   qc.invalidateQueries({ queryKey: ["shipment-products"] });
 }
@@ -572,7 +576,7 @@ function ProductsFullscreen() {
         />
       )}
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto relative">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -581,7 +585,23 @@ function ProductsFullscreen() {
             </Button>
           </div>
         ) : (
-          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} addItem={addItem} />
+          <>
+            <div className="overflow-x-auto">
+              <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
+            </div>
+            {currentShipmentEditable && (
+              <div className="sticky bottom-2 z-20 flex justify-center pointer-events-none pb-1 pt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={addItem}
+                  className="pointer-events-auto h-8 rounded-full border border-destructive/40 bg-destructive/10 px-3 text-[12px] font-semibold text-destructive shadow-sm hover:bg-destructive/20"
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Додати товар
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -810,14 +830,13 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
-function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields, addItem }: {
+function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields }: {
   items: ItemRow[];
   id: string;
   products: ProductRef[];
   vehicleContext: VehicleContext | null;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
-  addItem: () => void;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
@@ -848,17 +867,10 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
             const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
             return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
           })}
-          {currentShipmentEditable && (
-            <tr>
-              <td colSpan={9} className="px-2 py-2">
-                <Button type="button" size="sm" variant="outline" onClick={addItem} className="w-full border-dashed">
-                  <Plus className="mr-1 h-4 w-4" /> Додати товар
-                </Button>
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
+      {/* currentShipmentEditable acts as the gate; floating "Додати товар" is rendered by the parent. */}
+      <span hidden>{String(currentShipmentEditable)}</span>
     </FocusedColContext.Provider>
   );
 }
