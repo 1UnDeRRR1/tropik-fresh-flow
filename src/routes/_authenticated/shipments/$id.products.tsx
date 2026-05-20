@@ -221,6 +221,41 @@ function ProductsScrollArea({
 }
 
 
+function CustomsStatusBadge({
+  status,
+  fallbackItems,
+}: {
+  status: "found" | "fallback";
+  fallbackItems: Array<{ item: ItemRow; ref: CustomsRefMini }>;
+}) {
+  if (status === "found") {
+    return (
+      <span className="font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+        Індикатив: знайдено
+      </span>
+    );
+  }
+  const first = fallbackItems[0];
+  const missingCountry = toUaCountry(first?.item.origin_country ?? "") || first?.item.origin_country || "—";
+  const usedCountry = toUaCountry(first?.ref.country ?? "") || first?.ref.country || "—";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-amber-600 hover:text-amber-700 dark:text-amber-400"
+        >
+          Індикатив: не знайдено
+          <AlertTriangle className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="center" className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+        Країна <b>{missingCountry}</b> походження для цього товару відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
