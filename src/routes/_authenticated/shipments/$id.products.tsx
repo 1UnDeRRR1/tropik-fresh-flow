@@ -146,11 +146,11 @@ async function syncVehicleStateForShipment(shipmentId: string) {
   const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
   const closedBy = (vehicle as { closed_by?: string | null } | null)?.closed_by ?? null;
   const closedAt = (vehicle as { closed_at?: string | null } | null)?.closed_at ?? null;
-  // Авто закривається автоматично лише якщо досягнуто межі по палетах (≥26)
-  // АБО вага потрапила в діапазон 21000–21500 кг включно. Інакше залишається відкритим.
+  // Авто закривається автоматично, якщо:
+  //   • завантажено ≥ 26 палет (незалежно від ваги), АБО
+  //   • завантажено ≥ 21000 кг (незалежно від кількості палет).
   const shouldBeClosed =
-    totalPallets >= MAX_PALLETS ||
-    (totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG && totalWeight <= MAX_WEIGHT_KG);
+    totalPallets >= MAX_PALLETS || totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG;
   const nextStatus = shouldBeClosed ? "closed" : "open";
 
   if (closedBy && !shouldBeClosed) return;
