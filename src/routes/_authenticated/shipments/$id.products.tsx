@@ -969,7 +969,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       }}
       onBlurCapture={() => setFocused(null)}
     >
-      <td className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
+      <td data-col="0" className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
@@ -989,10 +989,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           </div>
         )}
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td data-col="1" className="relative px-0.5 py-0.5">
         <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
+      <td data-col="2" className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
@@ -1004,13 +1004,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           readOnly={readOnly}
         />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td data-col="3" className="relative px-0.5 py-0.5">
         <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className="relative px-0.5 py-0.5">
+      <td data-col="4" className="relative px-0.5 py-0.5">
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
+      <td data-col="5" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
@@ -1029,7 +1029,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className={cn("relative px-0.5 py-0.5", pulse && invalidWeight && "field-invalid")}>
+      <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidWeight && "field-invalid")}>
         <NumCell
           value={Math.round(totalWeight)}
           readOnly={readOnly}
@@ -1047,7 +1047,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           }}
         />
       </td>
-      <td className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
+      <td data-col="7" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
