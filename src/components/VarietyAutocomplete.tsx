@@ -79,11 +79,14 @@ export function VarietyAutocomplete({
             <button
               key={s}
               type="button"
-              onMouseDown={() => {
-                acceptingRef.current = true;
-              }}
-              onClick={(e) => {
+              // Use pointerdown so we fire BEFORE the input loses focus on
+              // touch devices (where touchstart → blur kills the dropdown
+              // before click can register). preventDefault keeps the input
+              // focused so this stays a single, reliable tap.
+              onPointerDown={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                acceptingRef.current = true;
                 accept(s);
               }}
               className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
