@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
-import { COUNTRY_ALIASES } from "@/lib/country-search";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 
 type ItemRow = {
   id: string;
