@@ -15,7 +15,20 @@ import {
   formatRemaining,
   type ManagerOffer,
   type ManagerOfferResponse,
+  type ManagerOfferStatus,
 } from "@/lib/manager-offers";
+import { SortByMenu, type SortKey } from "@/components/SortByMenu";
+
+const MO_STATUS_PRIORITY: Record<ManagerOfferStatus, number> = {
+  linked: 0,
+  confirmed: 1,
+  in_work: 2,
+  active: 3,
+  closed: 4,
+  expired: 5,
+  draft: 6,
+  deleted: 7,
+};
 
 type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
 
