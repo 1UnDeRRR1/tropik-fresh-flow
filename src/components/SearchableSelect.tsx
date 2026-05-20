@@ -53,7 +53,9 @@ export function SearchableSelect({
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command
           filter={(itemValue, search) => {
-            return itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+            const q = search.trim().toLowerCase();
+            if (!q) return 1;
+            return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
           }}
         >
           <CommandInput placeholder="Пошук…" />
