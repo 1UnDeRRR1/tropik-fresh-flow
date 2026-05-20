@@ -404,15 +404,22 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
+          <Command
+            filter={(itemValue, search) => {
+              const q = search.trim().toLowerCase();
+              if (q.length < 2) return 1;
+              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
+            }}
+          >
             <CommandInput placeholder="Пошук постачальника…" />
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
               <CommandGroup>
-                {(suppliers ?? []).map((s) => (
+                {(suppliers ?? []).slice(0, supplierOpen ? undefined : undefined).map((s) => (
                   <CommandItem
                     key={s.id}
-                    value={`${s.name} ${toUaCountry(s.country ?? "")}`}
+                    keywords={[toUaCountry(s.country ?? "")]}
+                    value={s.name}
                     onSelect={() => {
                       setSupplierId(s.id);
                       clearInvalid("supplier");
@@ -452,7 +459,13 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
+          <Command
+            filter={(itemValue, search) => {
+              const q = search.trim().toLowerCase();
+              if (q.length < 2) return 1;
+              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
+            }}
+          >
             <CommandInput placeholder="Пошук країни…" />
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
@@ -566,7 +579,13 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command>
+          <Command
+            filter={(itemValue, search) => {
+              const q = search.trim().toLowerCase();
+              if (q.length < 2) return 1;
+              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
+            }}
+          >
             <CommandInput placeholder="Пошук авто…" />
             <CommandList>
               <CommandEmpty>Немає відкритих авто</CommandEmpty>
@@ -579,7 +598,8 @@ function NewShipment() {
                   return (
                     <CommandItem
                       key={v.id}
-                      value={`${v.code} ${v.country} ${sups}`}
+                      keywords={[v.country, sups]}
+                      value={v.code}
                       onSelect={() => {
                         setVehicleId(v.id);
                         setCountry(v.country);
