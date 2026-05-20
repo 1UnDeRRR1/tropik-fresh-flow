@@ -675,14 +675,9 @@ function ProductsFullscreen() {
               {country}
               {incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
             </span>
-            {customsStatus !== "none" && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems} />
-              </>
-            )}
           </div>
         </div>
+
         <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
           <Plus className="h-4 w-4" />
         </Button>
