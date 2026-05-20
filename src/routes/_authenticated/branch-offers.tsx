@@ -190,6 +190,9 @@ function BranchOffersPage() {
         title="Пропозиції ЗЕД"
         subtitle="Активні пропозиції менеджерів. Введіть бажану кількість палет."
       />
+      <div className="mb-3 flex justify-end">
+        <SortByMenu value={sortBy} onChange={setSortBy} />
+      </div>
       {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
       {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
