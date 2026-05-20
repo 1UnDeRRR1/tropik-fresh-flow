@@ -1659,7 +1659,7 @@ function OfferItemEditor({
             <span>
               {customsRef?.exact ? (
                 <CustomsInfoPopover
-                  ref={customsRef}
+                  customsRef={customsRef}
                   calc={calc}
                   country={countryCanonical}
                   label="знайдено"
@@ -1667,7 +1667,7 @@ function OfferItemEditor({
                 />
               ) : customsRef ? (
                 <CustomsInfoPopover
-                  ref={customsRef}
+                  customsRef={customsRef}
                   calc={calc}
                   country={countryCanonical}
                   label="не знайдено (індикатив за аналогом)"
@@ -1675,7 +1675,7 @@ function OfferItemEditor({
                 />
               ) : productCanonical && countryCanonical ? (
                 <CustomsInfoPopover
-                  ref={null}
+                  customsRef={null}
                   calc={calc}
                   country={countryCanonical}
                   label="не знайдено"
@@ -2139,24 +2139,24 @@ function PublishOfferDialog({
 }
 
 function CustomsInfoPopover({
-  ref,
+  customsRef,
   calc,
   country,
   label,
   labelClass,
 }: {
-  ref: CustomsRefRow | null;
+  customsRef: CustomsRefRow | null;
   calc: ReturnType<typeof computeOfferCost> | null;
   country: string | null;
   label: string;
   labelClass?: string;
 }) {
   const eu = isEuCountry(country ?? "");
-  const pct = ref ? (eu ? Number(ref.euro1_percent || 0) : Number(ref.customs_fee_percent || 0)) : 0;
-  const threshold = Number(ref?.threshold_price_usd || 0);
-  const indicative = Number(ref?.euro1_markup_usd || 0);
+  const pct = customsRef ? (eu ? Number(customsRef.euro1_percent || 0) : Number(customsRef.customs_fee_percent || 0)) : 0;
+  const threshold = Number(customsRef?.threshold_price_usd || 0);
+  const indicative = Number(customsRef?.euro1_markup_usd || 0);
   const unitUsd = calc?.unitUsd ?? 0;
-  const usedFlat = calc && ref ? unitUsd <= threshold : false;
+  const usedFlat = calc && customsRef ? unitUsd <= threshold : false;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -2166,15 +2166,15 @@ function CustomsInfoPopover({
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-80 text-xs space-y-2">
         <div className="font-semibold text-sm">Розрахунок митниці</div>
-        {ref ? (
+        {customsRef ? (
           <div className="space-y-1">
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">Аналог (товар)</span>
-              <span className="text-right">{ref.product_name ?? "—"}</span>
+              <span className="text-right">{customsRef.product_name ?? "—"}</span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">Аналог (країна)</span>
-              <span className="text-right">{ref.country ?? "—"} {eu ? "(ЄС)" : ""}</span>
+              <span className="text-right">{customsRef.country ?? "—"} {eu ? "(ЄС)" : ""}</span>
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">Поріг ціни</span>
@@ -2201,7 +2201,7 @@ function CustomsInfoPopover({
               <span className="tabular-nums">${unitUsd.toFixed(4)}</span>
             </div>
             <div className="text-muted-foreground">
-              {!ref ? (
+              {!customsRef ? (
                 <>Запису в митній базі немає → мито не додається, собівартість = ціна + транспорт.</>
               ) : usedFlat ? (
                 <>Ціна ≤ порогу → мито = індикатив = <b>${indicative.toFixed(4)}</b></>
