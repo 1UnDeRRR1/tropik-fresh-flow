@@ -284,6 +284,9 @@ function ShipmentsList() {
                   )}
                 </>
               )}
+              <div className="ml-auto">
+                <SortByMenu value={sortBy} onChange={setSortBy} />
+              </div>
             </div>
           </div>
 
