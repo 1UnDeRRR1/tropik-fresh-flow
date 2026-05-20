@@ -1,16 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-function normalizeProductKey(value: string | null | undefined) {
-  return (value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s*\([^)]*\)/g, "")
-    .replace(/["'`´]/g, "")
-    .replace(/\s*\/\s*/g, " ")
-    .replace(/\s+/g, " ");
-}
+import { normalizeProductKey } from "@/lib/product-aliases";
 
 /**
  * Loads the full variety dictionary once and groups it by Ukrainian product
