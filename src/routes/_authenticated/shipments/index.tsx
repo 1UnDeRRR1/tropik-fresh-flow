@@ -32,6 +32,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check } from "lucide-react";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { ShipmentQuickView } from "@/components/ShipmentQuickView";
+import { SortByMenu, type SortKey } from "@/components/SortByMenu";
+import { PIPELINE_ORDER } from "@/lib/pipeline-status";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
@@ -56,6 +58,7 @@ function ShipmentsList() {
   const [board, setBoard] = useState<BoardView>("active");
   const [managerFilter, setManagerFilter] = useState<string>("all");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortKey>("date");
   const { hasRole, user } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const isAdmin = hasRole(["super_admin", "admin"]);
@@ -76,11 +79,11 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, pipeline_status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at,
+          id, code, status, pipeline_status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at, updated_at,
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
-          shipment_items(pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
+          shipment_items(product_name,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
         `)
         .order("created_at", { ascending: false });
@@ -174,6 +177,23 @@ function ShipmentsList() {
       return (r as { suppliers?: { name?: string | null } | null }).suppliers?.name === supplierFilter;
     })
     .sort((a, b) => {
+      if (sortBy === "name") {
+        const an = ((a.shipment_items ?? []) as Array<{ product_name?: string | null }>)[0]?.product_name ?? "";
+        const bn = ((b.shipment_items ?? []) as Array<{ product_name?: string | null }>)[0]?.product_name ?? "";
+        return an.localeCompare(bn, "uk");
+      }
+      if (sortBy === "status") {
+        const ai = a.pipeline_status ? PIPELINE_ORDER.indexOf(a.pipeline_status) : -1;
+        const bi = b.pipeline_status ? PIPELINE_ORDER.indexOf(b.pipeline_status) : -1;
+        // closer to arrival → later in pipeline → higher index first
+        return bi - ai;
+      }
+      if (sortBy === "last_event") {
+        const at = new Date((a as { updated_at?: string | null }).updated_at ?? 0).getTime();
+        const bt = new Date((b as { updated_at?: string | null }).updated_at ?? 0).getTime();
+        return bt - at;
+      }
+      // default: date (ETA ascending, nulls last)
       if (!a.eta && !b.eta) return 0;
       if (!a.eta) return 1;
       if (!b.eta) return -1;
@@ -264,6 +284,9 @@ function ShipmentsList() {
                   )}
                 </>
               )}
+              <div className="ml-auto">
+                <SortByMenu value={sortBy} onChange={setSortBy} />
+              </div>
             </div>
           </div>
 
