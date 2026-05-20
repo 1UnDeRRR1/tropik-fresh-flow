@@ -16,8 +16,9 @@ import { COUNTRIES as FALLBACK_COUNTRIES, COUNTRY_DAYS, calcArrivalDate, toDateI
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import {
-  buildSupplierCode,
+  getSupplierAlias,
   fetchNextVehicleSequence,
+  fetchNextSupplierSequence,
   formatShipmentCode,
   formatVehicleCode,
   getCountryCode,
@@ -131,7 +132,7 @@ function NewShipment() {
       // RLS already restricts managers to their own suppliers; admins see all.
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id,name,country,code_base,iso3,import_manager_id")
+        .select("id,name,country,code_base,alias,iso3,import_manager_id")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -241,7 +242,7 @@ function NewShipment() {
   // loading_date + country logistics days once the user sets the country
   // and loading date.
 
-  // Preview next sequence per country
+  // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
   const { data: previewSeq } = useQuery({
     queryKey: ["next-vehicle-seq", user?.id, previewCc],
@@ -249,22 +250,30 @@ function NewShipment() {
     enabled: !loading && !!user && isStaff && !!previewCc,
   });
 
-  // Auto-generate code preview
+  // Preview next per-supplier sequence
+  const { data: previewSupSeq } = useQuery({
+    queryKey: ["next-supplier-seq", user?.id, supplierId],
+    queryFn: () => fetchNextSupplierSequence(supplierId),
+    enabled: !loading && !!user && isStaff && !!supplierId,
+  });
+
+  // Auto-generate code preview: ALIAS-XXX-VVV-YYY
   useEffect(() => {
     if (codeOverride) return;
-    const supplierCode = selectedSupplier
-      ? (selectedSupplier.code_base?.trim() || buildSupplierCode(selectedSupplier.name))
-      : "";
-    if (mode === "existing" && selectedVehicle && supplierCode) {
-      setCode(formatShipmentCode(selectedVehicle.code, supplierCode));
-    } else if (mode === "new" && country && supplierCode) {
+    if (!selectedSupplier) { setCode(""); return; }
+    const alias = getSupplierAlias(selectedSupplier);
+    const supSeqStr = previewSupSeq ? String(previewSupSeq).padStart(3, "0") : "···";
+    if (mode === "existing" && selectedVehicle) {
+      // selectedVehicle.code is already in `VVV-YYY` form (or legacy form)
+      setCode(`${alias}-${supSeqStr}-${selectedVehicle.code}`.toUpperCase());
+    } else if (mode === "new" && country) {
       const cc = getCountryCode(country);
-      const seqStr = previewSeq ? String(previewSeq).padStart(2, "0") : "··";
-      setCode(formatShipmentCode(`${seqStr}-${cc}`, supplierCode));
+      const vehSeqStr = previewSeq ? String(previewSeq).padStart(3, "0") : "···";
+      setCode(`${alias}-${supSeqStr}-${cc}-${vehSeqStr}`.toUpperCase());
     } else {
       setCode("");
     }
-  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq]);
+  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq, previewSupSeq]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -321,10 +330,10 @@ function NewShipment() {
           : (COUNTRY_DAYS[selectedVehicle.country] ?? 0);
       }
 
-      const supplierCode = selectedSupplier!.code_base?.trim() || buildSupplierCode(selectedSupplier!.name);
-      const finalCode = codeOverride && code.trim()
-        ? code.trim()
-        : formatShipmentCode(vCode, supplierCode);
+      const alias = getSupplierAlias(selectedSupplier!);
+      const supplierSeq = await fetchNextSupplierSequence(supplierId);
+      const autoCode = formatShipmentCode({ alias, supplierSeq, vehicleCode: vCode });
+      const finalCode = codeOverride && code.trim() ? code.trim() : autoCode;
 
       const shipmentId = crypto.randomUUID();
 
@@ -334,6 +343,7 @@ function NewShipment() {
         id: shipmentId,
         code: finalCode,
         supplier_id: supplierId,
+        supplier_seq: supplierSeq,
         country: normalizeCountry(useCountry),
         loading_date: useLoadingDate || null,
         logistics_days: useDays,
