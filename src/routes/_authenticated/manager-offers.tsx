@@ -1320,6 +1320,7 @@ function OfferItemEditor({
   form,
   productOptions,
   countryOptions,
+  countryAliases,
   fxRow,
   existingExpiresAt,
   onFormChange,
@@ -1331,6 +1332,7 @@ function OfferItemEditor({
   form: FormState;
   productOptions: string[];
   countryOptions: string[];
+  countryAliases: Record<string, string>;
   fxRow: { rate: number; date: string } | null;
   existingExpiresAt: string | null;
   onFormChange: (f: FormState) => void;
