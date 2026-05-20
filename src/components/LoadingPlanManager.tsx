@@ -105,6 +105,7 @@ export function LoadingPlanManager() {
   const create = useMutation({
     mutationFn: async () => {
       const productName = form.product_name.trim();
+      const variety = form.variety.trim() || null;
       const caliber = form.caliber.trim() || null;
       const country = normalizeCountry(form.country) || null;
       const addPallets = Number(form.planned_pallets) || 0;
@@ -113,6 +114,7 @@ export function LoadingPlanManager() {
       const existing = (plan ?? []).find(
         (p) =>
           norm(p.product_name) === norm(productName) &&
+          norm(p.variety) === norm(variety) &&
           norm(p.caliber) === norm(caliber) &&
           norm(p.country) === norm(country),
       );
@@ -129,6 +131,7 @@ export function LoadingPlanManager() {
 
       await run(supabase.from("loading_plan").insert({
         product_name: productName,
+        variety,
         caliber,
         country,
         planned_pallets: addPallets,
@@ -137,7 +140,7 @@ export function LoadingPlanManager() {
       return { merged: false };
     },
     onSuccess: async (res) => {
-      setForm({ product_name: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
+      setForm({ product_name: "", variety: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
       await qc.refetchQueries({ queryKey: ["admin", "loading-plan"], exact: false });
       toast.success(res?.merged ? "Об'єднано з існуючою позицією" : "Позицію плану додано");
     },
