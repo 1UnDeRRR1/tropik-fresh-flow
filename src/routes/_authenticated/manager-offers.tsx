@@ -1225,6 +1225,7 @@ function OfferEditor({
               form={it.form}
               productOptions={productOptions}
               countryOptions={COUNTRY_OPTIONS}
+              countryAliases={countryAliases}
               fxRow={fxRow ?? null}
               existingExpiresAt={idx === 0 ? offer?.expires_at ?? null : null}
               onFormChange={(f) => updateForm(it.id, f)}
