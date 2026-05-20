@@ -1659,7 +1659,7 @@ function OfferItemEditor({
             <span>
               {customsRef?.exact ? (
                 <CustomsInfoPopover
-                  ref={customsRef}
+                  customsRef={customsRef}
                   calc={calc}
                   country={countryCanonical}
                   label="знайдено"
@@ -1667,14 +1667,20 @@ function OfferItemEditor({
                 />
               ) : customsRef ? (
                 <CustomsInfoPopover
-                  ref={customsRef}
+                  customsRef={customsRef}
                   calc={calc}
                   country={countryCanonical}
                   label="не знайдено (індикатив за аналогом)"
                   labelClass="font-bold text-warning underline decoration-dotted underline-offset-2"
                 />
               ) : productCanonical && countryCanonical ? (
-                <span className="font-bold text-warning">не знайдено</span>
+                <CustomsInfoPopover
+                  customsRef={null}
+                  calc={calc}
+                  country={countryCanonical}
+                  label="не знайдено"
+                  labelClass="font-bold text-warning underline decoration-dotted underline-offset-2"
+                />
               ) : (
                 "—"
               )}
@@ -2133,24 +2139,24 @@ function PublishOfferDialog({
 }
 
 function CustomsInfoPopover({
-  ref,
+  customsRef,
   calc,
   country,
   label,
   labelClass,
 }: {
-  ref: CustomsRefRow;
+  customsRef: CustomsRefRow | null;
   calc: ReturnType<typeof computeOfferCost> | null;
   country: string | null;
   label: string;
   labelClass?: string;
 }) {
   const eu = isEuCountry(country ?? "");
-  const pct = eu ? Number(ref.euro1_percent || 0) : Number(ref.customs_fee_percent || 0);
-  const threshold = Number(ref.threshold_price_usd || 0);
-  const indicative = Number(ref.euro1_markup_usd || 0);
+  const pct = customsRef ? (eu ? Number(customsRef.euro1_percent || 0) : Number(customsRef.customs_fee_percent || 0)) : 0;
+  const threshold = Number(customsRef?.threshold_price_usd || 0);
+  const indicative = Number(customsRef?.euro1_markup_usd || 0);
   const unitUsd = calc?.unitUsd ?? 0;
-  const usedFlat = calc ? unitUsd <= threshold : false;
+  const usedFlat = calc && customsRef ? unitUsd <= threshold : false;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -2160,28 +2166,34 @@ function CustomsInfoPopover({
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-80 text-xs space-y-2">
         <div className="font-semibold text-sm">Розрахунок митниці</div>
-        <div className="space-y-1">
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Аналог (товар)</span>
-            <span className="text-right">{ref.product_name ?? "—"}</span>
+        {customsRef ? (
+          <div className="space-y-1">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Аналог (товар)</span>
+              <span className="text-right">{customsRef.product_name ?? "—"}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Аналог (країна)</span>
+              <span className="text-right">{customsRef.country ?? "—"} {eu ? "(ЄС)" : ""}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Поріг ціни</span>
+              <span className="tabular-nums">${threshold.toFixed(2)}/кг</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Індикативне мито</span>
+              <span className="tabular-nums">${indicative.toFixed(4)}/кг</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">{eu ? "EUR1 %" : "Мито %"}</span>
+              <span className="tabular-nums">{pct.toFixed(2)}%</span>
+            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Аналог (країна)</span>
-            <span className="text-right">{ref.country ?? "—"} {eu ? "(ЄС)" : ""}</span>
+        ) : (
+          <div className="rounded-md border border-border bg-muted/30 p-2 text-muted-foreground">
+            У митній базі не знайдено запису для цього товару та країни. У розрахунку мито взято як <b>$0.0000</b>.
           </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Поріг ціни</span>
-            <span className="tabular-nums">${threshold.toFixed(2)}/кг</span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Індикативне мито</span>
-            <span className="tabular-nums">${indicative.toFixed(4)}/кг</span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">{eu ? "EUR1 %" : "Мито %"}</span>
-            <span className="tabular-nums">{pct.toFixed(2)}%</span>
-          </div>
-        </div>
+        )}
         {calc && (
           <div className="border-t border-border pt-2 space-y-1">
             <div className="flex justify-between gap-2">
@@ -2189,7 +2201,9 @@ function CustomsInfoPopover({
               <span className="tabular-nums">${unitUsd.toFixed(4)}</span>
             </div>
             <div className="text-muted-foreground">
-              {usedFlat ? (
+              {!customsRef ? (
+                <>Запису в митній базі немає → мито не додається, собівартість = ціна + транспорт.</>
+              ) : usedFlat ? (
                 <>Ціна ≤ порогу → мито = індикатив = <b>${indicative.toFixed(4)}</b></>
               ) : (
                 <>Ціна &gt; порогу → інвойсне мито: unit×1.20×{pct.toFixed(2)}%/100 + unit×0.20 + 0.02 = <b>${calc.invoiceDuty.toFixed(4)}</b></>
