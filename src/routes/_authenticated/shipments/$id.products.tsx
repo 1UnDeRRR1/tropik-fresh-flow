@@ -810,6 +810,59 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
+function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields, addItem }: {
+  items: ItemRow[];
+  id: string;
+  products: ProductRef[];
+  vehicleContext: VehicleContext | null;
+  currentShipmentEditable: boolean;
+  pulseFields: boolean;
+  addItem: () => void;
+}) {
+  const [focused, setFocused] = useState<number | null>(null);
+  const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
+  const headerCls = (i: number) => cn(
+    "px-1.5 py-2 font-medium transition-colors",
+    focused === i ? "text-destructive" : "",
+  );
+  return (
+    <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
+      <table className="w-full min-w-[860px] text-[12px] tabular-nums">
+        <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
+          <tr className="border-b border-border">
+            <th className={cn(headerCls(0), "text-left")}>Товар</th>
+            <th className={cn(headerCls(1), "text-left")}>Сорт</th>
+            <th className={cn(headerCls(2), "text-left")}>Країна</th>
+            <th className={cn(headerCls(3), "text-left")}>Калібр</th>
+            <th className={cn(headerCls(4), "text-left")}>Спец.</th>
+            <th className={cn(headerCls(5), "text-right")}>Пал.</th>
+            <th className={cn(headerCls(6), "text-right")}>Вага, кг</th>
+            <th className={cn(headerCls(7), "text-right min-w-[92px]")}>Ціна</th>
+            <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => {
+            const capacitySource = vehicleContext?.loadedItems ?? items;
+            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
+            const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+            return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
+          })}
+          {currentShipmentEditable && (
+            <tr>
+              <td colSpan={9} className="px-2 py-2">
+                <Button type="button" size="sm" variant="outline" onClick={addItem} className="w-full border-dashed">
+                  <Plus className="mr-1 h-4 w-4" /> Додати товар
+                </Button>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </FocusedColContext.Provider>
+  );
+}
+
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
