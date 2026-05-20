@@ -354,6 +354,9 @@ function NewShipment() {
         throw new Error(error.message || "Помилка збереження");
       }
 
+      qc.invalidateQueries({ queryKey: ["shipments-list"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
       toast.success("Поставку створено. Додайте позиції товарів.");
       navigate({
         to: "/shipments/$id/products",
