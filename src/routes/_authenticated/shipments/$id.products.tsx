@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
   component: () => <StaffOnly><ProductsFullscreen /></StaffOnly>,
 });
 
-import { COUNTRY_ALIASES } from "@/lib/country-search";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 
 type ItemRow = {
   id: string;
@@ -1012,6 +1012,7 @@ const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean; pulse?: boolean }) {
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
+  const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
@@ -1139,7 +1140,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
           options={COUNTRY_OPTIONS}
-          aliases={COUNTRY_ALIASES}
+          aliases={countryAliases}
           placeholder={invalidCountry ? "Країна*" : "Країна"}
           className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={180}

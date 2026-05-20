@@ -396,6 +396,33 @@ export type Database = {
         }
         Relationships: []
       }
+      country_aliases: {
+        Row: {
+          alias: string
+          alias_normalized: string
+          country_name: string
+          created_at: string
+          id: number
+          lang: string | null
+        }
+        Insert: {
+          alias: string
+          alias_normalized: string
+          country_name: string
+          created_at?: string
+          id?: number
+          lang?: string | null
+        }
+        Update: {
+          alias?: string
+          alias_normalized?: string
+          country_name?: string
+          created_at?: string
+          id?: number
+          lang?: string | null
+        }
+        Relationships: []
+      }
       country_logistics: {
         Row: {
           country: string

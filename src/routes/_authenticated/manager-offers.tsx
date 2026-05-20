@@ -26,9 +26,10 @@ import {
 } from "@/lib/manager-offers";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
-import { COUNTRY_ALIASES, resolveCountry, suggestCountries } from "@/lib/country-search";
+import { resolveCountry, suggestCountries } from "@/lib/country-search";
 
 function resolveOption(
   value: string,
@@ -1032,6 +1033,7 @@ function OfferEditor({
 }) {
   const { user } = useAuth();
   const dbCountries = useCountryOptions();
+  const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = useMemo(() => dbCountries, [dbCountries]);
 
   const [items, setItems] = useState<ItemEntry[]>([]);
@@ -1223,6 +1225,7 @@ function OfferEditor({
               form={it.form}
               productOptions={productOptions}
               countryOptions={COUNTRY_OPTIONS}
+              countryAliases={countryAliases}
               fxRow={fxRow ?? null}
               existingExpiresAt={idx === 0 ? offer?.expires_at ?? null : null}
               onFormChange={(f) => updateForm(it.id, f)}
@@ -1317,6 +1320,7 @@ function OfferItemEditor({
   form,
   productOptions,
   countryOptions,
+  countryAliases,
   fxRow,
   existingExpiresAt,
   onFormChange,
@@ -1328,6 +1332,7 @@ function OfferItemEditor({
   form: FormState;
   productOptions: string[];
   countryOptions: string[];
+  countryAliases: Record<string, string>;
   fxRow: { rate: number; date: string } | null;
   existingExpiresAt: string | null;
   onFormChange: (f: FormState) => void;
@@ -1338,7 +1343,7 @@ function OfferItemEditor({
 
   const productCanonical = resolveOption(form.product_name, productOptions);
   const productValid = !!productCanonical;
-  const countryCanonical = resolveCountry(form.origin_country, countryOptions, COUNTRY_ALIASES);
+  const countryCanonical = resolveCountry(form.origin_country, countryOptions, countryAliases);
   const countryValid = !!countryCanonical;
 
   const priceNum = Number(form.price_per_kg);
@@ -1479,7 +1484,7 @@ function OfferItemEditor({
           value={form.origin_country}
           onChange={(v) => update({ origin_country: v })}
           options={countryOptions}
-          aliases={COUNTRY_ALIASES}
+          aliases={countryAliases}
           placeholder="Почніть вводити країну"
           required
         />
