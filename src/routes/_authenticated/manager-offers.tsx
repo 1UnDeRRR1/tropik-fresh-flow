@@ -1819,25 +1819,38 @@ function LinkShipmentDialog({
   }, [offer?.id]);
 
   const { user } = useAuth();
+  const { data: currentManagerId } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
   const { data: shipments } = useQuery({
-    queryKey: ["shipments-link-options", offer?.id, user?.id],
+    queryKey: ["shipments-link-options", offer?.id, user?.id, currentManagerId],
     enabled: !!offer && !!user,
     queryFn: async () => {
       // Only this manager's own shipments
       const { data, error } = await supabase
         .from("shipments")
         .select("id,code,country,eta,created_by,import_manager_id,shipment_items(product_name,origin_country)")
-        .or(`created_by.eq.${user!.id},import_manager_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
-      return (data ?? []) as Array<{
+      const all = (data ?? []) as Array<{
         id: string;
         code: string;
         country: string | null;
         eta: string | null;
+        created_by?: string | null;
+        import_manager_id?: string | null;
         shipment_items: { product_name: string; origin_country: string | null }[] | null;
       }>;
+      return all.filter((shipment) =>
+        shipment.created_by === user!.id || (!!currentManagerId && shipment.import_manager_id === currentManagerId),
+      );
     },
   });
 
