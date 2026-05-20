@@ -624,17 +624,18 @@ function ProductsFullscreen() {
       >
         <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
         {currentShipmentEditable && (
-          <div className="flex justify-center pb-2 pt-3">
+          <div className="pb-2 pt-3">
             <Button
               type="button"
               size="sm"
               onClick={addItem}
-              className="h-8 rounded-full border border-destructive/40 bg-destructive/10 px-3 text-[12px] font-semibold text-destructive shadow-sm hover:bg-destructive/20"
+              className="sticky left-1/2 -translate-x-1/2 h-8 rounded-full border border-destructive/40 bg-destructive/10 px-3 text-[12px] font-semibold text-destructive shadow-sm hover:bg-destructive/20"
             >
               <Plus className="mr-1 h-3.5 w-3.5" /> Додати товар
             </Button>
           </div>
         )}
+
       </ProductsScrollArea>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
