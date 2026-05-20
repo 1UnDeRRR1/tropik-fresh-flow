@@ -185,7 +185,7 @@ export function AutocompleteCell({
         )}
       />
       {focused && !readOnly && suggestions.length > 0 && (
-        <div className="absolute left-0 top-[calc(100%+54px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur">
+        <div className="absolute left-0 top-[calc(100%+2px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur">
           {suggestions.map((s) => (
             <button
               key={s}
