@@ -30,6 +30,8 @@ import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry, suggestCountries } from "@/lib/country-search";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
+import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 
 function resolveOption(
   value: string,
