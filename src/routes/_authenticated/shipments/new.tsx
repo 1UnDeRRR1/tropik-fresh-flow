@@ -330,10 +330,10 @@ function NewShipment() {
           : (COUNTRY_DAYS[selectedVehicle.country] ?? 0);
       }
 
-      const supplierCode = selectedSupplier!.code_base?.trim() || buildSupplierCode(selectedSupplier!.name);
-      const finalCode = codeOverride && code.trim()
-        ? code.trim()
-        : formatShipmentCode(vCode, supplierCode);
+      const alias = getSupplierAlias(selectedSupplier!);
+      const supplierSeq = await fetchNextSupplierSequence(supplierId);
+      const autoCode = formatShipmentCode({ alias, supplierSeq, vehicleCode: vCode });
+      const finalCode = codeOverride && code.trim() ? code.trim() : autoCode;
 
       const shipmentId = crypto.randomUUID();
 
@@ -343,6 +343,7 @@ function NewShipment() {
         id: shipmentId,
         code: finalCode,
         supplier_id: supplierId,
+        supplier_seq: supplierSeq,
         country: normalizeCountry(useCountry),
         loading_date: useLoadingDate || null,
         logistics_days: useDays,
