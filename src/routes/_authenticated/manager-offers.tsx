@@ -934,7 +934,8 @@ function ManagerOffersPage() {
                         <tbody>
                           {[...activeResponses, ...excludedResponses].map((r) => {
                             const excluded = !inScope(r.branch_id);
-                            const rejected = r.approved_pallets === 0;
+                            const cancelledSupply = o.status === "deleted";
+                            const rejected = !cancelledSupply && r.approved_pallets === 0;
                             const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
                             const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
                             const pendingP = o.status === "linked" ? Math.max(apprP - linkedP, 0) : 0;
@@ -951,6 +952,11 @@ function ManagerOffersPage() {
                                   {excluded && (
                                     <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
                                       виключено з таргетингу
+                                    </span>
+                                  )}
+                                  {cancelledSupply && !excluded && (
+                                    <span className="ml-2 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive">
+                                      Скасовано
                                     </span>
                                   )}
                                   {rejected && !excluded && (
