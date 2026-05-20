@@ -65,7 +65,7 @@ export function LoadingPlanManager() {
     queryFn: async () => {
       const { data } = await supabase
         .from("loading_plan")
-        .select("id,product_name,caliber,country,planned_pallets,is_active,count_existing,created_at")
+        .select("id,product_name,variety,caliber,country,planned_pallets,is_active,count_existing,created_at")
         .order("created_at", { ascending: false });
       return (data ?? []) as PlanRow[];
     },
