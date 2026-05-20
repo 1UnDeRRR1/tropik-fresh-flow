@@ -1012,6 +1012,7 @@ const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean; pulse?: boolean }) {
   const qc = useQueryClient();
   const dbCountries = useCountryOptions();
+  const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
