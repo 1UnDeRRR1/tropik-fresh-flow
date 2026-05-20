@@ -34,11 +34,13 @@ export function LoadingPlanManager() {
   const COUNTRIES = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
   const [form, setForm] = useState({
     product_name: "",
+    variety: "",
     caliber: "",
     country: "",
     planned_pallets: "" as string,
     count_existing: true,
   });
+  const varieties = useVarietiesFor(form.product_name);
 
   const { data: products } = useQuery({
     queryKey: ["products", "active", "names"],
