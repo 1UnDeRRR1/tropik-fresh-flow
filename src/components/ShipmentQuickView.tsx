@@ -103,6 +103,13 @@ export function ShipmentQuickView({
           <DialogHeader>
             <DialogTitle className="text-base font-mono">{code}</DialogTitle>
           </DialogHeader>
+          {!isLoading && data?.items.length ? (
+            <div className="flex gap-2 -mt-1">
+              <Button variant="outline" size="sm" className="flex-1" onClick={goEdit}>Редагувати</Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={goDistribute}>Розподілити</Button>
+            </div>
+          ) : null}
+
           {isLoading ? (
             <div className="py-6 text-center text-sm text-muted-foreground">Завантаження…</div>
           ) : !data?.items.length ? (
