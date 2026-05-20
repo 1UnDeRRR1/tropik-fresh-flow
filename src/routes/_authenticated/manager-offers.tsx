@@ -34,6 +34,38 @@ import { resolveCountry, suggestCountries } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 
+// Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
+const UA_LAT: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "h", ґ: "g", д: "d", е: "e", є: "ie",
+  ж: "zh", з: "z", и: "y", і: "i", ї: "i", й: "i", к: "k", л: "l",
+  м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u",
+  ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "shch", ь: "",
+  ю: "iu", я: "ia", "'": "",
+};
+function uaToLat(s: string) {
+  return s.toLowerCase().split("").map((ch) => UA_LAT[ch] ?? ch).join("");
+}
+// Basic Latin -> Ukrainian (rough) so typing English ("av") matches UA ("Авокадо").
+const LAT_UA: Record<string, string> = {
+  a: "а", b: "б", c: "к", d: "д", e: "е", f: "ф", g: "г", h: "х",
+  i: "і", j: "й", k: "к", l: "л", m: "м", n: "н", o: "о", p: "п",
+  q: "к", r: "р", s: "с", t: "т", u: "у", v: "в", w: "в", x: "кс",
+  y: "и", z: "з",
+};
+function latToUa(s: string) {
+  return s.toLowerCase().split("").map((ch) => LAT_UA[ch] ?? ch).join("");
+}
+function matchesQuery(option: string, query: string) {
+  if (!query) return false;
+  const o = option.toLowerCase();
+  const q = query.toLowerCase();
+  if (o.startsWith(q)) return true;
+  if (o.startsWith(uaToLat(q))) return true;
+  if (o.startsWith(latToUa(q))) return true;
+  if (uaToLat(o).startsWith(uaToLat(q))) return true;
+  return false;
+}
+
 function resolveOption(
   value: string,
   options: string[],
@@ -49,6 +81,9 @@ function resolveOption(
     if (aliased) return aliased;
     return aliases[v];
   }
+  // Unique transliterated/prefix fallback
+  const subs = options.filter((o) => matchesQuery(o, v));
+  if (subs.length === 1) return subs[0];
   return null;
 }
 
@@ -76,21 +111,30 @@ function ValidatedAutocomplete({
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
   const normalizedOptions = useMemo(
-    () => Array.from(new Set(options.map((option) => option.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
+    () => Array.from(new Set(options.map((o) => o.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
     [options],
   );
-  const canonical = resolveOption(trimmed, options, aliases);
+  const canonical = useMemo(
+    () => resolveOption(trimmed, normalizedOptions, aliases),
+    [trimmed, normalizedOptions, aliases],
+  );
   const isInvalid = trimmed.length > 0 && !canonical;
   const showRequired = required && trimmed.length === 0;
 
-  const suggestions =
-    trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
-      ? aliases
-        ? suggestCountries(trimmed, normalizedOptions, aliases, 3)
-        : Array.from(
-            new Set(normalizedOptions.filter((o) => o.toLowerCase().startsWith(lower))),
-          ).slice(0, 3)
+  const suggestions = useMemo(() => {
+    if (trimmed.length < 2) return [];
+    if (canonical && canonical.toLowerCase() === lower) return [];
+    const direct = normalizedOptions.filter((o) => matchesQuery(o, trimmed));
+    const viaAlias = aliases
+      ? Object.entries(aliases)
+          .filter(([k]) => k.startsWith(lower))
+          .map(([, target]) => {
+            const t = target.toLowerCase();
+            return normalizedOptions.find((o) => o.toLowerCase() === t) ?? target;
+          })
       : [];
+    return Array.from(new Set([...direct, ...viaAlias])).slice(0, 3);
+  }, [trimmed, lower, canonical, normalizedOptions, aliases]);
 
   return (
     <div className="relative">
@@ -98,11 +142,13 @@ function ValidatedAutocomplete({
         value={value}
         placeholder={placeholder}
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => {
-          // auto-normalize alias to canonical
-          const c = resolveOption(trimmed, options, aliases);
+          const c = resolveOption(trimmed, normalizedOptions, aliases);
           if (c && c !== trimmed) onChange(c);
           setTimeout(() => setFocused(false), 150);
         }}
@@ -134,21 +180,9 @@ function ValidatedAutocomplete({
                 key={s}
                 type="button"
                 style={{ touchAction: "manipulation" }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  select();
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  select();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  select();
-                }}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); select(); }}
+                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); select(); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); select(); }}
                 className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
               >
                 {s}
