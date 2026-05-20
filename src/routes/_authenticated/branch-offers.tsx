@@ -217,7 +217,7 @@ function BranchOffersPage() {
                       Замовлено · {linkedQty}
                     </span>
                     <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                      Підтверджено · {pendingQty}
+                      Підтверджено · {pendingQty}*
                     </span>
                   </>
                 ) : (
@@ -236,6 +236,12 @@ function BranchOffersPage() {
                   </span>
                 )}
               </div>
+
+              {isSplit && (
+                <div className="mt-1 text-xs text-warning">
+                  * {pendingQty}п чекають на номер поставки
+                </div>
+              )}
 
               {/* Details line */}
               {details && (
