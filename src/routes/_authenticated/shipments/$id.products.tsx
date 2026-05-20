@@ -191,8 +191,8 @@ function ProductsScrollArea({
 }: {
   itemsCount: number;
   empty: boolean;
-  emptyContent: React.ReactNode;
-  children: React.ReactNode;
+  emptyContent: ReactNode;
+  children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const prevCount = useRef(itemsCount);
