@@ -1315,6 +1315,7 @@ function VarietyCell({ value, onChange, productName, readOnly }: { value: string
       disabled={readOnly}
     />
   );
+}
 
 
 function NumCell({ value, onChange, step, readOnly = false, invalid = false }: { value: number; onChange: (v: number) => void; step?: string; readOnly?: boolean; invalid?: boolean }) {
