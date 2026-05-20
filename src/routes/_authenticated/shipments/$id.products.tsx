@@ -923,10 +923,13 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
         <span className={cn("text-[11px] font-semibold", tight ? "text-destructive" : "text-emerald-600")}>
           вільно {remainingPallets}п · {Math.round(remainingKg)}кг
         </span>
-        <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">
-          {count} поз.
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        <span className="ml-auto flex items-center gap-1 text-[10px]">
+          {customsStatus && customsStatus !== "none" && (
+            <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems ?? []} />
+          )}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", open && "rotate-180")} />
         </span>
+
       </button>
       {open && (
         <div className="max-h-52 overflow-y-auto border-t border-border">
