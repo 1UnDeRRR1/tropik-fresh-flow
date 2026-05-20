@@ -47,13 +47,13 @@ function resolveOption(
     const aliased = options.find((o) => o.toLowerCase() === target);
     if (aliased) return aliased;
     return aliases[v];
+  }
+  return null;
 }
 
 function VarietyField({ value, productName, onChange }: { value: string; productName: string; onChange: (v: string) => void }) {
   const varieties = useVarietiesFor(productName);
   return <VarietyAutocomplete value={value} onChange={onChange} varieties={varieties} placeholder="Почніть вводити сорт" />;
-}
-  return null;
 }
 
 function ValidatedAutocomplete({
