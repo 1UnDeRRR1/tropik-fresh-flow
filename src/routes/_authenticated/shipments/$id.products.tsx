@@ -634,8 +634,17 @@ function ProductsFullscreen() {
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className={cn("truncate text-[10px] uppercase tracking-wide", incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
+          <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide">
+            <span className={cn(incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
+              {country}
+              {incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
+            </span>
+            {customsStatus !== "none" && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems} />
+              </>
+            )}
           </div>
         </div>
         <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
