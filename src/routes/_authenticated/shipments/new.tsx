@@ -98,8 +98,11 @@ function NewShipment() {
 
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [countrySearch, setCountrySearch] = useState("");
   const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState("");
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
   const [shake, setShake] = useState(false);
   const clearInvalid = (key: string) => setInvalid((prev) => {
@@ -197,6 +200,22 @@ function NewShipment() {
   const selectedVehicleOwnerName = selectedVehicle?.created_by
     ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
     : "Власник авто";
+  const filteredSuppliers = useMemo(() => {
+    const q = supplierSearch.trim().toLowerCase();
+    if (q.length < 2) return suppliers ?? [];
+    return (suppliers ?? []).filter((s) => s.name.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [suppliers, supplierSearch]);
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.trim().toLowerCase();
+    const base = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
+    if (q.length < 2) return base;
+    return base.filter((c: string) => c.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [countryOptions, countrySearch]);
+  const filteredVehicles = useMemo(() => {
+    const q = vehicleSearch.trim().toLowerCase();
+    if (q.length < 2) return openVehicles ?? [];
+    return (openVehicles ?? []).filter((v) => v.code.toLowerCase().startsWith(q)).slice(0, 3);
+  }, [openVehicles, vehicleSearch]);
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
   useEffect(() => {
