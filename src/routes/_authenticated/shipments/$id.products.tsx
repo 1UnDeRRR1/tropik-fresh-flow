@@ -392,12 +392,40 @@ function ProductsFullscreen() {
           .maybeSingle();
         if (offerErr || !offer) return;
 
+        // Check if other shipments are already linked to this offer
+        // (manager is creating an additional shipment to absorb leftover pallets).
+        const { data: existingItems } = await supabase
+          .from("shipment_items")
+          .select("pallet_count, shipment_id")
+          .eq("linked_offer_id", offer.id)
+          .neq("shipment_id", id);
+
+        let palletCount: number;
         const palletWeight = Number(offer.pallet_weight ?? 0);
-        // Target: fill the truck near the 21000 kg / 26 pallet limits.
-        const TARGET_KG = 21000;
-        const palletCount = palletWeight > 0
-          ? Math.min(MAX_PALLETS, Math.max(1, Math.floor(TARGET_KG / palletWeight)))
-          : 0;
+
+        if (existingItems && existingItems.length > 0) {
+          // Compute pending: total approved - already linked elsewhere
+          const { data: responses } = await supabase
+            .from("manager_offer_responses")
+            .select("approved_pallets, requested_pallets, linked_pallets")
+            .eq("offer_id", offer.id);
+          const totalApproved = (responses ?? []).reduce(
+            (s, r) => s + Number((r as { approved_pallets: number | null; requested_pallets: number }).approved_pallets ?? r.requested_pallets ?? 0),
+            0,
+          );
+          const totalLinked = (responses ?? []).reduce(
+            (s, r) => s + Number((r as { linked_pallets: number | null }).linked_pallets ?? 0),
+            0,
+          );
+          const pending = Math.max(totalApproved - totalLinked, 0);
+          palletCount = Math.min(MAX_PALLETS, Math.max(1, pending || 1));
+        } else {
+          // Target: fill the truck near the 21000 kg / 26 pallet limits.
+          const TARGET_KG = 21000;
+          palletCount = palletWeight > 0
+            ? Math.min(MAX_PALLETS, Math.max(1, Math.floor(TARGET_KG / palletWeight)))
+            : 0;
+        }
         const totalKg = palletCount * palletWeight;
 
         const { error: insErr } = await supabase.from("shipment_items").insert({

@@ -513,6 +513,13 @@ function ManagerOffersPage() {
                       (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
                       0,
                     );
+                    const totalLinked = activeResponses.reduce(
+                      (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
+                      0,
+                    );
+                    const pendingLinked = o.status === "linked"
+                      ? Math.max(totalApproved - totalLinked, 0)
+                      : 0;
                     const hasPending = o.responses.some((r) => r.approved_pallets == null);
                     const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
                     const realEta = ship?.arrived_at ?? ship?.eta ?? null;
@@ -551,16 +558,32 @@ function ManagerOffersPage() {
                           {o.offered_pallets != null
                             ? `${totalApproved}/${o.offered_pallets}`
                             : totalApproved}
+                          {pendingLinked > 0 && (
+                            <span className="ml-1 text-[10px] font-semibold text-warning">
+                              (+{pendingLinked} очік.)
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2">
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                              STATUS_CLASS[o.status],
-                            )}
-                          >
-                            {STATUS_LABEL[o.status]}
-                          </span>
+                          {pendingLinked > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
+                                Замовлено · {totalLinked}
+                              </span>
+                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
+                                Підтв. · {pendingLinked}
+                              </span>
+                            </div>
+                          ) : (
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                STATUS_CLASS[o.status],
+                              )}
+                            >
+                              {STATUS_LABEL[o.status]}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -588,6 +611,13 @@ function ManagerOffersPage() {
               (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
               0,
             );
+            const totalLinked = activeResponses.reduce(
+              (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
+              0,
+            );
+            const pendingLinked = o.status === "linked"
+              ? Math.max(totalApproved - totalLinked, 0)
+              : 0;
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
@@ -694,7 +724,28 @@ function ManagerOffersPage() {
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
+                    {pendingLinked > 0 && (
+                      <span className="ml-2 text-xs font-normal text-warning">
+                        · у поставці: {totalLinked} · чекають номер поставки: {pendingLinked}
+                      </span>
+                    )}
                   </div>
+                  {pendingLinked > 0 && (
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+                      <div className="mb-1">
+                        <b>{pendingLinked}п</b> підтверджено, але не помістились у поставку{ship ? <> <b>{ship.code}</b></> : null}. Створіть нову поставку — решта розподілиться автоматично.
+                      </div>
+                      <Link
+                        to="/shipments/new"
+                        search={{ fromOffer: o.id } as never}
+                        onClick={() => setDetailOfferId(null)}
+                      >
+                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                          <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                   {o.notes && (
                     <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
                       {o.notes}
@@ -781,6 +832,9 @@ function ManagerOffersPage() {
                           {[...activeResponses, ...excludedResponses].map((r) => {
                             const excluded = !inScope(r.branch_id);
                             const rejected = r.approved_pallets === 0;
+                            const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
+                            const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
+                            const pendingP = o.status === "linked" ? Math.max(apprP - linkedP, 0) : 0;
                             return (
                               <tr
                                 key={r.id}
@@ -819,6 +873,16 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
+                                    {pendingP > 0 && (
+                                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                        у поставці: {linkedP}
+                                      </span>
+                                    )}
+                                    {pendingP > 0 && (
+                                      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                                        чекає: {pendingP}
+                                      </span>
+                                    )}
                                     {!rejected && (
                                       <Button
                                         size="sm"
