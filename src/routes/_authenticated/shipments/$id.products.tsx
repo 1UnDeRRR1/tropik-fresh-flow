@@ -528,18 +528,30 @@ function ProductsFullscreen() {
 
 
   const leaveProducts = async () => {
-    const hasDraftRows = items.some(
-      (item) => !(item.product_name ?? "").trim() || item.product_name === "Новий товар" || Number(item.pallet_count ?? 0) <= 0,
-    );
-    const deleted = hasDraftRows ? false : await deleteShipmentIfEmpty(id);
+    // Auto-cleanup: drop empty/placeholder rows on exit so they don't
+    // persist as fake products.
+    const emptyIds = items
+      .filter(
+        (item) =>
+          !(item.product_name ?? "").trim() ||
+          item.product_name === "Новий товар" ||
+          Number(item.pallet_count ?? 0) <= 0,
+      )
+      .map((item) => item.id);
+    if (emptyIds.length > 0) {
+      await supabase.from("shipment_items").delete().in("id", emptyIds);
+    }
+    const deleted = await deleteShipmentIfEmpty(id);
     if (deleted) {
       navigate({ to: "/shipments" });
       return;
     }
     await syncVehicleStateForShipment(id);
+    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
     invalidateVehicleAndShipmentCaches(qc);
     navigate({ to: "/shipments/$id", params: { id } });
   };
+
 
   const blockExit = (e: React.MouseEvent) => {
     if (incompleteCount > 0 || !hasRealPallets) {
