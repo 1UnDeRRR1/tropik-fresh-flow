@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, createContext, useContext, useCallback } from "react";
+import { useEffect, useRef, useState, createContext, useContext, useCallback, type ReactNode } from "react";
 import { ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -182,6 +182,40 @@ const FocusedColContext = createContext<{ focused: number | null; setFocused: (i
   focused: null,
   setFocused: () => {},
 });
+
+function ProductsScrollArea({
+  itemsCount,
+  empty,
+  emptyContent,
+  children,
+}: {
+  itemsCount: number;
+  empty: boolean;
+  emptyContent: ReactNode;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const prevCount = useRef(itemsCount);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // When a new row is added, scroll the container so the new row and the
+    // "Додати товар" button stay in view. Older rows naturally scroll up under
+    // the sticky <thead>.
+    if (itemsCount > prevCount.current) {
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      });
+    }
+    prevCount.current = itemsCount;
+  }, [itemsCount]);
+  return (
+    <div ref={ref} className="flex-1 overflow-y-auto relative">
+      {empty ? emptyContent : children}
+    </div>
+  );
+}
+
 
 function ProductsFullscreen() {
   const { id } = Route.useParams();
@@ -576,34 +610,34 @@ function ProductsFullscreen() {
         />
       )}
 
-      <div className="flex-1 overflow-y-auto relative">
-        {items.length === 0 ? (
+      <ProductsScrollArea
+        itemsCount={items.length}
+        empty={items.length === 0}
+        emptyContent={
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
             <Button onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
               <Plus className="mr-1 h-4 w-4" /> Додати товар
             </Button>
           </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
-            </div>
-            {currentShipmentEditable && (
-              <div className="sticky bottom-2 z-20 flex justify-center pointer-events-none pb-1 pt-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={addItem}
-                  className="pointer-events-auto h-8 rounded-full border border-destructive/40 bg-destructive/10 px-3 text-[12px] font-semibold text-destructive shadow-sm hover:bg-destructive/20"
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Додати товар
-                </Button>
-              </div>
-            )}
-          </>
+        }
+      >
+        <div className="overflow-x-auto">
+          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
+        </div>
+        {currentShipmentEditable && (
+          <div className="flex justify-center pb-2 pt-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={addItem}
+              className="h-8 rounded-full border border-destructive/40 bg-destructive/10 px-3 text-[12px] font-semibold text-destructive shadow-sm hover:bg-destructive/20"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> Додати товар
+            </Button>
+          </div>
         )}
-      </div>
+      </ProductsScrollArea>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
