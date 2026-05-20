@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, createContext, useContext, useCallback, type ReactNode } from "react";
-import { ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
-import { countPositions, formatPositions } from "@/lib/positions";
+
 
 import { StaffOnly } from "@/components/StaffOnly";
 
@@ -49,7 +50,10 @@ type ItemRow = {
   price_currency: string | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
+  customs_match_id: string | null;
 };
+
+type CustomsRefMini = { id: string; product_name: string; country: string };
 
 type ShipmentRow = {
   id: string;
@@ -217,6 +221,41 @@ function ProductsScrollArea({
 }
 
 
+function CustomsStatusBadge({
+  status,
+  fallbackItems,
+}: {
+  status: "found" | "fallback";
+  fallbackItems: Array<{ item: ItemRow; ref: CustomsRefMini }>;
+}) {
+  if (status === "found") {
+    return (
+      <span className="font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+        Індикатив: знайдено
+      </span>
+    );
+  }
+  const first = fallbackItems[0];
+  const missingCountry = toUaCountry(first?.item.origin_country ?? "") || first?.item.origin_country || "—";
+  const usedCountry = toUaCountry(first?.ref.country ?? "") || first?.ref.country || "—";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 font-semibold uppercase tracking-wide text-amber-600 hover:text-amber-700 dark:text-amber-400"
+        >
+          Індикатив: не знайдено
+          <AlertTriangle className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="center" className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+        Країна <b>{missingCountry}</b> походження для цього товару відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
@@ -341,10 +380,21 @@ function ProductsFullscreen() {
             }
           : null;
       }
+      const itemRows = (items.data ?? []) as ItemRow[];
+      const matchIds = Array.from(
+        new Set(itemRows.map((r) => r.customs_match_id).filter((v): v is string => !!v)),
+      );
+      const { data: refs } = matchIds.length
+        ? await supabase
+            .from("customs_reference")
+            .select("id,product_name,country")
+            .in("id", matchIds)
+        : { data: [] };
       return {
         shipment: sh ? ({ ...sh, vehicle_owner_id: vehicleOwnerId, supplier_name: sh.suppliers?.name ?? null } as ShipmentRow) : null,
-        items: (items.data ?? []) as ItemRow[],
+        items: itemRows,
         products: (prods.data ?? []) as ProductRef[],
+        customsRefs: (refs ?? []) as CustomsRefMini[],
         vehicleContext,
       };
     },
@@ -355,7 +405,30 @@ function ProductsFullscreen() {
   const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
+  const customsRefs = data?.customsRefs ?? [];
+  const refById = new Map(customsRefs.map((r) => [r.id, r]));
   const country = toUaCountry(sh?.country) || "—";
+
+  // Customs match status for the header indicator.
+  // - "found": every valid item matched product+country exactly in customs base.
+  // - "fallback": at least one item matched product but country differs
+  //   (the trigger picked the row with the highest indicative).
+  // - "none": no valid items yet (hide indicator).
+  const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
+  const fallbackItems = validItems
+    .map((it) => {
+      const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
+      if (!ref) return null;
+      const sameCountry = norm(ref.country) === norm(it.origin_country);
+      return sameCountry ? null : { item: it, ref };
+    })
+    .filter((v): v is { item: ItemRow; ref: CustomsRefMini } => !!v);
+  const customsStatus: "found" | "fallback" | "none" =
+    validItems.length === 0
+      ? "none"
+      : fallbackItems.length > 0
+        ? "fallback"
+        : "found";
   
   const incompleteItems = items.filter((i) => {
     if (Number(i.pallet_count ?? 0) <= 0) return false;
@@ -597,8 +670,17 @@ function ProductsFullscreen() {
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className={cn("truncate text-[10px] uppercase tracking-wide", incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-            {country} · {formatPositions(countPositions(items, (i) => i.product_name))} поз.{incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
+          <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide">
+            <span className={cn(incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
+              {country}
+              {incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
+            </span>
+            {customsStatus !== "none" && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems} />
+              </>
+            )}
           </div>
         </div>
         <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
