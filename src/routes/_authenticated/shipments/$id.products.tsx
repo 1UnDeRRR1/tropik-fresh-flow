@@ -49,7 +49,10 @@ type ItemRow = {
   price_currency: string | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
+  customs_match_id: string | null;
 };
+
+type CustomsRefMini = { id: string; product_name: string; country: string };
 
 type ShipmentRow = {
   id: string;
