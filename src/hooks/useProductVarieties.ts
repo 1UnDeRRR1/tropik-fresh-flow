@@ -12,19 +12,24 @@ export function useAllProductVarieties() {
     queryKey: ["product-varieties"],
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_varieties")
-        .select("product_name_ua, product_name_en, variety")
-        .order("variety");
-      if (error) throw error;
       const map: Record<string, string[]> = {};
-      for (const row of data ?? []) {
-        const keys = [row.product_name_ua, row.product_name_en].filter(Boolean) as string[];
-        for (const k of keys) {
-          const key = k.toLowerCase();
-          if (!map[key]) map[key] = [];
-          if (!map[key].includes(row.variety)) map[key].push(row.variety);
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from("product_varieties")
+          .select("product_name_ua, product_name_en, variety")
+          .order("variety")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        for (const row of data ?? []) {
+          const keys = [row.product_name_ua, row.product_name_en].filter(Boolean) as string[];
+          for (const k of keys) {
+            const key = k.toLowerCase();
+            if (!map[key]) map[key] = [];
+            if (!map[key].includes(row.variety)) map[key].push(row.variety);
+          }
         }
+        if (!data || data.length < PAGE) break;
       }
       return map;
     },

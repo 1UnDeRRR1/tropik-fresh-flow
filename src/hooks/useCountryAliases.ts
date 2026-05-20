@@ -12,15 +12,20 @@ export function useCountryAliases(): Record<string, string> {
   const { data } = useQuery({
     queryKey: ["country-aliases"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("country_aliases")
-        .select("alias_normalized,country_name");
       const map: Record<string, string> = {};
-      for (const row of data ?? []) {
-        const key = (row.alias_normalized ?? "").toLowerCase();
-        if (!key) continue;
-        // First write wins; avoid overwriting with an ambiguous later mapping.
-        if (!map[key]) map[key] = row.country_name as string;
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from("country_aliases")
+          .select("alias_normalized,country_name")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        for (const row of data ?? []) {
+          const key = (row.alias_normalized ?? "").toLowerCase();
+          if (!key) continue;
+          if (!map[key]) map[key] = row.country_name as string;
+        }
+        if (!data || data.length < PAGE) break;
       }
       return map;
     },
