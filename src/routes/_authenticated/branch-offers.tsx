@@ -156,9 +156,14 @@ function BranchOffersPage() {
       if (!branchId) throw new Error("Філія не вказана у профілі");
       const existing = responseByOffer[offerId];
       if (existing) {
+        const changed = Number(existing.requested_pallets) !== pallets;
         const { error } = await supabase
           .from("manager_offer_responses")
-          .update({ requested_pallets: pallets })
+          .update(
+            changed
+              ? { requested_pallets: pallets, approved_pallets: null }
+              : { requested_pallets: pallets },
+          )
           .eq("id", existing.id);
         if (error) throw error;
       } else {
