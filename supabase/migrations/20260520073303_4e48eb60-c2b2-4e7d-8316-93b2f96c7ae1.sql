@@ -1,0 +1,1 @@
+TRUNCATE TABLE public.loading_plan RESTART IDENTITY CASCADE;
