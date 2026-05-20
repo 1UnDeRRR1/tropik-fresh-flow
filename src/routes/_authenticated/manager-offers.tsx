@@ -394,7 +394,7 @@ function ManagerOffersPage() {
       createdAt: string;
       isPending: boolean;
     }[] = [];
-    const openStatuses: ManagerOfferStatus[] = ["draft", "active", "in_work", "confirmed"];
+    const openStatuses: ManagerOfferStatus[] = ["draft", "active", "in_work", "confirmed", "closed"];
     for (const o of merged) {
       if (!openStatuses.includes(o.status)) continue;
       const inScope = (branchId: string) =>

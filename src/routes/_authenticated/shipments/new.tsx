@@ -289,20 +289,27 @@ function NewShipment() {
       return;
     }
 
-    const scopedManagerId = fromOfferPrefill.offerManagerId ?? currentManagerId ?? null;
-    const pool = scopedManagerId
-      ? suppliers.filter((supplier) => supplier.import_manager_id === scopedManagerId)
-      : suppliers;
     const targetCountry = normalizeCountry(fromOfferPrefill.country ?? "");
     if (!targetCountry) return;
 
-    const countryMatches = pool.filter(
-      (supplier) => normalizeCountry(supplier.country ?? "") === targetCountry,
-    );
-    if (countryMatches.length === 1) {
-      setSupplierId(countryMatches[0].id);
+    const scopedManagerId = fromOfferPrefill.offerManagerId ?? currentManagerId ?? null;
+    // Try scoped pool first (manager's own suppliers); if empty fall back to all.
+    const scopedPool = scopedManagerId
+      ? suppliers.filter((supplier) => supplier.import_manager_id === scopedManagerId)
+      : [];
+    const pools: typeof suppliers[] = scopedPool.length ? [scopedPool, suppliers] : [suppliers];
+    for (const pool of pools) {
+      const countryMatches = pool.filter(
+        (supplier) => normalizeCountry(supplier.country ?? "") === targetCountry,
+      );
+      if (countryMatches.length > 0) {
+        // Pick first match — even if multiple, manager can change after.
+        setSupplierId(countryMatches[0].id);
+        return;
+      }
     }
   }, [fromOfferPrefill, suppliers, supplierId, currentManagerId]);
+
 
   // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
