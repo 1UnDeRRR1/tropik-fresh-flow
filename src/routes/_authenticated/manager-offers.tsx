@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   STATUS_LABEL,
@@ -27,7 +28,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
-import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
+import { computeOfferCost, fetchCustomsRef, isEuCountry, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry, suggestCountries } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
@@ -1622,13 +1623,27 @@ function OfferItemEditor({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Митниця</span>
             <span>
-              {customsRef?.exact
-                ? "знайдено"
-                : customsRef
-                  ? <span className="font-bold text-warning">не знайдено (індикатив за аналогом)</span>
-                  : productCanonical && countryCanonical
-                    ? <span className="font-bold text-warning">не знайдено</span>
-                    : "—"}
+              {customsRef?.exact ? (
+                <CustomsInfoPopover
+                  ref={customsRef}
+                  calc={calc}
+                  country={countryCanonical}
+                  label="знайдено"
+                  labelClass="underline decoration-dotted underline-offset-2"
+                />
+              ) : customsRef ? (
+                <CustomsInfoPopover
+                  ref={customsRef}
+                  calc={calc}
+                  country={countryCanonical}
+                  label="не знайдено (індикатив за аналогом)"
+                  labelClass="font-bold text-warning underline decoration-dotted underline-offset-2"
+                />
+              ) : productCanonical && countryCanonical ? (
+                <span className="font-bold text-warning">не знайдено</span>
+              ) : (
+                "—"
+              )}
             </span>
           </div>
           {calc && (
@@ -2080,5 +2095,83 @@ function PublishOfferDialog({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function CustomsInfoPopover({
+  ref,
+  calc,
+  country,
+  label,
+  labelClass,
+}: {
+  ref: CustomsRefRow;
+  calc: ReturnType<typeof computeOfferCost> | null;
+  country: string | null;
+  label: string;
+  labelClass?: string;
+}) {
+  const eu = isEuCountry(country ?? "");
+  const pct = eu ? Number(ref.euro1_percent || 0) : Number(ref.customs_fee_percent || 0);
+  const threshold = Number(ref.threshold_price_usd || 0);
+  const indicative = Number(ref.euro1_markup_usd || 0);
+  const unitUsd = calc?.unitUsd ?? 0;
+  const usedFlat = calc ? unitUsd <= threshold : false;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn("cursor-pointer text-left", labelClass)}>
+          {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="w-80 text-xs space-y-2">
+        <div className="font-semibold text-sm">Розрахунок митниці</div>
+        <div className="space-y-1">
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Аналог (товар)</span>
+            <span className="text-right">{ref.product_name ?? "—"}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Аналог (країна)</span>
+            <span className="text-right">{ref.country ?? "—"} {eu ? "(ЄС)" : ""}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Поріг ціни</span>
+            <span className="tabular-nums">${threshold.toFixed(2)}/кг</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Індикативне мито</span>
+            <span className="tabular-nums">${indicative.toFixed(4)}/кг</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">{eu ? "EUR1 %" : "Мито %"}</span>
+            <span className="tabular-nums">{pct.toFixed(2)}%</span>
+          </div>
+        </div>
+        {calc && (
+          <div className="border-t border-border pt-2 space-y-1">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Ціна за кг (USD)</span>
+              <span className="tabular-nums">${unitUsd.toFixed(4)}</span>
+            </div>
+            <div className="text-muted-foreground">
+              {usedFlat ? (
+                <>Ціна ≤ порогу → мито = індикатив = <b>${indicative.toFixed(4)}</b></>
+              ) : (
+                <>Ціна &gt; порогу → інвойсне мито: unit×1.20×{pct.toFixed(2)}%/100 + unit×0.20 + 0.02 = <b>${calc.invoiceDuty.toFixed(4)}</b></>
+              )}
+            </div>
+            <div className="flex justify-between gap-2 pt-1">
+              <span className="font-semibold text-success">Індикативне мито</span>
+              <span className="tabular-nums font-semibold text-success">${calc.indicativeDuty.toFixed(4)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="font-semibold text-destructive">Інвойсне мито</span>
+              <span className="tabular-nums font-semibold text-destructive">${calc.invoiceDuty.toFixed(4)}</span>
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
