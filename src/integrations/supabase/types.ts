@@ -682,6 +682,7 @@ export type Database = {
           planned_pallets: number
           product_name: string
           updated_at: string
+          variety: string | null
         }
         Insert: {
           caliber?: string | null
@@ -695,6 +696,7 @@ export type Database = {
           planned_pallets?: number
           product_name: string
           updated_at?: string
+          variety?: string | null
         }
         Update: {
           caliber?: string | null
@@ -708,6 +710,7 @@ export type Database = {
           planned_pallets?: number
           product_name?: string
           updated_at?: string
+          variety?: string | null
         }
         Relationships: []
       }

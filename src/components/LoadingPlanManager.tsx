@@ -10,11 +10,14 @@ import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/Loadi
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
+import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { normalizeCountry } from "@/lib/countries";
 
 interface PlanRow {
   id: string;
   product_name: string;
+  variety: string | null;
   caliber: string | null;
   country: string | null;
   planned_pallets: number;
@@ -31,11 +34,13 @@ export function LoadingPlanManager() {
   const COUNTRIES = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
   const [form, setForm] = useState({
     product_name: "",
+    variety: "",
     caliber: "",
     country: "",
     planned_pallets: "" as string,
     count_existing: true,
   });
+  const varieties = useVarietiesFor(form.product_name);
 
   const { data: products } = useQuery({
     queryKey: ["products", "active", "names"],
@@ -60,7 +65,7 @@ export function LoadingPlanManager() {
     queryFn: async () => {
       const { data } = await supabase
         .from("loading_plan")
-        .select("id,product_name,caliber,country,planned_pallets,is_active,count_existing,created_at")
+        .select("id,product_name,variety,caliber,country,planned_pallets,is_active,count_existing,created_at")
         .order("created_at", { ascending: false });
       return (data ?? []) as PlanRow[];
     },
@@ -100,6 +105,7 @@ export function LoadingPlanManager() {
   const create = useMutation({
     mutationFn: async () => {
       const productName = form.product_name.trim();
+      const variety = form.variety.trim() || null;
       const caliber = form.caliber.trim() || null;
       const country = normalizeCountry(form.country) || null;
       const addPallets = Number(form.planned_pallets) || 0;
@@ -108,6 +114,7 @@ export function LoadingPlanManager() {
       const existing = (plan ?? []).find(
         (p) =>
           norm(p.product_name) === norm(productName) &&
+          norm(p.variety) === norm(variety) &&
           norm(p.caliber) === norm(caliber) &&
           norm(p.country) === norm(country),
       );
@@ -124,6 +131,7 @@ export function LoadingPlanManager() {
 
       await run(supabase.from("loading_plan").insert({
         product_name: productName,
+        variety,
         caliber,
         country,
         planned_pallets: addPallets,
@@ -132,7 +140,7 @@ export function LoadingPlanManager() {
       return { merged: false };
     },
     onSuccess: async (res) => {
-      setForm({ product_name: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
+      setForm({ product_name: "", variety: "", caliber: "", country: "", planned_pallets: "", count_existing: true });
       await qc.refetchQueries({ queryKey: ["admin", "loading-plan"], exact: false });
       toast.success(res?.merged ? "Об'єднано з існуючою позицією" : "Позицію плану додано");
     },
@@ -178,6 +186,13 @@ export function LoadingPlanManager() {
               className="!h-10 !text-sm !px-3 !border-input !bg-background"
             />
           </div>
+          <VarietyAutocomplete
+            value={form.variety}
+            onChange={(v) => setForm({ ...form, variety: v })}
+            varieties={varieties}
+            placeholder="Сорт / асортимент (опціонально)"
+            inputClassName="!h-10 !text-sm !px-3 !border-input !bg-background"
+          />
           <div className="grid grid-cols-2 gap-2">
             <input
               className="input"
@@ -257,6 +272,7 @@ export function LoadingPlanManager() {
                     >
                       <div className="text-sm font-semibold underline-offset-2 hover:underline">
                         {p.product_name}
+                        {p.variety ? ` · ${p.variety}` : ""}
                         {p.caliber ? ` ${p.caliber}` : ""}
                       </div>
                       <div className="text-xs text-muted-foreground">

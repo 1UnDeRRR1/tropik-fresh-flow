@@ -1,0 +1,1 @@
+ALTER TABLE public.loading_plan ADD COLUMN IF NOT EXISTS variety text;
