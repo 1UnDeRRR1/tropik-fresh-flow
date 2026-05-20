@@ -2,6 +2,7 @@ import * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { resolveProductOption } from "@/lib/product-aliases";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" can match "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -78,6 +79,10 @@ export function AutocompleteCell({
   const resolveCanonical = (s: string): string | null => {
     const l = s.trim().toLowerCase();
     if (!l) return null;
+    if (!aliases) {
+      const productResolved = resolveProductOption(s, normalizedOptions);
+      if (productResolved) return productResolved;
+    }
     const direct = normalizedOptions.find((o) => o.toLowerCase() === l);
     if (direct) return direct;
     if (aliases && aliases[l]) {
