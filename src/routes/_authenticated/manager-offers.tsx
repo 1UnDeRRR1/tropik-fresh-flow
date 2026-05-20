@@ -33,6 +33,7 @@ import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
+import { resolveProductOption } from "@/lib/product-aliases";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -73,6 +74,10 @@ function resolveOption(
 ): string | null {
   const v = value.trim().toLowerCase();
   if (!v) return null;
+  if (!aliases) {
+    const productResolved = resolveProductOption(value, options);
+    if (productResolved) return productResolved;
+  }
   const direct = options.find((o) => o.toLowerCase() === v);
   if (direct) return direct;
   if (aliases && aliases[v]) {
