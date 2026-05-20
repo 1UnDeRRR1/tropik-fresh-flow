@@ -33,8 +33,19 @@ export type CustomsRefRow = {
   euro1_markup_usd: number;
 };
 
+// Product aliases for customs lookup: treat key as if it were value
+const PRODUCT_CUSTOMS_ALIASES: Record<string, string> = {
+  "інжирний персик": "персик",
+  "платерина нектарин": "нектарин",
+};
+
+function resolveCustomsProductName(name: string): string {
+  const key = name.trim().toLowerCase();
+  return PRODUCT_CUSTOMS_ALIASES[key] ?? name;
+}
+
 export async function fetchCustomsRef(productName: string, country: string): Promise<CustomsRefRow | null> {
-  const name = productName.trim();
+  const name = resolveCustomsProductName(productName.trim());
   if (!name) return null;
   // 1) exact product + country match
   if (country.trim()) {
