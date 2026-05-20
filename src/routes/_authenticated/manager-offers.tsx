@@ -1575,7 +1575,7 @@ function OfferItemEditor({
               {customsRef
                 ? "знайдено"
                 : productCanonical && countryCanonical
-                  ? "не знайдено"
+                  ? <span className="font-bold text-warning">не знайдено</span>
                   : "—"}
             </span>
           </div>
