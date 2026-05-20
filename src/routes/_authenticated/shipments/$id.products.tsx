@@ -581,29 +581,7 @@ function ProductsFullscreen() {
             </Button>
           </div>
         ) : (
-          <table className="w-full min-w-[860px] text-[12px] tabular-nums">
-            <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
-              <tr className="border-b border-border">
-                <th className="px-1.5 py-2 text-left font-medium">Товар</th>
-                <th className="px-1.5 py-2 text-left font-medium">Сорт</th>
-                <th className="px-1.5 py-2 text-left font-medium">Країна</th>
-                <th className="px-1.5 py-2 text-left font-medium">Калібр</th>
-                <th className="px-1.5 py-2 text-left font-medium">Спец.</th>
-                <th className="px-1.5 py-2 text-right font-medium">Пал.</th>
-                <th className="px-1.5 py-2 text-right font-medium">Вага, кг</th>
-                <th className="px-1.5 py-2 text-right font-medium min-w-[92px]">Ціна</th>
-                <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => {
-                const capacitySource = vehicleContext?.loadedItems ?? items;
-                const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-                const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
-                return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
-              })}
-            </tbody>
-          </table>
+          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} addItem={addItem} />
         )}
       </div>
 
