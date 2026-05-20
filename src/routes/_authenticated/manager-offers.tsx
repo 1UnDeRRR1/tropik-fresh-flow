@@ -403,7 +403,11 @@ function ManagerOffersPage() {
         if (!inScope(r.branch_id)) continue;
         const requested = Number(r.requested_pallets ?? 0);
         const approved = r.approved_pallets;
-        const isPending = approved == null || Number(approved) !== requested;
+        // Yellow only while manager has not yet responded. Any approved value
+        // (including 0 / partial) counts as "responded" → white. The row goes
+        // yellow again only if the branch later edits requested_pallets, which
+        // resets approved_pallets back to null (see branch-offers submit).
+        const isPending = approved == null;
         items.push({
           offerId: o.id,
           offerStatus: o.status,
