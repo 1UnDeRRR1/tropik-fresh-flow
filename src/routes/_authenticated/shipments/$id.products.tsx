@@ -576,7 +576,7 @@ function ProductsFullscreen() {
         />
       )}
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto relative">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -585,7 +585,23 @@ function ProductsFullscreen() {
             </Button>
           </div>
         ) : (
-          <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} addItem={addItem} />
+          <>
+            <div className="overflow-x-auto">
+              <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
+            </div>
+            {currentShipmentEditable && (
+              <div className="sticky bottom-2 z-20 flex justify-center pointer-events-none pb-1 pt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={addItem}
+                  className="pointer-events-auto h-8 rounded-full border border-destructive/40 bg-destructive/10 px-3 text-[12px] font-semibold text-destructive shadow-sm hover:bg-destructive/20"
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Додати товар
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
