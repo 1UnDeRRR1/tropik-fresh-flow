@@ -16,8 +16,9 @@ import { COUNTRIES as FALLBACK_COUNTRIES, COUNTRY_DAYS, calcArrivalDate, toDateI
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import {
-  buildSupplierCode,
+  getSupplierAlias,
   fetchNextVehicleSequence,
+  fetchNextSupplierSequence,
   formatShipmentCode,
   formatVehicleCode,
   getCountryCode,
