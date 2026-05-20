@@ -221,6 +221,8 @@ function BranchOffersPage() {
           // pallets diff
           const reqQty = r ? Number(r.requested_pallets) : 0;
           const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
+          const cancelledSupply = o.status === "deleted";
+          const explicitlyRejected = !cancelledSupply && apprQty === 0;
           const palletDelta = apprQty != null ? apprQty - reqQty : 0;
           const linkedQty = r ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0) : 0;
           const pendingQty = apprQty != null ? Math.max(apprQty - linkedQty, 0) : 0;
@@ -254,7 +256,11 @@ function BranchOffersPage() {
                 {o.origin_country && (
                   <span className="text-sm text-muted-foreground">({o.origin_country})</span>
                 )}
-                {apprQty === 0 ? (
+                {cancelledSupply ? (
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
+                    Скасовано
+                  </span>
+                ) : explicitlyRejected ? (
                   <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
                     Відмовлено
                   </span>
