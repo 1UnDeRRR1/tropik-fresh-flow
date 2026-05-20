@@ -118,25 +118,42 @@ function ValidatedAutocomplete({
         )}
       />
       {focused && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-64 overflow-auto rounded-md border border-border bg-popover shadow-xl">
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              type="button"
-              // pointerdown + preventDefault: keeps the input focused on
-              // touch devices so the first tap commits the suggestion
-              // instead of just dismissing the dropdown.
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onChange(s);
-                setFocused(false);
-              }}
-              className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
-            >
-              {s}
-            </button>
-          ))}
+        <div
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-64 overflow-auto rounded-md border border-border bg-popover shadow-xl"
+          onMouseDown={(e) => e.preventDefault()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          {suggestions.map((s) => {
+            const select = () => {
+              onChange(s);
+              setFocused(false);
+            };
+            return (
+              <button
+                key={s}
+                type="button"
+                style={{ touchAction: "manipulation" }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  select();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  select();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  select();
+                }}
+                className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
+              >
+                {s}
+              </button>
+            );
+          })}
         </div>
       )}
       {isInvalid && (
@@ -1605,11 +1622,13 @@ function OfferItemEditor({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Митниця</span>
             <span>
-              {customsRef
+              {customsRef?.exact
                 ? "знайдено"
-                : productCanonical && countryCanonical
-                  ? <span className="font-bold text-warning">не знайдено</span>
-                  : "—"}
+                : customsRef
+                  ? <span className="font-bold text-warning">не знайдено (індикатив за аналогом)</span>
+                  : productCanonical && countryCanonical
+                    ? <span className="font-bold text-warning">не знайдено</span>
+                    : "—"}
             </span>
           </div>
           {calc && (

@@ -189,25 +189,29 @@ export function AutocompleteCell({
         )}
       />
       {focused && !readOnly && suggestions.length > 0 && (
-        <div className="absolute left-0 top-[calc(100%+2px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur">
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              type="button"
-              // Fire on pointerdown (before input blur on touch) and
-              // preventDefault to keep focus, so a single tap reliably
-              // commits the suggestion instead of dismissing the dropdown.
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                acceptingRef.current = true;
-                accept(s);
-              }}
-              className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
-            >
-              {s}
-            </button>
-          ))}
+        <div
+          className="absolute left-0 top-[calc(100%+2px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {suggestions.map((s) => {
+            const pick = () => {
+              acceptingRef.current = true;
+              accept(s);
+            };
+            return (
+              <button
+                key={s}
+                type="button"
+                style={{ touchAction: "manipulation" }}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); pick(); }}
+                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); pick(); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); pick(); }}
+                className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
+              >
+                {s}
+              </button>
+            );
+          })}
         </div>
       )}
     </>
