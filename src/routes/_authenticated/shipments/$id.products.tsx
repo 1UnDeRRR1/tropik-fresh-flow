@@ -696,8 +696,11 @@ function ProductsFullscreen() {
         <SharedVehicleSummary
           vehicleContext={vehicleContext}
           currentShipmentId={id}
+          customsStatus={customsStatus}
+          fallbackItems={fallbackItems}
         />
       )}
+
 
       <ProductsScrollArea
         itemsCount={items.length}
