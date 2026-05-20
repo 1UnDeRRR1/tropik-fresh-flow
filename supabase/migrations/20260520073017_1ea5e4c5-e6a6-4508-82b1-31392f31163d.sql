@@ -1,0 +1,20 @@
+TRUNCATE TABLE
+  public.shipment_item_changes,
+  public.shipment_items,
+  public.shipments,
+  public.cancelled_shipments_archive,
+  public.manager_offer_responses,
+  public.manager_offer_targets,
+  public.manager_offers,
+  public.branch_request_items,
+  public.branch_requests,
+  public.branch_transfer_offers,
+  public.transfer_request_items,
+  public.transfer_requests,
+  public.distribution_items,
+  public.distributions,
+  public.branch_distribution_baselines,
+  public.notifications,
+  public.system_logs,
+  public.trigger_logs
+RESTART IDENTITY CASCADE;
