@@ -430,11 +430,11 @@ function NewShipment() {
               return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
             }}
           >
-            <CommandInput placeholder="Пошук постачальника…" />
+            <CommandInput placeholder="Пошук постачальника…" value={supplierSearch} onValueChange={setSupplierSearch} />
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
               <CommandGroup>
-                {(suppliers ?? []).slice(0, supplierOpen ? undefined : undefined).map((s) => (
+                {filteredSuppliers.map((s) => (
                   <CommandItem
                     key={s.id}
                     keywords={[toUaCountry(s.country ?? "")]}
@@ -485,11 +485,11 @@ function NewShipment() {
               return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
             }}
           >
-            <CommandInput placeholder="Пошук країни…" />
+            <CommandInput placeholder="Пошук країни…" value={countrySearch} onValueChange={setCountrySearch} />
             <CommandList>
               <CommandEmpty>Не знайдено</CommandEmpty>
               <CommandGroup>
-                {(countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).map((c: string) => (
+                {filteredCountries.map((c: string) => (
                   <CommandItem
                     key={c}
                     value={c}
@@ -605,11 +605,11 @@ function NewShipment() {
               return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
             }}
           >
-            <CommandInput placeholder="Пошук авто…" />
+            <CommandInput placeholder="Пошук авто…" value={vehicleSearch} onValueChange={setVehicleSearch} />
             <CommandList>
               <CommandEmpty>Немає відкритих авто</CommandEmpty>
               <CommandGroup>
-                {(openVehicles ?? []).map((v) => {
+                {filteredVehicles.map((v) => {
                   const sups = (v.shipments ?? [])
                     .map((s) => s.suppliers?.name)
                     .filter(Boolean)
