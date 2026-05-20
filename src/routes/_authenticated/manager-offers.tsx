@@ -74,6 +74,10 @@ function ValidatedAutocomplete({
   const [focused, setFocused] = useState(false);
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
+  const normalizedOptions = useMemo(
+    () => Array.from(new Set(options.map((option) => option.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
+    [options],
+  );
   const canonical = resolveOption(trimmed, options, aliases);
   const isInvalid = trimmed.length > 0 && !canonical;
   const showRequired = required && trimmed.length === 0;
@@ -81,9 +85,9 @@ function ValidatedAutocomplete({
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
       ? aliases
-        ? suggestCountries(trimmed, options, aliases, 3)
+        ? suggestCountries(trimmed, normalizedOptions, aliases, 3)
         : Array.from(
-            new Set(options.filter((o) => o.toLowerCase().startsWith(lower))),
+            new Set(normalizedOptions.filter((o) => o.toLowerCase().startsWith(lower))),
           ).slice(0, 3)
       : [];
 
@@ -1050,13 +1054,18 @@ function OfferEditor({
   const { data: productOptions = [] } = useQuery({
     queryKey: ["products-active-names"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("name")
-        .eq("is_active", true)
-        .order("name");
-      if (error) throw error;
-      return (data ?? []).map((p) => p.name as string);
+      const [productsResult, varietiesResult] = await Promise.all([
+        supabase.from("products").select("name").eq("is_active", true).order("name"),
+        supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
+      ]);
+      if (productsResult.error) throw productsResult.error;
+      if (varietiesResult.error) throw varietiesResult.error;
+      return Array.from(
+        new Set([
+          ...(productsResult.data ?? []).map((p) => p.name as string),
+          ...(varietiesResult.data ?? []).map((row) => row.product_name_ua as string),
+        ].map((name) => name.trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b, "uk"));
     },
   });
 
