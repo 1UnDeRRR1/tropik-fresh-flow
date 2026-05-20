@@ -31,6 +31,8 @@ export type CustomsRefRow = {
   customs_fee_percent: number;
   euro1_percent: number;
   euro1_markup_usd: number;
+  product_name?: string;
+  country?: string;
   /** True only when an exact product+country row matched. Fallback (same
    * product, any country) sets this to false so the UI can still show
    * "не знайдено" while the calculation uses the highest indicative. */
@@ -55,7 +57,7 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
   if (country.trim()) {
     const { data } = await supabase
       .from("customs_reference")
-      .select("id,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
+      .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
       .eq("active", true)
       .ilike("product_name", name)
       .ilike("country", country.trim())
@@ -67,7 +69,7 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
   // 2) fallback: same product, any country — pick row with highest indicative
   const { data: fb } = await supabase
     .from("customs_reference")
-    .select("id,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
+    .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1,euro1_markup_usd".replace(",euro1,", ","))
     .eq("active", true)
     .ilike("product_name", name)
     .order("euro1_markup_usd", { ascending: false, nullsFirst: false })
