@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { COUNTRIES as FALLBACK_COUNTRIES } from "@/lib/arrival";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ export function LoadingPlanManager() {
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
   const countryOptions = useCountryOptions();
+  const countryAliases = useCountryAliases();
   const COUNTRIES = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
   const [form, setForm] = useState({
     product_name: "",
@@ -38,12 +40,18 @@ export function LoadingPlanManager() {
   const { data: products } = useQuery({
     queryKey: ["products", "active", "names"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("name")
-        .eq("is_active", true)
-        .order("name");
-      return (data ?? []).map((r) => r.name as string);
+      const [productsResult, varietiesResult] = await Promise.all([
+        supabase.from("products").select("name").eq("is_active", true).order("name"),
+        supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
+      ]);
+      if (productsResult.error) throw productsResult.error;
+      if (varietiesResult.error) throw varietiesResult.error;
+      return Array.from(
+        new Set([
+          ...(productsResult.data ?? []).map((r) => r.name as string),
+          ...(varietiesResult.data ?? []).map((r) => r.product_name_ua as string),
+        ].map((name) => name.trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b, "uk"));
     },
   });
 
@@ -182,6 +190,7 @@ export function LoadingPlanManager() {
                 value={form.country}
                 onChange={(v) => setForm({ ...form, country: v })}
                 options={COUNTRIES}
+                aliases={countryAliases}
                 placeholder="Країна (будь-яка)"
                 required={false}
                 className="!h-10 !text-sm !px-3 !border-input !bg-background"
