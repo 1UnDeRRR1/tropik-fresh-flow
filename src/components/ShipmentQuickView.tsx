@@ -84,6 +84,13 @@ export function ShipmentQuickView({
     navigate({ to: "/distribution/$shipmentId", params: { shipmentId } });
   };
 
+  const goEdit = () => {
+    setOpen(false);
+    setOpenItem(null);
+    navigate({ to: "/shipments/$id/products", params: { id: shipmentId } });
+  };
+
+
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={className}>
