@@ -160,7 +160,7 @@ function BranchDashboard() {
 
   // All manager-offer responses for this branch (any decision state).
   // approved_pallets IS NULL → "Чекаю підтвердження";
-  // approved_pallets = 0    → "Відмовлено";
+  // approved_pallets = 0    → "Відмовлено" (only explicit manager rejection);
   // approved_pallets > 0    → "В опрацюванні" (until linked to shipment).
   const { data: pendingOffers } = useQuery({
     queryKey: ["branch-all-mor", branchId],
@@ -406,8 +406,8 @@ function BranchDashboard() {
               let codeLabel: string;
               let note: string | null = null;
               if (o.status === "deleted") {
-                // Manager removed the whole offer — branch keeps a record marked cancelled.
-                pipeline = "rejected";
+                // Manager deleted the whole offer — both left badge and supply status must be cancelled.
+                pipeline = "cancelled";
                 codeLabel = "Скасовано";
               } else if (o.linked_shipment_id) {
                 // Once a shipment number is assigned, status is "Замовлено" for everyone.
