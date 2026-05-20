@@ -36,6 +36,8 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
 });
 
 import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
+import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 
 type ItemRow = {
   id: string;
@@ -1133,7 +1135,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         )}
       </td>
       <td data-col="1" className="relative px-0.5 py-0.5">
-        <CellInput value={form.variety} placeholder="—" onChange={(v) => set("variety", v)} expandedMinWidth={160} readOnly={readOnly} />
+        <VarietyCell value={form.variety} onChange={(v) => set("variety", v)} productName={form.product_name} readOnly={readOnly} />
       </td>
       <td data-col="2" className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
@@ -1292,6 +1294,23 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
         readOnly && "cursor-default",
         className,
       )}
+    />
+  );
+}
+
+function VarietyCell({ value, onChange, productName, readOnly }: { value: string; onChange: (v: string) => void; productName: string; readOnly: boolean }) {
+  const varieties = useVarietiesFor(productName);
+  return (
+    <VarietyAutocomplete
+      value={value}
+      onChange={onChange}
+      varieties={varieties}
+      placeholder="—"
+      inputClassName={cn(
+        "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
+        readOnly && "cursor-default",
+      )}
+      disabled={readOnly}
     />
   );
 }

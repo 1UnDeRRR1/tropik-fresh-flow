@@ -30,6 +30,8 @@ import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { computeOfferCost, fetchCustomsRef, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry, suggestCountries } from "@/lib/country-search";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
+import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 
 function resolveOption(
   value: string,
@@ -47,6 +49,11 @@ function resolveOption(
     return aliases[v];
   }
   return null;
+}
+
+function VarietyField({ value, productName, onChange }: { value: string; productName: string; onChange: (v: string) => void }) {
+  const varieties = useVarietiesFor(productName);
+  return <VarietyAutocomplete value={value} onChange={onChange} varieties={varieties} placeholder="Почніть вводити сорт" />;
 }
 
 function ValidatedAutocomplete({
@@ -1494,7 +1501,6 @@ function OfferItemEditor({
           ["caliber", "Калібр"],
           ["packaging", "Упаковка"],
           ["specification", "Специфікація"],
-          ["variety", "Сорт / асортимент"],
         ] as const
       ).map(([k, label]) => (
         <label key={k} className="block text-sm">
@@ -1502,6 +1508,14 @@ function OfferItemEditor({
           <Input value={form[k]} onChange={(e) => update({ [k]: e.target.value } as Partial<FormState>)} />
         </label>
       ))}
+      <label className="block text-sm">
+        <span className="mb-1 block text-muted-foreground">Сорт / асортимент</span>
+        <VarietyField
+          value={form.variety}
+          productName={form.product_name}
+          onChange={(v) => update({ variety: v })}
+        />
+      </label>
       <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
         <div className="text-xs font-semibold uppercase text-muted-foreground">
           Розрахунок собівартості (внутрішнє)

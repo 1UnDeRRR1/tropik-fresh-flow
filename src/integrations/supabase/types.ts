@@ -980,6 +980,36 @@ export type Database = {
         }
         Relationships: []
       }
+      product_varieties: {
+        Row: {
+          created_at: string
+          group_name: string | null
+          id: number
+          product_name_en: string | null
+          product_name_ua: string
+          variety: string
+          variety_normalized: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_name?: string | null
+          id?: number
+          product_name_en?: string | null
+          product_name_ua: string
+          variety: string
+          variety_normalized?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_name?: string | null
+          id?: number
+          product_name_en?: string | null
+          product_name_ua?: string
+          variety?: string
+          variety_normalized?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category: string | null
