@@ -1623,13 +1623,27 @@ function OfferItemEditor({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Митниця</span>
             <span>
-              {customsRef?.exact
-                ? "знайдено"
-                : customsRef
-                  ? <span className="font-bold text-warning">не знайдено (індикатив за аналогом)</span>
-                  : productCanonical && countryCanonical
-                    ? <span className="font-bold text-warning">не знайдено</span>
-                    : "—"}
+              {customsRef?.exact ? (
+                <CustomsInfoPopover
+                  ref={customsRef}
+                  calc={calc}
+                  country={countryCanonical}
+                  label="знайдено"
+                  labelClass="underline decoration-dotted underline-offset-2"
+                />
+              ) : customsRef ? (
+                <CustomsInfoPopover
+                  ref={customsRef}
+                  calc={calc}
+                  country={countryCanonical}
+                  label="не знайдено (індикатив за аналогом)"
+                  labelClass="font-bold text-warning underline decoration-dotted underline-offset-2"
+                />
+              ) : productCanonical && countryCanonical ? (
+                <span className="font-bold text-warning">не знайдено</span>
+              ) : (
+                "—"
+              )}
             </span>
           </div>
           {calc && (
