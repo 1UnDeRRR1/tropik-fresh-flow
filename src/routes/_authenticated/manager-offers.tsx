@@ -936,7 +936,29 @@ function ManagerOffersPage() {
                   )}
                   {o.status === "closed" && (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => setLinkOffer(o)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn(
+                          hasLinkable
+                            ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                            : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
+                        )}
+                        onClick={() => {
+                          if (hasLinkable) {
+                            setLinkOffer(o);
+                          } else {
+                            toast.message("Немає підходящої поставки", {
+                              description: "Створіть нову поставку — товар не знайдено в наявних незаповнених поставках.",
+                            });
+                          }
+                        }}
+                        title={
+                          hasLinkable
+                            ? "Є відповідна поставка з нерозподіленим товаром"
+                            : "Немає поставки з таким товаром, країною та калібром"
+                        }
+                      >
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
                       </Button>
                       <Link
