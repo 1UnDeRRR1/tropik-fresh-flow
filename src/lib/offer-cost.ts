@@ -31,6 +31,10 @@ export type CustomsRefRow = {
   customs_fee_percent: number;
   euro1_percent: number;
   euro1_markup_usd: number;
+  /** True only when an exact product+country row matched. Fallback (same
+   * product, any country) sets this to false so the UI can still show
+   * "не знайдено" while the calculation uses the highest indicative. */
+  exact?: boolean;
 };
 
 // Product aliases for customs lookup: treat key as if it were value
@@ -58,7 +62,7 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
       .order("threshold_price_usd", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (data) return data as CustomsRefRow;
+    if (data) return { ...(data as CustomsRefRow), exact: true };
   }
   // 2) fallback: same product, any country — pick row with highest indicative
   const { data: fb } = await supabase
@@ -70,7 +74,7 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
     .order("threshold_price_usd", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (fb as CustomsRefRow | null) ?? null;
+  return fb ? { ...(fb as CustomsRefRow), exact: false } : null;
 }
 
 export type OfferCostInput = {
