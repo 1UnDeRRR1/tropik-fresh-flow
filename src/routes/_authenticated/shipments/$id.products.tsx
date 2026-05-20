@@ -174,6 +174,11 @@ function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient
   qc.invalidateQueries({ queryKey: ["shipment-products"] });
 }
 
+const FocusedColContext = createContext<{ focused: number | null; setFocused: (i: number | null) => void }>({
+  focused: null,
+  setFocused: () => {},
+});
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
