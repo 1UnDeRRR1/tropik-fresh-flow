@@ -1245,6 +1245,7 @@ export type Database = {
           pipeline_status: Database["public"]["Enums"]["pipeline_status"]
           status: Database["public"]["Enums"]["shipment_status"]
           supplier_id: string | null
+          supplier_seq: number | null
           temperature_mode: string | null
           total_weight_kg: number | null
           tractor_plate: string | null
@@ -1299,6 +1300,7 @@ export type Database = {
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           status?: Database["public"]["Enums"]["shipment_status"]
           supplier_id?: string | null
+          supplier_seq?: number | null
           temperature_mode?: string | null
           total_weight_kg?: number | null
           tractor_plate?: string | null
@@ -1353,6 +1355,7 @@ export type Database = {
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           status?: Database["public"]["Enums"]["shipment_status"]
           supplier_id?: string | null
+          supplier_seq?: number | null
           temperature_mode?: string | null
           total_weight_kg?: number | null
           tractor_plate?: string | null
@@ -1388,6 +1391,7 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          alias: string | null
           code_base: string | null
           contact: string | null
           country: string | null
@@ -1403,6 +1407,7 @@ export type Database = {
           rating: number | null
         }
         Insert: {
+          alias?: string | null
           code_base?: string | null
           contact?: string | null
           country?: string | null
@@ -1418,6 +1423,7 @@ export type Database = {
           rating?: number | null
         }
         Update: {
+          alias?: string | null
           code_base?: string | null
           contact?: string | null
           country?: string | null
@@ -1930,6 +1936,10 @@ export type Database = {
         }[]
       }
       next_calendar_username_seq: { Args: { _prefix: string }; Returns: number }
+      next_supplier_sequence: {
+        Args: { p_supplier_id: string }
+        Returns: number
+      }
       next_vehicle_sequence: {
         Args: { p_country_code: string }
         Returns: number
