@@ -73,10 +73,10 @@ function ValidatedAutocomplete({
   const suggestions =
     trimmed.length >= 2 && (!canonical || canonical.toLowerCase() !== lower)
       ? aliases
-        ? suggestCountries(trimmed, options, aliases, 8)
+        ? suggestCountries(trimmed, options, aliases, 3)
         : Array.from(
-            new Set(options.filter((o) => o.toLowerCase().includes(lower))),
-          ).slice(0, 8)
+            new Set(options.filter((o) => o.toLowerCase().startsWith(lower))),
+          ).slice(0, 3)
       : [];
 
   return (
