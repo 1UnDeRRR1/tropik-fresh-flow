@@ -34,16 +34,32 @@ export type CustomsRefRow = {
 };
 
 export async function fetchCustomsRef(productName: string, country: string): Promise<CustomsRefRow | null> {
-  const { data } = await supabase
+  const name = productName.trim();
+  if (!name) return null;
+  // 1) exact product + country match
+  if (country.trim()) {
+    const { data } = await supabase
+      .from("customs_reference")
+      .select("id,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
+      .eq("active", true)
+      .ilike("product_name", name)
+      .ilike("country", country.trim())
+      .order("threshold_price_usd", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) return data as CustomsRefRow;
+  }
+  // 2) fallback: same product, any country — pick row with highest indicative
+  const { data: fb } = await supabase
     .from("customs_reference")
-    .select("id,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd,product_name,country,active")
+    .select("id,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
     .eq("active", true)
-    .ilike("product_name", productName.trim())
-    .ilike("country", country.trim())
+    .ilike("product_name", name)
+    .order("euro1_markup_usd", { ascending: false, nullsFirst: false })
     .order("threshold_price_usd", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (data as CustomsRefRow | null) ?? null;
+  return (fb as CustomsRefRow | null) ?? null;
 }
 
 export type OfferCostInput = {
