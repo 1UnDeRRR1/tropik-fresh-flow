@@ -183,6 +183,40 @@ const FocusedColContext = createContext<{ focused: number | null; setFocused: (i
   setFocused: () => {},
 });
 
+function ProductsScrollArea({
+  itemsCount,
+  empty,
+  emptyContent,
+  children,
+}: {
+  itemsCount: number;
+  empty: boolean;
+  emptyContent: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const prevCount = useRef(itemsCount);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // When a new row is added, scroll the container so the new row and the
+    // "Додати товар" button stay in view. Older rows naturally scroll up under
+    // the sticky <thead>.
+    if (itemsCount > prevCount.current) {
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      });
+    }
+    prevCount.current = itemsCount;
+  }, [itemsCount]);
+  return (
+    <div ref={ref} className="flex-1 overflow-y-auto relative">
+      {empty ? emptyContent : children}
+    </div>
+  );
+}
+
+
 function ProductsFullscreen() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
