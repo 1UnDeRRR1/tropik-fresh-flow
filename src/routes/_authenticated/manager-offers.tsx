@@ -832,6 +832,9 @@ function ManagerOffersPage() {
                           {[...activeResponses, ...excludedResponses].map((r) => {
                             const excluded = !inScope(r.branch_id);
                             const rejected = r.approved_pallets === 0;
+                            const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
+                            const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
+                            const pendingP = o.status === "linked" ? Math.max(apprP - linkedP, 0) : 0;
                             return (
                               <tr
                                 key={r.id}
@@ -870,6 +873,16 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
+                                    {pendingP > 0 && (
+                                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                        у поставці: {linkedP}
+                                      </span>
+                                    )}
+                                    {pendingP > 0 && (
+                                      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                                        чекає: {pendingP}
+                                      </span>
+                                    )}
                                     {!rejected && (
                                       <Button
                                         size="sm"
