@@ -272,6 +272,7 @@ export function LoadingPlanManager() {
                     >
                       <div className="text-sm font-semibold underline-offset-2 hover:underline">
                         {p.product_name}
+                        {p.variety ? ` · ${p.variety}` : ""}
                         {p.caliber ? ` ${p.caliber}` : ""}
                       </div>
                       <div className="text-xs text-muted-foreground">
