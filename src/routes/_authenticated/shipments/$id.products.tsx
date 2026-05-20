@@ -1073,7 +1073,10 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     if (readOnly) return;
     if (!dirtyRef.current) return;
     const t = setTimeout(async () => {
-      const trimmedProductName = canonicalizeProductName(form.product_name);
+      const resolvedName =
+        resolveProductOption(form.product_name, products.map((p) => p.name)) ??
+        canonicalizeProductName(form.product_name);
+      const trimmedProductName = resolvedName;
       if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
         return;
       }
