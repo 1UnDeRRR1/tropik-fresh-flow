@@ -33,7 +33,7 @@ import { Check } from "lucide-react";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { ShipmentQuickView } from "@/components/ShipmentQuickView";
 import { SortByMenu, type SortKey } from "@/components/SortByMenu";
-import { PIPELINE_ORDER, type PipelineStatus as PStat } from "@/lib/pipeline-status";
+import { PIPELINE_ORDER } from "@/lib/pipeline-status";
 
 export const Route = createFileRoute("/_authenticated/shipments/")({
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
