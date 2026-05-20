@@ -24,7 +24,7 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
-import { canonicalizeProductName, normalizeProductKey } from "@/lib/product-aliases";
+import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 
 
 import { StaffOnly } from "@/components/StaffOnly";
