@@ -485,6 +485,7 @@ function ProductsFullscreen() {
     (vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost) ?? 0,
   );
   const transportMissing = canEditTransport && transportCostValue <= 0;
+  const canSaveForLater = !!fromOfferId && hasRealPallets && incompleteCount === 0;
 
   const [shake, setShake] = useState(false);
   const [flashTransport, setFlashTransport] = useState(false);
@@ -754,7 +755,7 @@ function ProductsFullscreen() {
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          if (incompleteCount > 0 || !hasRealPallets || transportMissing) {
+          if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
             e.preventDefault();
             triggerShake(transportMissing);
             return;
@@ -765,16 +766,20 @@ function ProductsFullscreen() {
           <Button
             className={cn(
               "w-full",
-              (incompleteCount > 0 || transportMissing)
+              (incompleteCount > 0 || (transportMissing && !canSaveForLater))
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
             {transportMissing
-              ? "Вкажіть вартість перевезення"
+              ? canSaveForLater
+                ? "Зберегти зараз, перевезення додасте пізніше"
+                : "Вкажіть вартість перевезення"
               : incompleteCount > 0
                 ? `Заповніть обов'язкові поля (${incompleteCount})`
-                : "Готово"}
+                : canSaveForLater
+                  ? "Зберегти та вийти"
+                  : "Готово"}
           </Button>
         </Link>
       </footer>

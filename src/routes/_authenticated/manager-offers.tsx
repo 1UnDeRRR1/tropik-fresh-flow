@@ -372,14 +372,30 @@ function ManagerOffersPage() {
     }));
   }, [offers, responses, targets, branchById]);
 
+  const getPendingLinked = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
+    const totalApproved = activeResponses.reduce(
+      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+      0,
+    );
+    const totalLinked = activeResponses.reduce(
+      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
+      0,
+    );
+    return Math.max(totalApproved - totalLinked, 0);
+  };
+
   const filtered = useMemo(() => {
     if (tab === "all") return merged;
     if (tab === "drafts") return merged.filter((o) => o.status === "draft");
     if (tab === "active")
       return merged.filter((o) =>
-        ["active", "in_work", "confirmed", "closed"].includes(o.status),
+        ["active", "in_work", "confirmed", "closed"].includes(o.status)
+        || (o.status === "linked" && getPendingLinked(o) > 0),
       );
-    if (tab === "linked") return merged.filter((o) => o.status === "linked");
+    if (tab === "linked") return merged.filter((o) => o.status === "linked" && getPendingLinked(o) === 0);
     if (tab === "archive")
       return merged.filter((o) => o.status === "expired");
     return merged;
