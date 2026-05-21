@@ -2177,12 +2177,12 @@ function LinkShipmentDialog({
     if (c.match === "caliber_mismatch") {
       const ok = window.confirm(
         `Калібр у поставці (${c.shipmentCaliber ?? "—"}) відрізняється від очікуваного (${offer?.caliber ?? "—"}). ` +
-          `Товар буде підтягнуто з калібром поставки. Продовжити?`,
+          `Товар буде додано в поставку з калібром поставки. Продовжити?`,
       );
       if (!ok) return;
       toast.info(`Калібр змінено: ${offer?.caliber ?? "—"} → ${c.shipmentCaliber ?? "—"}`);
     }
-    link.mutate(c.id);
+    link.mutate({ shipmentItemId: c.shipmentItemId, allowMismatch: c.match === "caliber_mismatch" });
   };
 
   return (
