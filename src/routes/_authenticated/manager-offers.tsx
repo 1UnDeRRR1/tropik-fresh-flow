@@ -1094,13 +1094,10 @@ function ManagerOffersPage() {
         }}
       />
 
-      <LinkShipmentDialog
+      <PullToShipmentDialog
         offer={linkOffer}
         onClose={() => setLinkOffer(null)}
-        onLinked={() => {
-          setLinkOffer(null);
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
-        }}
+        onLinked={() => setLinkOffer(null)}
       />
 
       <PublishOfferDialog
