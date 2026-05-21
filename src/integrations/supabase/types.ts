@@ -758,6 +758,64 @@ export type Database = {
           },
         ]
       }
+      manager_offer_shipment_links: {
+        Row: {
+          allow_caliber_mismatch: boolean
+          created_at: string
+          created_by: string | null
+          final_caliber: string | null
+          id: string
+          offer_id: string
+          original_caliber: string | null
+          pallets: number
+          shipment_item_id: string
+        }
+        Insert: {
+          allow_caliber_mismatch?: boolean
+          created_at?: string
+          created_by?: string | null
+          final_caliber?: string | null
+          id?: string
+          offer_id: string
+          original_caliber?: string | null
+          pallets: number
+          shipment_item_id: string
+        }
+        Update: {
+          allow_caliber_mismatch?: boolean
+          created_at?: string
+          created_by?: string | null
+          final_caliber?: string | null
+          id?: string
+          offer_id?: string
+          original_caliber?: string | null
+          pallets?: number
+          shipment_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_offer_shipment_links_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_offer_shipment_links_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_offer_shipment_links_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items_branch"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_offer_targets: {
         Row: {
           branch_id: string
@@ -1944,6 +2002,20 @@ export type Database = {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
+      link_manager_offer_to_shipment_item: {
+        Args: {
+          p_allow_caliber_mismatch?: boolean
+          p_offer_id: string
+          p_pallets: number
+          p_shipment_item_id: string
+        }
+        Returns: {
+          link_id: string
+          remaining_to_load: number
+          shipment_id: string
+          shipment_item_id: string
+        }[]
+      }
       loading_plan_items: {
         Args: { _plan_id: string }
         Returns: {
@@ -2023,6 +2095,12 @@ export type Database = {
           shipment_code: string
           shipment_id: string
           status: string
+        }[]
+      }
+      unlink_manager_offer_from_shipment_item: {
+        Args: { p_offer_id: string; p_shipment_item_id: string }
+        Returns: {
+          remaining_to_load: number
         }[]
       }
       user_branch_id: { Args: { _user_id: string }; Returns: string }
