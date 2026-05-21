@@ -1952,8 +1952,10 @@ function OfferItemEditor({
   );
 }
 
+const VEHICLE_MAX_PALLETS_LINK = 26;
+
 function LinkShipmentDialog({
-  offer,
+  offer: initialOffer,
   onClose,
   onLinked,
 }: {
@@ -1961,13 +1963,10 @@ function LinkShipmentDialog({
   onClose: () => void;
   onLinked: () => void;
 }) {
-  const [showAll, setShowAll] = useState(false);
-
-  useEffect(() => {
-    if (offer) setShowAll(false);
-  }, [offer?.id]);
-
+  const qc = useQueryClient();
   const { user } = useAuth();
+  const offerId = initialOffer?.id ?? null;
+
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
     enabled: !!user,
@@ -1977,14 +1976,63 @@ function LinkShipmentDialog({
       return data ?? null;
     },
   });
+
+  // Live offer data so pending pallets refresh after each link.
+  const { data: liveOffer } = useQuery({
+    queryKey: ["link-dialog-offer", offerId],
+    enabled: !!offerId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offers")
+        .select("*, manager_offer_responses(*), manager_offer_targets(branch_id)")
+        .eq("id", offerId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const responses = (data.manager_offer_responses ?? []) as ManagerOfferResponse[];
+      const targetBranchIds = ((data.manager_offer_targets ?? []) as { branch_id: string }[])
+        .map((t) => t.branch_id);
+      return { ...data, responses, targetBranchIds } as OfferWithResponses;
+    },
+  });
+
+  const offer = liveOffer ?? initialOffer;
+
+  const pendingLinked = useMemo(() => {
+    if (!offer) return 0;
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    const active = offer.responses.filter((r) => inScope(r.branch_id));
+    const totalApproved = active.reduce(
+      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+      0,
+    );
+    const totalLinked = active.reduce(
+      (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
+      0,
+    );
+    return Math.max(totalApproved - totalLinked, 0);
+  }, [offer]);
+
+  // Auto-close when nothing left to load.
+  useEffect(() => {
+    if (offerId && liveOffer && pendingLinked === 0) {
+      onLinked();
+    }
+  }, [offerId, liveOffer, pendingLinked, onLinked]);
+
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  const target = offer ? norm(offer.product_name) : "";
+  const targetCountry = offer ? norm(offer.origin_country) : "";
+  const targetCaliber = offer ? norm(offer.caliber) : "";
+
   const { data: shipments } = useQuery({
-    queryKey: ["shipments-link-options", offer?.id, user?.id, currentManagerId],
+    queryKey: ["shipments-link-options", offerId, user?.id, currentManagerId],
     enabled: !!offer && !!user,
     queryFn: async () => {
-      // Only this manager's own shipments
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,country,eta,created_by,import_manager_id,shipment_items(product_name,origin_country)")
+        .select("id,code,country,eta,created_by,import_manager_id,shipment_items(product_name,origin_country,caliber,pallet_count)")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -1995,48 +2043,69 @@ function LinkShipmentDialog({
         eta: string | null;
         created_by?: string | null;
         import_manager_id?: string | null;
-        shipment_items: { product_name: string; origin_country: string | null }[] | null;
+        shipment_items:
+          | { product_name: string; origin_country: string | null; caliber: string | null; pallet_count: number | null }[]
+          | null;
       }>;
-      return all.filter((shipment) =>
-        shipment.created_by === user!.id || (!!currentManagerId && shipment.import_manager_id === currentManagerId),
+      return all.filter((s) =>
+        s.created_by === user!.id || (!!currentManagerId && s.import_manager_id === currentManagerId),
       );
     },
   });
 
-  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-  const target = offer ? norm(offer.product_name) : "";
-  const targetCountry = offer ? norm(offer.origin_country) : "";
-  const offerTotals = useMemo(() => {
-    if (!offer) return { totalApproved: 0, totalLinked: 0, pendingLinked: 0 };
-    const inScope = (branchId: string) =>
-      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
-    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
-    const totalApproved = activeResponses.reduce(
-      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
-      0,
-    );
-    const totalLinked = activeResponses.reduce(
-      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-      0,
-    );
-    return {
-      totalApproved,
-      totalLinked,
-      pendingLinked: Math.max(totalApproved - totalLinked, 0),
-    };
-  }, [offer]);
-  const itemMatches = (i: { product_name: string; origin_country: string | null }) =>
-    norm(i.product_name) === target &&
-    (!targetCountry || norm(i.origin_country) === targetCountry);
-  const matching = useMemo(
-    () =>
-      (shipments ?? []).filter((s) =>
-        (s.shipment_items ?? []).some(itemMatches),
-      ),
-    [shipments, target, targetCountry],
-  );
+  type Card = {
+    id: string;
+    code: string;
+    country: string | null;
+    eta: string | null;
+    freeP: number;
+    match: "exact" | "caliber_mismatch";
+    shipmentCaliber: string | null;
+  };
 
-  const list = showAll ? (shipments ?? []) : matching;
+  const cards: Card[] = useMemo(() => {
+    if (!offer || !shipments) return [];
+    const out: Card[] = [];
+    for (const s of shipments) {
+      const items = s.shipment_items ?? [];
+      // Find items that match product + country.
+      const productCountryItems = items.filter(
+        (i) => norm(i.product_name) === target && norm(i.origin_country) === targetCountry,
+      );
+      if (productCountryItems.length === 0) continue;
+
+      const loadedP = items.reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
+      const freeP = Math.max(0, VEHICLE_MAX_PALLETS_LINK - loadedP);
+
+      const exact = targetCaliber
+        ? productCountryItems.find((i) => norm(i.caliber) === targetCaliber)
+        : productCountryItems[0];
+      if (exact) {
+        out.push({
+          id: s.id,
+          code: s.code,
+          country: s.country,
+          eta: s.eta,
+          freeP,
+          match: "exact",
+          shipmentCaliber: exact.caliber ?? null,
+        });
+        continue;
+      }
+      // Caliber mismatch: pick the first product+country item (its caliber wins).
+      const mismatch = productCountryItems[0];
+      out.push({
+        id: s.id,
+        code: s.code,
+        country: s.country,
+        eta: s.eta,
+        freeP,
+        match: "caliber_mismatch",
+        shipmentCaliber: mismatch.caliber ?? null,
+      });
+    }
+    return out;
+  }, [offer, shipments, target, targetCountry, targetCaliber]);
 
   const link = useMutation({
     mutationFn: async (shipmentId: string) => {
@@ -2048,142 +2117,116 @@ function LinkShipmentDialog({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Прив'язано. Розподіл створено автоматично.");
-      onLinked();
+      toast.success("Підтягнуто в поставку");
+      qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const handlePick = (c: Card) => {
+    if (link.isPending) return;
+    if (c.freeP <= 0) {
+      toast.error("У поставці немає вільних палет");
+      return;
+    }
+    if (c.match === "caliber_mismatch") {
+      const ok = window.confirm(
+        `Калібр у поставці (${c.shipmentCaliber ?? "—"}) відрізняється від очікуваного (${offer?.caliber ?? "—"}). ` +
+          `Товар буде підтягнуто з калібром поставки. Продовжити?`,
+      );
+      if (!ok) return;
+      toast.info(`Калібр змінено: ${offer?.caliber ?? "—"} → ${c.shipmentCaliber ?? "—"}`);
+    }
+    link.mutate(c.id);
+  };
+
   return (
-    <Sheet open={!!offer} onOpenChange={(v) => !v && onClose()}>
+    <Sheet open={!!initialOffer} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Прив'язати до поставки</SheetTitle>
+          <SheetTitle>Підтягнути до поставки</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-3">
           {offer && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs space-y-1.5">
-              <div>
-                <div className="text-muted-foreground">Товар пропозиції</div>
-                <div className="font-semibold text-sm">{offer.product_name}</div>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-1">
+              <div className="font-semibold">{offer.product_name}</div>
+              <div className="text-xs text-muted-foreground">
+                {offer.origin_country ?? "—"}
+                {offer.caliber ? ` · калібр ${offer.caliber}` : ""}
               </div>
-              {(() => {
-                const rows: Array<[string, string | null | undefined]> = [
-                  ["Країна", offer.origin_country],
-                  ["Сорт", offer.variety],
-                  ["Калібр", offer.caliber],
-                  ["Пакування", offer.packaging],
-                  ["Специфікація", offer.specification],
-                ];
-                const visible = rows.filter(([, v]) => v && String(v).trim());
-                if (!visible.length) return null;
-                return (
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 pt-1 border-t border-primary/15">
-                    {visible.map(([k, v]) => (
-                      <div key={k} className="contents">
-                        <dt className="text-muted-foreground">{k}</dt>
-                        <dd className="font-medium text-foreground">{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                );
-              })()}
+              <div className="pt-1 text-sm">
+                Залишилось завантажити: <b>{pendingLinked}п</b>
+              </div>
             </div>
           )}
-          {offerTotals.pendingLinked > 0 && (
-            <div className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs text-warning space-y-2">
-              <div className="space-y-1">
-                <div>
-                  До завантаження <b>{offerTotals.totalApproved}п</b>, у поточну поставку вже помістилось <b>{offerTotals.totalLinked}п</b>.
-                </div>
-                <div>
-                  Для решти <b>{offerTotals.pendingLinked}п</b> можна створити нову поставку зараз або зробити це пізніше.
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
-                onClick={onClose}
-              >
-                Створю пізніше
-              </Button>
-            </div>
-          )}
-          <Link to="/shipments/new" onClick={() => onClose()} className="block">
-            <Button size="sm" className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова поставка
-            </Button>
-          </Link>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              {showAll
-                ? "Показано всі поставки."
-                : "Показано лише поставки з цим товаром."}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => setShowAll((v) => !v)}
-            >
-              {showAll ? "Тільки з товаром" : "Показати всі"}
-            </Button>
-          </div>
 
-          {list.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              {showAll
-                ? "Немає поставок."
-                : `Немає поставок з товаром «${offer?.product_name ?? ""}». Натисніть «Показати всі», щоб побачити решту.`}
+          {cards.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+              Немає поставок з відповідним товаром.
             </div>
           ) : (
-            list.map((s) => {
-              const items = s.shipment_items ?? [];
-              const has = items.some(itemMatches);
-              const productOnly =
-                !has && items.some((i) => norm(i.product_name) === target);
-              const uniqueProducts = Array.from(
-                new Set(items.map((i) => i.product_name)),
-              );
+            cards.map((c) => {
+              const disabled = c.freeP <= 0 || link.isPending || pendingLinked <= 0;
+              const isExact = c.match === "exact";
               return (
                 <button
-                  key={s.id}
-                  onClick={() => link.mutate(s.id)}
-                  disabled={!has}
+                  key={c.id}
+                  type="button"
+                  onClick={() => handlePick(c)}
+                  disabled={disabled}
                   className={cn(
                     "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition",
-                    has
+                    isExact
                       ? "border-success/50 bg-success/5 hover:bg-success/10"
-                      : productOnly
-                        ? "border-warning/40 bg-warning/5 opacity-70 cursor-not-allowed"
-                        : "border-border opacity-70 cursor-not-allowed",
+                      : "border-warning/50 bg-warning/5 hover:bg-warning/10",
+                    disabled && "opacity-60 cursor-not-allowed",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="font-semibold">{s.code}</div>
-                    {has ? (
-                      <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
-                        є товар
-                      </span>
-                    ) : productOnly ? (
-                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
-                        інша країна
-                      </span>
-                    ) : null}
+                    <div className="font-semibold">{c.code}</div>
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                        isExact ? "bg-success/15 text-success" : "bg-warning/20 text-warning",
+                      )}
+                    >
+                      {isExact ? "є товар" : "інший калібр"}
+                    </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {s.country ?? "—"} · ETA {s.eta ?? "—"}
+                    {c.country ?? "—"} · ETA {c.eta ?? "—"}
                   </div>
-                  {uniqueProducts.length > 0 && (
-                    <div className="text-[11px] text-muted-foreground line-clamp-2">
-                      {uniqueProducts.join(", ")}
+                  {!isExact && (
+                    <div className="text-xs text-warning">
+                      Не збігається калібр. Потрібно: <b>{offer?.caliber ?? "—"}</b>,
+                      у поставці: <b>{c.shipmentCaliber ?? "—"}</b>
                     </div>
                   )}
+                  <div className="text-xs font-medium text-foreground">
+                    Вільних палет: <b>{c.freeP}п</b>
+                  </div>
                 </button>
               );
             })
           )}
+
+          <div className="flex flex-col gap-2 pt-2">
+            <Link
+              to="/shipments/new"
+              search={offerId ? { fromOffer: offerId } : {}}
+              onClick={() => onClose()}
+              className="block"
+            >
+              <Button size="sm" className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
+                <Plus className="mr-1 h-4 w-4" /> Нова поставка
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" className="w-full" onClick={onClose}>
+              Створю пізніше
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
