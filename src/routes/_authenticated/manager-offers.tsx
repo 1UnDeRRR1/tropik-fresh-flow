@@ -704,17 +704,11 @@ function ManagerOffersPage() {
                     const inScope = (branchId: string) =>
                       o.target_mode === "all" || o.targetBranchIds.includes(branchId);
                     const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
+                    // Tropik rule: total = SUM(approved>0). Excludes refusals and pending.
                     const totalApproved = activeResponses.reduce(
-                      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+                      (s, r) => s + Math.max(Number(r.approved_pallets ?? 0), 0),
                       0,
                     );
-                    const totalLinked = activeResponses.reduce(
-                      (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-                      0,
-                    );
-                    const pendingLinked = o.status === "linked"
-                      ? Math.max(totalApproved - totalLinked, 0)
-                      : 0;
                     const hasPending = o.responses.some((r) => r.approved_pallets == null);
                     const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
                     const realEta = ship?.arrived_at ?? ship?.eta ?? null;
@@ -753,32 +747,16 @@ function ManagerOffersPage() {
                           {o.offered_pallets != null
                             ? `${totalApproved}/${o.offered_pallets}`
                             : totalApproved}
-                          {pendingLinked > 0 && (
-                            <span className="ml-1 text-[10px] font-semibold text-warning">
-                              (+{pendingLinked} очік.)
-                            </span>
-                          )}
                         </td>
                         <td className="px-3 py-2">
-                          {pendingLinked > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
-                                Замовлено · {totalLinked}
-                              </span>
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                                Підтв. · {pendingLinked}
-                              </span>
-                            </div>
-                          ) : (
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                                STATUS_CLASS[o.status],
-                              )}
-                            >
-                              {STATUS_LABEL[o.status]}
-                            </span>
-                          )}
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                              STATUS_CLASS[o.status],
+                            )}
+                          >
+                            {STATUS_LABEL[o.status]}
+                          </span>
                         </td>
                       </tr>
                     );
