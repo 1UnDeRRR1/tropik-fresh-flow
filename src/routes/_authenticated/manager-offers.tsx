@@ -372,19 +372,22 @@ function ManagerOffersPage() {
     }));
   }, [offers, responses, targets, branchById]);
 
+  // Tropik Safe Development Rules:
+  //   remaining_to_load = SUM(approved_pallets WHERE approved_pallets > 0) − SUM(linked_pallets)
+  // approved_pallets = 0 → refusal, excluded. approved_pallets IS NULL → not yet responded, excluded.
   const getPendingLinked = (offer: OfferWithResponses) => {
     const inScope = (branchId: string) =>
       offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
-    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
-    const totalApproved = activeResponses.reduce(
-      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
-      0,
-    );
-    const totalLinked = activeResponses.reduce(
-      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-      0,
-    );
-    return Math.max(totalApproved - totalLinked, 0);
+    let approved = 0;
+    let linked = 0;
+    for (const r of offer.responses) {
+      if (!inScope(r.branch_id)) continue;
+      const a = Number(r.approved_pallets ?? 0);
+      const l = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
+      if (a > 0) approved += a;
+      linked += l;
+    }
+    return Math.max(approved - linked, 0);
   };
 
   const filtered = useMemo(() => {
