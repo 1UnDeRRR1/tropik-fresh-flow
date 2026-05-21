@@ -2215,7 +2215,7 @@ function LinkShipmentDialog({
               const isExact = c.match === "exact";
               return (
                 <button
-                  key={c.id}
+                  key={c.shipmentItemId}
                   type="button"
                   onClick={() => handlePick(c)}
                   disabled={disabled}
