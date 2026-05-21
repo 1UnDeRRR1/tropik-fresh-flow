@@ -1432,6 +1432,12 @@ function OfferEditor({
       }
 
       const createdIds: string[] = [];
+      if (currentManagerIdLoading) {
+        throw new Error("Зачекайте, визначається імпорт-менеджер");
+      }
+      if (!currentManagerId) {
+        throw new Error("Не вдалось визначити імпорт-менеджера для пропозиції");
+      }
       try {
         for (const it of items) {
           const payload = it.payload!;
@@ -1441,6 +1447,7 @@ function OfferEditor({
             .insert({
               ...(payload as any),
               created_by: user.id,
+              import_manager_id: currentManagerId,
               status: initialStatus,
               target_mode: mode,
             } as any)
