@@ -2066,6 +2066,7 @@ function LinkShipmentDialog({
 
   type Card = {
     id: string;
+    shipmentItemId: string;
     code: string;
     country: string | null;
     eta: string | null;
