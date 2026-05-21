@@ -1315,6 +1315,16 @@ function OfferEditor({
     },
   });
 
+  const { data: currentManagerId, isLoading: currentManagerIdLoading } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+  });
+
   const { data: fxRow } = useQuery({
     queryKey: ["latest-eur-usd-rate"],
     queryFn: () => getLatestEurUsdRate(),
