@@ -35,6 +35,13 @@ const ACCOUNTS: PreviewAccount[] = [
     hint: "Pilot Менеджер 1",
   },
   {
+    key: "manager2",
+    label: "Менеджер ЗЕД",
+    email: "manager2@tropik.ua",
+    password: "TestManager2!2026",
+    hint: "Pilot Менеджер 2",
+  },
+  {
     key: "branch_shu",
     label: "Філія · Шувар",
     email: "pilot.branch1@tropik.test",
