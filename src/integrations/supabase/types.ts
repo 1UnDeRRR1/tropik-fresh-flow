@@ -2111,6 +2111,64 @@ export type Database = {
           shipment_item_id: string
         }[]
       }
+      link_offer_to_shipment_item_fifo: {
+        Args: {
+          p_allow_caliber_mismatch?: boolean
+          p_max_pallets?: number
+          p_notes?: string
+          p_offer_id: string
+          p_shipment_item_id: string
+        }
+        Returns: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          offer_id: string
+          pallets: number
+          response_id: string
+          shipment_id: string | null
+          shipment_item_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "manager_offer_allocation_parts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      link_response_to_shipment_item: {
+        Args: {
+          p_allow_caliber_mismatch?: boolean
+          p_notes?: string
+          p_pallets: number
+          p_response_id: string
+          p_shipment_item_id: string
+        }
+        Returns: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          offer_id: string
+          pallets: number
+          response_id: string
+          shipment_id: string | null
+          shipment_item_id: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_offer_allocation_parts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       loading_plan_items: {
         Args: { _plan_id: string }
         Returns: {
