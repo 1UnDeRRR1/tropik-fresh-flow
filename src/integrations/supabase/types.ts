@@ -714,6 +714,101 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_offer_allocation_parts: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          offer_id: string
+          pallets: number
+          response_id: string
+          shipment_id: string | null
+          shipment_item_id: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          offer_id: string
+          pallets: number
+          response_id: string
+          shipment_id?: string | null
+          shipment_item_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          offer_id?: string
+          pallets?: number
+          response_id?: string
+          shipment_id?: string | null
+          shipment_item_id?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moap_branch_fk"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moap_offer_fk"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moap_response_fk"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offer_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moap_shipment_fk"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moap_shipment_fk"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moap_shipment_item_fk"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moap_shipment_item_fk"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items_branch"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_offer_responses: {
         Row: {
           approved_pallets: number | null
