@@ -2137,21 +2137,35 @@ function LinkShipmentDialog({
   }, [offer, shipments, target, targetCountry, targetCaliber]);
 
   const link = useMutation({
-    mutationFn: async (shipmentId: string) => {
+    mutationFn: async (vars: { shipmentItemId: string; allowMismatch: boolean }) => {
       if (!offer) return;
-      const { error } = await supabase
-        .from("manager_offers")
-        .update({ status: "linked", linked_shipment_id: shipmentId })
-        .eq("id", offer.id);
+      const { error } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
+        p_offer_id: offer.id,
+        p_shipment_item_id: vars.shipmentItemId,
+        p_max_pallets: null,
+        p_allow_caliber_mismatch: vars.allowMismatch,
+        p_notes: null,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Підтягнуто в поставку");
+      toast.success("Товар додано в поставку");
       qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (err: any) => {
+      const msg = err?.message ?? "";
+      if (msg.includes("OVER_CAPACITY")) toast.error("Перевищено місткість палет у позиції поставки");
+      else if (msg.includes("OVER_REMAINING")) toast.error("Перевищено залишок для підтвердження");
+      else if (msg.includes("PRODUCT_MISMATCH")) toast.error("Товар не відповідає позиції поставки");
+      else if (msg.includes("COUNTRY_MISMATCH")) toast.error("Країна не відповідає позиції поставки");
+      else if (msg.includes("CALIBER_MISMATCH")) toast.error("Калібр не відповідає позиції поставки");
+      else if (msg.includes("LEGACY_LINK_EXISTS")) toast.error("Ця пропозиція має стару прив'язку. Потрібна технічна перевірка.");
+      else if (msg.includes("NOTHING_TO_ALLOCATE")) toast.error("Немає підтвердженого об'єму для додавання");
+      else if (msg.includes("FORBIDDEN")) toast.error("Недостатньо прав");
+      else toast.error("Не вдалося додати в поставку");
+    },
   });
 
   const handlePick = (c: Card) => {
