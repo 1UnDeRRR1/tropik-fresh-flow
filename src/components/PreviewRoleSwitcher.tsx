@@ -99,7 +99,9 @@ export function PreviewRoleSwitcher() {
       // Resolve role from key for the redirect target
       const roleKey = acc.key.startsWith("branch")
         ? "branch"
-        : (acc.key as "super_admin" | "admin" | "manager");
+        : acc.key.startsWith("manager")
+          ? "manager"
+          : (acc.key as "super_admin" | "admin" | "manager");
       const target = defaultRoutePerRole(
         roleKey === "manager" ? "import_manager" : roleKey,
       );
