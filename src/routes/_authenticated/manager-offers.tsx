@@ -2107,7 +2107,8 @@ function LinkShipmentDialog({
         const freeP = itemAvailable(exact);
         if (freeP <= 0) continue;
         out.push({
-          id: s.id,
+          id: exact.id,
+          shipmentItemId: exact.id,
           code: s.code,
           country: s.country,
           eta: s.eta,
