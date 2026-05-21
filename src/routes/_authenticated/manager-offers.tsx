@@ -2107,7 +2107,7 @@ function LinkShipmentDialog({
         const freeP = itemAvailable(exact);
         if (freeP <= 0) continue;
         out.push({
-          id: exact.id,
+          id: s.id,
           shipmentItemId: exact.id,
           code: s.code,
           country: s.country,
@@ -2123,7 +2123,7 @@ function LinkShipmentDialog({
       const freeP = itemAvailable(mismatch);
       if (freeP <= 0) continue;
       out.push({
-        id: mismatch.id,
+        id: s.id,
         shipmentItemId: mismatch.id,
         code: s.code,
         country: s.country,
@@ -2142,9 +2142,9 @@ function LinkShipmentDialog({
       const { error } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
         p_offer_id: offer.id,
         p_shipment_item_id: vars.shipmentItemId,
-        p_max_pallets: undefined,
+        p_max_pallets: null as unknown as number,
         p_allow_caliber_mismatch: vars.allowMismatch,
-        p_notes: undefined,
+        p_notes: null as unknown as string,
       });
       if (error) throw error;
     },
