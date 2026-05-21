@@ -2066,6 +2066,7 @@ function LinkShipmentDialog({
 
   type Card = {
     id: string;
+    shipmentItemId: string;
     code: string;
     country: string | null;
     eta: string | null;
@@ -2106,7 +2107,8 @@ function LinkShipmentDialog({
         const freeP = itemAvailable(exact);
         if (freeP <= 0) continue;
         out.push({
-          id: s.id,
+          id: exact.id,
+          shipmentItemId: exact.id,
           code: s.code,
           country: s.country,
           eta: s.eta,
@@ -2121,7 +2123,8 @@ function LinkShipmentDialog({
       const freeP = itemAvailable(mismatch);
       if (freeP <= 0) continue;
       out.push({
-        id: s.id,
+        id: mismatch.id,
+        shipmentItemId: mismatch.id,
         code: s.code,
         country: s.country,
         eta: s.eta,
@@ -2134,21 +2137,35 @@ function LinkShipmentDialog({
   }, [offer, shipments, target, targetCountry, targetCaliber]);
 
   const link = useMutation({
-    mutationFn: async (shipmentId: string) => {
+    mutationFn: async (vars: { shipmentItemId: string; allowMismatch: boolean }) => {
       if (!offer) return;
-      const { error } = await supabase
-        .from("manager_offers")
-        .update({ status: "linked", linked_shipment_id: shipmentId })
-        .eq("id", offer.id);
+      const { error } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
+        p_offer_id: offer.id,
+        p_shipment_item_id: vars.shipmentItemId,
+        p_max_pallets: undefined,
+        p_allow_caliber_mismatch: vars.allowMismatch,
+        p_notes: undefined,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Підтягнуто в поставку");
+      toast.success("Товар додано в поставку");
       qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (err: any) => {
+      const msg = err?.message ?? "";
+      if (msg.includes("OVER_CAPACITY")) toast.error("Перевищено місткість палет у позиції поставки");
+      else if (msg.includes("OVER_REMAINING")) toast.error("Перевищено залишок для підтвердження");
+      else if (msg.includes("PRODUCT_MISMATCH")) toast.error("Товар не відповідає позиції поставки");
+      else if (msg.includes("COUNTRY_MISMATCH")) toast.error("Країна не відповідає позиції поставки");
+      else if (msg.includes("CALIBER_MISMATCH")) toast.error("Калібр не відповідає позиції поставки");
+      else if (msg.includes("LEGACY_LINK_EXISTS")) toast.error("Ця пропозиція має стару прив'язку. Потрібна технічна перевірка.");
+      else if (msg.includes("NOTHING_TO_ALLOCATE")) toast.error("Немає підтвердженого об'єму для додавання");
+      else if (msg.includes("FORBIDDEN")) toast.error("Недостатньо прав");
+      else toast.error("Не вдалося додати в поставку");
+    },
   });
 
   const handlePick = (c: Card) => {
@@ -2160,12 +2177,12 @@ function LinkShipmentDialog({
     if (c.match === "caliber_mismatch") {
       const ok = window.confirm(
         `Калібр у поставці (${c.shipmentCaliber ?? "—"}) відрізняється від очікуваного (${offer?.caliber ?? "—"}). ` +
-          `Товар буде підтягнуто з калібром поставки. Продовжити?`,
+          `Товар буде додано в поставку з калібром поставки. Продовжити?`,
       );
       if (!ok) return;
       toast.info(`Калібр змінено: ${offer?.caliber ?? "—"} → ${c.shipmentCaliber ?? "—"}`);
     }
-    link.mutate(c.id);
+    link.mutate({ shipmentItemId: c.shipmentItemId, allowMismatch: c.match === "caliber_mismatch" });
   };
 
   return (
@@ -2198,7 +2215,7 @@ function LinkShipmentDialog({
               const isExact = c.match === "exact";
               return (
                 <button
-                  key={c.id}
+                  key={c.shipmentItemId}
                   type="button"
                   onClick={() => handlePick(c)}
                   disabled={disabled}
