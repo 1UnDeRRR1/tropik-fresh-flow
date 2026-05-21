@@ -1315,6 +1315,16 @@ function OfferEditor({
     },
   });
 
+  const { data: currentManagerId, isLoading: currentManagerIdLoading } = useQuery({
+    queryKey: ["current-import-manager-id", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("current_import_manager_id");
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+  });
+
   const { data: fxRow } = useQuery({
     queryKey: ["latest-eur-usd-rate"],
     queryFn: () => getLatestEurUsdRate(),
@@ -1422,6 +1432,12 @@ function OfferEditor({
       }
 
       const createdIds: string[] = [];
+      if (currentManagerIdLoading) {
+        throw new Error("Зачекайте, визначається імпорт-менеджер");
+      }
+      if (!currentManagerId) {
+        throw new Error("Не вдалось визначити імпорт-менеджера для пропозиції");
+      }
       try {
         for (const it of items) {
           const payload = it.payload!;
@@ -1431,6 +1447,7 @@ function OfferEditor({
             .insert({
               ...(payload as any),
               created_by: user.id,
+              import_manager_id: currentManagerId,
               status: initialStatus,
               target_mode: mode,
             } as any)
