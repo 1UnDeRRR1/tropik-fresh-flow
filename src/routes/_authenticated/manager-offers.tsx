@@ -780,17 +780,11 @@ function ManagerOffersPage() {
               (s, r) => s + Number(r.requested_pallets || 0),
               0,
             );
+            // Tropik rule: totals use only approved>0 (refusals & pending excluded).
             const totalApproved = activeResponses.reduce(
-              (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+              (s, r) => s + Math.max(Number(r.approved_pallets ?? 0), 0),
               0,
             );
-            const totalLinked = activeResponses.reduce(
-              (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-              0,
-            );
-            const pendingLinked = o.status === "linked"
-              ? Math.max(totalApproved - totalLinked, 0)
-              : 0;
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
