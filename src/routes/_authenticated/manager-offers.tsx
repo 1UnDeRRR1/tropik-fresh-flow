@@ -2032,7 +2032,9 @@ function LinkShipmentDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,code,country,eta,created_by,import_manager_id,shipment_items(product_name,origin_country,caliber,pallet_count)")
+        .select(
+          "id,code,country,eta,created_by,import_manager_id,shipment_items(id,product_name,origin_country,caliber,pallet_count,distribution_items(pallets,reserved_pallets))",
+        )
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -2044,7 +2046,16 @@ function LinkShipmentDialog({
         created_by?: string | null;
         import_manager_id?: string | null;
         shipment_items:
-          | { product_name: string; origin_country: string | null; caliber: string | null; pallet_count: number | null }[]
+          | {
+              id: string;
+              product_name: string;
+              origin_country: string | null;
+              caliber: string | null;
+              pallet_count: number | null;
+              distribution_items:
+                | { pallets: number | null; reserved_pallets: number | null }[]
+                | null;
+            }[]
           | null;
       }>;
       return all.filter((s) =>
@@ -2063,24 +2074,37 @@ function LinkShipmentDialog({
     shipmentCaliber: string | null;
   };
 
+  const itemAvailable = (i: {
+    pallet_count: number | null;
+    distribution_items: { pallets: number | null; reserved_pallets: number | null }[] | null;
+  }) => {
+    const total = Number(i.pallet_count ?? 0);
+    const allocated = (i.distribution_items ?? []).reduce(
+      (a, d) => a + Math.max(Number(d.pallets ?? 0), Number(d.reserved_pallets ?? 0)),
+      0,
+    );
+    return Math.max(0, total - allocated);
+  };
+
   const cards: Card[] = useMemo(() => {
     if (!offer || !shipments) return [];
+    if (!target || !targetCountry) return [];
     const out: Card[] = [];
     for (const s of shipments) {
       const items = s.shipment_items ?? [];
-      // Find items that match product + country.
+      // Strict filter: product + country must match for at least one item.
       const productCountryItems = items.filter(
         (i) => norm(i.product_name) === target && norm(i.origin_country) === targetCountry,
       );
       if (productCountryItems.length === 0) continue;
 
-      const loadedP = items.reduce((a, i) => a + Number(i.pallet_count ?? 0), 0);
-      const freeP = Math.max(0, VEHICLE_MAX_PALLETS_LINK - loadedP);
-
       const exact = targetCaliber
         ? productCountryItems.find((i) => norm(i.caliber) === targetCaliber)
         : productCountryItems[0];
+
       if (exact) {
+        const freeP = itemAvailable(exact);
+        if (freeP <= 0) continue;
         out.push({
           id: s.id,
           code: s.code,
@@ -2094,6 +2118,8 @@ function LinkShipmentDialog({
       }
       // Caliber mismatch: pick the first product+country item (its caliber wins).
       const mismatch = productCountryItems[0];
+      const freeP = itemAvailable(mismatch);
+      if (freeP <= 0) continue;
       out.push({
         id: s.id,
         code: s.code,
