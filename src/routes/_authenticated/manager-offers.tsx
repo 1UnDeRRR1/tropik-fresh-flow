@@ -2123,7 +2123,8 @@ function LinkShipmentDialog({
       const freeP = itemAvailable(mismatch);
       if (freeP <= 0) continue;
       out.push({
-        id: s.id,
+        id: mismatch.id,
+        shipmentItemId: mismatch.id,
         code: s.code,
         country: s.country,
         eta: s.eta,
