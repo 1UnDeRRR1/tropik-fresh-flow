@@ -34,6 +34,7 @@ import { resolveCountry } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 import { resolveProductOption } from "@/lib/product-aliases";
+import { PullToShipmentDialog } from "@/features/manager-offers/PullToShipmentDialog";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -372,19 +373,22 @@ function ManagerOffersPage() {
     }));
   }, [offers, responses, targets, branchById]);
 
+  // Tropik Safe Development Rules:
+  //   remaining_to_load = SUM(approved_pallets WHERE approved_pallets > 0) − SUM(linked_pallets)
+  // approved_pallets = 0 → refusal, excluded. approved_pallets IS NULL → not yet responded, excluded.
   const getPendingLinked = (offer: OfferWithResponses) => {
     const inScope = (branchId: string) =>
       offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
-    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
-    const totalApproved = activeResponses.reduce(
-      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
-      0,
-    );
-    const totalLinked = activeResponses.reduce(
-      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-      0,
-    );
-    return Math.max(totalApproved - totalLinked, 0);
+    let approved = 0;
+    let linked = 0;
+    for (const r of offer.responses) {
+      if (!inScope(r.branch_id)) continue;
+      const a = Number(r.approved_pallets ?? 0);
+      const l = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
+      if (a > 0) approved += a;
+      linked += l;
+    }
+    return Math.max(approved - linked, 0);
   };
 
   const filtered = useMemo(() => {
@@ -701,17 +705,11 @@ function ManagerOffersPage() {
                     const inScope = (branchId: string) =>
                       o.target_mode === "all" || o.targetBranchIds.includes(branchId);
                     const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
+                    // Tropik rule: total = SUM(approved>0). Excludes refusals and pending.
                     const totalApproved = activeResponses.reduce(
-                      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+                      (s, r) => s + Math.max(Number(r.approved_pallets ?? 0), 0),
                       0,
                     );
-                    const totalLinked = activeResponses.reduce(
-                      (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-                      0,
-                    );
-                    const pendingLinked = o.status === "linked"
-                      ? Math.max(totalApproved - totalLinked, 0)
-                      : 0;
                     const hasPending = o.responses.some((r) => r.approved_pallets == null);
                     const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
                     const realEta = ship?.arrived_at ?? ship?.eta ?? null;
@@ -750,32 +748,16 @@ function ManagerOffersPage() {
                           {o.offered_pallets != null
                             ? `${totalApproved}/${o.offered_pallets}`
                             : totalApproved}
-                          {pendingLinked > 0 && (
-                            <span className="ml-1 text-[10px] font-semibold text-warning">
-                              (+{pendingLinked} очік.)
-                            </span>
-                          )}
                         </td>
                         <td className="px-3 py-2">
-                          {pendingLinked > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
-                                Замовлено · {totalLinked}
-                              </span>
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                                Підтв. · {pendingLinked}
-                              </span>
-                            </div>
-                          ) : (
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                                STATUS_CLASS[o.status],
-                              )}
-                            >
-                              {STATUS_LABEL[o.status]}
-                            </span>
-                          )}
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                              STATUS_CLASS[o.status],
+                            )}
+                          >
+                            {STATUS_LABEL[o.status]}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -799,17 +781,11 @@ function ManagerOffersPage() {
               (s, r) => s + Number(r.requested_pallets || 0),
               0,
             );
+            // Tropik rule: totals use only approved>0 (refusals & pending excluded).
             const totalApproved = activeResponses.reduce(
-              (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+              (s, r) => s + Math.max(Number(r.approved_pallets ?? 0), 0),
               0,
             );
-            const totalLinked = activeResponses.reduce(
-              (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-              0,
-            );
-            const pendingLinked = o.status === "linked"
-              ? Math.max(totalApproved - totalLinked, 0)
-              : 0;
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
@@ -916,44 +892,7 @@ function ManagerOffersPage() {
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
-                    {pendingLinked > 0 && (
-                      <span className="ml-2 text-xs font-normal text-warning">
-                        · у поставці: {totalLinked} · чекають номер поставки: {pendingLinked}
-                      </span>
-                    )}
                   </div>
-                  {pendingLinked > 0 && (
-                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-                      <div className="mb-1 space-y-1">
-                        <div>
-                          До завантаження <b>{totalApproved}п</b>.
-                          {ship ? <> У поставку <b>{ship.code}</b> помістилось <b>{totalLinked}п</b>.</> : <> Уже помістилось <b>{totalLinked}п</b>.</>}
-                        </div>
-                        <div>
-                          Решта <b>{pendingLinked}п</b> залишається підтвердженою та чекатиме наступну поставку.
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
-                        >
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                            <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
-                          </Button>
-                        </Link>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
-                          onClick={() => setDetailOfferId(null)}
-                        >
-                          Створю пізніше
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                   {o.notes && (
                     <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
                       {o.notes}
@@ -1011,31 +950,14 @@ function ManagerOffersPage() {
                     </>
                   )}
                   {(o.status === "confirmed" || o.status === "in_work") && (
-                    hasLinkable ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                        onClick={() => setLinkOffer(o)}
-                      >
-                        <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
-                      </Button>
-                    ) : (
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
-                          title="Немає підходящої поставки — створіть нову"
-                        >
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
-                        </Button>
-                      </Link>
-                    )
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                      onClick={() => setLinkOffer(o)}
+                    >
+                      <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
+                    </Button>
                   )}
                   {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button size="sm" variant="outline" onClick={() => setEditing(o)}>
@@ -1085,9 +1007,7 @@ function ManagerOffersPage() {
                             const excluded = !inScope(r.branch_id);
                             const cancelledSupply = o.status === "deleted";
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
-                            const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
-                            const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
-                            const pendingP = o.status === "linked" ? Math.max(apprP - linkedP, 0) : 0;
+                            // Tropik rule: no "+X / -X / очік. / ЗАМОВЛЕНО / ПІДТВ." badges in branch rows.
                             return (
                               <tr
                                 key={r.id}
@@ -1131,16 +1051,7 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
-                                    {pendingP > 0 && (
-                                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                        у поставці: {linkedP}
-                                      </span>
-                                    )}
-                                    {pendingP > 0 && (
-                                      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
-                                        чекає: {pendingP}
-                                      </span>
-                                    )}
+                                    {/* Tropik rule: removed "у поставці:" and "чекає:" badges */}
                                     {!rejected && (
                                       <Button
                                         size="sm"
@@ -1184,13 +1095,10 @@ function ManagerOffersPage() {
         }}
       />
 
-      <LinkShipmentDialog
+      <PullToShipmentDialog
         offer={linkOffer}
         onClose={() => setLinkOffer(null)}
-        onLinked={() => {
-          setLinkOffer(null);
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
-        }}
+        onLinked={() => setLinkOffer(null)}
       />
 
       <PublishOfferDialog
@@ -1952,312 +1860,9 @@ function OfferItemEditor({
   );
 }
 
-const VEHICLE_MAX_PALLETS_LINK = 26;
-
-function LinkShipmentDialog({
-  offer: initialOffer,
-  onClose,
-  onLinked,
-}: {
-  offer: OfferWithResponses | null;
-  onClose: () => void;
-  onLinked: () => void;
-}) {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const offerId = initialOffer?.id ?? null;
-
-  const { data: currentManagerId } = useQuery({
-    queryKey: ["current-import-manager-id", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("current_import_manager_id");
-      if (error) throw error;
-      return data ?? null;
-    },
-  });
-
-  // Live offer data so pending pallets refresh after each link.
-  const { data: liveOffer } = useQuery({
-    queryKey: ["link-dialog-offer", offerId],
-    enabled: !!offerId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("manager_offers")
-        .select("*, manager_offer_responses(*), manager_offer_targets(branch_id)")
-        .eq("id", offerId!)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
-      const responses = (data.manager_offer_responses ?? []) as ManagerOfferResponse[];
-      const targetBranchIds = ((data.manager_offer_targets ?? []) as { branch_id: string }[])
-        .map((t) => t.branch_id);
-      return { ...data, responses, targetBranchIds } as OfferWithResponses;
-    },
-  });
-
-  const offer = liveOffer ?? initialOffer;
-
-  const pendingLinked = useMemo(() => {
-    if (!offer) return 0;
-    const inScope = (branchId: string) =>
-      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
-    const active = offer.responses.filter((r) => inScope(r.branch_id));
-    const totalApproved = active.reduce(
-      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
-      0,
-    );
-    const totalLinked = active.reduce(
-      (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-      0,
-    );
-    return Math.max(totalApproved - totalLinked, 0);
-  }, [offer]);
-
-  // Auto-close when nothing left to load.
-  useEffect(() => {
-    if (offerId && liveOffer && pendingLinked === 0) {
-      onLinked();
-    }
-  }, [offerId, liveOffer, pendingLinked, onLinked]);
-
-  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-  const target = offer ? norm(offer.product_name) : "";
-  const targetCountry = offer ? norm(offer.origin_country) : "";
-  const targetCaliber = offer ? norm(offer.caliber) : "";
-
-  const { data: shipments } = useQuery({
-    queryKey: ["shipments-link-options", offerId, user?.id, currentManagerId],
-    enabled: !!offer && !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shipments")
-        .select(
-          "id,code,country,eta,created_by,import_manager_id,shipment_items(id,product_name,origin_country,caliber,pallet_count,distribution_items(pallets,reserved_pallets))",
-        )
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      const all = (data ?? []) as Array<{
-        id: string;
-        code: string;
-        country: string | null;
-        eta: string | null;
-        created_by?: string | null;
-        import_manager_id?: string | null;
-        shipment_items:
-          | {
-              id: string;
-              product_name: string;
-              origin_country: string | null;
-              caliber: string | null;
-              pallet_count: number | null;
-              distribution_items:
-                | { pallets: number | null; reserved_pallets: number | null }[]
-                | null;
-            }[]
-          | null;
-      }>;
-      return all.filter((s) =>
-        s.created_by === user!.id || (!!currentManagerId && s.import_manager_id === currentManagerId),
-      );
-    },
-  });
-
-  type Card = {
-    id: string;
-    code: string;
-    country: string | null;
-    eta: string | null;
-    freeP: number;
-    match: "exact" | "caliber_mismatch";
-    shipmentCaliber: string | null;
-  };
-
-  const itemAvailable = (i: {
-    pallet_count: number | null;
-    distribution_items: { pallets: number | null; reserved_pallets: number | null }[] | null;
-  }) => {
-    const total = Number(i.pallet_count ?? 0);
-    const allocated = (i.distribution_items ?? []).reduce(
-      (a, d) => a + Math.max(Number(d.pallets ?? 0), Number(d.reserved_pallets ?? 0)),
-      0,
-    );
-    return Math.max(0, total - allocated);
-  };
-
-  const cards: Card[] = useMemo(() => {
-    if (!offer || !shipments) return [];
-    if (!target || !targetCountry) return [];
-    const out: Card[] = [];
-    for (const s of shipments) {
-      const items = s.shipment_items ?? [];
-      // Strict filter: product + country must match for at least one item.
-      const productCountryItems = items.filter(
-        (i) => norm(i.product_name) === target && norm(i.origin_country) === targetCountry,
-      );
-      if (productCountryItems.length === 0) continue;
-
-      const exact = targetCaliber
-        ? productCountryItems.find((i) => norm(i.caliber) === targetCaliber)
-        : productCountryItems[0];
-
-      if (exact) {
-        const freeP = itemAvailable(exact);
-        if (freeP <= 0) continue;
-        out.push({
-          id: s.id,
-          code: s.code,
-          country: s.country,
-          eta: s.eta,
-          freeP,
-          match: "exact",
-          shipmentCaliber: exact.caliber ?? null,
-        });
-        continue;
-      }
-      // Caliber mismatch: pick the first product+country item (its caliber wins).
-      const mismatch = productCountryItems[0];
-      const freeP = itemAvailable(mismatch);
-      if (freeP <= 0) continue;
-      out.push({
-        id: s.id,
-        code: s.code,
-        country: s.country,
-        eta: s.eta,
-        freeP,
-        match: "caliber_mismatch",
-        shipmentCaliber: mismatch.caliber ?? null,
-      });
-    }
-    return out;
-  }, [offer, shipments, target, targetCountry, targetCaliber]);
-
-  const link = useMutation({
-    mutationFn: async (shipmentId: string) => {
-      if (!offer) return;
-      const { error } = await supabase
-        .from("manager_offers")
-        .update({ status: "linked", linked_shipment_id: shipmentId })
-        .eq("id", offer.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Підтягнуто в поставку");
-      qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
-      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const handlePick = (c: Card) => {
-    if (link.isPending) return;
-    if (c.freeP <= 0) {
-      toast.error("У поставці немає вільних палет");
-      return;
-    }
-    if (c.match === "caliber_mismatch") {
-      const ok = window.confirm(
-        `Калібр у поставці (${c.shipmentCaliber ?? "—"}) відрізняється від очікуваного (${offer?.caliber ?? "—"}). ` +
-          `Товар буде підтягнуто з калібром поставки. Продовжити?`,
-      );
-      if (!ok) return;
-      toast.info(`Калібр змінено: ${offer?.caliber ?? "—"} → ${c.shipmentCaliber ?? "—"}`);
-    }
-    link.mutate(c.id);
-  };
-
-  return (
-    <Sheet open={!!initialOffer} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Підтягнути до поставки</SheetTitle>
-        </SheetHeader>
-        <div className="mt-4 space-y-3">
-          {offer && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-1">
-              <div className="font-semibold">{offer.product_name}</div>
-              <div className="text-xs text-muted-foreground">
-                {offer.origin_country ?? "—"}
-                {offer.caliber ? ` · калібр ${offer.caliber}` : ""}
-              </div>
-              <div className="pt-1 text-sm">
-                Залишилось завантажити: <b>{pendingLinked}п</b>
-              </div>
-            </div>
-          )}
-
-          {cards.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-              Немає поставок з відповідним товаром.
-            </div>
-          ) : (
-            cards.map((c) => {
-              const disabled = c.freeP <= 0 || link.isPending || pendingLinked <= 0;
-              const isExact = c.match === "exact";
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => handlePick(c)}
-                  disabled={disabled}
-                  className={cn(
-                    "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition",
-                    isExact
-                      ? "border-success/50 bg-success/5 hover:bg-success/10"
-                      : "border-warning/50 bg-warning/5 hover:bg-warning/10",
-                    disabled && "opacity-60 cursor-not-allowed",
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-semibold">{c.code}</div>
-                    <span
-                      className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                        isExact ? "bg-success/15 text-success" : "bg-warning/20 text-warning",
-                      )}
-                    >
-                      {isExact ? "є товар" : "інший калібр"}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {c.country ?? "—"} · ETA {c.eta ?? "—"}
-                  </div>
-                  {!isExact && (
-                    <div className="text-xs text-warning">
-                      Не збігається калібр. Потрібно: <b>{offer?.caliber ?? "—"}</b>,
-                      у поставці: <b>{c.shipmentCaliber ?? "—"}</b>
-                    </div>
-                  )}
-                  <div className="text-xs font-medium text-foreground">
-                    Вільних палет: <b>{c.freeP}п</b>
-                  </div>
-                </button>
-              );
-            })
-          )}
-
-          <div className="flex flex-col gap-2 pt-2">
-            <Link
-              to="/shipments/new"
-              search={offerId ? { fromOffer: offerId } : {}}
-              onClick={() => onClose()}
-              className="block"
-            >
-              <Button size="sm" className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
-                <Plus className="mr-1 h-4 w-4" /> Нова поставка
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" className="w-full" onClick={onClose}>
-              Створю пізніше
-            </Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
+// LinkShipmentDialog removed in Phase 2a — replaced by PullToShipmentDialog
+// in src/features/manager-offers/. Old truck-capacity logic (VEHICLE_MAX_PALLETS_LINK)
+// and auto-reopen useEffect deleted with it.
 
 function PublishOfferDialog({
   offer,
