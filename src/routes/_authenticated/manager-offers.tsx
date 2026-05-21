@@ -228,7 +228,7 @@ function ManagerOffersPage() {
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
   
-  const [linkOffer, setLinkOffer] = useState<ManagerOffer | null>(null);
+  const [linkOffer, setLinkOffer] = useState<OfferWithResponses | null>(null);
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
@@ -908,18 +908,34 @@ function ManagerOffersPage() {
                   </div>
                   {pendingLinked > 0 && (
                     <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-                      <div className="mb-1">
-                        <b>{pendingLinked}п</b> підтверджено, але не помістились у поставку{ship ? <> <b>{ship.code}</b></> : null}. Створіть нову поставку — решта розподілиться автоматично.
+                      <div className="mb-1 space-y-1">
+                        <div>
+                          До завантаження <b>{totalApproved}п</b>.
+                          {ship ? <> У поставку <b>{ship.code}</b> помістилось <b>{totalLinked}п</b>.</> : <> Уже помістилось <b>{totalLinked}п</b>.</>}
+                        </div>
+                        <div>
+                          Решта <b>{pendingLinked}п</b> залишається підтвердженою та чекатиме наступну поставку.
+                        </div>
                       </div>
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
-                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                          <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          to="/shipments/new"
+                          search={{ fromOffer: o.id } as never}
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                            <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                          </Button>
+                        </Link>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          Створю пізніше
                         </Button>
-                      </Link>
+                      </div>
                     </div>
                   )}
                   {o.notes && (
@@ -1925,7 +1941,7 @@ function LinkShipmentDialog({
   onClose,
   onLinked,
 }: {
-  offer: ManagerOffer | null;
+  offer: OfferWithResponses | null;
   onClose: () => void;
   onLinked: () => void;
 }) {
@@ -1974,6 +1990,25 @@ function LinkShipmentDialog({
   const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
   const target = offer ? norm(offer.product_name) : "";
   const targetCountry = offer ? norm(offer.origin_country) : "";
+  const offerTotals = useMemo(() => {
+    if (!offer) return { totalApproved: 0, totalLinked: 0, pendingLinked: 0 };
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
+    const totalApproved = activeResponses.reduce(
+      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+      0,
+    );
+    const totalLinked = activeResponses.reduce(
+      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
+      0,
+    );
+    return {
+      totalApproved,
+      totalLinked,
+      pendingLinked: Math.max(totalApproved - totalLinked, 0),
+    };
+  }, [offer]);
   const itemMatches = (i: { product_name: string; origin_country: string | null }) =>
     norm(i.product_name) === target &&
     (!targetCountry || norm(i.origin_country) === targetCountry);
@@ -2037,6 +2072,26 @@ function LinkShipmentDialog({
                   </dl>
                 );
               })()}
+            </div>
+          )}
+          {offerTotals.pendingLinked > 0 && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs text-warning space-y-2">
+              <div className="space-y-1">
+                <div>
+                  До завантаження <b>{offerTotals.totalApproved}п</b>, у поточну поставку вже помістилось <b>{offerTotals.totalLinked}п</b>.
+                </div>
+                <div>
+                  Для решти <b>{offerTotals.pendingLinked}п</b> можна створити нову поставку зараз або зробити це пізніше.
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
+                onClick={onClose}
+              >
+                Створю пізніше
+              </Button>
             </div>
           )}
           <Link to="/shipments/new" onClick={() => onClose()} className="block">
