@@ -720,12 +720,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          notes: string | null
           offer_id: string
           pallets: number
           response_id: string
           shipment_id: string | null
           shipment_item_id: string | null
-          source: string
           status: string
           updated_at: string
         }
@@ -734,13 +734,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          notes?: string | null
           offer_id: string
           pallets: number
           response_id: string
           shipment_id?: string | null
           shipment_item_id?: string | null
-          source?: string
-          status?: string
+          status: string
           updated_at?: string
         }
         Update: {
@@ -748,12 +748,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          notes?: string | null
           offer_id?: string
           pallets?: number
           response_id?: string
           shipment_id?: string | null
           shipment_item_id?: string | null
-          source?: string
           status?: string
           updated_at?: string
         }
