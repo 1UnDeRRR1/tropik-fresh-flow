@@ -626,7 +626,7 @@ function ProductsFullscreen() {
             p_shipment_item_id: newItemId,
             p_max_pallets: safePalletCount,
             p_allow_caliber_mismatch: false,
-            p_notes: null,
+            p_notes: undefined,
           },
         );
         if (rpcErr) {
