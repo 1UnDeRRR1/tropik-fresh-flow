@@ -12,8 +12,9 @@ export type MatchingShipmentItem = {
   origin_country: string | null;
   caliber: string | null;
   pallet_count: number;
-  available_pallets: number;
-  caliber_match: "green" | "yellow"; // green = caliber match or both empty; yellow = differs
+  available_pallets: number; // free space on the item (excluding ALL distributed pallets)
+  already_linked_to_this_offer: number; // pallets this offer already has on this item
+  caliber_match: "green" | "yellow";
 };
 
 type Offer = {
@@ -29,15 +30,18 @@ const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 /**
  * Finds shipment_items eligible to receive a manager_offer link.
  *
- * Rules (Tropik Safe Development Rules):
- *  - match by product_name (required) + origin_country (when offer sets it).
+ * Phase 2b pre-work (split allocations):
+ *  - product + country match required.
  *  - green = caliber match (or both empty); yellow = both set and differ.
- *  - available_pallets = shipment_item.pallet_count
- *      − Σ GREATEST(distribution_items.pallets, distribution_items.reserved_pallets)
- *      computed PER EXACT shipment_item (NEVER truck-capacity-based).
- *  - available_pallets ≤ 0 → item is hidden.
+ *  - available_pallets = shipment_item.pallet_count − Σ distribution_items.pallets
+ *    (PER EXACT shipment_item — NEVER truck-capacity).
+ *  - already_linked_to_this_offer = SUM of manager_offer_shipment_links.pallets
+ *    from THIS offer for this item.
+ *  - Multi-offer-per-item is ALLOWED; capacity is enforced by the RPC.
+ *  - We only hide items whose room-to-add (available_pallets +
+ *    already_linked_to_this_offer) ≤ already_linked_to_this_offer,
+ *    i.e. nothing more can be added.
  *  - shipment.status NOT IN (cancelled, archived).
- *  - shipment_item.linked_offer_id must be NULL or equal to current offer.id.
  */
 export function useMatchingShipmentItems(offer: Offer | null) {
   const { user, hasRole } = useAuth();
@@ -60,7 +64,7 @@ export function useMatchingShipmentItems(offer: Offer | null) {
       let shipQ = supabase
         .from("shipments")
         .select(
-          "id,code,eta,arrived_at,status,created_by,shipment_items(id,product_name,origin_country,caliber,pallet_count,linked_offer_id)",
+          "id,code,eta,arrived_at,status,created_by,shipment_items(id,product_name,origin_country,caliber,pallet_count)",
         )
         .not("status", "in", "(cancelled,archived)")
         .order("created_at", { ascending: false })
@@ -80,7 +84,6 @@ export function useMatchingShipmentItems(offer: Offer | null) {
         origin_country: string | null;
         caliber: string | null;
         pallet_count: number | null;
-        linked_offer_id: string | null;
       };
       type SH = {
         id: string;
@@ -99,12 +102,8 @@ export function useMatchingShipmentItems(offer: Offer | null) {
       for (const s of (shipments ?? []) as SH[]) {
         for (const i of s.shipment_items ?? []) {
           if (norm(i.product_name) !== target) continue;
-          // Country: if offer has a country, require match
           if (tCountry && norm(i.origin_country) !== tCountry) continue;
-          // linked_offer_id: must be free or already this offer
-          if (i.linked_offer_id && i.linked_offer_id !== offer.id) continue;
 
-          // Caliber gate
           const ic = norm(i.caliber);
           let match: "green" | "yellow";
           if (!tCaliber && !ic) match = "green";
@@ -118,9 +117,11 @@ export function useMatchingShipmentItems(offer: Offer | null) {
       if (!candidates.length) return [];
 
       const itemIds = candidates.map((c) => c.item.id);
+
+      // Distributed pallets per item (any source)
       const { data: dis, error: e2 } = await supabase
         .from("distribution_items")
-        .select("shipment_item_id,pallets,reserved_pallets")
+        .select("shipment_item_id,pallets")
         .in("shipment_item_id", itemIds);
       if (e2) throw e2;
 
@@ -128,18 +129,42 @@ export function useMatchingShipmentItems(offer: Offer | null) {
       for (const d of (dis ?? []) as {
         shipment_item_id: string;
         pallets: number | null;
-        reserved_pallets: number | null;
       }[]) {
-        const v = Math.max(Number(d.pallets ?? 0), Number(d.reserved_pallets ?? 0));
-        used.set(d.shipment_item_id, (used.get(d.shipment_item_id) ?? 0) + v);
+        used.set(
+          d.shipment_item_id,
+          (used.get(d.shipment_item_id) ?? 0) + Number(d.pallets ?? 0),
+        );
+      }
+
+      // Existing links from THIS offer (used to default qty + show badge)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existingLinks, error: e3 } = await (supabase as any)
+        .from("manager_offer_shipment_links")
+        .select("shipment_item_id,pallets")
+        .eq("offer_id", offer.id)
+        .in("shipment_item_id", itemIds);
+      if (e3) throw e3;
+
+      const own = new Map<string, number>();
+      for (const l of (existingLinks ?? []) as {
+        shipment_item_id: string;
+        pallets: number | null;
+      }[]) {
+        own.set(
+          l.shipment_item_id,
+          (own.get(l.shipment_item_id) ?? 0) + Number(l.pallets ?? 0),
+        );
       }
 
       const out: MatchingShipmentItem[] = [];
       for (const c of candidates) {
         const total = Number(c.item.pallet_count ?? 0);
         const u = used.get(c.item.id) ?? 0;
+        const owned = own.get(c.item.id) ?? 0;
         const available = Math.max(total - u, 0);
-        if (available <= 0) continue; // hide fully-distributed items
+        // Room to add = physical free space (already excludes own existing alloc
+        // because it's part of distribution_items)
+        if (available <= 0) continue;
         out.push({
           shipment_item_id: c.item.id,
           shipment_id: c.shipment.id,
@@ -151,11 +176,11 @@ export function useMatchingShipmentItems(offer: Offer | null) {
           caliber: c.item.caliber,
           pallet_count: total,
           available_pallets: available,
+          already_linked_to_this_offer: owned,
           caliber_match: c.caliber_match,
         });
       }
 
-      // green first, then by ETA ascending
       out.sort((a, b) => {
         if (a.caliber_match !== b.caliber_match)
           return a.caliber_match === "green" ? -1 : 1;

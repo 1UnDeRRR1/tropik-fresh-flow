@@ -1097,6 +1097,7 @@ function ManagerOffersPage() {
 
       <PullToShipmentDialog
         offer={linkOffer}
+        remainingForOffer={linkOffer ? getPendingLinked(linkOffer) : 0}
         onClose={() => setLinkOffer(null)}
         onLinked={() => setLinkOffer(null)}
       />
