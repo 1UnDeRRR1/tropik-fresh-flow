@@ -1944,6 +1944,18 @@ export type Database = {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
+      link_manager_offer_to_shipment_item: {
+        Args: {
+          p_allow_caliber_mismatch?: boolean
+          p_offer_id: string
+          p_shipment_item_id: string
+        }
+        Returns: {
+          remaining_to_load: number
+          shipment_id: string
+          shipment_item_id: string
+        }[]
+      }
       loading_plan_items: {
         Args: { _plan_id: string }
         Returns: {
