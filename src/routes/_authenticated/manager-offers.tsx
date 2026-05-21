@@ -2142,9 +2142,9 @@ function LinkShipmentDialog({
       const { error } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
         p_offer_id: offer.id,
         p_shipment_item_id: vars.shipmentItemId,
-        p_max_pallets: null,
+        p_max_pallets: undefined,
         p_allow_caliber_mismatch: vars.allowMismatch,
-        p_notes: null,
+        p_notes: undefined,
       });
       if (error) throw error;
     },
