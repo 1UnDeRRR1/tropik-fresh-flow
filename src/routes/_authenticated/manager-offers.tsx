@@ -908,18 +908,34 @@ function ManagerOffersPage() {
                   </div>
                   {pendingLinked > 0 && (
                     <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-                      <div className="mb-1">
-                        <b>{pendingLinked}п</b> підтверджено, але не помістились у поставку{ship ? <> <b>{ship.code}</b></> : null}. Створіть нову поставку — решта розподілиться автоматично.
+                      <div className="mb-1 space-y-1">
+                        <div>
+                          До завантаження <b>{totalApproved}п</b>.
+                          {ship ? <> У поставку <b>{ship.code}</b> помістилось <b>{totalLinked}п</b>.</> : <> Уже помістилось <b>{totalLinked}п</b>.</>}
+                        </div>
+                        <div>
+                          Решта <b>{pendingLinked}п</b> залишається підтвердженою та чекатиме наступну поставку.
+                        </div>
                       </div>
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
-                        <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                          <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          to="/shipments/new"
+                          search={{ fromOffer: o.id } as never}
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                            <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                          </Button>
+                        </Link>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          Створю пізніше
                         </Button>
-                      </Link>
+                      </div>
                     </div>
                   )}
                   {o.notes && (
