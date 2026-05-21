@@ -406,7 +406,17 @@ function NewShipment() {
 
       const shipmentId = crypto.randomUUID();
 
-      const assignedManagerId = currentManagerId ?? selectedSupplier?.import_manager_id ?? null;
+      const assignedManagerId =
+        fromOfferPrefill?.offerManagerId
+        ?? selectedSupplier?.import_manager_id
+        ?? currentManagerId
+        ?? null;
+
+      if (!assignedManagerId && search.fromOffer) {
+        toast.error("Не вдалось визначити імпорт-менеджера для поставки з пропозиції");
+        setSubmitting(false);
+        return;
+      }
 
       const insertPayload = {
         id: shipmentId,
