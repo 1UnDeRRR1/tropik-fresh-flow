@@ -34,6 +34,7 @@ import { resolveCountry } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 import { resolveProductOption } from "@/lib/product-aliases";
+import { PullToShipmentDialog } from "@/features/manager-offers/PullToShipmentDialog";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
