@@ -25,6 +25,7 @@ import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
+import { translateError } from "@/lib/mutation-helpers";
 
 
 import { StaffOnly } from "@/components/StaffOnly";
@@ -524,69 +525,84 @@ function ProductsFullscreen() {
         const { data: offer, error: offerErr } = await supabase
           .from("manager_offers")
           .select(
-            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,linked_shipment_id,status",
+            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency",
           )
           .eq("id", fromOfferId)
           .maybeSingle();
         if (offerErr || !offer) return;
 
-        // Check if other shipments are already linked to this offer
-        // (manager is creating an additional shipment to absorb leftover pallets).
-        const { data: existingItems } = await supabase
-          .from("shipment_items")
-          .select("pallet_count, shipment_id")
-          .eq("linked_offer_id", offer.id)
-          .neq("shipment_id", id);
-
-        let palletCount: number;
         const palletWeight = Number(offer.pallet_weight ?? 0);
 
-        if (existingItems && existingItems.length > 0) {
-          // Compute pending: total approved - already linked elsewhere
-          const { data: responses } = await supabase
-            .from("manager_offer_responses")
-            .select("approved_pallets, requested_pallets, linked_pallets")
-            .eq("offer_id", offer.id);
-          const totalApproved = (responses ?? []).reduce(
-            (s, r) => s + Number((r as { approved_pallets: number | null; requested_pallets: number }).approved_pallets ?? r.requested_pallets ?? 0),
-            0,
-          );
-          const totalLinked = (responses ?? []).reduce(
-            (s, r) => s + Number((r as { linked_pallets: number | null }).linked_pallets ?? 0),
-            0,
-          );
-          const pending = Math.max(totalApproved - totalLinked, 0);
-          palletCount = Math.min(MAX_PALLETS, Math.max(1, pending || 1));
-        } else {
-          // Target: fill the truck near the 21000 kg / 26 pallet limits.
-          const TARGET_KG = 21000;
-          palletCount = palletWeight > 0
+        // Pending по всьому offer: approved - ordered - cancelled (через allocation_parts).
+        const { data: responses } = await supabase
+          .from("manager_offer_responses")
+          .select("approved_pallets")
+          .eq("offer_id", offer.id);
+        const approvedTotal = (responses ?? []).reduce(
+          (s, r) =>
+            s + Number((r as { approved_pallets: number | null }).approved_pallets ?? 0),
+          0,
+        );
+
+        const { data: allocParts } = await supabase
+          .from("manager_offer_allocation_parts")
+          .select("pallets, status")
+          .eq("offer_id", offer.id);
+        const orderedTotal = (allocParts ?? [])
+          .filter((p) => (p as { status: string }).status === "ordered")
+          .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+        const cancelledTotal = (allocParts ?? [])
+          .filter((p) => (p as { status: string }).status === "cancelled")
+          .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+
+        const pending = approvedTotal - orderedTotal - cancelledTotal;
+
+        // Desired: заповнити фуру біля ліміту 21000 кг / MAX_PALLETS.
+        const TARGET_KG = 21000;
+        const desiredPalletCount =
+          palletWeight > 0
             ? Math.min(MAX_PALLETS, Math.max(1, Math.floor(TARGET_KG / palletWeight)))
             : 0;
-        }
-        const totalKg = palletCount * palletWeight;
+        const safePalletCount = Math.min(desiredPalletCount, pending);
 
-        const { error: insErr } = await supabase.from("shipment_items").insert({
-          shipment_id: id,
-          product_name: offer.product_name,
-          origin_country: offer.origin_country
-            ? normalizeCountry(offer.origin_country)
-            : null,
-          caliber: offer.caliber ?? null,
-          variety: offer.variety ?? null,
-          pallet_count: palletCount,
-          pallet_weight: palletWeight,
-          unit_price: Number(offer.price_per_kg ?? 0),
-          price_currency: offer.price_currency ?? "EUR",
-          qty: totalKg,
-          unit: "kg",
-          linked_offer_id: offer.id,
-        });
-        if (insErr) {
+        if (safePalletCount <= 0) {
           prefillRunRef.current = false;
-          toast.error(insErr.message);
+          toast.error("Немає вільних палет за цією пропозицією");
           return;
         }
+        if (safePalletCount < desiredPalletCount) {
+          toast.info(
+            `Кількість зменшено до ${safePalletCount} палет за залишком пропозиції`,
+          );
+        }
+
+        const totalKg = safePalletCount * palletWeight;
+
+        const { data: inserted, error: insErr } = await supabase
+          .from("shipment_items")
+          .insert({
+            shipment_id: id,
+            product_name: offer.product_name,
+            origin_country: offer.origin_country
+              ? normalizeCountry(offer.origin_country)
+              : null,
+            caliber: offer.caliber ?? null,
+            variety: offer.variety ?? null,
+            pallet_count: safePalletCount,
+            pallet_weight: palletWeight,
+            unit_price: Number(offer.price_per_kg ?? 0),
+            price_currency: offer.price_currency ?? "EUR",
+            qty: totalKg,
+            unit: "kg",
+          })
+          .select("id")
+          .single();
+        if (insErr) {
+          prefillRunRef.current = false;
+          toast.error(translateError(insErr));
+          return;
+        }
+        const newItemId = inserted!.id as string;
 
         // Copy freight from offer to shipment if shipment has no freight yet.
         if (
@@ -602,14 +618,55 @@ function ProductsFullscreen() {
             .eq("id", id);
         }
 
-        // Link the offer to this shipment so the FIFO auto-distribution
-        // runs (the manager_offers trigger fires sync_manager_offer_distribution).
-        if (offer.linked_shipment_id !== id || offer.status !== "linked") {
-          await supabase
-            .from("manager_offers")
-            .update({ status: "linked", linked_shipment_id: id })
-            .eq("id", offer.id);
+        // FIFO allocation через RPC (єдиний канонічний шлях прив'язки offer ↔ shipment).
+        const { error: rpcErr } = await supabase.rpc(
+          "link_offer_to_shipment_item_fifo",
+          {
+            p_offer_id: offer.id,
+            p_shipment_item_id: newItemId,
+            p_max_pallets: safePalletCount,
+            p_allow_caliber_mismatch: false,
+            p_notes: undefined,
+          },
+        );
+        if (rpcErr) {
+          // Cleanup orphan shipment_item, якщо немає прив'язок.
+          const { data: ap } = await supabase
+            .from("manager_offer_allocation_parts")
+            .select("id")
+            .eq("shipment_item_id", newItemId)
+            .limit(1);
+          const { data: di } = await supabase
+            .from("distribution_items")
+            .select("id")
+            .eq("shipment_item_id", newItemId)
+            .limit(1);
+          if ((ap?.length ?? 0) === 0 && (di?.length ?? 0) === 0) {
+            const { error: delErr } = await supabase
+              .from("shipment_items")
+              .delete()
+              .eq("id", newItemId);
+            if (delErr) {
+              toast.error(
+                `Помилка прив'язки і cleanup не вдалося: ${translateError(delErr)}`,
+              );
+            } else {
+              toast.error(translateError(rpcErr));
+            }
+          } else {
+            toast.error(
+              `Помилка прив'язки, рядок залишено для перевірки: ${translateError(rpcErr)}`,
+            );
+          }
+          prefillRunRef.current = false;
+          return;
         }
+
+        qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+        qc.invalidateQueries({ queryKey: ["shipment", id] });
+        qc.invalidateQueries({ queryKey: ["manager-offers"] });
+        qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+        qc.invalidateQueries({ queryKey: ["manager-offer-responses", offer.id] });
 
         qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
         qc.invalidateQueries({ queryKey: ["shipment", id] });
