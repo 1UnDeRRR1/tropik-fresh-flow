@@ -2077,6 +2077,22 @@ function OfferItemEditor({
         </div>
       </div>
 
+      {currentStatus === "red" && (
+        <CustomsManualOverrideField
+          confirmedDuty={existingOffer ? confirmedDuty : pendingDuty}
+          pending={confirmExisting.isPending}
+          onConfirm={(duty) => {
+            if (existingOffer) {
+              confirmExisting.mutate(duty);
+            } else {
+              onCustomsChange({ pendingDuty: duty });
+            }
+          }}
+        />
+      )}
+
+
+
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm">
           <span className="mb-1 block text-muted-foreground">Палет (опціонально)</span>
