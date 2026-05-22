@@ -539,7 +539,8 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
       }, 0)
     : totalTransportUsd;
   const allocItems = (vehicleData?.allItems ?? []).length ? vehicleData!.allItems : items;
-  const alloc = allocateTransport(allocItems, vehicleTotalUsd);
+  const vehicleClosed = (vehicle?.status ?? "") === "closed";
+  const alloc = allocateTransport(allocItems, vehicleTotalUsd, vehicleClosed);
 
   const saveTransport = async () => {
     if (transportLocked) return;
