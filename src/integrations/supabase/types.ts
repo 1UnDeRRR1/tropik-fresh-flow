@@ -2432,6 +2432,7 @@ export type Database = {
       }
       expire_branch_transfer_offers: { Args: never; Returns: number }
       expire_manager_offers: { Args: never; Returns: number }
+      fn_normalize_text: { Args: { p_in: string }; Returns: string }
       get_profile_names: {
         Args: { _ids: string[] }
         Returns: {
@@ -2589,6 +2590,63 @@ export type Database = {
       recompute_vehicle_totals_for: {
         Args: { _vehicle_id: string }
         Returns: undefined
+      }
+      rpc_pallet_standard_exact: {
+        Args: {
+          p_country: string
+          p_dictionary_id: string
+          p_package_used?: string
+        }
+        Returns: {
+          candidate_count: number
+          canonical_product_id: string
+          mapping_status: string
+          match_kind: string
+          needs_review: boolean
+          package_used: string
+          pallet_footprint_text: string
+          pallet_gross_kg: number
+          pallet_net_kg: number
+          pallet_standard_id: string
+          selected_by: string
+          status: string
+        }[]
+      }
+      rpc_resolve_country: {
+        Args: { p_query: string }
+        Returns: {
+          alias_normalized: string
+          country_name: string
+          iso2: string
+          iso3: string
+          status: string
+        }[]
+      }
+      rpc_resolve_product_exact: {
+        Args: { p_include_reserve?: boolean; p_query: string }
+        Returns: {
+          candidate_count: number
+          canonical_product_id: string
+          dictionary_id: string
+          product_name_ua: string
+          status: string
+        }[]
+      }
+      rpc_resolve_product_search: {
+        Args: { p_include_reserve?: boolean; p_limit?: number; p_query: string }
+        Returns: {
+          alias_normalized: string
+          canonical_product_id: string
+          dictionary_id: string
+          is_working_assortment: boolean
+          match_language: string
+          match_rank: number
+          match_type: string
+          matched_alias: string
+          product_key: string
+          product_name_en: string
+          product_name_ua: string
+        }[]
       }
       shipment_has_free_pallets: {
         Args: { _shipment_id: string }
