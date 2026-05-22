@@ -45,6 +45,9 @@ type Row = {
   weight: number;
   indicative: number | null;
   invoice: number | null;
+  bvp_ind: number | null;
+  bvp_inv: number | null;
+  bvp_reason: string | null;
   baseline_eta: string | null;
   baseline_pallets: number | null;
   baseline_ind: number | null;
@@ -195,19 +198,38 @@ function BranchDashboard() {
   );
 
   const { data: items } = useQuery({
-    queryKey: ["branch-incoming-items-v2", itemIds.join(",")],
+    queryKey: ["branch-incoming-items-v3", itemIds.join(",")],
     enabled: itemIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items")
-        .select("id,product_name,caliber,origin_country,variety,brand,class,final_cost_indicative,final_cost_invoice")
+        .select("id,product_name,caliber,origin_country,variety,brand,class")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; product_name: string; caliber: string | null;
         origin_country: string | null; variety: string | null;
         brand: string | null; class: string | null;
-        final_cost_indicative: number | null; final_cost_invoice: number | null;
+      }>;
+    },
+  });
+
+  // Patch 8B: branch-visible price source of truth.
+  // Source priority for indicative/invoice = BVP -> baseline -> null.
+  // Never fall back to shipment_items.final_cost_*.
+  const { data: bvps } = useQuery({
+    queryKey: ["branch-visible-prices", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("branch_visible_prices")
+        .select("distribution_id,shipment_item_id,cost_indicative_usd,cost_invoice_usd,reason,updated_at")
+        .eq("branch_id", branchId!);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        distribution_id: string; shipment_item_id: string;
+        cost_indicative_usd: number | null; cost_invoice_usd: number | null;
+        reason: string; updated_at: string;
       }>;
     },
   });
@@ -326,6 +348,7 @@ function BranchDashboard() {
     const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
+    const vMap = new Map((bvps ?? []).map((v) => [`${v.distribution_id}-${v.shipment_item_id}`, v]));
 
     const materialized: Row[] = dists.flatMap((d) =>
       (d.distribution_items ?? [])
@@ -345,6 +368,10 @@ function BranchDashboard() {
           }
           if (Number(di.pallets ?? 0) <= 0) return null;
           const b = bMap.get(`${d.id}-${it.id}`);
+          const v = vMap.get(`${d.id}-${it.id}`);
+          // Branch-visible price: BVP -> baseline -> null. Never shipment_items.final_cost_*.
+          const displayInd = v?.cost_indicative_usd ?? b?.baseline_cost_ind ?? null;
+          const displayInv = v?.cost_invoice_usd ?? b?.baseline_cost_inv ?? null;
           return {
             key: `${d.id}-${it.id}`,
             shipment_item_id: it.id,
@@ -366,8 +393,11 @@ function BranchDashboard() {
             manager_name: s?.import_manager_id ? mgrMap.get(s.import_manager_id) ?? null : null,
             pallets: Number(di.pallets ?? 0),
             weight: Number(di.qty ?? 0),
-            indicative: it.final_cost_indicative,
-            invoice: it.final_cost_invoice,
+            indicative: displayInd,
+            invoice: displayInv,
+            bvp_ind: v?.cost_indicative_usd ?? null,
+            bvp_inv: v?.cost_invoice_usd ?? null,
+            bvp_reason: v?.reason ?? null,
             baseline_eta: b?.baseline_eta ?? null,
             baseline_pallets: b?.baseline_pallets ?? null,
             baseline_ind: b?.baseline_cost_ind ?? null,
@@ -456,6 +486,9 @@ function BranchDashboard() {
                 weight,
                 indicative: o.indicative_cost_usd,
                 invoice: o.invoice_cost_usd,
+                bvp_ind: null,
+                bvp_inv: null,
+                bvp_reason: null,
                 baseline_eta: o.expected_eta,
                 baseline_pallets: pallets,
                 baseline_ind: o.indicative_cost_usd,
@@ -469,7 +502,7 @@ function BranchDashboard() {
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, suppliers, managers, baselines, board, pendingOffers]);
+  }, [dists, items, ships, suppliers, managers, baselines, bvps, board, pendingOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
@@ -478,6 +511,8 @@ function BranchDashboard() {
       p_shipment_item_id: shipmentItemId,
     });
     qc.invalidateQueries({ queryKey: ["branch-baselines", branchId] });
+    qc.invalidateQueries({ queryKey: ["branch-visible-prices", branchId] });
+    qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
   const managerOptions = useMemo(() => {
@@ -626,7 +661,11 @@ function BranchDashboard() {
                   const s = statsFor(r);
                   const etaChanged = dateNeq(r.eta, r.seen_eta);
                   const palChanged = numNeq(r.pallets, r.seen_pallets);
-                  const costChanged = numNeq(r.indicative, r.seen_ind) || numNeq(r.invoice, r.seen_inv);
+                  // Patch 8B: pill driven by BVP vs baseline.seen_cost_*, not by notifications.
+                  const costChanged =
+                    !!r.bvp_reason &&
+                    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
+                    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
                   return (
                     <tr
                       key={r.key}
@@ -687,7 +726,7 @@ function BranchDashboard() {
                           <ChangeBadge
                             field="Собівартість"
                             oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
-                            newVal={`$${Number(r.indicative ?? 0).toFixed(2)} / $${Number(r.invoice ?? 0).toFixed(2)}`}
+                            newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
                             onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
                           />
                         )}
