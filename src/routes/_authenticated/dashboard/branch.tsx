@@ -368,6 +368,10 @@ function BranchDashboard() {
           }
           if (Number(di.pallets ?? 0) <= 0) return null;
           const b = bMap.get(`${d.id}-${it.id}`);
+          const v = vMap.get(`${d.id}-${it.id}`);
+          // Branch-visible price: BVP -> baseline -> null. Never shipment_items.final_cost_*.
+          const displayInd = v?.cost_indicative_usd ?? b?.baseline_cost_ind ?? null;
+          const displayInv = v?.cost_invoice_usd ?? b?.baseline_cost_inv ?? null;
           return {
             key: `${d.id}-${it.id}`,
             shipment_item_id: it.id,
@@ -389,8 +393,11 @@ function BranchDashboard() {
             manager_name: s?.import_manager_id ? mgrMap.get(s.import_manager_id) ?? null : null,
             pallets: Number(di.pallets ?? 0),
             weight: Number(di.qty ?? 0),
-            indicative: it.final_cost_indicative,
-            invoice: it.final_cost_invoice,
+            indicative: displayInd,
+            invoice: displayInv,
+            bvp_ind: v?.cost_indicative_usd ?? null,
+            bvp_inv: v?.cost_invoice_usd ?? null,
+            bvp_reason: v?.reason ?? null,
             baseline_eta: b?.baseline_eta ?? null,
             baseline_pallets: b?.baseline_pallets ?? null,
             baseline_ind: b?.baseline_cost_ind ?? null,
