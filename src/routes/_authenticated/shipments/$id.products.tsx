@@ -26,6 +26,12 @@ import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 import { translateError } from "@/lib/mutation-helpers";
+import { CustomsStatusChip } from "@/components/CustomsStatusChip";
+import { getCustomsStatusFromMatch } from "@/lib/customs-status";
+
+// Patch 6B: module-scoped customs-ref index populated by ProductsFullscreen so
+// row-level components can derive GREEN/YELLOW/RED without prop drilling.
+const refByIdGlobal: Map<string, { id: string; product_name: string; country: string }> = new Map();
 
 
 import { StaffOnly } from "@/components/StaffOnly";
@@ -429,6 +435,9 @@ function ProductsFullscreen() {
   const vehicleContext = data?.vehicleContext ?? null;
   const customsRefs = data?.customsRefs ?? [];
   const refById = new Map(customsRefs.map((r) => [r.id, r]));
+  // Patch 6B: expose refs to descendant row editors via module-scoped map.
+  refByIdGlobal.clear();
+  for (const r of customsRefs) refByIdGlobal.set(r.id, r);
   const country = toUaCountry(sh?.country) || "—";
 
   // Customs match status for the header indicator.
@@ -1333,14 +1342,17 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {!(item as any).customs_match_id ? (
-              <span
-                title="Митна ставка не знайдена для цього товару/країни — мито = 0"
-                className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"
-              >
-                ⚠ без мита
-              </span>
-            ) : null}
+            {(() => {
+              const ref = (item as any).customs_match_id
+                ? refByIdGlobal.get((item as any).customs_match_id)
+                : null;
+              const status = getCustomsStatusFromMatch(
+                (item as any).customs_match_id,
+                ref?.country,
+                item.origin_country,
+              );
+              return <CustomsStatusChip status={status} compact />;
+            })()}
             <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
           </div>
         </div>
