@@ -26,6 +26,12 @@ import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 import { translateError } from "@/lib/mutation-helpers";
+import { CustomsStatusChip } from "@/components/CustomsStatusChip";
+import { getCustomsStatusFromMatch } from "@/lib/customs-status";
+
+// Patch 6B: module-scoped customs-ref index populated by ProductsFullscreen so
+// row-level components can derive GREEN/YELLOW/RED without prop drilling.
+const refByIdGlobal: Map<string, { id: string; product_name: string; country: string }> = new Map();
 
 
 import { StaffOnly } from "@/components/StaffOnly";
