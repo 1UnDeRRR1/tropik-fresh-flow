@@ -952,6 +952,9 @@ export type Database = {
           caliber: string | null
           created_at: string
           created_by: string
+          customs_override_by: string | null
+          customs_override_confirmed_at: string | null
+          customs_override_duty_usd: number | null
           expected_eta: string | null
           expires_at: string | null
           freight_amount: number | null
@@ -985,6 +988,9 @@ export type Database = {
           caliber?: string | null
           created_at?: string
           created_by: string
+          customs_override_by?: string | null
+          customs_override_confirmed_at?: string | null
+          customs_override_duty_usd?: number | null
           expected_eta?: string | null
           expires_at?: string | null
           freight_amount?: number | null
@@ -1018,6 +1024,9 @@ export type Database = {
           caliber?: string | null
           created_at?: string
           created_by?: string
+          customs_override_by?: string | null
+          customs_override_confirmed_at?: string | null
+          customs_override_duty_usd?: number | null
           expected_eta?: string | null
           expires_at?: string | null
           freight_amount?: number | null
@@ -1280,6 +1289,9 @@ export type Database = {
           customs_cost_indicative: number | null
           customs_cost_invoice: number | null
           customs_match_id: string | null
+          customs_override_by: string | null
+          customs_override_confirmed_at: string | null
+          customs_override_duty_usd: number | null
           final_cost_indicative: number | null
           final_cost_invoice: number | null
           fx_rate_used: number | null
@@ -1310,6 +1322,9 @@ export type Database = {
           customs_cost_indicative?: number | null
           customs_cost_invoice?: number | null
           customs_match_id?: string | null
+          customs_override_by?: string | null
+          customs_override_confirmed_at?: string | null
+          customs_override_duty_usd?: number | null
           final_cost_indicative?: number | null
           final_cost_invoice?: number | null
           fx_rate_used?: number | null
@@ -1340,6 +1355,9 @@ export type Database = {
           customs_cost_indicative?: number | null
           customs_cost_invoice?: number | null
           customs_match_id?: string | null
+          customs_override_by?: string | null
+          customs_override_confirmed_at?: string | null
+          customs_override_duty_usd?: number | null
           final_cost_indicative?: number | null
           final_cost_invoice?: number | null
           fx_rate_used?: number | null
@@ -2061,6 +2079,93 @@ export type Database = {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
+      confirm_manager_offer_customs_override: {
+        Args: { p_duty: number; p_offer_id: string }
+        Returns: {
+          caliber: string | null
+          created_at: string
+          created_by: string
+          customs_override_by: string | null
+          customs_override_confirmed_at: string | null
+          customs_override_duty_usd: number | null
+          expected_eta: string | null
+          expires_at: string | null
+          freight_amount: number | null
+          freight_currency: string
+          fx_rate_date: string | null
+          fx_rate_snapshot: number | null
+          id: string
+          import_manager_id: string | null
+          indicative_cost_usd: number | null
+          invoice_cost_usd: number | null
+          linked_shipment_id: string | null
+          notes: string | null
+          offered_pallets: number | null
+          origin_country: string | null
+          packaging: string | null
+          pallet_weight: number | null
+          pipeline_status: Database["public"]["Enums"]["pipeline_status"]
+          prev_expected_eta: string | null
+          prev_indicative_cost_usd: number | null
+          prev_invoice_cost_usd: number | null
+          price_currency: string
+          price_per_kg: number | null
+          product_name: string
+          specification: string | null
+          status: Database["public"]["Enums"]["manager_offer_status"]
+          target_mode: Database["public"]["Enums"]["manager_offer_target_mode"]
+          updated_at: string
+          variety: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "manager_offers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirm_shipment_item_customs_override: {
+        Args: { p_duty: number; p_item_id: string }
+        Returns: {
+          brand: string | null
+          caliber: string | null
+          class: string | null
+          cost_price_usd: number | null
+          created_at: string
+          customs_cost_indicative: number | null
+          customs_cost_invoice: number | null
+          customs_match_id: string | null
+          customs_override_by: string | null
+          customs_override_confirmed_at: string | null
+          customs_override_duty_usd: number | null
+          final_cost_indicative: number | null
+          final_cost_invoice: number | null
+          fx_rate_used: number | null
+          id: string
+          indicative_price: number | null
+          invoice_price: number | null
+          linked_offer_id: string | null
+          origin_country: string | null
+          pallet_count: number | null
+          pallet_weight: number | null
+          price_currency: string
+          product_name: string
+          qty: number
+          shipment_id: string
+          sku: string | null
+          unit: string
+          unit_price: number
+          unit_price_usd: number | null
+          variety: string | null
+          weight_kg: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shipment_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_import_manager_id: { Args: never; Returns: string }
       effective_manager_ids: { Args: { _user_id: string }; Returns: string[] }
       ensure_shipment_fx_snapshot: {
@@ -2085,6 +2190,10 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_calendar_active: { Args: { _user_id: string }; Returns: boolean }
+      is_customs_red: {
+        Args: { p_country: string; p_product: string }
+        Returns: boolean
+      }
       is_eu_country: { Args: { _country: string }; Returns: boolean }
       is_shipment_locked: { Args: { _shipment_id: string }; Returns: boolean }
       is_shipment_owner: {
