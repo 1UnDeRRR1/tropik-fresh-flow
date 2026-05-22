@@ -1862,25 +1862,39 @@ function OfferItemEditor({
 
       <label className="block text-sm">
         <span className="mb-1 block text-muted-foreground">Товар *</span>
-        <ValidatedAutocomplete
-          value={form.product_name}
-          onChange={(v) => update({ product_name: v })}
-          options={productOptions}
-          placeholder="Почніть вводити назву товару"
-          required
-        />
+        {identityLocked ? (
+          <Input value={form.product_name} disabled readOnly />
+        ) : (
+          <ValidatedAutocomplete
+            value={form.product_name}
+            onChange={(v) => update({ product_name: v })}
+            options={productOptions}
+            placeholder="Почніть вводити назву товару"
+            required
+          />
+        )}
       </label>
       <label className="block text-sm">
         <span className="mb-1 block text-muted-foreground">Країна походження *</span>
-        <ValidatedAutocomplete
-          value={form.origin_country}
-          onChange={(v) => update({ origin_country: v })}
-          options={countryOptions}
-          aliases={countryAliases}
-          placeholder="Почніть вводити країну"
-          required
-        />
+        {identityLocked ? (
+          <Input value={form.origin_country} disabled readOnly />
+        ) : (
+          <ValidatedAutocomplete
+            value={form.origin_country}
+            onChange={(v) => update({ origin_country: v })}
+            options={countryOptions}
+            aliases={countryAliases}
+            placeholder="Почніть вводити країну"
+            required
+          />
+        )}
       </label>
+      {identityLocked && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-[11px] text-warning-foreground">
+          {CUSTOMS_STRINGS.blockedByBranchActivity}
+        </div>
+      )}
+
       {(
         [
           ["caliber", "Калібр"],
