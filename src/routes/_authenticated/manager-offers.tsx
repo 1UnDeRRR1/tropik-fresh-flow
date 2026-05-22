@@ -1588,8 +1588,12 @@ function OfferEditor({
               countryAliases={countryAliases}
               fxRow={fxRow ?? null}
               existingExpiresAt={idx === 0 ? offer?.expires_at ?? null : null}
+              existingOffer={idx === 0 ? offer : null}
+              confirmedDuty={it.confirmedDuty}
+              pendingDuty={it.pendingDuty}
               onFormChange={(f) => updateForm(it.id, f)}
               onPayloadChange={(p) => updatePayload(it.id, p)}
+              onCustomsChange={(patch) => updateCustoms(it.id, patch)}
               onRemove={!offer && items.length > 1 ? () => removeItem(it.id) : undefined}
             />
           ))}
@@ -1605,17 +1609,25 @@ function OfferEditor({
             </div>
           )}
 
+          {redBlocked && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              {offer
+                ? CUSTOMS_STRINGS.publishBlockedActiveRed
+                : CUSTOMS_STRINGS.publishBlockedDraftRed}
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button
               onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
-              disabled={publish.isPending || !allValid}
+              disabled={publish.isPending || !canPublish}
             >
               Відправити всім{!offer && items.length > 1 ? ` (${items.length})` : ""}
             </Button>
             <Button
               variant="outline"
               onClick={() => setSelectiveOpen(true)}
-              disabled={publish.isPending || !allValid}
+              disabled={publish.isPending || !canPublish}
             >
               Відправити вибірково
             </Button>
@@ -1623,6 +1635,7 @@ function OfferEditor({
               Скасувати
             </Button>
           </div>
+
         </div>
       </SheetContent>
 
