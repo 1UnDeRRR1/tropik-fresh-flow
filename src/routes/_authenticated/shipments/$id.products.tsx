@@ -1365,23 +1365,62 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {(() => {
-              const ref = (item as any).customs_match_id
-                ? refByIdGlobal.get((item as any).customs_match_id)
-                : null;
-              const status = getCustomsStatusFromMatch(
-                (item as any).customs_match_id,
-                ref?.country,
-                item.origin_country,
-              );
-              return <CustomsStatusChip status={status} compact />;
-            })()}
+            <ItemCustomsChip item={item} />
             <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
           </div>
         </div>
+        <ItemCustomsOverride item={item} shipmentId={shipmentId} readOnly={readOnly} />
       </td>
     </tr>
     </>
+  );
+}
+
+function ItemCustomsChip({ item }: { item: ItemRow }) {
+  const refById = useContext(CustomsRefContext);
+  const ref = item.customs_match_id ? refById.get(item.customs_match_id) : null;
+  const status = getCustomsStatusFromMatch(item.customs_match_id, ref?.country, item.origin_country);
+  return <CustomsStatusChip status={status} compact />;
+}
+
+function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; shipmentId: string; readOnly: boolean }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [pending, setPending] = useState(false);
+  if (item.customs_match_id) return null;
+  if (!isValidShipmentItem(item)) return null;
+  const confirmedDuty =
+    item.customs_override_confirmed_at && item.customs_override_duty_usd != null
+      ? Number(item.customs_override_duty_usd)
+      : null;
+  const onConfirm = async (duty: number) => {
+    setPending(true);
+    try {
+      const { error } = await supabase.rpc("confirm_shipment_item_customs_override", {
+        p_item_id: item.id,
+        p_duty: duty,
+      });
+      if (error) throw error;
+      toast.success("Митний збір підтверджено");
+      qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, shipmentId] });
+      qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+      qc.invalidateQueries({ queryKey: ["shipments-list"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    } catch (e) {
+      toast.error(translateError(e));
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <div className="mt-2">
+      <CustomsManualOverrideField
+        confirmedDuty={confirmedDuty}
+        onConfirm={onConfirm}
+        pending={pending}
+        disabled={readOnly}
+      />
+    </div>
   );
 }
 
