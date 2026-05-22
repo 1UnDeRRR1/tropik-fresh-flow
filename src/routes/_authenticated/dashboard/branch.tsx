@@ -45,6 +45,9 @@ type Row = {
   weight: number;
   indicative: number | null;
   invoice: number | null;
+  bvp_ind: number | null;
+  bvp_inv: number | null;
+  bvp_reason: string | null;
   baseline_eta: string | null;
   baseline_pallets: number | null;
   baseline_ind: number | null;
