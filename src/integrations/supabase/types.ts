@@ -2621,6 +2621,34 @@ export type Database = {
           status: string
         }[]
       }
+      rpc_resolve_offer_line_defaults: {
+        Args: {
+          p_country_query: string
+          p_include_reserve?: boolean
+          p_package_used?: string
+          p_product_query: string
+        }
+        Returns: {
+          canonical_product_id: string
+          country_iso3: string
+          country_match_status: string
+          country_name: string
+          needs_review: boolean
+          package_used: string
+          pallet_candidate_count: number
+          pallet_footprint_text: string
+          pallet_gross_kg: number
+          pallet_net_kg: number
+          pallet_selected_by: string
+          pallet_standard_id: string
+          product_candidate_count: number
+          product_dictionary_id: string
+          product_match_status: string
+          product_name_ua: string
+          review_reason: string
+          status: string
+        }[]
+      }
       rpc_resolve_product_exact: {
         Args: { p_include_reserve?: boolean; p_query: string }
         Returns: {
