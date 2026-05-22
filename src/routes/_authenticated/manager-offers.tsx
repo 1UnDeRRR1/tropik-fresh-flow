@@ -1358,15 +1358,26 @@ function OfferEditor({
     },
   });
 
+  const makeEntry = (form: FormState, confirmedDuty: number | null = null): ItemEntry => ({
+    id: nextItemId(),
+    form,
+    payload: null,
+    customsStatus: null,
+    pendingDuty: null,
+    confirmedDuty,
+  });
+
   useEffect(() => {
     if (open) {
-      setItems([
-        { id: nextItemId(), form: offer ? offerToForm(offer) : emptyForm(), payload: null },
-      ]);
+      const o = offer as (ManagerOffer & { customs_override_duty_usd?: number | null }) | null;
+      const confirmed =
+        o && o.customs_override_duty_usd != null ? Number(o.customs_override_duty_usd) : null;
+      setItems([makeEntry(offer ? offerToForm(offer) : emptyForm(), confirmed)]);
       setSelectiveOpen(false);
     } else {
       setItems([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, offer?.id]);
 
   useEffect(() => {
@@ -1387,23 +1398,40 @@ function OfferEditor({
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        // Avoid update if identical to prevent loops
         const same = JSON.stringify(it.payload) === JSON.stringify(payload);
         return same ? it : { ...it, payload };
       }),
     );
+  const updateCustoms = (
+    id: number,
+    patch: { customsStatus?: CustomsStatus | null; pendingDuty?: number | null; confirmedDuty?: number | null },
+  ) =>
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        const next = { ...it, ...patch };
+        if (
+          next.customsStatus === it.customsStatus &&
+          next.pendingDuty === it.pendingDuty &&
+          next.confirmedDuty === it.confirmedDuty
+        ) {
+          return it;
+        }
+        return next;
+      }),
+    );
   const removeItem = (id: number) =>
     setItems((prev) => (prev.length <= 1 ? prev : prev.filter((it) => it.id !== id)));
-  const addNew = () =>
-    setItems((prev) => [...prev, { id: nextItemId(), form: emptyForm(), payload: null }]);
+  const addNew = () => setItems((prev) => [...prev, makeEntry(emptyForm())]);
   const addSimilar = () =>
     setItems((prev) => {
       const last = prev[prev.length - 1];
       const clone: FormState = last
         ? { ...last.form, offered_pallets: "", expires_in_hours: "" }
         : emptyForm();
-      return [...prev, { id: nextItemId(), form: clone, payload: null }];
+      return [...prev, makeEntry(clone)];
     });
+
 
   const allValid = items.length > 0 && items.every((it) => it.payload !== null);
 
