@@ -1274,9 +1274,19 @@ function offerToForm(offer: ManagerOffer): FormState {
   };
 }
 
-type ItemEntry = { id: number; form: FormState; payload: Record<string, unknown> | null };
+type ItemEntry = {
+  id: number;
+  form: FormState;
+  payload: Record<string, unknown> | null;
+  customsStatus: CustomsStatus | null;
+  /** For new offers (no existing offer.id): duty captured locally, applied via RPC at publish. */
+  pendingDuty: number | null;
+  /** For existing offers: server-confirmed duty (manager_offers.customs_override_duty_usd). */
+  confirmedDuty: number | null;
+};
 let _itemSeq = 1;
 const nextItemId = () => _itemSeq++;
+
 
 function OfferEditor({
   open,
