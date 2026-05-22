@@ -351,7 +351,7 @@ export function DraftOfferLineRow({
                   className="text-right"
                   value={netRaw}
                   onChange={(e) => onNetChange(e.target.value)}
-                  placeholder="0"
+                  placeholder="—"
                 />
               </td>
               <td className="px-2 py-2">
@@ -360,7 +360,7 @@ export function DraftOfferLineRow({
                   className="text-right"
                   value={grossRaw}
                   onChange={(e) => onGrossChange(e.target.value)}
-                  placeholder="0"
+                  placeholder="—"
                 />
               </td>
               <td className="px-2 py-2">
@@ -369,9 +369,10 @@ export function DraftOfferLineRow({
                   className="text-right"
                   value={priceRaw}
                   onChange={(e) => onPriceChange(e.target.value)}
-                  placeholder="0"
+                  placeholder="—"
                 />
               </td>
+
               <td className="px-2 py-2">
                 <div className="flex gap-2 justify-end">
                   <Button size="sm" onClick={handleConfirm}>
