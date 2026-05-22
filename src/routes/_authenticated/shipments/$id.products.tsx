@@ -34,6 +34,19 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status
 type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
 const CustomsRefContext = createContext<CustomsRefIndex>(new Map());
 
+// Patch 6B follow-up: per-row YELLOW selection so the explanation panel can
+// switch between fallback items instead of always showing the first one.
+type FallbackSelection = {
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+  setOpen: (open: boolean) => void;
+};
+const FallbackSelectionContext = createContext<FallbackSelection>({
+  selectedId: null,
+  setSelectedId: () => {},
+  setOpen: () => {},
+});
+
 
 import { StaffOnly } from "@/components/StaffOnly";
 
