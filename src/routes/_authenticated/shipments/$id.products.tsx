@@ -62,6 +62,9 @@ type ItemRow = {
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
   customs_match_id: string | null;
+  customs_override_duty_usd: number | null;
+  customs_override_confirmed_at: string | null;
+  customs_override_by: string | null;
 };
 
 type CustomsRefMini = { id: string; product_name: string; country: string };
