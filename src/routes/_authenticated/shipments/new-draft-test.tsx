@@ -94,6 +94,9 @@ function NewDraftTestPage() {
   if (!hasSession) {
     return (
       <div className="space-y-4">
+        <div className="rounded-md border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-foreground">
+          9D AUTH GATE v1
+        </div>
         <PageHeader
           title="Нова поставка · draft test"
           subtitle="Потрібен вхід у систему для тесту resolver."
@@ -123,6 +126,9 @@ function NewDraftTestPage() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-md border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-foreground">
+        9D AUTH GATE v1
+      </div>
       <PageHeader
         title="Нова поставка · draft test"
         subtitle="Тестова таблиця для перевірки resolver/autofill. Дані не зберігаються в БД."
