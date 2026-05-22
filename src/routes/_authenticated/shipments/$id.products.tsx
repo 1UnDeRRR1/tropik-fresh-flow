@@ -845,13 +845,14 @@ function ProductsFullscreen() {
             triggerShake(transportMissing);
             return;
           }
+          if (!tryLeave(e)) return;
           e.preventDefault();
           void leaveProducts();
         }}>
           <Button
             className={cn(
               "w-full",
-              (incompleteCount > 0 || (transportMissing && !canSaveForLater))
+              (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
@@ -862,13 +863,16 @@ function ProductsFullscreen() {
                 : "Вкажіть вартість перевезення"
               : incompleteCount > 0
                 ? `Заповніть обов'язкові поля (${incompleteCount})`
-                : canSaveForLater
-                  ? "Зберегти та вийти"
-                  : "Готово"}
+                : redUnconfirmedCount > 0
+                  ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
+                  : canSaveForLater
+                    ? "Зберегти та вийти"
+                    : "Готово"}
           </Button>
         </Link>
       </footer>
     </div>
+   </CustomsRefContext.Provider>
   );
 }
 
