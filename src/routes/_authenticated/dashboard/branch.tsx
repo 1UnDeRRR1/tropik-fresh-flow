@@ -726,7 +726,7 @@ function BranchDashboard() {
                           <ChangeBadge
                             field="Собівартість"
                             oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
-                            newVal={`$${Number(r.indicative ?? 0).toFixed(2)} / $${Number(r.invoice ?? 0).toFixed(2)}`}
+                            newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
                             onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
                           />
                         )}
