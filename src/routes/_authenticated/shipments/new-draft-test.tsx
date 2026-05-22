@@ -37,10 +37,9 @@ function NewDraftTestPage() {
       let pingError: string | null = null;
       try {
         const { data: r, error } = await supabase.rpc("rpc_resolve_offer_line_defaults", {
-          p_product_input: "__ping__",
-          p_country_input: "Spain",
-          p_package_input: null,
-          p_force_refresh: false,
+          p_product_query: "__ping__",
+          p_country_query: "Spain",
+          p_include_reserve: false,
         });
         if (error) pingError = `${error.code ?? ""} ${error.message}`;
         else pingRole = `ok (${Array.isArray(r) ? r.length : typeof r} rows)`;
