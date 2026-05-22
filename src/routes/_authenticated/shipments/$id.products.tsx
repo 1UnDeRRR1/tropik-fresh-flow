@@ -265,14 +265,13 @@ function CustomsStatusBadge({
       </span>
     );
   }
-  const { selectedId, setSelectedId, setOpen } = useContext(FallbackSelectionContext);
+  const { selectedId, setSelectedId, openRef } = useContext(FallbackSelectionContext);
   const [open, setLocalOpen] = useState(false);
-  // Wire the local open state to the context so YELLOW row clicks can open it.
+  // Register the popover opener so YELLOW row chips can open the panel.
   useEffect(() => {
-    setOpen(setLocalOpen as unknown as (o: boolean) => void);
-    return () => setOpen(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    openRef.current = setLocalOpen;
+    return () => { openRef.current = () => {}; };
+  }, [openRef]);
   const current =
     fallbackItems.find((f) => f.item.id === selectedId) ?? fallbackItems[0];
   const productName = current?.item.product_name || "—";
