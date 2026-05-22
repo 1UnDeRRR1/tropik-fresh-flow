@@ -27,11 +27,12 @@ import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
 import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 import { translateError } from "@/lib/mutation-helpers";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
-import { getCustomsStatusFromMatch } from "@/lib/customs-status";
+import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
+import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status";
 
-// Patch 6B: module-scoped customs-ref index populated by ProductsFullscreen so
-// row-level components can derive GREEN/YELLOW/RED without prop drilling.
-const refByIdGlobal: Map<string, { id: string; product_name: string; country: string }> = new Map();
+// Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
+type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
+const CustomsRefContext = createContext<CustomsRefIndex>(new Map());
 
 
 import { StaffOnly } from "@/components/StaffOnly";
@@ -61,6 +62,9 @@ type ItemRow = {
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
   customs_match_id: string | null;
+  customs_override_duty_usd: number | null;
+  customs_override_confirmed_at: string | null;
+  customs_override_by: string | null;
 };
 
 type CustomsRefMini = { id: string; product_name: string; country: string };
@@ -293,7 +297,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by").eq("shipment_id", id).order("created_at"),
         Promise.all([
           supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
           supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
@@ -434,10 +438,14 @@ function ProductsFullscreen() {
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
   const customsRefs = data?.customsRefs ?? [];
-  const refById = new Map(customsRefs.map((r) => [r.id, r]));
-  // Patch 6B: expose refs to descendant row editors via module-scoped map.
-  refByIdGlobal.clear();
-  for (const r of customsRefs) refByIdGlobal.set(r.id, r);
+  const refById = new Map(customsRefs.map((r) => [r.id, r])) as CustomsRefIndex;
+  // Patch 6B: count RED rows (valid, no customs_match_id) lacking a confirmed
+  // manual customs duty — used to gate Done/Назад.
+  const redUnconfirmedCount = validItems.filter(
+    (it) =>
+      !it.customs_match_id &&
+      !(it.customs_override_confirmed_at && it.customs_override_duty_usd != null),
+  ).length;
   const country = toUaCountry(sh?.country) || "—";
 
   // Customs match status for the header indicator.
@@ -746,12 +754,23 @@ function ProductsFullscreen() {
     invalidateVehicleAndShipmentCaches(qc);
   };
 
+  const tryLeave = (e: React.MouseEvent | null) => {
+    if (redUnconfirmedCount > 0) {
+      e?.preventDefault();
+      toast.error(`${redUnconfirmedCount} ${redUnconfirmedCount === 1 ? "товар" : "товарів"} ${CUSTOMS_STRINGS.shipmentDoneRedSuffix}`);
+      triggerShake(false);
+      return false;
+    }
+    return true;
+  };
+
   return (
+   <CustomsRefContext.Provider value={refById}>
     <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
-          onClick={() => { void leaveProducts(); }}
+          onClick={() => { if (tryLeave(null)) void leaveProducts(); }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
@@ -826,13 +845,14 @@ function ProductsFullscreen() {
             triggerShake(transportMissing);
             return;
           }
+          if (!tryLeave(e)) return;
           e.preventDefault();
           void leaveProducts();
         }}>
           <Button
             className={cn(
               "w-full",
-              (incompleteCount > 0 || (transportMissing && !canSaveForLater))
+              (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
@@ -843,13 +863,16 @@ function ProductsFullscreen() {
                 : "Вкажіть вартість перевезення"
               : incompleteCount > 0
                 ? `Заповніть обов'язкові поля (${incompleteCount})`
-                : canSaveForLater
-                  ? "Зберегти та вийти"
-                  : "Готово"}
+                : redUnconfirmedCount > 0
+                  ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
+                  : canSaveForLater
+                    ? "Зберегти та вийти"
+                    : "Готово"}
           </Button>
         </Link>
       </footer>
     </div>
+   </CustomsRefContext.Provider>
   );
 }
 
@@ -1342,23 +1365,62 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {(() => {
-              const ref = (item as any).customs_match_id
-                ? refByIdGlobal.get((item as any).customs_match_id)
-                : null;
-              const status = getCustomsStatusFromMatch(
-                (item as any).customs_match_id,
-                ref?.country,
-                item.origin_country,
-              );
-              return <CustomsStatusChip status={status} compact />;
-            })()}
+            <ItemCustomsChip item={item} />
             <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
           </div>
         </div>
+        <ItemCustomsOverride item={item} shipmentId={shipmentId} readOnly={readOnly} />
       </td>
     </tr>
     </>
+  );
+}
+
+function ItemCustomsChip({ item }: { item: ItemRow }) {
+  const refById = useContext(CustomsRefContext);
+  const ref = item.customs_match_id ? refById.get(item.customs_match_id) : null;
+  const status = getCustomsStatusFromMatch(item.customs_match_id, ref?.country, item.origin_country);
+  return <CustomsStatusChip status={status} compact />;
+}
+
+function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; shipmentId: string; readOnly: boolean }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [pending, setPending] = useState(false);
+  if (item.customs_match_id) return null;
+  if (!isValidShipmentItem(item)) return null;
+  const confirmedDuty =
+    item.customs_override_confirmed_at && item.customs_override_duty_usd != null
+      ? Number(item.customs_override_duty_usd)
+      : null;
+  const onConfirm = async (duty: number) => {
+    setPending(true);
+    try {
+      const { error } = await supabase.rpc("confirm_shipment_item_customs_override", {
+        p_item_id: item.id,
+        p_duty: duty,
+      });
+      if (error) throw error;
+      toast.success("Митний збір підтверджено");
+      qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, shipmentId] });
+      qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
+      qc.invalidateQueries({ queryKey: ["shipments-list"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    } catch (e) {
+      toast.error(translateError(e));
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <div className="mt-2">
+      <CustomsManualOverrideField
+        confirmedDuty={confirmedDuty}
+        onConfirm={onConfirm}
+        pending={pending}
+        disabled={readOnly}
+      />
+    </div>
   );
 }
 
