@@ -34,6 +34,19 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status
 type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
 const CustomsRefContext = createContext<CustomsRefIndex>(new Map());
 
+// Patch 6B follow-up: per-row YELLOW selection so the explanation panel can
+// switch between fallback items instead of always showing the first one.
+type FallbackSelection = {
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+  openRef: { current: (open: boolean) => void };
+};
+const FallbackSelectionContext = createContext<FallbackSelection>({
+  selectedId: null,
+  setSelectedId: () => {},
+  openRef: { current: () => {} },
+});
+
 
 import { StaffOnly } from "@/components/StaffOnly";
 
@@ -252,11 +265,29 @@ function CustomsStatusBadge({
       </span>
     );
   }
-  const first = fallbackItems[0];
-  const missingCountry = toUaCountry(first?.item.origin_country ?? "") || first?.item.origin_country || "—";
-  const usedCountry = toUaCountry(first?.ref.country ?? "") || first?.ref.country || "—";
+  const { selectedId, setSelectedId, openRef } = useContext(FallbackSelectionContext);
+  const [open, setLocalOpen] = useState(false);
+  // Register the popover opener so YELLOW row chips can open the panel.
+  useEffect(() => {
+    openRef.current = setLocalOpen;
+    return () => { openRef.current = () => {}; };
+  }, [openRef]);
+  const current =
+    fallbackItems.find((f) => f.item.id === selectedId) ?? fallbackItems[0];
+  const productName = current?.item.product_name || "—";
+  const missingCountry =
+    toUaCountry(current?.item.origin_country ?? "") || current?.item.origin_country || "—";
+  const usedCountry = toUaCountry(current?.ref.country ?? "") || current?.ref.country || "—";
   return (
-    <Popover>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setLocalOpen(o);
+        if (o && !selectedId && fallbackItems[0]) {
+          setSelectedId(fallbackItems[0].item.id);
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -267,7 +298,32 @@ function CustomsStatusBadge({
         </button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="center" className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-        Країна <b>{missingCountry}</b> походження для цього товару відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+        <div>
+          Товар <b>{productName}</b>: країна <b>{missingCountry}</b> відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+        </div>
+        {fallbackItems.length > 1 && (
+          <div className="mt-2 flex flex-wrap gap-1 border-t border-amber-400/30 pt-2">
+            {fallbackItems.map((f) => {
+              const active = f.item.id === (current?.item.id ?? null);
+              const label = `${f.item.product_name || "—"} · ${toUaCountry(f.item.origin_country ?? "") || f.item.origin_country || "—"}`;
+              return (
+                <button
+                  key={f.item.id}
+                  type="button"
+                  onClick={() => setSelectedId(f.item.id)}
+                  className={cn(
+                    "rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                    active
+                      ? "border-amber-500 bg-amber-200/70 text-amber-900 dark:bg-amber-800/60 dark:text-amber-100"
+                      : "border-amber-400/40 bg-transparent text-amber-700 hover:bg-amber-100 dark:text-amber-300",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -764,8 +820,17 @@ function ProductsFullscreen() {
     return true;
   };
 
+  const fallbackOpenRef = useRef<(open: boolean) => void>(() => {});
+  const [selectedFallbackId, setSelectedFallbackId] = useState<string | null>(null);
+  const fallbackSelection: FallbackSelection = {
+    selectedId: selectedFallbackId,
+    setSelectedId: setSelectedFallbackId,
+    openRef: fallbackOpenRef,
+  };
+
   return (
    <CustomsRefContext.Provider value={refById}>
+    <FallbackSelectionContext.Provider value={fallbackSelection}>
     <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
@@ -872,6 +937,7 @@ function ProductsFullscreen() {
         </Link>
       </footer>
     </div>
+    </FallbackSelectionContext.Provider>
    </CustomsRefContext.Provider>
   );
 }
@@ -1378,8 +1444,25 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
 function ItemCustomsChip({ item }: { item: ItemRow }) {
   const refById = useContext(CustomsRefContext);
+  const { setSelectedId, openRef } = useContext(FallbackSelectionContext);
   const ref = item.customs_match_id ? refById.get(item.customs_match_id) : null;
   const status = getCustomsStatusFromMatch(item.customs_match_id, ref?.country, item.origin_country);
+  if (status === "yellow") {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedId(item.id);
+          openRef.current(true);
+        }}
+        className="cursor-pointer"
+        title="Показати пояснення митниці для цієї позиції"
+      >
+        <CustomsStatusChip status={status} compact />
+      </button>
+    );
+  }
   return <CustomsStatusChip status={status} compact />;
 }
 
