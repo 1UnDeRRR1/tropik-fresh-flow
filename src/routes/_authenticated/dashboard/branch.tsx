@@ -195,19 +195,38 @@ function BranchDashboard() {
   );
 
   const { data: items } = useQuery({
-    queryKey: ["branch-incoming-items-v2", itemIds.join(",")],
+    queryKey: ["branch-incoming-items-v3", itemIds.join(",")],
     enabled: itemIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items")
-        .select("id,product_name,caliber,origin_country,variety,brand,class,final_cost_indicative,final_cost_invoice")
+        .select("id,product_name,caliber,origin_country,variety,brand,class")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; product_name: string; caliber: string | null;
         origin_country: string | null; variety: string | null;
         brand: string | null; class: string | null;
-        final_cost_indicative: number | null; final_cost_invoice: number | null;
+      }>;
+    },
+  });
+
+  // Patch 8B: branch-visible price source of truth.
+  // Source priority for indicative/invoice = BVP -> baseline -> null.
+  // Never fall back to shipment_items.final_cost_*.
+  const { data: bvps } = useQuery({
+    queryKey: ["branch-visible-prices", branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("branch_visible_prices")
+        .select("distribution_id,shipment_item_id,cost_indicative_usd,cost_invoice_usd,reason,updated_at")
+        .eq("branch_id", branchId!);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        distribution_id: string; shipment_item_id: string;
+        cost_indicative_usd: number | null; cost_invoice_usd: number | null;
+        reason: string; updated_at: string;
       }>;
     },
   });
