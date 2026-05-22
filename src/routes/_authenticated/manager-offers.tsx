@@ -1863,37 +1863,24 @@ function OfferItemEditor({
               {fxRow?.date && <span className="ml-1 text-muted-foreground">({fxRow.date})</span>}
             </span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-2">
             <span className="text-muted-foreground">Митниця</span>
-            <span>
-              {customsRef?.exact ? (
-                <CustomsInfoPopover
-                  customsRef={customsRef}
-                  calc={calc}
-                  country={countryCanonical}
-                  label="знайдено"
-                  labelClass="underline decoration-dotted underline-offset-2"
-                />
-              ) : customsRef ? (
-                <CustomsInfoPopover
-                  customsRef={customsRef}
-                  calc={calc}
-                  country={countryCanonical}
-                  label="не знайдено (індикатив за аналогом)"
-                  labelClass="font-bold text-warning underline decoration-dotted underline-offset-2"
-                />
-              ) : productCanonical && countryCanonical ? (
-                <CustomsInfoPopover
-                  customsRef={null}
-                  calc={calc}
-                  country={countryCanonical}
-                  label="не знайдено"
-                  labelClass="font-bold text-warning underline decoration-dotted underline-offset-2"
-                />
+            <div className="flex flex-col items-end gap-1">
+              {productCanonical && countryCanonical ? (
+                <CustomsStatusChip status={getCustomsStatusFromRef(customsRef)} compact />
               ) : (
-                "—"
+                <span className="text-muted-foreground">—</span>
               )}
-            </span>
+              {customsRef && (
+                <CustomsInfoPopover
+                  customsRef={customsRef}
+                  calc={calc}
+                  country={countryCanonical}
+                  label="деталі"
+                  labelClass="text-[10px] text-muted-foreground underline decoration-dotted underline-offset-2"
+                />
+              )}
+            </div>
           </div>
           {calc && (
             <>

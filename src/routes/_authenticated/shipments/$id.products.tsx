@@ -1333,14 +1333,17 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {!(item as any).customs_match_id ? (
-              <span
-                title="Митна ставка не знайдена для цього товару/країни — мито = 0"
-                className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600"
-              >
-                ⚠ без мита
-              </span>
-            ) : null}
+            {(() => {
+              const ref = (item as any).customs_match_id
+                ? refByIdGlobal.get((item as any).customs_match_id)
+                : null;
+              const status = getCustomsStatusFromMatch(
+                (item as any).customs_match_id,
+                ref?.country,
+                item.origin_country,
+              );
+              return <CustomsStatusChip status={status} compact />;
+            })()}
             <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
           </div>
         </div>
