@@ -754,12 +754,23 @@ function ProductsFullscreen() {
     invalidateVehicleAndShipmentCaches(qc);
   };
 
+  const tryLeave = (e: React.MouseEvent | null) => {
+    if (redUnconfirmedCount > 0) {
+      e?.preventDefault();
+      toast.error(`${redUnconfirmedCount} ${redUnconfirmedCount === 1 ? "товар" : "товарів"} ${CUSTOMS_STRINGS.shipmentDoneRedSuffix}`);
+      triggerShake(false);
+      return false;
+    }
+    return true;
+  };
+
   return (
+   <CustomsRefContext.Provider value={refById}>
     <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
-          onClick={() => { void leaveProducts(); }}
+          onClick={() => { if (tryLeave(null)) void leaveProducts(); }}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Назад
