@@ -438,10 +438,14 @@ function ProductsFullscreen() {
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
   const customsRefs = data?.customsRefs ?? [];
-  const refById = new Map(customsRefs.map((r) => [r.id, r]));
-  // Patch 6B: expose refs to descendant row editors via module-scoped map.
-  refByIdGlobal.clear();
-  for (const r of customsRefs) refByIdGlobal.set(r.id, r);
+  const refById = new Map(customsRefs.map((r) => [r.id, r])) as CustomsRefIndex;
+  // Patch 6B: count RED rows (valid, no customs_match_id) lacking a confirmed
+  // manual customs duty — used to gate Done/Назад.
+  const redUnconfirmedCount = validItems.filter(
+    (it) =>
+      !it.customs_match_id &&
+      !(it.customs_override_confirmed_at && it.customs_override_duty_usd != null),
+  ).length;
   const country = toUaCountry(sh?.country) || "—";
 
   // Customs match status for the header indicator.
