@@ -937,6 +937,7 @@ function ProductsFullscreen() {
         </Link>
       </footer>
     </div>
+    </FallbackSelectionContext.Provider>
    </CustomsRefContext.Provider>
   );
 }
