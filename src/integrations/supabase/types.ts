@@ -241,6 +241,71 @@ export type Database = {
           },
         ]
       }
+      branch_visible_prices: {
+        Row: {
+          branch_id: string
+          cost_indicative_usd: number
+          cost_invoice_usd: number
+          created_at: string
+          distribution_id: string
+          id: string
+          reason: string
+          shipment_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          cost_indicative_usd: number
+          cost_invoice_usd: number
+          created_at?: string
+          distribution_id: string
+          id?: string
+          reason: string
+          shipment_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          cost_indicative_usd?: number
+          cost_invoice_usd?: number
+          created_at?: string
+          distribution_id?: string
+          id?: string
+          reason?: string
+          shipment_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_visible_prices_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_visible_prices_distribution_id_fkey"
+            columns: ["distribution_id"]
+            isOneToOne: false
+            referencedRelation: "distributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_visible_prices_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_visible_prices_shipment_item_id_fkey"
+            columns: ["shipment_item_id"]
+            isOneToOne: false
+            referencedRelation: "shipment_items_branch"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branches: {
         Row: {
           address: string | null
@@ -1427,6 +1492,7 @@ export type Database = {
           eur_usd_rate_source: string | null
           final_freight_amount: number | null
           final_freight_currency: string | null
+          final_freight_locked_at: string | null
           final_freight_payment: string | null
           fx_rate: number | null
           id: string
@@ -1482,6 +1548,7 @@ export type Database = {
           eur_usd_rate_source?: string | null
           final_freight_amount?: number | null
           final_freight_currency?: string | null
+          final_freight_locked_at?: string | null
           final_freight_payment?: string | null
           fx_rate?: number | null
           id?: string
@@ -1537,6 +1604,7 @@ export type Database = {
           eur_usd_rate_source?: string | null
           final_freight_amount?: number | null
           final_freight_currency?: string | null
+          final_freight_locked_at?: string | null
           final_freight_payment?: string | null
           fx_rate?: number | null
           id?: string
@@ -2037,6 +2105,22 @@ export type Database = {
       }
     }
     Functions: {
+      _bvp_link: {
+        Args: {
+          p_branch_id: string
+          p_distribution_id: string
+          p_shipment_item_id: string
+        }
+        Returns: string
+      }
+      _bvp_propagate_shipment: {
+        Args: {
+          p_reason: string
+          p_shipment_id: string
+          p_shipment_item_id?: string
+        }
+        Returns: undefined
+      }
       active_shipments_overview: {
         Args: never
         Returns: {
@@ -2301,6 +2385,15 @@ export type Database = {
           loaded: number
           plan_id: string
         }[]
+      }
+      lock_final_freight: {
+        Args: {
+          p_amount: number
+          p_currency: string
+          p_payment?: string
+          p_shipment_id: string
+        }
+        Returns: undefined
       }
       next_calendar_username_seq: { Args: { _prefix: string }; Returns: number }
       next_supplier_sequence: {
