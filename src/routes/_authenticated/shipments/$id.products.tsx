@@ -820,8 +820,17 @@ function ProductsFullscreen() {
     return true;
   };
 
+  const fallbackOpenRef = useRef<(open: boolean) => void>(() => {});
+  const [selectedFallbackId, setSelectedFallbackId] = useState<string | null>(null);
+  const fallbackSelection: FallbackSelection = {
+    selectedId: selectedFallbackId,
+    setSelectedId: setSelectedFallbackId,
+    openRef: fallbackOpenRef,
+  };
+
   return (
    <CustomsRefContext.Provider value={refById}>
+    <FallbackSelectionContext.Provider value={fallbackSelection}>
     <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
