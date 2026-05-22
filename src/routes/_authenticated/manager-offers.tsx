@@ -1696,8 +1696,12 @@ function OfferItemEditor({
   countryAliases,
   fxRow,
   existingExpiresAt,
+  existingOffer,
+  confirmedDuty,
+  pendingDuty,
   onFormChange,
   onPayloadChange,
+  onCustomsChange,
   onRemove,
 }: {
   index: number;
@@ -1708,11 +1712,26 @@ function OfferItemEditor({
   countryAliases: Record<string, string>;
   fxRow: { rate: number; date: string } | null;
   existingExpiresAt: string | null;
+  existingOffer: ManagerOffer | null;
+  confirmedDuty: number | null;
+  pendingDuty: number | null;
   onFormChange: (f: FormState) => void;
   onPayloadChange: (p: Record<string, unknown> | null) => void;
+  onCustomsChange: (patch: {
+    customsStatus?: CustomsStatus | null;
+    pendingDuty?: number | null;
+    confirmedDuty?: number | null;
+  }) => void;
   onRemove?: () => void;
 }) {
+  const qc = useQueryClient();
+  // Active-offer branch-activity safe rule: when editing an active offer we
+  // cannot confidently rule out branch activity from screen data alone, so
+  // lock product_name / origin_country edits per Patch 6B v4.
+  const identityLocked = !!existingOffer && existingOffer.status === "active";
+
   const update = (patch: Partial<FormState>) => onFormChange({ ...form, ...patch });
+
 
   const productCanonical = resolveOption(form.product_name, productOptions);
   const productValid = !!productCanonical;
