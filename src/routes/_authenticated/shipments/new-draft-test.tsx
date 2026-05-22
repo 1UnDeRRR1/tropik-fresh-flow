@@ -50,7 +50,7 @@ function NewDraftTestPage() {
           p_include_reserve: false,
         } as never);
         if (error) pingError = `${error.code ?? ""} ${error.message}`;
-        else pingRole = `ok (${Array.isArray(r) ? r.length : typeof r} rows)`;
+        else pingRole = `ok (${Array.isArray(r) ? (r as unknown[]).length : typeof r} rows)`;
       } catch (e) {
         pingError = (e as Error).message;
       }
