@@ -487,7 +487,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
       const [{ data: veh }, { data: sibs }] = await Promise.all([
         supabase
           .from("vehicles" as never)
-          .select("id,created_by,total_pallets,total_weight_kg,country,code")
+          .select("id,created_by,total_pallets,total_weight_kg,country,code,status")
           .eq("id", shipment.vehicle_id!)
           .single(),
         supabase
@@ -503,7 +503,7 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
             .select("id,shipment_id,pallet_count,pallet_weight,product_name")
             .in("shipment_id", sibIds)
         : { data: [] as { id: string; shipment_id: string; pallet_count: number | null; pallet_weight: number | null; product_name: string | null }[] };
-      return { vehicle: veh as { id: string; created_by: string | null; total_pallets: number | null; total_weight_kg: number | null; country: string | null; code: string | null } | null, siblings: sibs ?? [], allItems: sibItems ?? [] };
+      return { vehicle: veh as { id: string; created_by: string | null; total_pallets: number | null; total_weight_kg: number | null; country: string | null; code: string | null; status: string | null } | null, siblings: sibs ?? [], allItems: sibItems ?? [] };
     },
   });
 
@@ -539,7 +539,8 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
       }, 0)
     : totalTransportUsd;
   const allocItems = (vehicleData?.allItems ?? []).length ? vehicleData!.allItems : items;
-  const alloc = allocateTransport(allocItems, vehicleTotalUsd);
+  const vehicleClosed = (vehicle?.status ?? "") === "closed";
+  const alloc = allocateTransport(allocItems, vehicleTotalUsd, vehicleClosed);
 
   const saveTransport = async () => {
     if (transportLocked) return;
