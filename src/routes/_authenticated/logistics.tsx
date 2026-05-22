@@ -115,7 +115,7 @@ function LogisticsPage() {
            vehicle_plate, tractor_plate, trailer_plate,
            notes, logistics_comment, loading_started_at, loading_ended_at,
            logistics_cost, logistics_cost_currency,
-           final_freight_amount, final_freight_currency, final_freight_payment,
+           final_freight_amount, final_freight_currency, final_freight_payment, final_freight_locked_at,
            temperature_mode,
            import_manager_id,
            supplier:suppliers(name, import_manager_id),
