@@ -661,7 +661,11 @@ function BranchDashboard() {
                   const s = statsFor(r);
                   const etaChanged = dateNeq(r.eta, r.seen_eta);
                   const palChanged = numNeq(r.pallets, r.seen_pallets);
-                  const costChanged = numNeq(r.indicative, r.seen_ind) || numNeq(r.invoice, r.seen_inv);
+                  // Patch 8B: pill driven by BVP vs baseline.seen_cost_*, not by notifications.
+                  const costChanged =
+                    !!r.bvp_reason &&
+                    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
+                    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
                   return (
                     <tr
                       key={r.key}
