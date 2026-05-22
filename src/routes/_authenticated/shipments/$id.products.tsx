@@ -1444,8 +1444,25 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
 function ItemCustomsChip({ item }: { item: ItemRow }) {
   const refById = useContext(CustomsRefContext);
+  const { setSelectedId, openRef } = useContext(FallbackSelectionContext);
   const ref = item.customs_match_id ? refById.get(item.customs_match_id) : null;
   const status = getCustomsStatusFromMatch(item.customs_match_id, ref?.country, item.origin_country);
+  if (status === "yellow") {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedId(item.id);
+          openRef.current(true);
+        }}
+        className="cursor-pointer"
+        title="Показати пояснення митниці для цієї позиції"
+      >
+        <CustomsStatusChip status={status} compact />
+      </button>
+    );
+  }
   return <CustomsStatusChip status={status} compact />;
 }
 
