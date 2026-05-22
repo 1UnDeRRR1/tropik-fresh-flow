@@ -1435,6 +1435,19 @@ function OfferEditor({
 
   const allValid = items.length > 0 && items.every((it) => it.payload !== null);
 
+  // RED gate: each RED item must have a confirmed duty (existing) or a
+  // pending duty captured locally (new). Used to disable publish buttons.
+  const redBlocked = items.some(
+    (it) =>
+      it.customsStatus === "red" &&
+      (offer
+        ? it.confirmedDuty == null || !(it.confirmedDuty > 0)
+        : it.pendingDuty == null || !(it.pendingDuty > 0)),
+  );
+  const canPublish = allValid && !redBlocked;
+
+  const qc = useQueryClient();
+
   const publish = useMutation({
     mutationFn: async ({
       mode,
@@ -1445,11 +1458,21 @@ function OfferEditor({
     }) => {
       if (!user) throw new Error("Користувача не знайдено");
       if (!allValid) throw new Error("Заповніть усі товари");
+      if (redBlocked) {
+        throw new Error(
+          offer
+            ? CUSTOMS_STRINGS.publishBlockedActiveRed
+            : CUSTOMS_STRINGS.publishBlockedDraftRed,
+        );
+      }
       if (mode === "selected" && branchIds.length === 0) {
         throw new Error("Виберіть хоча б одну філію");
       }
 
       if (offer) {
+        // Existing offer: identity edit is locked for active offers (see
+        // OfferItemEditor), so the persisted RED override (if any) remains
+        // valid for the current product/country pair.
         const payload = items[0].payload!;
         const { error: offerError } = await supabase
           .from("manager_offers")
@@ -1482,7 +1505,9 @@ function OfferEditor({
       try {
         for (const it of items) {
           const payload = it.payload!;
-          const initialStatus = mode === "all" ? "active" : "draft";
+          const isRed = it.customsStatus === "red";
+          // Path A: RED items always insert as draft first, then RPC, then publish.
+          const initialStatus = isRed || mode === "selected" ? "draft" : "active";
           const { data: created, error: createError } = await supabase
             .from("manager_offers")
             .insert({
@@ -1497,14 +1522,26 @@ function OfferEditor({
           if (createError) throw createError;
           createdIds.push(created.id);
 
+          if (isRed) {
+            const { error: rpcErr } = await supabase.rpc(
+              "confirm_manager_offer_customs_override",
+              { p_offer_id: created.id, p_duty: it.pendingDuty! },
+            );
+            if (rpcErr) throw rpcErr;
+          }
+
           if (mode === "selected") {
             const { error: targetError } = await supabase
               .from("manager_offer_targets")
               .insert(branchIds.map((branch_id) => ({ offer_id: created.id, branch_id })));
             if (targetError) throw targetError;
+          }
+
+          // Activate now if RED (we deferred to draft) or selected mode.
+          if (isRed || mode === "selected") {
             const { error: activateError } = await supabase
               .from("manager_offers")
-              .update({ status: "active", target_mode: "selected" })
+              .update({ status: "active", target_mode: mode })
               .eq("id", created.id);
             if (activateError) throw activateError;
           }
@@ -1523,12 +1560,15 @@ function OfferEditor({
           ? `Пропозицій відправлено всім філіям: ${count}`
           : `Пропозицій відправлено вибраним філіям: ${count}`,
       );
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       onSaved();
       setSelectiveOpen(false);
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
