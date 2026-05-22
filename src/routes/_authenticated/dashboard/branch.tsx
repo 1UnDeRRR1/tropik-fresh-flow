@@ -486,6 +486,9 @@ function BranchDashboard() {
                 weight,
                 indicative: o.indicative_cost_usd,
                 invoice: o.invoice_cost_usd,
+                bvp_ind: null,
+                bvp_inv: null,
+                bvp_reason: null,
                 baseline_eta: o.expected_eta,
                 baseline_pallets: pallets,
                 baseline_ind: o.indicative_cost_usd,
@@ -499,7 +502,7 @@ function BranchDashboard() {
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, suppliers, managers, baselines, board, pendingOffers]);
+  }, [dists, items, ships, suppliers, managers, baselines, bvps, board, pendingOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
@@ -508,6 +511,8 @@ function BranchDashboard() {
       p_shipment_item_id: shipmentItemId,
     });
     qc.invalidateQueries({ queryKey: ["branch-baselines", branchId] });
+    qc.invalidateQueries({ queryKey: ["branch-visible-prices", branchId] });
+    qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
   const managerOptions = useMemo(() => {
