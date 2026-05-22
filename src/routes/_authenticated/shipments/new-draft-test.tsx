@@ -14,8 +14,8 @@ function NewDraftTestPage() {
     <div className="space-y-4">
       <PageHeader
         title="Нова поставка · draft test"
-        description="Тестова таблиця для перевірки resolver/autofill. Дані не зберігаються в БД."
-        actions={
+        subtitle="Тестова таблиця для перевірки resolver/autofill. Дані не зберігаються в БД."
+        action={
           <Button variant="outline" onClick={() => navigate({ to: "/shipments" })}>
             Закрити
           </Button>
