@@ -435,6 +435,9 @@ function ProductsFullscreen() {
   const vehicleContext = data?.vehicleContext ?? null;
   const customsRefs = data?.customsRefs ?? [];
   const refById = new Map(customsRefs.map((r) => [r.id, r]));
+  // Patch 6B: expose refs to descendant row editors via module-scoped map.
+  refByIdGlobal.clear();
+  for (const r of customsRefs) refByIdGlobal.set(r.id, r);
   const country = toUaCountry(sh?.country) || "—";
 
   // Customs match status for the header indicator.
