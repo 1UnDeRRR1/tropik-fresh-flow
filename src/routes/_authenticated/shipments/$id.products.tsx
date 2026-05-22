@@ -39,12 +39,12 @@ const CustomsRefContext = createContext<CustomsRefIndex>(new Map());
 type FallbackSelection = {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
-  setOpen: (open: boolean) => void;
+  openRef: { current: (open: boolean) => void };
 };
 const FallbackSelectionContext = createContext<FallbackSelection>({
   selectedId: null,
   setSelectedId: () => {},
-  setOpen: () => {},
+  openRef: { current: () => {} },
 });
 
 
