@@ -1210,6 +1210,180 @@ export type Database = {
         }
         Relationships: []
       }
+      pallet_standards: {
+        Row: {
+          box_gross_kg: number | null
+          box_net_kg: number | null
+          boxes_per_pallet: number | null
+          canonical_product_id: string | null
+          check_note: string | null
+          comment: string | null
+          confidence: string | null
+          country_en: string | null
+          country_ru: string | null
+          created_at: string
+          id: string
+          mapping_status: string
+          needs_review: boolean
+          package_used: string
+          pallet_gross_kg: number | null
+          pallet_net_kg: number | null
+          pallet_size: string | null
+          pallet_type: string | null
+          product_label: string
+          region: string | null
+          source_basis: string | null
+          updated_at: string
+        }
+        Insert: {
+          box_gross_kg?: number | null
+          box_net_kg?: number | null
+          boxes_per_pallet?: number | null
+          canonical_product_id?: string | null
+          check_note?: string | null
+          comment?: string | null
+          confidence?: string | null
+          country_en?: string | null
+          country_ru?: string | null
+          created_at?: string
+          id?: string
+          mapping_status?: string
+          needs_review?: boolean
+          package_used: string
+          pallet_gross_kg?: number | null
+          pallet_net_kg?: number | null
+          pallet_size?: string | null
+          pallet_type?: string | null
+          product_label: string
+          region?: string | null
+          source_basis?: string | null
+          updated_at?: string
+        }
+        Update: {
+          box_gross_kg?: number | null
+          box_net_kg?: number | null
+          boxes_per_pallet?: number | null
+          canonical_product_id?: string | null
+          check_note?: string | null
+          comment?: string | null
+          confidence?: string | null
+          country_en?: string | null
+          country_ru?: string | null
+          created_at?: string
+          id?: string
+          mapping_status?: string
+          needs_review?: boolean
+          package_used?: string
+          pallet_gross_kg?: number | null
+          pallet_net_kg?: number | null
+          pallet_size?: string | null
+          pallet_type?: string | null
+          product_label?: string
+          region?: string | null
+          source_basis?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallet_standards_canonical_product_id_fkey"
+            columns: ["canonical_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_dictionary"
+            referencedColumns: ["canonical_product_id"]
+          },
+        ]
+      }
+      product_aliases: {
+        Row: {
+          alias: string
+          alias_normalized: string
+          canonical_product_id: string
+          created_at: string
+          id: string
+          language_hint: string | null
+          mapping_status: string
+        }
+        Insert: {
+          alias: string
+          alias_normalized: string
+          canonical_product_id: string
+          created_at?: string
+          id?: string
+          language_hint?: string | null
+          mapping_status?: string
+        }
+        Update: {
+          alias?: string
+          alias_normalized?: string
+          canonical_product_id?: string
+          created_at?: string
+          id?: string
+          language_hint?: string | null
+          mapping_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_aliases_canonical_product_id_fkey"
+            columns: ["canonical_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_dictionary"
+            referencedColumns: ["canonical_product_id"]
+          },
+        ]
+      }
+      product_dictionary: {
+        Row: {
+          canonical_product_id: string
+          created_at: string
+          group_code: string | null
+          group_name_en: string | null
+          group_name_ua: string | null
+          id: string
+          is_working_assortment: boolean
+          product_key: string
+          product_name_en: string | null
+          product_name_ua: string
+          source_product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          canonical_product_id: string
+          created_at?: string
+          group_code?: string | null
+          group_name_en?: string | null
+          group_name_ua?: string | null
+          id?: string
+          is_working_assortment?: boolean
+          product_key: string
+          product_name_en?: string | null
+          product_name_ua: string
+          source_product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canonical_product_id?: string
+          created_at?: string
+          group_code?: string | null
+          group_name_en?: string | null
+          group_name_ua?: string | null
+          id?: string
+          is_working_assortment?: boolean
+          product_key?: string
+          product_name_en?: string | null
+          product_name_ua?: string
+          source_product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_dictionary_source_product_id_fkey"
+            columns: ["source_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_varieties: {
         Row: {
           created_at: string
