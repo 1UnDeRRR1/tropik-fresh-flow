@@ -1274,9 +1274,19 @@ function offerToForm(offer: ManagerOffer): FormState {
   };
 }
 
-type ItemEntry = { id: number; form: FormState; payload: Record<string, unknown> | null };
+type ItemEntry = {
+  id: number;
+  form: FormState;
+  payload: Record<string, unknown> | null;
+  customsStatus: CustomsStatus | null;
+  /** For new offers (no existing offer.id): duty captured locally, applied via RPC at publish. */
+  pendingDuty: number | null;
+  /** For existing offers: server-confirmed duty (manager_offers.customs_override_duty_usd). */
+  confirmedDuty: number | null;
+};
 let _itemSeq = 1;
 const nextItemId = () => _itemSeq++;
+
 
 function OfferEditor({
   open,
@@ -1348,15 +1358,26 @@ function OfferEditor({
     },
   });
 
+  const makeEntry = (form: FormState, confirmedDuty: number | null = null): ItemEntry => ({
+    id: nextItemId(),
+    form,
+    payload: null,
+    customsStatus: null,
+    pendingDuty: null,
+    confirmedDuty,
+  });
+
   useEffect(() => {
     if (open) {
-      setItems([
-        { id: nextItemId(), form: offer ? offerToForm(offer) : emptyForm(), payload: null },
-      ]);
+      const o = offer as (ManagerOffer & { customs_override_duty_usd?: number | null }) | null;
+      const confirmed =
+        o && o.customs_override_duty_usd != null ? Number(o.customs_override_duty_usd) : null;
+      setItems([makeEntry(offer ? offerToForm(offer) : emptyForm(), confirmed)]);
       setSelectiveOpen(false);
     } else {
       setItems([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, offer?.id]);
 
   useEffect(() => {
@@ -1377,25 +1398,55 @@ function OfferEditor({
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        // Avoid update if identical to prevent loops
         const same = JSON.stringify(it.payload) === JSON.stringify(payload);
         return same ? it : { ...it, payload };
       }),
     );
+  const updateCustoms = (
+    id: number,
+    patch: { customsStatus?: CustomsStatus | null; pendingDuty?: number | null; confirmedDuty?: number | null },
+  ) =>
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        const next = { ...it, ...patch };
+        if (
+          next.customsStatus === it.customsStatus &&
+          next.pendingDuty === it.pendingDuty &&
+          next.confirmedDuty === it.confirmedDuty
+        ) {
+          return it;
+        }
+        return next;
+      }),
+    );
   const removeItem = (id: number) =>
     setItems((prev) => (prev.length <= 1 ? prev : prev.filter((it) => it.id !== id)));
-  const addNew = () =>
-    setItems((prev) => [...prev, { id: nextItemId(), form: emptyForm(), payload: null }]);
+  const addNew = () => setItems((prev) => [...prev, makeEntry(emptyForm())]);
   const addSimilar = () =>
     setItems((prev) => {
       const last = prev[prev.length - 1];
       const clone: FormState = last
         ? { ...last.form, offered_pallets: "", expires_in_hours: "" }
         : emptyForm();
-      return [...prev, { id: nextItemId(), form: clone, payload: null }];
+      return [...prev, makeEntry(clone)];
     });
 
+
   const allValid = items.length > 0 && items.every((it) => it.payload !== null);
+
+  // RED gate: each RED item must have a confirmed duty (existing) or a
+  // pending duty captured locally (new). Used to disable publish buttons.
+  const redBlocked = items.some(
+    (it) =>
+      it.customsStatus === "red" &&
+      (offer
+        ? it.confirmedDuty == null || !(it.confirmedDuty > 0)
+        : it.pendingDuty == null || !(it.pendingDuty > 0)),
+  );
+  const canPublish = allValid && !redBlocked;
+
+  const qc = useQueryClient();
 
   const publish = useMutation({
     mutationFn: async ({
@@ -1407,11 +1458,21 @@ function OfferEditor({
     }) => {
       if (!user) throw new Error("Користувача не знайдено");
       if (!allValid) throw new Error("Заповніть усі товари");
+      if (redBlocked) {
+        throw new Error(
+          offer
+            ? CUSTOMS_STRINGS.publishBlockedActiveRed
+            : CUSTOMS_STRINGS.publishBlockedDraftRed,
+        );
+      }
       if (mode === "selected" && branchIds.length === 0) {
         throw new Error("Виберіть хоча б одну філію");
       }
 
       if (offer) {
+        // Existing offer: identity edit is locked for active offers (see
+        // OfferItemEditor), so the persisted RED override (if any) remains
+        // valid for the current product/country pair.
         const payload = items[0].payload!;
         const { error: offerError } = await supabase
           .from("manager_offers")
@@ -1444,7 +1505,9 @@ function OfferEditor({
       try {
         for (const it of items) {
           const payload = it.payload!;
-          const initialStatus = mode === "all" ? "active" : "draft";
+          const isRed = it.customsStatus === "red";
+          // Path A: RED items always insert as draft first, then RPC, then publish.
+          const initialStatus = isRed || mode === "selected" ? "draft" : "active";
           const { data: created, error: createError } = await supabase
             .from("manager_offers")
             .insert({
@@ -1459,14 +1522,26 @@ function OfferEditor({
           if (createError) throw createError;
           createdIds.push(created.id);
 
+          if (isRed) {
+            const { error: rpcErr } = await supabase.rpc(
+              "confirm_manager_offer_customs_override",
+              { p_offer_id: created.id, p_duty: it.pendingDuty! },
+            );
+            if (rpcErr) throw rpcErr;
+          }
+
           if (mode === "selected") {
             const { error: targetError } = await supabase
               .from("manager_offer_targets")
               .insert(branchIds.map((branch_id) => ({ offer_id: created.id, branch_id })));
             if (targetError) throw targetError;
+          }
+
+          // Activate now if RED (we deferred to draft) or selected mode.
+          if (isRed || mode === "selected") {
             const { error: activateError } = await supabase
               .from("manager_offers")
-              .update({ status: "active", target_mode: "selected" })
+              .update({ status: "active", target_mode: mode })
               .eq("id", created.id);
             if (activateError) throw activateError;
           }
@@ -1485,12 +1560,15 @@ function OfferEditor({
           ? `Пропозицій відправлено всім філіям: ${count}`
           : `Пропозицій відправлено вибраним філіям: ${count}`,
       );
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       onSaved();
       setSelectiveOpen(false);
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -1510,8 +1588,12 @@ function OfferEditor({
               countryAliases={countryAliases}
               fxRow={fxRow ?? null}
               existingExpiresAt={idx === 0 ? offer?.expires_at ?? null : null}
+              existingOffer={idx === 0 ? offer : null}
+              confirmedDuty={it.confirmedDuty}
+              pendingDuty={it.pendingDuty}
               onFormChange={(f) => updateForm(it.id, f)}
               onPayloadChange={(p) => updatePayload(it.id, p)}
+              onCustomsChange={(patch) => updateCustoms(it.id, patch)}
               onRemove={!offer && items.length > 1 ? () => removeItem(it.id) : undefined}
             />
           ))}
@@ -1527,17 +1609,25 @@ function OfferEditor({
             </div>
           )}
 
+          {redBlocked && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              {offer
+                ? CUSTOMS_STRINGS.publishBlockedActiveRed
+                : CUSTOMS_STRINGS.publishBlockedDraftRed}
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button
               onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
-              disabled={publish.isPending || !allValid}
+              disabled={publish.isPending || !canPublish}
             >
               Відправити всім{!offer && items.length > 1 ? ` (${items.length})` : ""}
             </Button>
             <Button
               variant="outline"
               onClick={() => setSelectiveOpen(true)}
-              disabled={publish.isPending || !allValid}
+              disabled={publish.isPending || !canPublish}
             >
               Відправити вибірково
             </Button>
@@ -1545,6 +1635,7 @@ function OfferEditor({
               Скасувати
             </Button>
           </div>
+
         </div>
       </SheetContent>
 
@@ -1605,8 +1696,12 @@ function OfferItemEditor({
   countryAliases,
   fxRow,
   existingExpiresAt,
+  existingOffer,
+  confirmedDuty,
+  pendingDuty,
   onFormChange,
   onPayloadChange,
+  onCustomsChange,
   onRemove,
 }: {
   index: number;
@@ -1617,11 +1712,26 @@ function OfferItemEditor({
   countryAliases: Record<string, string>;
   fxRow: { rate: number; date: string } | null;
   existingExpiresAt: string | null;
+  existingOffer: ManagerOffer | null;
+  confirmedDuty: number | null;
+  pendingDuty: number | null;
   onFormChange: (f: FormState) => void;
   onPayloadChange: (p: Record<string, unknown> | null) => void;
+  onCustomsChange: (patch: {
+    customsStatus?: CustomsStatus | null;
+    pendingDuty?: number | null;
+    confirmedDuty?: number | null;
+  }) => void;
   onRemove?: () => void;
 }) {
+  const qc = useQueryClient();
+  // Active-offer branch-activity safe rule: when editing an active offer we
+  // cannot confidently rule out branch activity from screen data alone, so
+  // lock product_name / origin_country edits per Patch 6B v4.
+  const identityLocked = !!existingOffer && existingOffer.status === "active";
+
   const update = (patch: Partial<FormState>) => onFormChange({ ...form, ...patch });
+
 
   const productCanonical = resolveOption(form.product_name, productOptions);
   const productValid = !!productCanonical;
@@ -1735,6 +1845,45 @@ function OfferItemEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payloadKey]);
 
+  // Derive customs status and bubble it up so the parent can gate publish.
+  const currentStatus: CustomsStatus | null =
+    productCanonical && countryCanonical ? getCustomsStatusFromRef(customsRef) : null;
+  useEffect(() => {
+    onCustomsChange({ customsStatus: currentStatus });
+    // Drop pending duty when leaving RED (parent keeps confirmedDuty in sync
+    // via its own offer prop / RPC invalidation).
+    if (currentStatus !== "red") {
+      onCustomsChange({ pendingDuty: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStatus]);
+
+  // RPC for existing offers: persist manual duty server-side.
+  const confirmExisting = useMutation({
+    mutationFn: async (duty: number) => {
+      const { data, error } = await supabase.rpc(
+        "confirm_manager_offer_customs_override",
+        { p_offer_id: existingOffer!.id, p_duty: duty },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      const row = data as { customs_override_duty_usd?: number | null } | null;
+      const v = row?.customs_override_duty_usd;
+      const n = v != null ? Number(v) : null;
+      onCustomsChange({ confirmedDuty: n });
+      toast.success("Митну суму збережено");
+      const oid = existingOffer!.id;
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer", oid] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses", oid] });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   return (
     <div className="rounded-2xl border border-border bg-card/40 p-3 space-y-3">
       {total > 1 && (
@@ -1752,25 +1901,39 @@ function OfferItemEditor({
 
       <label className="block text-sm">
         <span className="mb-1 block text-muted-foreground">Товар *</span>
-        <ValidatedAutocomplete
-          value={form.product_name}
-          onChange={(v) => update({ product_name: v })}
-          options={productOptions}
-          placeholder="Почніть вводити назву товару"
-          required
-        />
+        {identityLocked ? (
+          <Input value={form.product_name} disabled readOnly />
+        ) : (
+          <ValidatedAutocomplete
+            value={form.product_name}
+            onChange={(v) => update({ product_name: v })}
+            options={productOptions}
+            placeholder="Почніть вводити назву товару"
+            required
+          />
+        )}
       </label>
       <label className="block text-sm">
         <span className="mb-1 block text-muted-foreground">Країна походження *</span>
-        <ValidatedAutocomplete
-          value={form.origin_country}
-          onChange={(v) => update({ origin_country: v })}
-          options={countryOptions}
-          aliases={countryAliases}
-          placeholder="Почніть вводити країну"
-          required
-        />
+        {identityLocked ? (
+          <Input value={form.origin_country} disabled readOnly />
+        ) : (
+          <ValidatedAutocomplete
+            value={form.origin_country}
+            onChange={(v) => update({ origin_country: v })}
+            options={countryOptions}
+            aliases={countryAliases}
+            placeholder="Почніть вводити країну"
+            required
+          />
+        )}
       </label>
+      {identityLocked && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-[11px] text-warning-foreground">
+          {CUSTOMS_STRINGS.blockedByBranchActivity}
+        </div>
+      )}
+
       {(
         [
           ["caliber", "Калібр"],
@@ -1913,6 +2076,22 @@ function OfferItemEditor({
           )}
         </div>
       </div>
+
+      {currentStatus === "red" && (
+        <CustomsManualOverrideField
+          confirmedDuty={existingOffer ? confirmedDuty : pendingDuty}
+          pending={confirmExisting.isPending}
+          onConfirm={(duty) => {
+            if (existingOffer) {
+              confirmExisting.mutate(duty);
+            } else {
+              onCustomsChange({ pendingDuty: duty });
+            }
+          }}
+        />
+      )}
+
+
 
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm">
