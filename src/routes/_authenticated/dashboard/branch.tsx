@@ -348,6 +348,7 @@ function BranchDashboard() {
     const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
+    const vMap = new Map((bvps ?? []).map((v) => [`${v.distribution_id}-${v.shipment_item_id}`, v]));
 
     const materialized: Row[] = dists.flatMap((d) =>
       (d.distribution_items ?? [])
