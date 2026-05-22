@@ -496,6 +496,21 @@ function EditDialog({
         patch.loading_reference = joinedRef || null;
         patch.temperature_mode = form.temperature_mode || null;
       }
+
+      const amtStr = form.final_freight_amount.trim();
+      const amtNum = amtStr === "" ? null : Number(amtStr);
+      const freightChanged =
+        (row.final_freight_amount ?? null) !== amtNum ||
+        (row.final_freight_currency ?? null) !== (amtNum == null ? null : form.final_freight_currency) ||
+        (row.final_freight_payment ?? null) !== (amtNum == null ? null : form.final_freight_payment);
+      // Patch 8B: route final freight commit through lock_final_freight RPC.
+      const shouldLockFreight =
+        isLogistics &&
+        amtNum != null &&
+        amtNum > 0 &&
+        !!form.final_freight_currency &&
+        (freightChanged || row.final_freight_locked_at == null);
+
       if (isLogistics) {
         patch.tractor_plate = form.tractor_plate || null;
         patch.trailer_plate = form.trailer_plate || null;
@@ -503,16 +518,19 @@ function EditDialog({
         patch.driver_phone = form.driver_phone || null;
         patch.eta = form.eta || null;
         patch.logistics_comment = form.logistics_comment || null;
-        const amt = form.final_freight_amount.trim();
-        patch.final_freight_amount = amt === "" ? null : Number(amt);
-        patch.final_freight_currency = amt === "" ? null : form.final_freight_currency;
-        patch.final_freight_payment = amt === "" ? null : form.final_freight_payment;
+        // When RPC will be called, exclude final_freight_* and logistics_cost*
+        // from the direct UPDATE — the RPC owns those side effects.
+        if (!shouldLockFreight) {
+          patch.final_freight_amount = amtNum;
+          patch.final_freight_currency = amtNum == null ? null : form.final_freight_currency;
+          patch.final_freight_payment = amtNum == null ? null : form.final_freight_payment;
+        }
 
         // Auto-compute status from filled fields. Only override early states;
         // don't touch later ones like loading/in_transit/at_customs/delayed/arrived.
         const hasVehicle = !!(form.tractor_plate.trim() && form.trailer_plate.trim());
         const hasDriver = !!form.driver_name.trim();
-        const hasFreight = amt !== "";
+        const hasFreight = amtStr !== "";
         const hasAddress = !!joinedAddress;
         const hasRef = !!joinedRef;
         const earlyStates: LogisticsStatus[] = [
@@ -533,16 +551,40 @@ function EditDialog({
         }
         patch.logistics_status = nextStatus;
       }
-      if (Object.keys(patch).length === 0) return;
-      const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
-      if (error) throw error;
+
+      if (Object.keys(patch).length > 0) {
+        const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
+        if (error) throw error;
+      }
+
+      if (shouldLockFreight) {
+        const { error } = await (supabase as any).rpc("lock_final_freight", {
+          p_shipment_id: row.id,
+          p_amount: amtNum,
+          p_currency: form.final_freight_currency,
+          p_payment: form.final_freight_payment,
+        });
+        if (error) throw new Error("FREIGHT_LOCK_FAILED:" + error.message);
+      }
     },
     onSuccess: () => {
       toast.success("Збережено");
       qc.invalidateQueries({ queryKey: ["logistics-board"] });
+      qc.invalidateQueries({ queryKey: ["branch-visible-prices"] });
+      qc.invalidateQueries({ queryKey: ["branch-baselines"] });
+      qc.invalidateQueries({ queryKey: ["branch-incoming-items-v3"] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      if (e.message.startsWith("FREIGHT_LOCK_FAILED:")) {
+        toast.error("Інші зміни збережено, але фінальний фрахт не зафіксовано. Спробуйте ще раз.");
+        qc.invalidateQueries({ queryKey: ["logistics-board"] });
+        // Keep dialog open so user can retry with the same freight values.
+      } else {
+        toast.error(e.message);
+      }
+    },
   });
 
   return (
