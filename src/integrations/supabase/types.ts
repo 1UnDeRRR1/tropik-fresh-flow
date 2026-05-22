@@ -2613,11 +2613,10 @@ export type Database = {
         }[]
       }
       rpc_resolve_country: {
-        Args: { p_query: string }
+        Args: { p_input: string }
         Returns: {
           alias_normalized: string
           country_name: string
-          iso2: string
           iso3: string
           status: string
         }[]
