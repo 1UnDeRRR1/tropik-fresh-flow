@@ -1845,6 +1845,45 @@ function OfferItemEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payloadKey]);
 
+  // Derive customs status and bubble it up so the parent can gate publish.
+  const currentStatus: CustomsStatus | null =
+    productCanonical && countryCanonical ? getCustomsStatusFromRef(customsRef) : null;
+  useEffect(() => {
+    onCustomsChange({ customsStatus: currentStatus });
+    // Drop pending duty when leaving RED (parent keeps confirmedDuty in sync
+    // via its own offer prop / RPC invalidation).
+    if (currentStatus !== "red") {
+      onCustomsChange({ pendingDuty: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStatus]);
+
+  // RPC for existing offers: persist manual duty server-side.
+  const confirmExisting = useMutation({
+    mutationFn: async (duty: number) => {
+      const { data, error } = await supabase.rpc(
+        "confirm_manager_offer_customs_override",
+        { p_offer_id: existingOffer!.id, p_duty: duty },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      const row = data as { customs_override_duty_usd?: number | null } | null;
+      const v = row?.customs_override_duty_usd;
+      const n = v != null ? Number(v) : null;
+      onCustomsChange({ confirmedDuty: n });
+      toast.success("Митну суму збережено");
+      const oid = existingOffer!.id;
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer", oid] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses", oid] });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   return (
     <div className="rounded-2xl border border-border bg-card/40 p-3 space-y-3">
       {total > 1 && (
