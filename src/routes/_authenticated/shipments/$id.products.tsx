@@ -265,11 +265,30 @@ function CustomsStatusBadge({
       </span>
     );
   }
-  const first = fallbackItems[0];
-  const missingCountry = toUaCountry(first?.item.origin_country ?? "") || first?.item.origin_country || "—";
-  const usedCountry = toUaCountry(first?.ref.country ?? "") || first?.ref.country || "—";
+  const { selectedId, setSelectedId, setOpen } = useContext(FallbackSelectionContext);
+  const [open, setLocalOpen] = useState(false);
+  // Wire the local open state to the context so YELLOW row clicks can open it.
+  useEffect(() => {
+    setOpen(setLocalOpen as unknown as (o: boolean) => void);
+    return () => setOpen(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const current =
+    fallbackItems.find((f) => f.item.id === selectedId) ?? fallbackItems[0];
+  const productName = current?.item.product_name || "—";
+  const missingCountry =
+    toUaCountry(current?.item.origin_country ?? "") || current?.item.origin_country || "—";
+  const usedCountry = toUaCountry(current?.ref.country ?? "") || current?.ref.country || "—";
   return (
-    <Popover>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setLocalOpen(o);
+        if (o && !selectedId && fallbackItems[0]) {
+          setSelectedId(fallbackItems[0].item.id);
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -280,7 +299,32 @@ function CustomsStatusBadge({
         </button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="center" className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-        Країна <b>{missingCountry}</b> походження для цього товару відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+        <div>
+          Товар <b>{productName}</b>: країна <b>{missingCountry}</b> відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+        </div>
+        {fallbackItems.length > 1 && (
+          <div className="mt-2 flex flex-wrap gap-1 border-t border-amber-400/30 pt-2">
+            {fallbackItems.map((f) => {
+              const active = f.item.id === (current?.item.id ?? null);
+              const label = `${f.item.product_name || "—"} · ${toUaCountry(f.item.origin_country ?? "") || f.item.origin_country || "—"}`;
+              return (
+                <button
+                  key={f.item.id}
+                  type="button"
+                  onClick={() => setSelectedId(f.item.id)}
+                  className={cn(
+                    "rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                    active
+                      ? "border-amber-500 bg-amber-200/70 text-amber-900 dark:bg-amber-800/60 dark:text-amber-100"
+                      : "border-amber-400/40 bg-transparent text-amber-700 hover:bg-amber-100 dark:text-amber-300",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
