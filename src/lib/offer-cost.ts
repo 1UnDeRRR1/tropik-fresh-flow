@@ -39,6 +39,14 @@ export type CustomsRefRow = {
   exact?: boolean;
 };
 
+/** Patch 6B: GREEN/YELLOW/RED status from a customs lookup result. */
+export function getCustomsStatus(
+  ref: CustomsRefRow | null | undefined,
+): "green" | "yellow" | "red" {
+  if (!ref) return "red";
+  return ref.exact === true ? "green" : "yellow";
+}
+
 // Product aliases for customs lookup: treat key as if it were value
 const PRODUCT_CUSTOMS_ALIASES: Record<string, string> = {
   "інжирний персик": "персик",
