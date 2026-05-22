@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 type ResolverStatus =
@@ -40,7 +41,7 @@ const INT_RAW_RE = /^[0-9]*$/;
 function normalizeDecimal(raw: string): string {
   if (raw === "") return "";
   let v = raw.replace(",", ".");
-  if (v.startsWith(".")) v = "0" + v;
+  if (v.startsWith(".")) v = `0${v}`;
   if (v.endsWith(".")) v = v.slice(0, -1);
   const n = Number(v);
   if (!Number.isFinite(n)) return "";
@@ -57,6 +58,59 @@ function normalizeInt(raw: string): string {
 function fmt(n: number | null): string {
   if (n === null || !Number.isFinite(n)) return "—";
   return (Math.round(n * 100) / 100).toString();
+}
+
+function asNumber(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function toResolverResult(payload: unknown): ResolverResult | null {
+  const row = Array.isArray(payload)
+    ? payload[0]
+    : payload && typeof payload === "object"
+      ? payload
+      : null;
+
+  if (!row || typeof row !== "object") return null;
+
+  const record = row as Record<string, unknown>;
+  const status = record.status;
+  if (
+    status !== "matched" &&
+    status !== "pallet_no_match" &&
+    status !== "product_no_match" &&
+    status !== "product_ambiguous" &&
+    status !== "country_no_match"
+  ) {
+    return null;
+  }
+
+  return {
+    status,
+    product_dictionary_id: asText(record.product_dictionary_id),
+    canonical_product_id: asText(record.canonical_product_id),
+    product_name_ua: asText(record.product_name_ua),
+    product_match_status: asText(record.product_match_status),
+    product_candidate_count: asNumber(record.product_candidate_count) ?? 0,
+    country_name: asText(record.country_name),
+    country_iso3: asText(record.country_iso3),
+    country_match_status: asText(record.country_match_status),
+    pallet_standard_id: asText(record.pallet_standard_id),
+    package_used: asText(record.package_used),
+    pallet_net_kg: asNumber(record.pallet_net_kg),
+    pallet_gross_kg: asNumber(record.pallet_gross_kg),
+    pallet_footprint_text: asText(record.pallet_footprint_text),
+    pallet_selected_by: asText(record.pallet_selected_by),
+    pallet_candidate_count: asNumber(record.pallet_candidate_count) ?? 0,
+    needs_review: record.needs_review === true,
+    review_reason: asText(record.review_reason),
+  };
 }
 
 interface RowState {
@@ -79,45 +133,56 @@ const INITIAL: RowState = {
   priceRaw: "",
 };
 
+const EMPTY_FLAGS: Record<FieldKey, boolean> = {
+  package: false,
+  net: false,
+  gross: false,
+};
+
 export function DraftOfferLineRow({
   onConfirmToast,
 }: {
   onConfirmToast: (msg: string) => void;
 }) {
   const [s, setS] = useState<RowState>(INITIAL);
-  const [manuallyEdited, setManuallyEdited] = useState<Record<FieldKey, boolean>>({
-    package: false,
-    net: false,
-    gross: false,
-  });
-  const [autoFilled, setAutoFilled] = useState<Record<FieldKey, boolean>>({
-    package: false,
-    net: false,
-    gross: false,
-  });
-  const lastResolvedKey = useRef<string | null>(null);
+  const [manuallyEdited, setManuallyEdited] = useState<Record<FieldKey, boolean>>(EMPTY_FLAGS);
+  const [autoFilled, setAutoFilled] = useState<Record<FieldKey, boolean>>(EMPTY_FLAGS);
   const [resolver, setResolver] = useState<ResolverResult | null>(null);
+  const [rpcError, setRpcError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
+  const lastResolvedKey = useRef<string | null>(null);
+  const requestSeq = useRef(0);
 
-  const update = useCallback(<K extends keyof RowState>(k: K, v: RowState[K]) => {
-    setS((p) => ({ ...p, [k]: v }));
+  const update = useCallback(<K extends keyof RowState>(key: K, value: RowState[K]) => {
+    setS((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const markManual = (f: FieldKey) => {
-    setManuallyEdited((p) => ({ ...p, [f]: true }));
-    setAutoFilled((p) => ({ ...p, [f]: false }));
-  };
+  const markManual = useCallback((field: FieldKey) => {
+    setManuallyEdited((prev) => ({ ...prev, [field]: true }));
+    setAutoFilled((prev) => ({ ...prev, [field]: false }));
+  }, []);
 
-  // Debounced resolver
   useEffect(() => {
     const product = s.productQuery.trim();
     const country = s.countryQuery.trim();
+
     if (!product || !country) {
+      requestSeq.current += 1;
+      setResolving(false);
       setResolver(null);
+      setRpcError(null);
+      setAutoFilled(EMPTY_FLAGS);
+      lastResolvedKey.current = null;
       return;
     }
-    const t = setTimeout(async () => {
+
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
+
+    const timer = setTimeout(async () => {
       setResolving(true);
+      setRpcError(null);
+
       try {
         const { data, error } = await supabase.rpc(
           "rpc_resolve_offer_line_defaults" as never,
@@ -128,84 +193,111 @@ export function DraftOfferLineRow({
             p_include_reserve: false,
           } as never,
         );
+
+        if (seq !== requestSeq.current) return;
+
         if (error) {
           console.warn("[draft resolver]", error.message);
           setResolver(null);
+          setRpcError(error.message);
+          setAutoFilled(EMPTY_FLAGS);
           return;
         }
-        const rows = data as unknown as ResolverResult[] | null;
-        const r = rows && rows.length > 0 ? rows[0] : null;
-        if (!r) {
-          setResolver(null);
-          return;
-        }
-        const norm: ResolverResult = {
-          ...r,
-          pallet_net_kg: r.pallet_net_kg == null ? null : Number(r.pallet_net_kg),
-          pallet_gross_kg: r.pallet_gross_kg == null ? null : Number(r.pallet_gross_kg),
-        };
-        setResolver(norm);
 
-        if (norm.status === "matched") {
-          const key = `${norm.canonical_product_id}::${norm.country_name}`;
-          if (key !== lastResolvedKey.current) {
-            lastResolvedKey.current = key;
-            setS((prev) => {
-              const next = { ...prev };
-              if (!manuallyEdited.package && norm.package_used != null) {
-                next.packageRaw = norm.package_used;
-              }
-              if (!manuallyEdited.net && norm.pallet_net_kg != null) {
-                next.netRaw = String(norm.pallet_net_kg);
-              }
-              if (!manuallyEdited.gross && norm.pallet_gross_kg != null) {
-                next.grossRaw = String(norm.pallet_gross_kg);
-              }
-              return next;
-            });
-            setAutoFilled({
-              package: !manuallyEdited.package && norm.package_used != null,
-              net: !manuallyEdited.net && norm.pallet_net_kg != null,
-              gross: !manuallyEdited.gross && norm.pallet_gross_kg != null,
-            });
-          }
+        const normalized = toResolverResult(data);
+        if (!normalized) {
+          setResolver(null);
+          setRpcError("RPC повернув порожню або неочікувану відповідь");
+          setAutoFilled(EMPTY_FLAGS);
+          return;
         }
-        // pallet_no_match / product_*/ country_no_match → no writes, no clears
+
+        setResolver(normalized);
+
+        if (normalized.status !== "matched") {
+          lastResolvedKey.current =
+            normalized.canonical_product_id && normalized.country_name
+              ? `${normalized.canonical_product_id}::${normalized.country_name}`
+              : null;
+          setAutoFilled(EMPTY_FLAGS);
+          return;
+        }
+
+        const nextKey = `${normalized.canonical_product_id ?? ""}::${normalized.country_name ?? ""}`;
+        const nextAutoFilled = {
+          package: !manuallyEdited.package && normalized.package_used != null,
+          net: !manuallyEdited.net && normalized.pallet_net_kg != null,
+          gross: !manuallyEdited.gross && normalized.pallet_gross_kg != null,
+        };
+
+        lastResolvedKey.current = nextKey;
+        setS((prev) => ({
+          ...prev,
+          packageRaw: nextAutoFilled.package ? normalized.package_used ?? prev.packageRaw : prev.packageRaw,
+          netRaw: nextAutoFilled.net ? String(normalized.pallet_net_kg) : prev.netRaw,
+          grossRaw: nextAutoFilled.gross ? String(normalized.pallet_gross_kg) : prev.grossRaw,
+        }));
+        setAutoFilled(nextAutoFilled);
+      } catch (error) {
+        if (seq !== requestSeq.current) return;
+        setResolver(null);
+        setRpcError(error instanceof Error ? error.message : "RPC виклик завершився помилкою");
+        setAutoFilled(EMPTY_FLAGS);
       } finally {
-        setResolving(false);
+        if (seq === requestSeq.current) {
+          setResolving(false);
+        }
       }
     }, 350);
-    return () => clearTimeout(t);
-  }, [s.productQuery, s.countryQuery, manuallyEdited]);
+
+    return () => clearTimeout(timer);
+  }, [manuallyEdited, s.countryQuery, s.productQuery]);
 
   const hint = useMemo(() => {
-    if (resolving) return { tone: "muted", text: "Розпізнаю…" };
+    if (resolving) {
+      return {
+        badgeVariant: "outline" as const,
+        text: "Викликаю rpc_resolve_offer_line_defaults…",
+      };
+    }
+
+    if (rpcError) {
+      return {
+        badgeVariant: "destructive" as const,
+        text: `RPC error: ${rpcError}`,
+      };
+    }
+
     if (!resolver) return null;
-    const p = resolver.product_name_ua;
-    const c = resolver.country_name;
-    const code = resolver.canonical_product_id;
+
     switch (resolver.status) {
       case "matched":
         return {
-          tone: "ok",
-          text: `Розпізнано: ${p} · ${c}${code ? ` · ${code}` : ""}`,
+          badgeVariant: "default" as const,
+          text: `matched · ${resolver.product_name_ua ?? "—"} · ${resolver.country_name ?? "—"}`,
         };
       case "pallet_no_match":
         return {
-          tone: "warn",
-          text: `Розпізнано: ${p} · ${c}. Палетний стандарт не знайдено — введіть вручну`,
+          badgeVariant: "secondary" as const,
+          text: `pallet_no_match · ${resolver.product_name_ua ?? "—"} · ${resolver.country_name ?? "—"}. Стандарт палети не знайдено — введіть вагу вручну.`,
         };
       case "product_ambiguous":
         return {
-          tone: "warn",
-          text: `Кілька варіантів товару (${resolver.product_candidate_count}) — уточніть запит`,
+          badgeVariant: "secondary" as const,
+          text: `product_ambiguous · кандидатів: ${resolver.product_candidate_count}`,
         };
       case "product_no_match":
-        return { tone: "err", text: "Товар не розпізнано" };
+        return {
+          badgeVariant: "destructive" as const,
+          text: "product_no_match · товар не розпізнано",
+        };
       case "country_no_match":
-        return { tone: "err", text: "Країна не розпізнана" };
+        return {
+          badgeVariant: "destructive" as const,
+          text: "country_no_match · країну не розпізнано",
+        };
     }
-  }, [resolver, resolving]);
+  }, [resolver, resolving, rpcError]);
 
   const netNum = s.netRaw === "" ? NaN : Number(s.netRaw.replace(",", "."));
   const grossNum = s.grossRaw === "" ? NaN : Number(s.grossRaw.replace(",", "."));
@@ -221,6 +313,7 @@ export function DraftOfferLineRow({
       onConfirmToast("Введіть товар і країну");
       return;
     }
+
     if (
       resolver.status === "product_no_match" ||
       resolver.status === "product_ambiguous" ||
@@ -235,15 +328,16 @@ export function DraftOfferLineRow({
       onConfirmToast(`Не підтверджено: ${why}`);
       return;
     }
-    // matched | pallet_no_match → validate numbers
+
     const productOk =
       resolver.canonical_product_id != null && resolver.product_match_status === "matched";
-    const countryOk =
-      resolver.country_match_status === "matched" && resolver.country_name != null;
+    const countryOk = resolver.country_match_status === "matched" && resolver.country_name != null;
+
     if (!productOk || !countryOk) {
       onConfirmToast("Не підтверджено: товар/країна не розпізнані");
       return;
     }
+
     if (
       !Number.isFinite(netNum) ||
       netNum <= 0 ||
@@ -257,42 +351,57 @@ export function DraftOfferLineRow({
       onConfirmToast("Заповніть net / gross / кількість палет / ціну");
       return;
     }
+
     onConfirmToast("Draft валідний — запис у БД вимкнено в тестовій версії");
   };
 
   const clearRow = () => {
-    setS(INITIAL);
-    setManuallyEdited({ package: false, net: false, gross: false });
-    setAutoFilled({ package: false, net: false, gross: false });
+    requestSeq.current += 1;
     lastResolvedKey.current = null;
+    setS(INITIAL);
     setResolver(null);
+    setRpcError(null);
+    setResolving(false);
+    setManuallyEdited(EMPTY_FLAGS);
+    setAutoFilled(EMPTY_FLAGS);
   };
 
-  const hintColor =
-    hint?.tone === "ok"
-      ? "text-emerald-600"
-      : hint?.tone === "warn"
-        ? "text-amber-600"
-        : hint?.tone === "err"
-          ? "text-destructive"
-          : "text-muted-foreground";
+  const debugFields = [
+    { label: "status", value: resolver?.status ?? "—" },
+    { label: "product_name_ua", value: resolver?.product_name_ua ?? "—" },
+    { label: "canonical_product_id", value: resolver?.canonical_product_id ?? "—" },
+    { label: "country_name", value: resolver?.country_name ?? "—" },
+    { label: "country_match_status", value: resolver?.country_match_status ?? "—" },
+    { label: "package_used", value: resolver?.package_used ?? "—" },
+    { label: "pallet_net_kg", value: resolver?.pallet_net_kg != null ? String(resolver.pallet_net_kg) : "—" },
+    {
+      label: "pallet_gross_kg",
+      value: resolver?.pallet_gross_kg != null ? String(resolver.pallet_gross_kg) : "—",
+    },
+    { label: "pallet_selected_by", value: resolver?.pallet_selected_by ?? "—" },
+    {
+      label: "pallet_candidate_count",
+      value: resolver?.pallet_candidate_count != null ? String(resolver.pallet_candidate_count) : "—",
+    },
+    { label: "RPC error", value: rpcError ?? "—" },
+  ];
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto rounded-md border">
+    <div className="space-y-4">
+      <div className="overflow-x-auto rounded-md border bg-background">
         <table className="min-w-[1100px] w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-2 py-2 text-left font-medium w-[180px]">Товар</th>
-              <th className="px-2 py-2 text-left font-medium w-[140px]">Країна</th>
-              <th className="px-2 py-2 text-left font-medium w-[160px]">Упаковка</th>
-              <th className="px-2 py-2 text-right font-medium w-[90px]">Net, кг</th>
-              <th className="px-2 py-2 text-right font-medium w-[90px]">Gross, кг</th>
-              <th className="px-2 py-2 text-right font-medium w-[80px]">Палет</th>
-              <th className="px-2 py-2 text-right font-medium w-[90px]">Ціна</th>
-              <th className="px-2 py-2 text-right font-medium w-[100px]">Σ Net</th>
-              <th className="px-2 py-2 text-right font-medium w-[100px]">Σ Gross</th>
-              <th className="px-2 py-2 w-[80px]"></th>
+              <th className="w-[180px] px-2 py-2 text-left font-medium">Товар</th>
+              <th className="w-[140px] px-2 py-2 text-left font-medium">Країна</th>
+              <th className="w-[160px] px-2 py-2 text-left font-medium">Упаковка</th>
+              <th className="w-[90px] px-2 py-2 text-right font-medium">Net, кг</th>
+              <th className="w-[90px] px-2 py-2 text-right font-medium">Gross, кг</th>
+              <th className="w-[80px] px-2 py-2 text-right font-medium">Палет</th>
+              <th className="w-[90px] px-2 py-2 text-right font-medium">Ціна</th>
+              <th className="w-[100px] px-2 py-2 text-right font-medium">Σ Net</th>
+              <th className="w-[100px] px-2 py-2 text-right font-medium">Σ Gross</th>
+              <th className="w-[80px] px-2 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -301,14 +410,14 @@ export function DraftOfferLineRow({
                 <Input
                   value={s.productQuery}
                   onChange={(e) => update("productQuery", e.target.value)}
-                  placeholder="кавун / watermelon"
+                  placeholder="Абрикос / Orange / Арбуз"
                 />
               </td>
               <td className="px-2 py-2">
                 <Input
                   value={s.countryQuery}
                   onChange={(e) => update("countryQuery", e.target.value)}
-                  placeholder="Spain / Іспанія"
+                  placeholder="Spain / Turkey / Egypt"
                 />
               </td>
               <td className="px-2 py-2">
@@ -318,8 +427,8 @@ export function DraftOfferLineRow({
                     update("packageRaw", e.target.value);
                     markManual("package");
                   }}
-                  className={cn(autoFilled.package && "bg-emerald-50/40")}
-                  placeholder="картон 5 кг"
+                  className={cn(autoFilled.package && "border-primary/40 bg-muted/40")}
+                  placeholder="package_used"
                 />
               </td>
               <td className="px-2 py-2">
@@ -332,7 +441,8 @@ export function DraftOfferLineRow({
                     markManual("net");
                   }}
                   onBlur={() => update("netRaw", normalizeDecimal(s.netRaw))}
-                  className={cn("text-right", autoFilled.net && "bg-emerald-50/40")}
+                  className={cn("text-right", autoFilled.net && "border-primary/40 bg-muted/40")}
+                  placeholder="pallet_net_kg"
                 />
               </td>
               <td className="px-2 py-2">
@@ -345,7 +455,8 @@ export function DraftOfferLineRow({
                     markManual("gross");
                   }}
                   onBlur={() => update("grossRaw", normalizeDecimal(s.grossRaw))}
-                  className={cn("text-right", autoFilled.gross && "bg-emerald-50/40")}
+                  className={cn("text-right", autoFilled.gross && "border-primary/40 bg-muted/40")}
+                  placeholder="pallet_gross_kg"
                 />
               </td>
               <td className="px-2 py-2">
@@ -388,14 +499,43 @@ export function DraftOfferLineRow({
         </table>
       </div>
 
-      {hint && (
-        <div className={cn("text-xs", hintColor)}>
-          {hint.text}
+      {hint ? (
+        <div className="flex flex-wrap items-start gap-2 rounded-md border bg-muted/20 px-3 py-2 text-sm">
+          <Badge variant={hint.badgeVariant}>{resolver?.status ?? (rpcError ? "rpc_error" : "resolving")}</Badge>
+          <span>{hint.text}</span>
           {resolver?.review_reason ? (
-            <span className="ml-2 text-muted-foreground">({resolver.review_reason})</span>
+            <span className="text-muted-foreground">review_reason: {resolver.review_reason}</span>
           ) : null}
         </div>
-      )}
+      ) : null}
+
+      <section className="space-y-3 rounded-md border bg-muted/20 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">Resolver debug</h3>
+            <p className="text-xs text-muted-foreground">
+              Тут видно фактичну відповідь rpc_resolve_offer_line_defaults для поточного товару і країни.
+            </p>
+          </div>
+          <Badge variant="outline">draft-only</Badge>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {debugFields.map((field) => (
+            <div key={field.label} className="rounded-md border bg-background px-3 py-2">
+              <div className="text-[11px] uppercase text-muted-foreground">{field.label}</div>
+              <div className="mt-1 break-all text-sm font-medium">{field.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-md border bg-background p-3">
+          <div className="mb-2 text-[11px] uppercase text-muted-foreground">Raw RPC payload</div>
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-foreground">
+            {JSON.stringify(resolver, null, 2) ?? "null"}
+          </pre>
+        </div>
+      </section>
 
       <div className="flex gap-2">
         <Button onClick={handleConfirm}>Підтвердити (draft)</Button>
