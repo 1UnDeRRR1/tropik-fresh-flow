@@ -32,7 +32,17 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status
 import { allocateTransport } from "@/lib/transport";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
-type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
+// D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
+// breakdown values directly from the saved customs_match_id row (deactivation-safe).
+type CustomsRefIndex = Map<string, {
+  id: string;
+  product_name: string;
+  country: string;
+  threshold_price_usd: number | null;
+  customs_fee_percent: number | null;
+  euro1_markup_usd: number | null;
+  euro1_percent: number | null;
+}>;
 const CustomsRefContext = createContext<CustomsRefIndex>(new Map());
 
 // Patch 6B follow-up: per-row YELLOW selection so the explanation panel can
