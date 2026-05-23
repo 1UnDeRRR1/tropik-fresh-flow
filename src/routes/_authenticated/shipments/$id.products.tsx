@@ -1029,17 +1029,17 @@ function ProductsFullscreen() {
     ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
     : null;
 
-  // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value }).
+  // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value, components }).
   // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
-  // D1-Fix v2.5.2 — also carries live customs status for dirty/new rows.
+  // D1-Fix v2.5.2 — also carries live customs status.
+  // D1-Fix v2.5.3 — also carries component breakdown values; clean rows use
+  // the saved customs_match_id row from refById (deactivation-safe), never re-pick.
   type PreviewEntry = {
     isDirty: boolean;
     value: { indicative: number; invoice: number } | null;
-    // hasCustomsInputs: both product_name and origin_country non-empty
     hasCustomsInputs: boolean;
-    // liveCustomsStatus: "green" exact (product+country), "yellow" product-only fallback,
-    // "red" no ref found. null when hasCustomsInputs is false.
     liveCustomsStatus: "green" | "yellow" | "red" | null;
+    components: RowComponents;
   };
   const previewMap = useMemo(() => {
     const m = new Map<string, PreviewEntry>();
@@ -1047,7 +1047,28 @@ function ProductsFullscreen() {
       const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
       const baseline = d.dbId ? baselinesRef.current.get(d.dbId) ?? null : null;
       const isDirty = d.dbId == null || !baseline || isDraftDirty(d, baseline);
-      const value = computeRowPreview(
+
+      // D1-Fix v2.5.3 — clean-row customs safety: look up the exact saved
+      // customs_match_id row from refById (4-col widened select includes the
+      // numeric fields needed for indicative/invoice computation).
+      const isClean = !isDirty;
+      let savedRefForClean: ActiveCustomsRef | null = null;
+      if (isClean && dbItem?.customs_match_id) {
+        const r = refById.get(dbItem.customs_match_id);
+        if (r) {
+          savedRefForClean = {
+            id: r.id,
+            product_name: r.product_name,
+            country: r.country,
+            threshold_price_usd: r.threshold_price_usd,
+            customs_fee_percent: r.customs_fee_percent,
+            euro1_markup_usd: r.euro1_markup_usd,
+            euro1_percent: r.euro1_percent,
+          };
+        }
+      }
+
+      const { value, components } = computeRowPreview(
         d,
         dbItem,
         sh ?? null,
@@ -1055,30 +1076,27 @@ function ProductsFullscreen() {
         activeCustomsRefs ?? null,
         latestEurUsd ?? null,
         products,
+        isClean,
+        savedRefForClean,
       );
-      // Live customs match (strict): exact (product, country) first, product-only fallback.
-      // Uses the same pickCustomsRefForDraft helper as the cost preview, which uses ONLY the
-      // two approved aliases (інжирний персик→персик, платерина нектарин→нектарин).
+
+      // Live customs chip status derived from the same components.customsBasis
+      // so the chip and breakdown panel can never disagree.
       const productTrim = d.product_name.trim();
       const countryTrim = d.origin_country.trim();
       const hasCustomsInputs = !!productTrim && !!countryTrim;
       let liveCustomsStatus: "green" | "yellow" | "red" | null = null;
-      if (hasCustomsInputs && activeCustomsRefs) {
-        const ref = pickCustomsRefForDraft(productTrim, countryTrim, activeCustomsRefs);
-        if (!ref) {
-          liveCustomsStatus = "red";
-        } else if (
-          normalizeCustomsKey(ref.country) === normalizeCustomsKey(countryTrim)
-        ) {
-          liveCustomsStatus = "green";
-        } else {
-          liveCustomsStatus = "yellow";
-        }
+      if (hasCustomsInputs) {
+        if (components.customsBasis === "exact") liveCustomsStatus = "green";
+        else if (components.customsBasis === "fallback") liveCustomsStatus = "yellow";
+        else if (components.customsBasis === "none") liveCustomsStatus = "red";
+        // "manual" leaves chip null — the manual override widget owns the UI.
       }
-      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus });
+
+      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus, components });
     }
     return m;
-    // baselinesRef is a mutable ref; intentionally excluded.
+    // baselinesRef and refById are intentionally excluded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
 
