@@ -29,6 +29,7 @@ import { translateError } from "@/lib/mutation-helpers";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status";
+import { allocateTransport } from "@/lib/transport";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
@@ -190,12 +191,90 @@ function getMissingDraftFields(d: DraftRow, products: ProductRef[]): RequiredFie
 
 type CustomsRefMini = { id: string; product_name: string; country: string };
 
+// D1-Fix v2.4 — local DB-mirroring customs preview helpers.
+// EU list copies public.is_eu_country verbatim (27 entries, Cyrillic).
+const EU_COUNTRIES = new Set<string>([
+  "АВСТРІЯ","БЕЛЬГІЯ","БОЛГАРІЯ","ХОРВАТІЯ","КІПР","ЧЕХІЯ","ДАНІЯ",
+  "ЕСТОНІЯ","ФІНЛЯНДІЯ","ФРАНЦІЯ","НІМЕЧЧИНА","ГРЕЦІЯ","УГОРЩИНА",
+  "ІРЛАНДІЯ","ІТАЛІЯ","ЛАТВІЯ","ЛИТВА","ЛЮКСЕМБУРГ","МАЛЬТА",
+  "НІДЕРЛАНДИ","ПОЛЬЩА","ПОРТУГАЛІЯ","РУМУНІЯ","СЛОВАЧЧИНА",
+  "СЛОВЕНІЯ","ІСПАНІЯ","ШВЕЦІЯ",
+]);
+function isEuCountry(c: string | null | undefined): boolean {
+  return EU_COUNTRIES.has((c ?? "").trim().toUpperCase());
+}
+function normalizeCustomsKey(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase();
+}
+function customsLookupName(productName: string | null | undefined): string {
+  const k = normalizeCustomsKey(productName);
+  // Mirror DB CASE in calc_shipment_item_costs (hardcoded aliases only).
+  if (k === "інжирний персик") return "персик";
+  if (k === "платерина нектарин") return "нектарин";
+  return (productName ?? "").trim();
+}
+type ActiveCustomsRef = {
+  id: string;
+  product_name: string;
+  country: string;
+  threshold_price_usd: number | null;
+  customs_fee_percent: number | null;
+  euro1_markup_usd: number | null;
+  euro1_percent: number | null;
+};
+function pickCustomsRefForDraft(
+  productName: string,
+  originCountry: string,
+  refs: ActiveCustomsRef[],
+): ActiveCustomsRef | null {
+  const lookup = normalizeCustomsKey(customsLookupName(productName));
+  if (!lookup) return null;
+  const origin = normalizeCustomsKey(originCountry);
+  // Exact product + country, ORDER BY threshold_price_usd DESC
+  const exact = refs
+    .filter((r) => normalizeCustomsKey(r.product_name) === lookup
+                && normalizeCustomsKey(r.country) === origin)
+    .sort((a, b) => Number(b.threshold_price_usd ?? 0) - Number(a.threshold_price_usd ?? 0));
+  if (exact.length > 0) return exact[0];
+  // Fallback product-only, ORDER BY euro1_markup_usd DESC NULLS LAST, threshold_price_usd DESC
+  const fb = refs
+    .filter((r) => normalizeCustomsKey(r.product_name) === lookup)
+    .sort((a, b) => {
+      const ae = a.euro1_markup_usd;
+      const be = b.euro1_markup_usd;
+      if (ae == null && be != null) return 1;
+      if (be == null && ae != null) return -1;
+      if (ae != null && be != null && Number(ae) !== Number(be)) return Number(be) - Number(ae);
+      return Number(b.threshold_price_usd ?? 0) - Number(a.threshold_price_usd ?? 0);
+    });
+  return fb[0] ?? null;
+}
+function computeCustomsPreview(
+  unitUsd: number,
+  ref: ActiveCustomsRef | null,
+  overrideDuty: number | null,
+): { indicative: number; invoice: number } {
+  // Confirmed override mirrors DB short-circuit (no EU branch).
+  if (overrideDuty != null) return { indicative: overrideDuty, invoice: overrideDuty };
+  if (!ref) return { indicative: 0, invoice: 0 };
+  const indicative = Number(ref.euro1_markup_usd ?? 0);
+  const threshold = Number(ref.threshold_price_usd ?? 0);
+  if (unitUsd <= threshold) return { indicative, invoice: indicative };
+  // EU decision uses ref.country, NOT draft.origin_country.
+  const isEu = isEuCountry(ref.country);
+  const pct = isEu ? Number(ref.euro1_percent ?? 0) : Number(ref.customs_fee_percent ?? 0);
+  const invoice = (unitUsd * 1.20 * pct / 100) + (unitUsd * 0.20) + 0.02;
+  return { indicative, invoice };
+}
+
 type ShipmentRow = {
   id: string;
   code: string;
   country: string | null;
   logistics_cost: number | null;
   logistics_cost_currency: string | null;
+  logistics_cost_usd: number | null;
+  eur_usd_rate: number | null;
   vehicle_id: string | null;
   created_by: string | null;
   import_manager_id: string | null;
@@ -235,6 +314,8 @@ type VehicleContext = {
     isCurrentShipment: boolean;
     isOwnManager: boolean;
   }>;
+  vehicleStatus: string | null;
+  shipments: Array<{ id: string; logistics_cost_usd: number | null }>;
 };
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
@@ -462,7 +543,7 @@ function ProductsFullscreen() {
     enabled: !loading && !!user,
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
-        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
+        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
         Promise.all([
           supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
@@ -475,6 +556,8 @@ function ProductsFullscreen() {
         country: string | null;
         logistics_cost: number | null;
         logistics_cost_currency: string | null;
+        logistics_cost_usd: number | null;
+        eur_usd_rate: number | null;
         vehicle_id: string | null;
         created_by: string | null;
         import_manager_id: string | null;
@@ -486,12 +569,12 @@ function ProductsFullscreen() {
         const [{ data: v }, { data: siblingShipments }] = await Promise.all([
           supabase
             .from("vehicles" as never)
-            .select("id,code,country,total_pallets,total_weight_kg,created_by")
+            .select("id,code,country,total_pallets,total_weight_kg,created_by,status")
             .eq("id", sh.vehicle_id)
             .single(),
           supabase
             .from("shipments")
-            .select("id,code,created_by,import_manager_id,logistics_cost,logistics_cost_currency,suppliers(name)")
+            .select("id,code,created_by,import_manager_id,logistics_cost,logistics_cost_currency,logistics_cost_usd,suppliers(name)")
             .eq("vehicle_id", sh.vehicle_id)
             .order("created_at"),
         ]);
@@ -504,6 +587,7 @@ function ProductsFullscreen() {
           import_manager_id: row.import_manager_id ?? null,
           logistics_cost: row.logistics_cost ?? null,
           logistics_cost_currency: row.logistics_cost_currency ?? null,
+          logistics_cost_usd: (row as { logistics_cost_usd?: number | null }).logistics_cost_usd ?? null,
           supplier_name: row.suppliers?.name ?? null,
           owner_id: row.import_manager_id ?? row.created_by ?? null,
         }));
@@ -532,6 +616,11 @@ function ProductsFullscreen() {
         const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"]));
         const shipmentById = new Map(shipmentsForVehicle.map((row) => [row.id, row]));
         const ownerShipment = shipmentsForVehicle.find((row) => row.created_by === vehicleOwnerId) ?? shipmentsForVehicle.find((row) => Number(row.logistics_cost ?? 0) > 0) ?? null;
+
+        // D1-Fix v2.4 — dedupe shipments by id for transportTotalUsd computation.
+        const dedupedShipments = Array.from(
+          new Map(shipmentsForVehicle.map((row) => [row.id, { id: row.id, logistics_cost_usd: row.logistics_cost_usd }])).values(),
+        );
 
         vehicleContext = v
           ? {
@@ -565,6 +654,8 @@ function ProductsFullscreen() {
                   isOwnManager: ownerId != null && ownerId === user?.id,
                 };
               }),
+              vehicleStatus: (v as { status?: string | null } | null)?.status ?? null,
+              shipments: dedupedShipments,
             }
           : null;
       }
@@ -597,6 +688,38 @@ function ProductsFullscreen() {
         customsRefs: (refs ?? []) as CustomsRefMini[],
         vehicleContext,
       };
+    },
+  });
+
+  // D1-Fix v2.4 — one-shot prefetch of all active customs_reference rows (965 entries; <= 2000 ceiling).
+  // No per-keypress DB hits; staleTime keeps cache warm for 5 minutes.
+  const { data: activeCustomsRefs } = useQuery({
+    queryKey: ["customs-reference-active"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customs_reference")
+        .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_markup_usd,euro1_percent")
+        .eq("active", true)
+        .range(0, 1999);
+      return (data ?? []) as ActiveCustomsRef[];
+    },
+  });
+
+  // D1-Fix v2.4 — latest EUR->USD fallback when shipment has no eur_usd_rate yet.
+  const { data: latestEurUsd } = useQuery({
+    queryKey: ["fx-eur-usd-latest"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("exchange_rates")
+        .select("rate")
+        .eq("base_currency", "EUR")
+        .eq("target_currency", "USD")
+        .order("rate_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ? Number((data as { rate: number }).rate) : null;
     },
   });
 
@@ -1026,8 +1149,25 @@ function ProductsFullscreen() {
       triggerShake(false);
       return;
     }
+    // 2. D1-Fix v2.4 — capacity validation (vehicle-wide) BEFORE any DB writes.
+    // No pallet_count clamp; only block "Готово".
+    const capPallets = effectiveLoadedItems.reduce((s, it) => s + Number(it.pallet_count ?? 0), 0);
+    const capGrossKg = effectiveLoadedItems.reduce((s, it) => {
+      const g = Number(it.gross_weight_kg ?? 0);
+      return s + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
+    }, 0);
+    if (capGrossKg > MAX_WEIGHT_KG) {
+      toast.error(`Перевищено вагу авто: ${Math.round(capGrossKg)} кг > ${MAX_WEIGHT_KG} кг`);
+      triggerShake(false);
+      return;
+    }
+    if (capPallets > MAX_PALLETS) {
+      toast.error(`Перевищено палети авто: ${capPallets} > ${MAX_PALLETS}`);
+      triggerShake(false);
+      return;
+    }
     try {
-      // 2. INSERT new rows (dbId === null).
+      // 3. INSERT new rows (dbId === null).
       const newDrafts = draftItems.filter((d) => d.dbId === null);
       const insertedIds: string[] = [];
       if (newDrafts.length > 0) {
@@ -1043,7 +1183,7 @@ function ProductsFullscreen() {
         (insertedRows ?? []).forEach((row) => insertedIds.push((row as { id: string }).id));
       }
 
-      // 3. UPDATE dirty existing rows (dbId !== null).
+      // 4. UPDATE dirty existing rows (dbId !== null).
       for (const d of draftItems) {
         if (d.dbId === null) continue;
         const base = baselinesRef.current.get(d.dbId);
@@ -1058,7 +1198,7 @@ function ProductsFullscreen() {
         }
       }
 
-      // 4. DELETE pendingDeletes LAST.
+      // 5. DELETE pendingDeletes LAST.
       if (pendingDeletes.length > 0) {
         const { error: delErr } = await supabase
           .from("shipment_items")
@@ -1066,20 +1206,25 @@ function ProductsFullscreen() {
           .in("id", pendingDeletes);
         if (delErr) {
           toast.error(translateError(delErr));
-          // Data is already inserted/updated successfully; deletion failure does not lose data.
         }
       }
 
-      // 5. Clear local state so hydration takes over after refetch.
+      // 6. Clear local state so hydration takes over after refetch.
       setDraftItems([]);
       setPendingDeletes([]);
       baselinesRef.current = new Map();
 
       await syncVehicleStateForShipment(id);
+      // D1-Fix v2.4 — invalidate then FORCE-refetch ["shipment", id] before navigate.
+      // Details page reads final_cost_* from this key; "type: all" reaches the unmounted route.
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
       qc.invalidateQueries({ queryKey: ["shipment", id] });
+      qc.invalidateQueries({ queryKey: ["shipments"] });
+      if (sh?.vehicle_id) {
+        qc.invalidateQueries({ queryKey: ["vehicle-transport", sh.vehicle_id, id] });
+      }
       invalidateVehicleAndShipmentCaches(qc);
-      // silence unused-warning: insertedIds available for future link-back logic if needed.
+      await qc.refetchQueries({ queryKey: ["shipment", id], type: "all" });
       void insertedIds;
       navigate({ to: "/shipments/$id", params: { id } });
     } catch (e) {
