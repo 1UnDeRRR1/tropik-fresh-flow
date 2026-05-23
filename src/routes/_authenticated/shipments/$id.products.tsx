@@ -199,7 +199,15 @@ function getMissingDraftFields(d: DraftRow, products: ProductRef[]): RequiredFie
   return missing;
 }
 
-type CustomsRefMini = { id: string; product_name: string; country: string };
+type CustomsRefMini = {
+  id: string;
+  product_name: string;
+  country: string;
+  threshold_price_usd: number | null;
+  customs_fee_percent: number | null;
+  euro1_markup_usd: number | null;
+  euro1_percent: number | null;
+};
 
 // D1-Fix v2.4 — local DB-mirroring customs preview helpers.
 // EU list copies public.is_eu_country verbatim (27 entries, Cyrillic).
