@@ -1762,6 +1762,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
               return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+            const preview = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null };
             return (
               <ProductRowEditor
                 key={d.localId}
@@ -1771,6 +1772,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 products={products}
                 otherPallets={otherPallets}
                 otherKg={otherKg}
+                preview={preview}
                 readOnly={!currentShipmentEditable}
                 pulse={pulseFields}
                 onPatch={(patch) => onPatch(d.localId, patch)}
