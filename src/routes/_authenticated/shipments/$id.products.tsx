@@ -1160,7 +1160,11 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
                     </div>
                   </div>
                   <div className="shrink-0 text-right text-[10px] font-medium text-foreground">
-                    {Number(loadedItem.pallet_count ?? 0)}п · {Math.round(Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0))}кг
+                    {Number(loadedItem.pallet_count ?? 0)}п · {Math.round(
+                      Number(loadedItem.gross_weight_kg ?? 0) > 0
+                        ? Number(loadedItem.gross_weight_kg)
+                        : Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0)
+                    )}кг
                   </div>
                 </li>
               ))}
