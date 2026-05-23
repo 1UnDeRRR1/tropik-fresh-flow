@@ -29,6 +29,7 @@ import { translateError } from "@/lib/mutation-helpers";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status";
+import { allocateTransport } from "@/lib/transport";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
