@@ -2139,6 +2139,27 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     const product = form.product_name.trim();
     const country = form.origin_country.trim();
     if (!product || !country) return;
+    const productKey = resolverKeyOf(product);
+    const countryKey = resolverKeyOf(country);
+    const packageKey = resolverKeyOf(form.package_used);
+    const reportHint = (status: ResolverHintStatus | null) => {
+      if (status == null) {
+        setHint(null);
+        onResolverHint(null);
+        return;
+      }
+      onResolverHint({ status, productKey, countryKey, packageKey });
+      if (
+        status === "pallet_no_match" ||
+        status === "product_no_match" ||
+        status === "product_ambiguous" ||
+        status === "country_no_match"
+      ) {
+        setHint({ status });
+      } else {
+        setHint(null);
+      }
+    };
     const seq = ++resolverSeqRef.current;
     try {
       const { data, error } = await supabase.rpc(
@@ -2151,9 +2172,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         } as never,
       );
       if (seq !== resolverSeqRef.current) return;
-      if (error) { setHint(null); return; }
+      if (error) { reportHint(null); return; }
       const row = Array.isArray(data) ? (data as unknown[])[0] : data;
-      if (!row || typeof row !== "object") { setHint(null); return; }
+      if (!row || typeof row !== "object") { reportHint(null); return; }
       const r = row as Record<string, unknown>;
       const status = r.status;
       const asNum = (v: unknown): number | null => {
@@ -2168,7 +2189,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         const pNet = asNum(r.pallet_net_kg);
         const pGross = asNum(r.pallet_gross_kg);
         const pkg = asStr(r.package_used);
-        setHint(null);
+        reportHint("matched");
         const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
         onPatch({
           pallet_count: pc,
@@ -2181,7 +2202,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
         });
       } else if (status === "pallet_no_match") {
-        setHint({ status: "pallet_no_match" });
+        reportHint("pallet_no_match");
         onPatch({
           package_used: "",
           resolver_net_per_pallet_kg: null,
@@ -2194,14 +2215,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         status === "product_ambiguous" ||
         status === "country_no_match"
       ) {
-        setHint({ status });
+        reportHint(status);
       } else {
-        setHint(null);
+        reportHint(null);
       }
     } catch {
-      if (seq === resolverSeqRef.current) setHint(null);
+      if (seq === resolverSeqRef.current) reportHint(null);
     }
-  }, [readOnly, form.product_name, form.origin_country, form.pallet_count, form.package_used, form.net_weight_kg, form.gross_weight_kg, onPatch]);
+  }, [readOnly, form.product_name, form.origin_country, form.package_used, form.pallet_count, form.net_weight_kg, form.gross_weight_kg, onPatch, onResolverHint]);
+
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
