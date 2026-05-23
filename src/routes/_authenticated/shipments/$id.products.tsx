@@ -626,6 +626,10 @@ function ProductsFullscreen() {
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
     enabled: !loading && !!user,
+    // D1-Fix v2.5.2 — vehicle close / sibling updates: refetch when tab regains focus
+    // and on every mount. Hydration guard (line ~839) ensures dirty draft state is preserved.
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
@@ -933,9 +937,15 @@ function ProductsFullscreen() {
 
   // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value }).
   // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
+  // D1-Fix v2.5.2 — also carries live customs status for dirty/new rows.
   type PreviewEntry = {
     isDirty: boolean;
     value: { indicative: number; invoice: number } | null;
+    // hasCustomsInputs: both product_name and origin_country non-empty
+    hasCustomsInputs: boolean;
+    // liveCustomsStatus: "green" exact (product+country), "yellow" product-only fallback,
+    // "red" no ref found. null when hasCustomsInputs is false.
+    liveCustomsStatus: "green" | "yellow" | "red" | null;
   };
   const previewMap = useMemo(() => {
     const m = new Map<string, PreviewEntry>();
@@ -952,7 +962,26 @@ function ProductsFullscreen() {
         latestEurUsd ?? null,
         products,
       );
-      m.set(d.localId, { isDirty, value });
+      // Live customs match (strict): exact (product, country) first, product-only fallback.
+      // Uses the same pickCustomsRefForDraft helper as the cost preview, which uses ONLY the
+      // two approved aliases (інжирний персик→персик, платерина нектарин→нектарин).
+      const productTrim = d.product_name.trim();
+      const countryTrim = d.origin_country.trim();
+      const hasCustomsInputs = !!productTrim && !!countryTrim;
+      let liveCustomsStatus: "green" | "yellow" | "red" | null = null;
+      if (hasCustomsInputs && activeCustomsRefs) {
+        const ref = pickCustomsRefForDraft(productTrim, countryTrim, activeCustomsRefs);
+        if (!ref) {
+          liveCustomsStatus = "red";
+        } else if (
+          normalizeCustomsKey(ref.country) === normalizeCustomsKey(countryTrim)
+        ) {
+          liveCustomsStatus = "green";
+        } else {
+          liveCustomsStatus = "yellow";
+        }
+      }
+      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus });
     }
     return m;
     // baselinesRef is a mutable ref; intentionally excluded.
