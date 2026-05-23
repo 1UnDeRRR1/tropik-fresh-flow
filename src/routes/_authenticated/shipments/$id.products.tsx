@@ -2126,7 +2126,17 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {dbItem && <ItemCustomsChip item={dbItem} />}
+            {/* D1-Fix v2.5.2 — clean existing row: DB chip (with override widget below);
+                dirty existing row / new draft row: live customs status (display-only). */}
+            {(() => {
+              if (dbItem && !preview.isDirty) {
+                return <ItemCustomsChip item={dbItem} />;
+              }
+              if (preview.hasCustomsInputs && preview.liveCustomsStatus) {
+                return <CustomsStatusChip status={preview.liveCustomsStatus} compact />;
+              }
+              return null;
+            })()}
             {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
             {(() => {
               const useDbCost = !!dbItem && !preview.isDirty;
