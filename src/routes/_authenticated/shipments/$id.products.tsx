@@ -2083,7 +2083,7 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, isExpanded, onToggleExpanded, onPatch, onRemove }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, isExpanded, onToggleExpanded, onPatch, onRemove, onResolverHint }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
@@ -2097,7 +2097,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   onToggleExpanded: () => void;
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
+  onResolverHint: (info: ResolverHintInfo | null) => void;
 }) {
+
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = dbCountries;
