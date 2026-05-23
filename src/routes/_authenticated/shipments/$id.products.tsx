@@ -1034,7 +1034,7 @@ function ProductsFullscreen() {
         const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
         const { data: insertedRows, error: insErr } = await supabase
           .from("shipment_items")
-          .insert(payloads)
+          .insert(payloads as never)
           .select("id");
         if (insErr) {
           toast.error(translateError(insErr));
