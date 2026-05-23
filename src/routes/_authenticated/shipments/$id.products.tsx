@@ -558,9 +558,15 @@ function ProductsFullscreen() {
     id: item.id,
     pallet_count: item.pallet_count,
     pallet_weight: item.pallet_weight,
+    net_weight_kg: item.net_weight_kg,
+    gross_weight_kg: item.gross_weight_kg,
   }));
   const loadedPallets = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0), 0);
-  const loadedKg = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0), 0);
+  // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
+  const loadedKg = capacityItems.reduce((sum, item) => {
+    const g = Number(item.gross_weight_kg ?? 0);
+    return sum + (g > 0 ? g : Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0));
+  }, 0);
   const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
   const canEditTransport = !!sh && (!sh.vehicle_id
