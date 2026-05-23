@@ -1137,14 +1137,14 @@ function ProductsFullscreen() {
         <TransportBar
           shipment={sh}
           currentUserId={user?.id ?? null}
-          vehicleContext={vehicleContext}
+          vehicleContext={effectiveVehicleContext}
           canEditTransport={canEditTransport}
           flash={flashTransport}
         />
       )}
-      {vehicleContext && (
+      {effectiveVehicleContext && (
         <SharedVehicleSummary
-          vehicleContext={vehicleContext}
+          vehicleContext={effectiveVehicleContext}
           currentShipmentId={id}
           customsStatus={customsStatus}
           fallbackItems={fallbackItems}
@@ -1153,8 +1153,8 @@ function ProductsFullscreen() {
 
 
       <ProductsScrollArea
-        itemsCount={items.length}
-        empty={items.length === 0}
+        itemsCount={draftItems.length}
+        empty={draftItems.length === 0}
         emptyContent={
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -1164,7 +1164,17 @@ function ProductsFullscreen() {
           </div>
         }
       >
-        <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
+        <ProductsTable
+          drafts={draftItems}
+          dbItemById={dbItemById}
+          shipmentId={id}
+          products={products}
+          vehicleContext={effectiveVehicleContext}
+          currentShipmentEditable={currentShipmentEditable}
+          pulseFields={pulseFields}
+          onPatch={patchDraft}
+          onRemove={removeDraft}
+        />
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
             <Button
@@ -1182,17 +1192,21 @@ function ProductsFullscreen() {
       </ProductsScrollArea>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
-            e.preventDefault();
-            triggerShake(transportMissing);
-            return;
-          }
-          if (!tryLeave(e)) return;
-          e.preventDefault();
-          void leaveProducts();
-        }}>
+        <button
+          type="button"
+          className="block w-full"
+          onClick={(e) => {
+            if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
+              e.preventDefault();
+              triggerShake(transportMissing);
+              return;
+            }
+            if (!tryLeave(e)) return;
+            void commitDraft();
+          }}
+        >
           <Button
+            asChild={false}
             className={cn(
               "w-full",
               (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
@@ -1212,8 +1226,9 @@ function ProductsFullscreen() {
                     ? "Зберегти та вийти"
                     : "Готово"}
           </Button>
-        </Link>
+        </button>
       </footer>
+
     </div>
     </FallbackSelectionContext.Provider>
    </CustomsRefContext.Provider>
