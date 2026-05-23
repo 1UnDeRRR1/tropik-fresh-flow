@@ -285,12 +285,26 @@ function computeCustomsPreview(
   return { indicative, invoice };
 }
 
-// D1-Fix v2.5.1 — live preview of final cost ($/kg) mirroring DB calc_shipment_item_costs.
-// Returns null when required draft fields are missing or unit USD cannot be resolved.
-// Formula (exact DB parity):
-//   final_indicative = unit_usd + transport_per_kg + customs_indicative
-//   final_invoice    = unit_usd + transport_per_kg + customs_invoice
-// No division of unit_usd or customs by net-per-pallet (both already $/kg).
+// D1-Fix v2.5.3 — row breakdown components (ready values only, no formulas).
+export type RowComponents = {
+  productName: string;
+  country: string;
+  inputPrice: number | null;
+  inputCurrency: "EUR" | "USD" | null;
+  fxRate: number | null;          // only when input currency is EUR
+  unitUsd: number | null;
+  transportPerKg: number | null;
+  customsIndicative: number | null;
+  customsInvoice: number | null;
+  customsBasis: "exact" | "fallback" | "none" | "manual";
+  matchedRef: { product_name: string; country: string } | null;
+};
+
+// D1-Fix v2.5.3 — single helper returning both final preview value AND component values.
+// Clean-row safety: when isClean, customs ref comes ONLY from savedRefForClean
+// (the saved customs_match_id row from refById). pickCustomsRefForDraft is NEVER
+// called for clean rows, and active-flag filtering can't drop a saved match.
+// Live mode (dirty/new draft rows) keeps the existing pickCustomsRefForDraft logic.
 function computeRowPreview(
   d: DraftRow,
   dbItem: ItemRow | null,
@@ -299,25 +313,64 @@ function computeRowPreview(
   refs: ActiveCustomsRef[] | null,
   latestEurUsd: number | null,
   products: ProductRef[],
-): { indicative: number; invoice: number } | null {
-  if (!sh) return null;
-  if (!refs) return null;
-  // Hybrid "—" rule: any required field missing → show "—" instead of partial number.
-  if (getMissingDraftFields(d, products).length > 0) return null;
+  isClean: boolean,
+  savedRefForClean: ActiveCustomsRef | null,
+): { value: { indicative: number; invoice: number } | null; components: RowComponents } {
+  const components: RowComponents = {
+    productName: d.product_name,
+    country: d.origin_country,
+    inputPrice: d.unit_price > 0 ? d.unit_price : null,
+    inputCurrency: d.price_currency,
+    fxRate: null,
+    unitUsd: null,
+    transportPerKg: null,
+    customsIndicative: null,
+    customsInvoice: null,
+    customsBasis: "none",
+    matchedRef: null,
+  };
 
-  let unitUsd: number;
-  if (d.price_currency === "USD") {
-    unitUsd = d.unit_price;
-  } else {
-    const fx = sh.eur_usd_rate ?? latestEurUsd;
-    if (!fx || fx <= 0) return null;
-    unitUsd = d.unit_price * fx;
+  // Unit USD (always derive when possible, even if other fields missing).
+  let unitUsd: number | null = null;
+  if (d.unit_price > 0) {
+    if (d.price_currency === "USD") {
+      unitUsd = d.unit_price;
+    } else {
+      const fx = (sh?.eur_usd_rate ?? latestEurUsd) ?? null;
+      if (fx && fx > 0) {
+        components.fxRate = fx;
+        unitUsd = d.unit_price * fx;
+      }
+    }
+  }
+  components.unitUsd = unitUsd;
+
+  // Customs ref selection.
+  let ref: ActiveCustomsRef | null = null;
+  if (isClean) {
+    // Clean row: use ONLY the saved customs_match_id row, never re-pick.
+    ref = savedRefForClean;
+    if (ref) {
+      const sameCountry =
+        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.customsBasis = sameCountry ? "exact" : "fallback";
+    } else {
+      components.customsBasis = "none";
+    }
+  } else if (refs && d.product_name.trim() && d.origin_country.trim()) {
+    ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
+    if (ref) {
+      const sameCountry =
+        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.customsBasis = sameCountry ? "exact" : "fallback";
+    } else {
+      components.customsBasis = "none";
+    }
   }
 
-  // Customs: exact (product, country) first, then product-only fallback.
-  const ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
-
-  // Override only active when product+country unchanged vs DB row.
+  // Confirmed manual override (only when product+country unchanged vs DB row).
   let overrideDuty: number | null = null;
   if (
     dbItem &&
@@ -327,47 +380,70 @@ function computeRowPreview(
     (dbItem.origin_country ?? "").trim() === d.origin_country.trim()
   ) {
     overrideDuty = Number(dbItem.customs_override_duty_usd);
-  }
-  const customs = computeCustomsPreview(unitUsd, ref, overrideDuty);
-
-  // Transport — vehicle_log_usd mirrors DB exactly:
-  // - no vehicle: current shipment.logistics_cost_usd.
-  // - with vehicle: sum logistics_cost_usd over unique shipments (already deduped in vehicleContext.shipments).
-  let vehicleLogUsd = 0;
-  if (!sh.vehicle_id) {
-    vehicleLogUsd = Number(sh.logistics_cost_usd ?? 0);
-  } else {
-    vehicleLogUsd = (vehicleContext?.shipments ?? []).reduce(
-      (acc, row) => acc + Number(row.logistics_cost_usd ?? 0),
-      0,
-    );
+    components.customsBasis = "manual";
+    components.matchedRef = null;
   }
 
-  const pc = d.pallet_count;
-  const palletLegacy = Number(dbItem?.pallet_weight ?? 0);
-  const netPerPallet =
-    pc > 0 && d.net_weight_kg > 0 ? d.net_weight_kg / pc : palletLegacy;
-  const grossPerPallet =
-    pc > 0 && d.gross_weight_kg > 0 ? d.gross_weight_kg / pc : palletLegacy;
-
-  // expected_pallets: closed mode uses vehicles.total_pallets; open mode uses DB formula.
-  let expectedPallets: number;
-  if (vehicleContext?.vehicleStatus === "closed") {
-    expectedPallets = Math.max(0, Number(vehicleContext.vehicle.total_pallets ?? 0));
-  } else if (grossPerPallet > 0) {
-    expectedPallets = Math.min(26, Math.floor(21500 / grossPerPallet));
-    if (expectedPallets < 1) expectedPallets = 1;
-  } else {
-    expectedPallets = 26;
+  // Customs preview ($/kg). When unitUsd known we use full helper; otherwise
+  // override may still produce values without unitUsd.
+  if (unitUsd != null) {
+    const c = computeCustomsPreview(unitUsd, ref, overrideDuty);
+    components.customsIndicative = c.indicative;
+    components.customsInvoice = c.invoice;
+  } else if (overrideDuty != null) {
+    components.customsIndicative = overrideDuty;
+    components.customsInvoice = overrideDuty;
   }
 
-  const freightPerPallet = expectedPallets > 0 ? vehicleLogUsd / expectedPallets : 0;
-  const transportPerKg = netPerPallet > 0 ? freightPerPallet / netPerPallet : 0;
+  // Transport per kg — only when shipment context known.
+  if (sh) {
+    let vehicleLogUsd = 0;
+    if (!sh.vehicle_id) {
+      vehicleLogUsd = Number(sh.logistics_cost_usd ?? 0);
+    } else {
+      vehicleLogUsd = (vehicleContext?.shipments ?? []).reduce(
+        (acc, row) => acc + Number(row.logistics_cost_usd ?? 0),
+        0,
+      );
+    }
+    const pc = d.pallet_count;
+    const palletLegacy = Number(dbItem?.pallet_weight ?? 0);
+    const netPerPallet =
+      pc > 0 && d.net_weight_kg > 0 ? d.net_weight_kg / pc : palletLegacy;
+    const grossPerPallet =
+      pc > 0 && d.gross_weight_kg > 0 ? d.gross_weight_kg / pc : palletLegacy;
+    let expectedPallets: number;
+    if (vehicleContext?.vehicleStatus === "closed") {
+      expectedPallets = Math.max(0, Number(vehicleContext.vehicle.total_pallets ?? 0));
+    } else if (grossPerPallet > 0) {
+      expectedPallets = Math.min(26, Math.floor(21500 / grossPerPallet));
+      if (expectedPallets < 1) expectedPallets = 1;
+    } else {
+      expectedPallets = 26;
+    }
+    const freightPerPallet = expectedPallets > 0 ? vehicleLogUsd / expectedPallets : 0;
+    const transportPerKg = netPerPallet > 0 ? freightPerPallet / netPerPallet : 0;
+    components.transportPerKg = transportPerKg;
+  }
 
-  return {
-    indicative: unitUsd + transportPerKg + customs.indicative,
-    invoice: unitUsd + transportPerKg + customs.invoice,
-  };
+  // Full preview total only if all required draft fields filled.
+  let value: { indicative: number; invoice: number } | null = null;
+  if (
+    sh &&
+    refs &&
+    getMissingDraftFields(d, products).length === 0 &&
+    unitUsd != null &&
+    components.transportPerKg != null &&
+    components.customsIndicative != null &&
+    components.customsInvoice != null
+  ) {
+    value = {
+      indicative: unitUsd + components.transportPerKg + components.customsIndicative,
+      invoice: unitUsd + components.transportPerKg + components.customsInvoice,
+    };
+  }
+
+  return { value, components };
 }
 
 type ShipmentRow = {
