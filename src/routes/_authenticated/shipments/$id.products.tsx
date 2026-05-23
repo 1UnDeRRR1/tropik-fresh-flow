@@ -1412,16 +1412,21 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           readOnly={readOnly}
           invalid={invalidPallets}
           onChange={(v) => {
+            if (readOnly) return;
+            // 9E v4.2 — НЕ клампим введённое значение к 0 при превышении лимита.
+            // Это раньше приводило к визуальному сбросу поля после blur
+            // (NumCell ресинхронизировал text="" когда value становилось 0),
+            // мешая пользователю заполнять строку поэтапно.
+            // Предупреждение показываем, фактическую проверку лимита
+            // делает autosave / vehicle capacity guard.
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = palletWeight > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
-            const nextCount = v > max ? max : v;
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
-            if (readOnly) return;
             dirtyRef.current = true;
-            setForm((f) => ({ ...f, pallet_count: nextCount }));
+            setForm((f) => ({ ...f, pallet_count: v }));
           }}
         />
       </td>
