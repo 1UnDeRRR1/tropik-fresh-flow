@@ -1050,7 +1050,7 @@ function ProductsFullscreen() {
         if (base && !isDraftDirty(d, base)) continue;
         const { error: upErr } = await supabase
           .from("shipment_items")
-          .update(buildPayload(d, { forUpdate: true }))
+          .update(buildPayload(d, { forUpdate: true }) as never)
           .eq("id", d.dbId);
         if (upErr) {
           toast.error(translateError(upErr));
