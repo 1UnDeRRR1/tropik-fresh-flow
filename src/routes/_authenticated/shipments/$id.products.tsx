@@ -1388,7 +1388,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td data-col="1" className="relative px-0.5 py-0.5">
         <VarietyCell value={form.variety} onChange={(v) => set("variety", v)} productName={form.product_name} readOnly={readOnly} />
       </td>
-      <td data-col="2" className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
+      <td data-col="2" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
