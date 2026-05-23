@@ -16,6 +16,8 @@ type Item = {
   variety: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
+  net_weight_kg: number | null;
+  gross_weight_kg: number | null;
   unit_price: number | null;
   price_currency: string | null;
   final_cost_indicative: number | null;
@@ -49,7 +51,7 @@ export function ShipmentQuickView({
         supabase
           .from("shipment_items")
           .select(
-            "id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice",
+            "id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice",
           )
           .eq("shipment_id", shipmentId),
         supabase

@@ -23,6 +23,8 @@ type ItemRow = {
   variety: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
+  net_weight_kg: number | null;
+  gross_weight_kg: number | null;
   unit_price: number | null;
   price_currency: string | null;
   final_cost_indicative: number | null;
@@ -80,7 +82,7 @@ function Analytics() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,status,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
+          "id,code,country,eta,arrived_at,status,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
         )
         .order("eta", { ascending: true })
         .limit(1000);
@@ -475,7 +477,8 @@ function Analytics() {
                   const it = f.item;
                   const sh = f.shipment;
                   const pallets = Number(it.pallet_count ?? 0);
-                  const weight = pallets * Number(it.pallet_weight ?? 0);
+                  const net = Number(it.net_weight_kg ?? 0);
+                  const weight = net > 0 ? net : pallets * Number(it.pallet_weight ?? 0);
                   const dist = distByItem.get(it.id);
                   const distributed = dist ? Array.from(dist.values()).reduce((a, b) => a + b, 0) : 0;
                   const remaining = pallets - distributed;
