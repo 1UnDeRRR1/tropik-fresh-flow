@@ -1212,7 +1212,12 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
           {items.map((it) => {
             const capacitySource = vehicleContext?.loadedItems ?? items;
             const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-            const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+            // 9F Phase C2b — capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
+            const otherKg = capacitySource.reduce((a, x) => {
+              if (x.id === it.id) return a;
+              const g = Number(x.gross_weight_kg ?? 0);
+              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0));
+            }, 0);
             return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
           })}
         </tbody>
