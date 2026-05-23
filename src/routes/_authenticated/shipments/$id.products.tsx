@@ -2032,15 +2032,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
               patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
             }
-            // Capacity warning — mirror the top АВТО block formula exactly.
-            // Predict this row's contribution AFTER the patch (no per-pallet extrapolation
-            // from a manually-entered total gross).
-            const fallbackPalletWeight = Number(dbItem?.pallet_weight ?? 0);
-            const newRowGross = patch.gross_weight_kg != null
-              ? Number(patch.gross_weight_kg)
-              : (grossNum > 0 ? grossNum : v * fallbackPalletWeight);
+            // D1-Fix v2.5.2 — capacity warning uses the same visible-draft source as top АВТО.
+            // Top АВТО formula (line ~964): kg = gross > 0 ? gross : pc * pallet_weight,
+            // where draftAsLoaded.pallet_weight = net/pc, so the fallback equals net.
+            // No dbItem.pallet_weight fallback here — top АВТО would not use it either.
+            const simGross = patch.gross_weight_kg != null ? Number(patch.gross_weight_kg) : grossNum;
+            const simNet = patch.net_weight_kg != null ? Number(patch.net_weight_kg) : netNum;
+            const newRowKg = simGross > 0 ? simGross : simNet;
             const newTotalPallets = otherPallets + v;
-            const newTotalKg = otherKg + newRowGross;
+            const newTotalKg = otherKg + newRowKg;
             if (newTotalPallets > MAX_PALLETS || newTotalKg > MAX_WEIGHT_KG) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
