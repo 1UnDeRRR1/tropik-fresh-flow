@@ -2447,19 +2447,37 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
               }
               return <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />;
             })()}
-            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time). */}
+            {/* D1-Fix v2.5.4 — collapsed green pill belongs in the right cluster
+                (alongside the customs chip / CostPair / chevron), not as a
+                separate left-aligned line below the row. */}
+            {overrideEligible && confirmedOverrideDuty != null && !overrideOpen && (
+              <ItemCustomsConfirmedPill
+                duty={confirmedOverrideDuty}
+                onReopen={() => setOverrideOpen(true)}
+                disabled={readOnly}
+              />
+            )}
+            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time).
+                D1-Fix v2.5.4 — larger tap target for mobile (h-8 w-8). */}
             <button
               type="button"
               onClick={onToggleExpanded}
               aria-label={isExpanded ? "Сховати деталі" : "Показати деталі"}
               aria-expanded={isExpanded}
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
             </button>
           </div>
         </div>
-        {dbItem && <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />}
+        {overrideEligible && overrideOpen && (
+          <ItemCustomsOverride
+            item={dbItem!}
+            shipmentId={shipmentId}
+            readOnly={readOnly}
+            onCollapse={() => setOverrideOpen(false)}
+          />
+        )}
         {hint && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
@@ -2482,11 +2500,16 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     </tr>
     {isExpanded && (
       <tr className="border-b border-border">
-        <td colSpan={11} className="bg-muted/10 px-3 py-2">
-          <RowBreakdownPanel components={preview.components} />
+        <td colSpan={11} className="bg-muted/10 px-0 py-2">
+          {/* D1-Fix v2.5.4 — sticky-left so the breakdown stays visible at
+              scrollLeft=0 even when the row is horizontally scrolled. */}
+          <div className="sticky left-0 px-3" style={{ width: "100vw", maxWidth: "100vw" }}>
+            <RowBreakdownPanel components={preview.components} />
+          </div>
         </td>
       </tr>
     )}
+
     </>
   );
 }
