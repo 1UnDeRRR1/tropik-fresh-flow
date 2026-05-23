@@ -1526,6 +1526,19 @@ function ProductsFullscreen() {
     openRef: fallbackOpenRef,
   };
 
+  // D1-Fix v2.5.4 — recognition hints captured from per-row resolver runs.
+  // commitDraft consumes this map; stale or missing entries trigger a
+  // read-only resolver RPC before any DB write.
+  const resolverHintsRef = useRef<Map<string, ResolverHintInfo>>(new Map());
+  const setResolverHint = useCallback(
+    (localId: string, info: ResolverHintInfo | null) => {
+      if (info == null) resolverHintsRef.current.delete(localId);
+      else resolverHintsRef.current.set(localId, info);
+    },
+    [],
+  );
+
+
   return (
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
