@@ -1510,6 +1510,53 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           </div>
         </div>
         <ItemCustomsOverride item={item} shipmentId={shipmentId} readOnly={readOnly} />
+        {resolver && (
+          <div className="mt-1 text-[10px] leading-snug text-muted-foreground">
+            {resolver.status === "matched" && (
+              <div className="space-y-0.5">
+                <div>
+                  Упаковка: <span className="font-medium text-foreground">{resolver.package_used ?? "—"}</span>
+                </div>
+                <div>
+                  Нетто база: <span className="font-medium text-foreground">{resolver.pallet_net_kg ?? "—"}</span> кг/пал
+                  {" · "}
+                  Брутто база: <span className="font-medium text-foreground">{resolver.pallet_gross_kg ?? "—"}</span> кг/пал
+                </div>
+                <div>
+                  Нетто всього:{" "}
+                  <span className="font-medium text-foreground">
+                    {resolver.pallet_net_kg != null && palletCountNum > 0
+                      ? Math.round(resolver.pallet_net_kg * palletCountNum)
+                      : "—"}
+                  </span>{" "}
+                  кг
+                  {" · "}
+                  Брутто всього:{" "}
+                  <span className="font-medium text-foreground">
+                    {resolver.pallet_gross_kg != null && palletCountNum > 0
+                      ? Math.round(resolver.pallet_gross_kg * palletCountNum)
+                      : "—"}
+                  </span>{" "}
+                  кг
+                </div>
+              </div>
+            )}
+            {resolver.status === "pallet_no_match" && (
+              <div className="text-amber-600 dark:text-amber-400">
+                Стандарт палети не знайдено — введіть вагу вручну
+              </div>
+            )}
+            {resolver.status === "product_no_match" && (
+              <div className="text-destructive">Товар не розпізнано</div>
+            )}
+            {resolver.status === "product_ambiguous" && (
+              <div className="text-destructive">Уточніть назву товару</div>
+            )}
+            {resolver.status === "country_no_match" && (
+              <div className="text-destructive">Країну не розпізнано</div>
+            )}
+          </div>
+        )}
       </td>
     </tr>
     </>
