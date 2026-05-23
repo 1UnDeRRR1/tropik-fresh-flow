@@ -272,6 +272,8 @@ type ShipmentRow = {
   country: string | null;
   logistics_cost: number | null;
   logistics_cost_currency: string | null;
+  logistics_cost_usd: number | null;
+  eur_usd_rate: number | null;
   vehicle_id: string | null;
   created_by: string | null;
   import_manager_id: string | null;
