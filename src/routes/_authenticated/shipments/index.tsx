@@ -83,7 +83,7 @@ function ShipmentsList() {
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
-          shipment_items(product_name,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice),
+          shipment_items(product_name,pallet_count,pallet_weight,net_weight_kg,final_cost_indicative,final_cost_invoice),
           distributions(distribution_items(pallets))
         `)
         .order("created_at", { ascending: false });
@@ -107,17 +107,18 @@ function ShipmentsList() {
 
   const rows = useMemo(() => {
     return (data ?? []).map((s) => {
-      const items = (s.shipment_items ?? []) as Array<{ pallet_count: number | null; pallet_weight: number | null; final_cost_indicative: number | null; final_cost_invoice: number | null }>;
+      const items = (s.shipment_items ?? []) as Array<{ pallet_count: number | null; pallet_weight: number | null; net_weight_kg: number | null; final_cost_indicative: number | null; final_cost_invoice: number | null }>;
       const fact = items.reduce((a, it) => a + Number(it.pallet_count ?? 0), 0);
       const dist = (s.distributions ?? []).reduce(
         (a: number, d: { distribution_items: { pallets: number | null }[] | null }) =>
           a + (d.distribution_items ?? []).reduce((aa, di) => aa + Number(di.pallets ?? 0), 0),
         0,
       );
-      // Weighted average cost by pallet weight (fallback to simple average).
+      // Weighted average cost by NET line weight (cost-side). Legacy fallback: pc*pallet_weight.
       let wSum = 0, indSum = 0, invSum = 0, simpleN = 0, simpleInd = 0, simpleInv = 0;
       for (const it of items) {
-        const w = Number(it.pallet_weight ?? 0) * Number(it.pallet_count ?? 0);
+        const net = Number(it.net_weight_kg ?? 0);
+        const w = net > 0 ? net : Number(it.pallet_weight ?? 0) * Number(it.pallet_count ?? 0);
         const ind = Number(it.final_cost_indicative ?? 0);
         const inv = Number(it.final_cost_invoice ?? 0);
         if (ind || inv) {
@@ -607,17 +608,19 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     if (shipIds.length > 0) {
       const { data: items } = await supabase
         .from("shipment_items" as never)
-        .select("product_name,origin_country,pallet_count,pallet_weight,unit_price")
+        .select("product_name,origin_country,pallet_count,pallet_weight,net_weight_kg,unit_price")
         .in("shipment_id", shipIds);
-      const rows = (items ?? []) as Array<{ product_name: string | null; origin_country: string | null; pallet_count: number | null; pallet_weight: number | null; unit_price: number | null }>;
+      const rows = (items ?? []) as Array<{ product_name: string | null; origin_country: string | null; pallet_count: number | null; pallet_weight: number | null; net_weight_kg: number | null; unit_price: number | null }>;
       const bad = rows.filter((r) => {
         const pc = Number(r.pallet_count ?? 0);
         const pw = Number(r.pallet_weight ?? 0);
+        const net = Number(r.net_weight_kg ?? 0);
+        const lineWeight = net > 0 ? net : pc * pw; // net first, legacy fallback
         return pc > 0 && (
           !(r.product_name ?? "").trim() ||
           (r.product_name ?? "") === "Новий товар" ||
           !(r.origin_country ?? "").trim() ||
-          pc * pw <= 0 ||
+          lineWeight <= 0 ||
           !r.unit_price || Number(r.unit_price) <= 0
         );
       }).length;

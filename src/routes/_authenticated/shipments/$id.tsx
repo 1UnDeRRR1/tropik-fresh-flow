@@ -500,9 +500,9 @@ function LogisticsTab({ shipment, shipmentId, qc, items }: { shipment: ShipmentR
       const { data: sibItems } = sibIds.length
         ? await supabase
             .from("shipment_items")
-            .select("id,shipment_id,pallet_count,pallet_weight,product_name")
+            .select("id,shipment_id,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,product_name")
             .in("shipment_id", sibIds)
-        : { data: [] as { id: string; shipment_id: string; pallet_count: number | null; pallet_weight: number | null; product_name: string | null }[] };
+        : { data: [] as { id: string; shipment_id: string; pallet_count: number | null; pallet_weight: number | null; net_weight_kg: number | null; gross_weight_kg: number | null; product_name: string | null }[] };
       return { vehicle: veh as { id: string; created_by: string | null; total_pallets: number | null; total_weight_kg: number | null; country: string | null; code: string | null; status: string | null } | null, siblings: sibs ?? [], allItems: sibItems ?? [] };
     },
   });
@@ -727,6 +727,8 @@ type Item = {
   sku: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
+  net_weight_kg: number | null;
+  gross_weight_kg: number | null;
   invoice_price: number | null;
   indicative_price: number | null;
   cost_price_usd: number | null;

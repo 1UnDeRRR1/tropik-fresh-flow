@@ -34,6 +34,7 @@ type Item = {
   caliber: string | null;
   pallet_count: number;
   pallet_weight: number;
+  net_weight_kg: number | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
@@ -68,7 +69,7 @@ function DistributionMatrix() {
     queryFn: async () => {
       const [shRes, itemsRes, branchesRes, distRes] = await Promise.all([
         supabase.from("shipments").select("id,code,status,created_by,import_manager_id").eq("id", shipmentId).single(),
-        supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,caliber,pallet_count,pallet_weight,net_weight_kg,final_cost_indicative,final_cost_invoice").eq("shipment_id", shipmentId).order("created_at"),
         supabase.from("branches").select("id,name,sort_order").eq("is_active", true).order("sort_order").order("name"),
         supabase
           .from("distributions")
@@ -197,7 +198,13 @@ function DistributionMatrix() {
     try {
       for (const branch of data.branches) {
         const branchTotals = data.items
-          .map((it) => ({ itemId: it.id, pallets: Number(grid[it.id]?.[branch.id] ?? 0), weightPerPallet: Number(it.pallet_weight ?? 0) }))
+          .map((it) => {
+            const pc = Number(it.pallet_count ?? 0);
+            const net = Number(it.net_weight_kg ?? 0);
+            // Per-pallet cost weight: net/pc (cost-side), legacy fallback pallet_weight.
+            const weightPerPallet = net > 0 && pc > 0 ? net / pc : Number(it.pallet_weight ?? 0);
+            return { itemId: it.id, pallets: Number(grid[it.id]?.[branch.id] ?? 0), weightPerPallet };
+          })
           .filter((x) => x.pallets > 0);
 
         const { data: existing } = await supabase

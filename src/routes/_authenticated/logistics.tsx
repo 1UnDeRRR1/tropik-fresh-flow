@@ -84,6 +84,7 @@ type LogisticsRow = {
     product_name: string;
     pallet_count: number | null;
     pallet_weight: number | null;
+    gross_weight_kg: number | null;
     origin_country: string | null;
   }>;
 };
@@ -119,7 +120,7 @@ function LogisticsPage() {
            temperature_mode,
            import_manager_id,
            supplier:suppliers(name, import_manager_id),
-           items:shipment_items(product_name, pallet_count, pallet_weight, origin_country)`,
+           items:shipment_items(product_name, pallet_count, pallet_weight, gross_weight_kg, origin_country)`,
         )
         .or("notes.is.null,notes.not.ilike.%[proposal-draft]%")
         .not("supplier_id", "is", null)
@@ -295,10 +296,10 @@ function BoardTable({
           <TableBody>
             {rows.map((r) => {
               const totalPallets = r.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
-              const totalWeight = r.items.reduce(
-                (s, i) => s + (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0),
-                0,
-              );
+              const totalWeight = r.items.reduce((s, i) => {
+                const g = Number(i.gross_weight_kg) || 0;
+                return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
+              }, 0);
               const missingAddress = !r.loading_address;
               const missingRef = !r.loading_reference;
               const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
@@ -480,10 +481,10 @@ function EditDialog({
   });
 
   const totalPallets = row.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
-  const totalWeight = row.items.reduce(
-    (s, i) => s + (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0),
-    0,
-  );
+  const totalWeight = row.items.reduce((s, i) => {
+    const g = Number(i.gross_weight_kg) || 0;
+    return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
+  }, 0);
 
   const save = useMutation({
     mutationFn: async () => {
