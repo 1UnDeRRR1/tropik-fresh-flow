@@ -1736,6 +1736,9 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
 type PreviewEntry = {
   isDirty: boolean;
   value: { indicative: number; invoice: number } | null;
+  // D1-Fix v2.5.2 — live customs status fields (for dirty/new rows).
+  hasCustomsInputs: boolean;
+  liveCustomsStatus: "green" | "yellow" | "red" | null;
 };
 
 function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
