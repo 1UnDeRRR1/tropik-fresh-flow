@@ -88,6 +88,106 @@ type ItemRow = {
   gross_auto: boolean | null;
 };
 
+// 9F Phase D1 — strict draft/confirm/save contract.
+// Manual rows live in local state until "Готово" commits them.
+// addItem / edit / delete never touch the DB on their own — only commitDraft does.
+type DraftRow = {
+  localId: string;          // "tmp_<uuid>" for new rows; dbId for existing rows
+  dbId: string | null;      // null = new row not yet inserted
+  product_name: string;
+  variety: string;
+  origin_country: string;
+  caliber: string;
+  sku: string;
+  package_used: string;
+  pallet_count: number;
+  net_weight_kg: number;
+  gross_weight_kg: number;
+  resolver_net_per_pallet_kg: number | null;
+  resolver_gross_per_pallet_kg: number | null;
+  net_auto: boolean;
+  gross_auto: boolean;
+  unit_price: number;
+  price_currency: "EUR" | "USD";
+};
+
+const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
+  "product_name","variety","origin_country","caliber","sku","package_used",
+  "pallet_count","net_weight_kg","gross_weight_kg",
+  "resolver_net_per_pallet_kg","resolver_gross_per_pallet_kg",
+  "net_auto","gross_auto","unit_price","price_currency",
+];
+
+function itemRowToDraft(item: ItemRow): DraftRow {
+  return {
+    localId: item.id,
+    dbId: item.id,
+    product_name: item.product_name === "Новий товар" ? "" : (item.product_name ?? ""),
+    variety: item.variety ?? "",
+    origin_country: item.origin_country ?? "",
+    caliber: item.caliber ?? "",
+    sku: item.sku ?? "",
+    package_used: item.package_used ?? "",
+    pallet_count: Number(item.pallet_count ?? 0),
+    net_weight_kg: Number(item.net_weight_kg ?? 0),
+    gross_weight_kg: Number(item.gross_weight_kg ?? 0),
+    resolver_net_per_pallet_kg: item.resolver_net_per_pallet_kg ?? null,
+    resolver_gross_per_pallet_kg: item.resolver_gross_per_pallet_kg ?? null,
+    net_auto: item.net_auto ?? false,
+    gross_auto: item.gross_auto ?? false,
+    unit_price: Number(item.unit_price ?? 0),
+    price_currency: ((item.price_currency ?? "EUR") as "EUR" | "USD"),
+  };
+}
+
+function emptyDraftRow(): DraftRow {
+  const uuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return {
+    localId: `tmp_${uuid}`,
+    dbId: null,
+    product_name: "",
+    variety: "",
+    origin_country: "",
+    caliber: "",
+    sku: "",
+    package_used: "",
+    pallet_count: 0,
+    net_weight_kg: 0,
+    gross_weight_kg: 0,
+    resolver_net_per_pallet_kg: null,
+    resolver_gross_per_pallet_kg: null,
+    net_auto: false,
+    gross_auto: false,
+    unit_price: 0,
+    price_currency: "EUR",
+  };
+}
+
+function isDraftDirty(a: DraftRow, b: DraftRow): boolean {
+  for (const k of DRAFT_EDITABLE_KEYS) {
+    const av = a[k];
+    const bv = b[k];
+    if (typeof av === "number" && typeof bv === "number") {
+      if (Math.abs(av - bv) > 1e-9) return true;
+    } else if (av !== bv) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getMissingDraftFields(d: DraftRow, products: ProductRef[]): RequiredField[] {
+  const missing: RequiredField[] = [];
+  if (!d.product_name.trim() || !isKnownProductName(d.product_name, products)) missing.push("product_name");
+  if (!d.origin_country.trim()) missing.push("origin_country");
+  if (d.pallet_count <= 0) missing.push("pallet_count");
+  if (d.net_weight_kg <= 0 || d.gross_weight_kg <= 0) missing.push("total_weight");
+  if (!d.unit_price || d.unit_price <= 0) missing.push("unit_price");
+  return missing;
+}
+
 type CustomsRefMini = { id: string; product_name: string; country: string };
 
 type ShipmentRow = {
@@ -502,27 +602,73 @@ function ProductsFullscreen() {
 
   const sh = data?.shipment;
   const items = data?.items ?? [];
-  const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
   const customsRefs = data?.customsRefs ?? [];
   const refById = new Map(customsRefs.map((r) => [r.id, r])) as CustomsRefIndex;
-  // Patch 6B: count RED rows (valid, no customs_match_id) lacking a confirmed
+  const country = toUaCountry(sh?.country) || "—";
+
+  // 9F Phase D1 — strict draft/confirm/save state.
+  // draftItems is the source of truth for the editor; items (DB) only feeds hydration.
+  const [draftItems, setDraftItems] = useState<DraftRow[]>([]);
+  const baselinesRef = useRef<Map<string, DraftRow>>(new Map());
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+
+  const hasLocalChanges = (() => {
+    if (pendingDeletes.length > 0) return true;
+    for (const d of draftItems) {
+      if (d.dbId === null) return true;
+      const base = baselinesRef.current.get(d.dbId);
+      if (!base) return true;
+      if (isDraftDirty(d, base)) return true;
+    }
+    return false;
+  })();
+
+  // Hydrate draftItems from DB only when local state is clean.
+  // After commitDraft we clear local state, then hydration syncs to the freshly-fetched DB rows.
+  useEffect(() => {
+    if (hasLocalChanges) return;
+    const next = items.map(itemRowToDraft);
+    baselinesRef.current = new Map(next.map((d) => [d.dbId as string, { ...d }]));
+    setDraftItems(next);
+    setPendingDeletes([]);
+    // We intentionally depend on `items` reference; hasLocalChanges is checked above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
+    setDraftItems((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
+  }, []);
+
+  const removeDraft = useCallback((localId: string) => {
+    setDraftItems((prev) => {
+      const target = prev.find((d) => d.localId === localId);
+      if (!target) return prev;
+      if (target.dbId) {
+        setPendingDeletes((pd) => (pd.includes(target.dbId as string) ? pd : [...pd, target.dbId as string]));
+      }
+      return prev.filter((d) => d.localId !== localId);
+    });
+  }, []);
+
+  // DB rows currently visible (existing rows not pending delete) — used for server-computed fields
+  // (customs status, indicative/invoice cost) which only exist on persisted rows.
+  const dbItemsVisible = items.filter((it) => !pendingDeletes.includes(it.id));
+  const dbItemById = new Map(items.map((it) => [it.id, it]));
+  const validDbItems = dbItemsVisible.filter(isValidShipmentItem);
+
+  // Patch 6B: count RED rows (valid persisted, no customs_match_id) lacking a confirmed
   // manual customs duty — used to gate Done/Назад.
-  const redUnconfirmedCount = validItems.filter(
+  const redUnconfirmedCount = validDbItems.filter(
     (it) =>
       !it.customs_match_id &&
       !(it.customs_override_confirmed_at && it.customs_override_duty_usd != null),
   ).length;
-  const country = toUaCountry(sh?.country) || "—";
 
-  // Customs match status for the header indicator.
-  // - "found": every valid item matched product+country exactly in customs base.
-  // - "fallback": at least one item matched product but country differs
-  //   (the trigger picked the row with the highest indicative).
-  // - "none": no valid items yet (hide indicator).
+  // Customs match status for the header indicator (server-computed only).
   const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
-  const fallbackItems = validItems
+  const fallbackItems = validDbItems
     .map((it) => {
       const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
       if (!ref) return null;
@@ -531,41 +677,57 @@ function ProductsFullscreen() {
     })
     .filter((v): v is { item: ItemRow; ref: CustomsRefMini } => !!v);
   const customsStatus: "found" | "fallback" | "none" =
-    validItems.length === 0
+    validDbItems.length === 0
       ? "none"
       : fallbackItems.length > 0
         ? "fallback"
         : "found";
-  
-  const incompleteItems = items.filter((i) => {
-    if (Number(i.pallet_count ?? 0) <= 0) return false;
-    const missing = getMissingFields(i);
-    return missing.length > 0 || !isKnownProductName(i.product_name, products);
-  });
-  const incompleteCount = incompleteItems.length;
-  const hasRealPallets = validItems.length > 0;
+
+  // D1: incomplete + hasRealPallets are now derived from the visible draft state.
+  const incompleteCount = draftItems.filter((d) => getMissingDraftFields(d, products).length > 0).length;
+  const hasRealPallets = draftItems.some(
+    (d) => d.product_name.trim().length > 0 && d.pallet_count > 0,
+  );
   const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
-  // Editable when admin, the explicit manager, or the creator (covers vacation
-  // replacement: replacement creates the shipment, supplier belongs to the
-  // vacationing manager — DB RLS already allows it via is_shipment_owner).
   const currentShipmentEditable = !!user?.id && (
     !!isAdmin
     || sh?.created_by === user.id
     || sh?.import_manager_id === user.id
     || sh?.import_manager_id === currentManagerId
   );
-  const capacityItems = vehicleContext?.loadedItems ?? items.map((item) => ({
-    id: item.id,
-    pallet_count: item.pallet_count,
-    pallet_weight: item.pallet_weight,
-    net_weight_kg: item.net_weight_kg,
-    gross_weight_kg: item.gross_weight_kg,
+
+  // D1 §5 — capacity must reflect draftItems (not stale DB rows of current shipment).
+  // Other shipments' rows stay as-is from vehicleContext.loadedItems.
+  const currentLoadedSample = vehicleContext?.loadedItems.find((li) => li.isCurrentShipment) ?? null;
+  const draftAsLoaded = draftItems.map((d) => ({
+    id: d.localId,
+    shipment_id: id,
+    shipment_code: currentLoadedSample?.shipment_code ?? sh?.code ?? "—",
+    supplier_name: currentLoadedSample?.supplier_name ?? sh?.supplier_name ?? null,
+    owner_id: currentLoadedSample?.owner_id ?? currentShipmentOwnerId,
+    owner_name: currentLoadedSample?.owner_name ?? "Менеджер",
+    product_name: d.product_name || null,
+    variety: d.variety || null,
+    origin_country: d.origin_country || null,
+    pallet_count: d.pallet_count,
+    pallet_weight: d.pallet_count > 0 ? d.net_weight_kg / d.pallet_count : 0,
+    net_weight_kg: d.net_weight_kg,
+    gross_weight_kg: d.gross_weight_kg,
+    isCurrentShipment: true,
+    isOwnManager: (currentLoadedSample?.owner_id ?? currentShipmentOwnerId) === user?.id,
   }));
-  const loadedPallets = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0), 0);
+  const effectiveLoadedItems = vehicleContext
+    ? [...vehicleContext.loadedItems.filter((li) => !li.isCurrentShipment), ...draftAsLoaded]
+    : draftAsLoaded;
+  const effectiveVehicleContext: VehicleContext | null = vehicleContext
+    ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
+    : null;
+
+  const loadedPallets = effectiveLoadedItems.reduce((sum, it) => sum + Number(it.pallet_count ?? 0), 0);
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
-  const loadedKg = capacityItems.reduce((sum, item) => {
-    const g = Number(item.gross_weight_kg ?? 0);
-    return sum + (g > 0 ? g : Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0));
+  const loadedKg = effectiveLoadedItems.reduce((sum, it) => {
+    const g = Number(it.gross_weight_kg ?? 0);
+    return sum + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
   }, 0);
   const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
@@ -578,6 +740,7 @@ function ProductsFullscreen() {
   );
   const transportMissing = canEditTransport && transportCostValue <= 0;
   const canSaveForLater = !!fromOfferId && hasRealPallets && incompleteCount === 0;
+
 
   const [shake, setShake] = useState(false);
   const [flashTransport, setFlashTransport] = useState(false);
@@ -783,20 +946,14 @@ function ProductsFullscreen() {
 
 
 
+  // D1 §8 — "Назад": discard local draft + pendingDeletes, no DB writes.
+  // Safety: deleteShipmentIfEmpty only removes a truly empty newly created shipment
+  // (it checks the DB; under D1 manual rows never reach DB until "Готово", so a fresh
+  // shipment with no prefill and no committed rows stays eligible for cleanup).
   const leaveProducts = async () => {
-    // Auto-cleanup: drop empty/placeholder rows on exit so they don't
-    // persist as fake products.
-    const emptyIds = items
-      .filter(
-        (item) =>
-          !(item.product_name ?? "").trim() ||
-          item.product_name === "Новий товар" ||
-          Number(item.pallet_count ?? 0) <= 0,
-      )
-      .map((item) => item.id);
-    if (emptyIds.length > 0) {
-      await supabase.from("shipment_items").delete().in("id", emptyIds);
-    }
+    setDraftItems([]);
+    setPendingDeletes([]);
+    baselinesRef.current = new Map();
     const deleted = await deleteShipmentIfEmpty(id);
     if (deleted) {
       navigate({ to: "/shipments" });
@@ -808,15 +965,8 @@ function ProductsFullscreen() {
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
-
-  const blockExit = (e: React.MouseEvent) => {
-    if (incompleteCount > 0 || !hasRealPallets) {
-      e.preventDefault();
-      triggerShake(false);
-    }
-  };
-
-  const addItem = async () => {
+  // D1 — manual addItem: local draft only, NO INSERT.
+  const addItem = () => {
     if (!currentShipmentEditable) {
       toast.error("Ви можете додавати товари лише у власну поставку");
       return;
@@ -825,21 +975,118 @@ function ProductsFullscreen() {
       toast.error("У спільному авто більше немає вільного місця");
       return;
     }
-    const { error } = await supabase.from("shipment_items").insert({
-      shipment_id: id,
-      product_name: "Новий товар",
-      qty: 0,
-      unit: "kg",
-      unit_price: 0,
-      price_currency: "EUR",
-      pallet_count: 0,
-      pallet_weight: 0,
-    });
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
-    qc.invalidateQueries({ queryKey: ["shipment", id] });
-    invalidateVehicleAndShipmentCaches(qc);
+    setDraftItems((prev) => [...prev, emptyDraftRow()]);
   };
+
+  // D1 §6 — INSERT/UPDATE payload preserves current net/gross + legacy compat-shim.
+  const buildPayload = useCallback(
+    (d: DraftRow, opts: { forUpdate: boolean }): Record<string, unknown> => {
+      const pc = d.pallet_count;
+      const net = d.net_weight_kg;
+      const palletWeightShim = pc > 0 ? net / pc : 0;
+      const resolvedName =
+        resolveProductOption(d.product_name, products.map((p) => p.name)) ??
+        canonicalizeProductName(d.product_name);
+      const payload: Record<string, unknown> = {
+        product_name: resolvedName,
+        variety: d.variety || null,
+        origin_country: normalizeCountry(d.origin_country) || null,
+        caliber: d.caliber || null,
+        sku: d.sku || null,
+        package_used: d.package_used.trim() || null,
+        pallet_count: pc,
+        net_weight_kg: net,
+        gross_weight_kg: d.gross_weight_kg,
+        resolver_net_per_pallet_kg: d.resolver_net_per_pallet_kg,
+        resolver_gross_per_pallet_kg: d.resolver_gross_per_pallet_kg,
+        net_auto: d.net_auto,
+        gross_auto: d.gross_auto,
+        pallet_weight: palletWeightShim,
+        qty: net,
+        unit: "kg",
+        unit_price: d.unit_price,
+        price_currency: d.price_currency,
+      };
+      if (!opts.forUpdate) payload.shipment_id = id;
+      return payload;
+    },
+    [products, id],
+  );
+
+  // D1 §3 — non-atomic client batch: validate → INSERT new → UPDATE dirty → DELETE last.
+  const commitDraft = async () => {
+    if (!currentShipmentEditable) {
+      toast.error("Ви можете редагувати лише власну поставку");
+      return;
+    }
+    // 1. Validate every visible draft row.
+    const anyInvalid = draftItems.some((d) => getMissingDraftFields(d, products).length > 0);
+    if (anyInvalid) {
+      toast.error("Заповніть обов'язкові поля");
+      triggerShake(false);
+      return;
+    }
+    try {
+      // 2. INSERT new rows (dbId === null).
+      const newDrafts = draftItems.filter((d) => d.dbId === null);
+      const insertedIds: string[] = [];
+      if (newDrafts.length > 0) {
+        const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
+        const { data: insertedRows, error: insErr } = await supabase
+          .from("shipment_items")
+          .insert(payloads as never)
+          .select("id");
+        if (insErr) {
+          toast.error(translateError(insErr));
+          return;
+        }
+        (insertedRows ?? []).forEach((row) => insertedIds.push((row as { id: string }).id));
+      }
+
+      // 3. UPDATE dirty existing rows (dbId !== null).
+      for (const d of draftItems) {
+        if (d.dbId === null) continue;
+        const base = baselinesRef.current.get(d.dbId);
+        if (base && !isDraftDirty(d, base)) continue;
+        const { error: upErr } = await supabase
+          .from("shipment_items")
+          .update(buildPayload(d, { forUpdate: true }) as never)
+          .eq("id", d.dbId);
+        if (upErr) {
+          toast.error(translateError(upErr));
+          return;
+        }
+      }
+
+      // 4. DELETE pendingDeletes LAST.
+      if (pendingDeletes.length > 0) {
+        const { error: delErr } = await supabase
+          .from("shipment_items")
+          .delete()
+          .in("id", pendingDeletes);
+        if (delErr) {
+          toast.error(translateError(delErr));
+          // Data is already inserted/updated successfully; deletion failure does not lose data.
+        }
+      }
+
+      // 5. Clear local state so hydration takes over after refetch.
+      setDraftItems([]);
+      setPendingDeletes([]);
+      baselinesRef.current = new Map();
+
+      await syncVehicleStateForShipment(id);
+      qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+      qc.invalidateQueries({ queryKey: ["shipment", id] });
+      invalidateVehicleAndShipmentCaches(qc);
+      // silence unused-warning: insertedIds available for future link-back logic if needed.
+      void insertedIds;
+      navigate({ to: "/shipments/$id", params: { id } });
+    } catch (e) {
+      toast.error(translateError(e));
+    }
+  };
+
 
   const tryLeave = (e: React.MouseEvent | null) => {
     if (redUnconfirmedCount > 0) {
@@ -890,14 +1137,14 @@ function ProductsFullscreen() {
         <TransportBar
           shipment={sh}
           currentUserId={user?.id ?? null}
-          vehicleContext={vehicleContext}
+          vehicleContext={effectiveVehicleContext}
           canEditTransport={canEditTransport}
           flash={flashTransport}
         />
       )}
-      {vehicleContext && (
+      {effectiveVehicleContext && (
         <SharedVehicleSummary
-          vehicleContext={vehicleContext}
+          vehicleContext={effectiveVehicleContext}
           currentShipmentId={id}
           customsStatus={customsStatus}
           fallbackItems={fallbackItems}
@@ -906,8 +1153,8 @@ function ProductsFullscreen() {
 
 
       <ProductsScrollArea
-        itemsCount={items.length}
-        empty={items.length === 0}
+        itemsCount={draftItems.length}
+        empty={draftItems.length === 0}
         emptyContent={
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -917,7 +1164,17 @@ function ProductsFullscreen() {
           </div>
         }
       >
-        <ProductsTable items={items} id={id} products={products} vehicleContext={vehicleContext} currentShipmentEditable={currentShipmentEditable} pulseFields={pulseFields} />
+        <ProductsTable
+          drafts={draftItems}
+          dbItemById={dbItemById}
+          shipmentId={id}
+          products={products}
+          vehicleContext={effectiveVehicleContext}
+          currentShipmentEditable={currentShipmentEditable}
+          pulseFields={pulseFields}
+          onPatch={patchDraft}
+          onRemove={removeDraft}
+        />
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
             <Button
@@ -935,17 +1192,21 @@ function ProductsFullscreen() {
       </ProductsScrollArea>
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <Link to="/shipments/$id" params={{ id }} className="block" onClick={(e) => {
-          if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
-            e.preventDefault();
-            triggerShake(transportMissing);
-            return;
-          }
-          if (!tryLeave(e)) return;
-          e.preventDefault();
-          void leaveProducts();
-        }}>
+        <button
+          type="button"
+          className="block w-full"
+          onClick={(e) => {
+            if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
+              e.preventDefault();
+              triggerShake(transportMissing);
+              return;
+            }
+            if (!tryLeave(e)) return;
+            void commitDraft();
+          }}
+        >
           <Button
+            asChild={false}
             className={cn(
               "w-full",
               (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
@@ -965,8 +1226,9 @@ function ProductsFullscreen() {
                     ? "Зберегти та вийти"
                     : "Готово"}
           </Button>
-        </Link>
+        </button>
       </footer>
+
     </div>
     </FallbackSelectionContext.Provider>
    </CustomsRefContext.Provider>
@@ -1183,13 +1445,16 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
-function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields }: {
-  items: ItemRow[];
-  id: string;
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
+  drafts: DraftRow[];
+  dbItemById: Map<string, ItemRow>;
+  shipmentId: string;
   products: ProductRef[];
   vehicleContext: VehicleContext | null;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
+  onPatch: (localId: string, patch: Partial<DraftRow>) => void;
+  onRemove: (localId: string) => void;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
@@ -1197,6 +1462,13 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
     "px-1.5 py-2 font-medium transition-colors",
     focused === i ? "text-destructive" : "",
   );
+  // Capacity source: effective loadedItems (other shipments + draftAsLoaded for current).
+  const capacitySource = vehicleContext?.loadedItems ?? drafts.map((d) => ({
+    id: d.localId,
+    pallet_count: d.pallet_count,
+    pallet_weight: d.pallet_count > 0 ? d.net_weight_kg / d.pallet_count : 0,
+    gross_weight_kg: d.gross_weight_kg,
+  } as { id: string; pallet_count: number | null; pallet_weight: number | null; gross_weight_kg: number | null }));
   return (
     <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
       <table className="w-full min-w-[860px] text-[12px] tabular-nums">
@@ -1216,63 +1488,65 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
           </tr>
         </thead>
         <tbody>
-          {items.map((it) => {
-            const capacitySource = vehicleContext?.loadedItems ?? items;
-            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-            // 9F Phase C2b — capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
+          {drafts.map((d) => {
+            const ownKey = d.localId;
+            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === ownKey ? 0 : Number(x.pallet_count ?? 0)), 0);
             const otherKg = capacitySource.reduce((a, x) => {
-              if (x.id === it.id) return a;
-              const g = Number(x.gross_weight_kg ?? 0);
-              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0));
+              if (x.id === ownKey) return a;
+              const g = Number((x as { gross_weight_kg?: number | null }).gross_weight_kg ?? 0);
+              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
-            return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
+            const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+            return (
+              <ProductRowEditor
+                key={d.localId}
+                draft={d}
+                dbItem={dbItem}
+                shipmentId={shipmentId}
+                products={products}
+                otherPallets={otherPallets}
+                otherKg={otherKg}
+                readOnly={!currentShipmentEditable}
+                pulse={pulseFields}
+                onPatch={(patch) => onPatch(d.localId, patch)}
+                onRemove={() => onRemove(d.localId)}
+              />
+            );
           })}
         </tbody>
       </table>
-      {/* currentShipmentEditable acts as the gate; floating "Додати товар" is rendered by the parent. */}
       <span hidden>{String(currentShipmentEditable)}</span>
     </FocusedColContext.Provider>
   );
 }
 
+
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean; pulse?: boolean }) {
-  const qc = useQueryClient();
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false, onPatch, onRemove }: {
+  draft: DraftRow;
+  dbItem: ItemRow | null;
+  shipmentId: string;
+  products: ProductRef[];
+  otherPallets: number;
+  otherKg: number;
+  readOnly: boolean;
+  pulse?: boolean;
+  onPatch: (patch: Partial<DraftRow>) => void;
+  onRemove: () => void;
+}) {
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
-  const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
-  // 9F Phase B — final weight model: одна правда (Нетто/Брутто = totals строки).
-  // resolver per-pallet base хранится скрыто в form/DB и в UI не показывается.
-  const [form, setForm] = useState({
-    product_name: normalizedProductName,
-    variety: item.variety ?? "",
-    origin_country: item.origin_country ?? "",
-    caliber: item.caliber ?? "",
-    sku: item.sku ?? "",
-    pallet_count: item.pallet_count ?? 0,
-    package_used: item.package_used ?? "",
-    net_weight_kg: Number(item.net_weight_kg ?? 0),
-    gross_weight_kg: Number(item.gross_weight_kg ?? 0),
-    resolver_net_per_pallet_kg: item.resolver_net_per_pallet_kg ?? null,
-    resolver_gross_per_pallet_kg: item.resolver_gross_per_pallet_kg ?? null,
-    net_auto: item.net_auto ?? false,
-    gross_auto: item.gross_auto ?? false,
-    unit_price: item.unit_price ?? 0,
-    price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
-  });
-  const dirtyRef = useRef(false);
-  // touchedRef — пользователь явно изменил Товар/Країна в текущей сессии.
-  // Используется как gate для resolver: открытие старой строки resolver не запускает.
+  // D1: draft is the source of truth — no internal form state, no autosave.
+  const form = draft;
   const touchedRef = useRef({ product: false, country: false });
-  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+  const set = <K extends keyof DraftRow>(k: K, v: DraftRow[K]) => {
     if (readOnly) return;
-    dirtyRef.current = true;
-    setForm((f) => ({ ...f, [k]: v }));
+    onPatch({ [k]: v } as Partial<DraftRow>);
   };
 
   // Field-level validation
@@ -1287,67 +1561,9 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const invalidGross = grossNum <= 0;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
-  // Debounced autosave. Не пишет, пока строка невалидна (pc>0, net>0, gross>0, известный товар).
-  // compat-shim для legacy pallet_weight: pallet_weight = net/pc (никогда 0, никогда null
-  // для валидной строки). qty = net_weight_kg — численно идентично legacy pc*pw.
-  useEffect(() => {
-    if (readOnly) return;
-    if (!dirtyRef.current) return;
-    const t = setTimeout(async () => {
-      const resolvedName =
-        resolveProductOption(form.product_name, products.map((p) => p.name)) ??
-        canonicalizeProductName(form.product_name);
-      const trimmedProductName = resolvedName;
-      if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
-        return;
-      }
-      const pc = Number(form.pallet_count) || 0;
-      const net = Number(form.net_weight_kg) || 0;
-      const gross = Number(form.gross_weight_kg) || 0;
-      if (pc <= 0 || net <= 0 || gross <= 0) {
-        // невалидная строка — не сохраняем, legacy pallet_weight не перетираем.
-        return;
-      }
-      const palletWeightShim = net / pc; // safe: pc>0 проверено выше
-      const { error } = await supabase
-        .from("shipment_items")
-        .update({
-          product_name: trimmedProductName,
-          variety: form.variety || null,
-          origin_country: normalizeCountry(form.origin_country) || null,
-          caliber: form.caliber || null,
-          sku: form.sku || null,
-          pallet_count: pc,
-          package_used: form.package_used.trim() || null,
-          net_weight_kg: net,
-          gross_weight_kg: gross,
-          resolver_net_per_pallet_kg: form.resolver_net_per_pallet_kg,
-          resolver_gross_per_pallet_kg: form.resolver_gross_per_pallet_kg,
-          net_auto: form.net_auto,
-          gross_auto: form.gross_auto,
-          pallet_weight: palletWeightShim,
-          qty: net,
-          unit_price: Number(form.unit_price),
-          price_currency: form.price_currency,
-        })
-        .eq("id", item.id);
-      if (error) toast.error(error.message);
-      else {
-        dirtyRef.current = false;
-        await syncVehicleStateForShipment(shipmentId);
-        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-        invalidateVehicleAndShipmentCaches(qc);
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [form, item.id, products, qc, readOnly, shipmentId]);
-
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 9F Phase B — resolver: пишет в form state (matched / pallet_no_match) или
-  // показывает inline hint (product/country errors). Триггер строго onBlur
-  // Товар/Країна, только если пользователь явно изменил одно из этих полей
-  // в текущей сессии (touchedRef). НЕ useEffect, НЕ on mount, НЕ на keystroke.
+  // Resolver — onBlur of Товар/Країна, gated by touchedRef.
   type ResolverHint =
     | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
     | null;
@@ -1390,67 +1606,54 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         const pGross = asNum(r.pallet_gross_kg);
         const pkg = asStr(r.package_used);
         setHint(null);
-        dirtyRef.current = true;
-        setForm((f) => {
-          const pc = (Number(f.pallet_count) || 0) > 0 ? Number(f.pallet_count) : 1;
-          return {
-            ...f,
-            pallet_count: pc,
-            package_used: pkg ?? f.package_used,
-            resolver_net_per_pallet_kg: pNet,
-            resolver_gross_per_pallet_kg: pGross,
-            net_auto: true,
-            gross_auto: true,
-            net_weight_kg: pNet != null ? pNet * pc : f.net_weight_kg,
-            gross_weight_kg: pGross != null ? pGross * pc : f.gross_weight_kg,
-          };
+        const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
+        onPatch({
+          pallet_count: pc,
+          package_used: pkg ?? form.package_used,
+          resolver_net_per_pallet_kg: pNet,
+          resolver_gross_per_pallet_kg: pGross,
+          net_auto: true,
+          gross_auto: true,
+          net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
+          gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
         });
       } else if (status === "pallet_no_match") {
         setHint({ status: "pallet_no_match" });
-        dirtyRef.current = true;
-        setForm((f) => ({
-          ...f,
+        onPatch({
           package_used: "",
           resolver_net_per_pallet_kg: null,
           resolver_gross_per_pallet_kg: null,
           net_auto: false,
           gross_auto: false,
-        }));
+        });
       } else if (
         status === "product_no_match" ||
         status === "product_ambiguous" ||
         status === "country_no_match"
       ) {
         setHint({ status });
-        // Не трогаем form / resolver_* / auto-флаги.
       } else {
         setHint(null);
       }
     } catch {
       if (seq === resolverSeqRef.current) setHint(null);
     }
-  }, [readOnly, form.product_name, form.origin_country]);
+  }, [readOnly, form.product_name, form.origin_country, form.pallet_count, form.package_used, form.net_weight_kg, form.gross_weight_kg, onPatch]);
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
-    // Only fire when focus leaves this cell entirely (not when moving between child elements)
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     void runResolver();
   };
 
-
-  const remove = async () => {
+  // D1: remove is local-only. DB DELETE happens last in commitDraft.
+  const remove = () => {
     if (readOnly) {
       toast.error("Можна редагувати лише власні товари");
       return;
     }
-    const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
-    if (error) return toast.error(error.message);
     setConfirmOpen(false);
-    await syncVehicleStateForShipment(shipmentId);
-    qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-    invalidateVehicleAndShipmentCaches(qc);
+    onRemove();
   };
-
 
   const { setFocused } = useContext(FocusedColContext);
   return (
@@ -1469,8 +1672,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.product = true;
-            dirtyRef.current = true;
-            setForm((f) => ({ ...f, product_name: v }));
+            onPatch({ product_name: v });
           }}
           options={knownProductNames}
           placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
@@ -1497,8 +1699,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.country = true;
-            dirtyRef.current = true;
-            setForm((f) => ({ ...f, origin_country: v }));
+            onPatch({ origin_country: v });
           }}
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
@@ -1524,28 +1725,23 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidPallets}
           onChange={(v) => {
             if (readOnly) return;
-            // 9F Phase C2b — capacity warning uses gross_weight_kg / pallet_count; fallback to legacy pallet_weight.
-            // Warning only — never clamps `v`, never mutates pallet_count below.
             const grossPerPallet = palletCountNum > 0 && grossNum > 0
               ? grossNum / palletCountNum
-              : Number(item.pallet_weight ?? 0);
+              : Number(dbItem?.pallet_weight ?? 0);
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = grossPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / grossPerPallet) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
-            dirtyRef.current = true;
-            setForm((f) => {
-              const next = { ...f, pallet_count: v };
-              if (f.net_auto && f.resolver_net_per_pallet_kg != null) {
-                next.net_weight_kg = f.resolver_net_per_pallet_kg * v;
-              }
-              if (f.gross_auto && f.resolver_gross_per_pallet_kg != null) {
-                next.gross_weight_kg = f.resolver_gross_per_pallet_kg * v;
-              }
-              return next;
-            });
+            const patch: Partial<DraftRow> = { pallet_count: v };
+            if (form.net_auto && form.resolver_net_per_pallet_kg != null) {
+              patch.net_weight_kg = form.resolver_net_per_pallet_kg * v;
+            }
+            if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
+              patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
+            }
+            onPatch(patch);
           }}
         />
       </td>
@@ -1558,10 +1754,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
-            dirtyRef.current = true;
-            // Manual override: фиксируем итог строки, resolver base НЕ трогаем,
-            // обратной математики нет.
-            setForm((f) => ({ ...f, net_weight_kg: safe, net_auto: false }));
+            onPatch({ net_weight_kg: safe, net_auto: false });
           }}
         />
       </td>
@@ -1574,8 +1767,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
-            dirtyRef.current = true;
-            setForm((f) => ({ ...f, gross_weight_kg: safe, gross_auto: false }));
+            onPatch({ gross_weight_kg: safe, gross_auto: false });
           }}
         />
       </td>
@@ -1610,15 +1802,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
               <AlertDialogHeader>
                 <AlertDialogTitle>Видалити позицію?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Рядок товару буде видалено з поставки без можливості швидкого відновлення.
+                  Рядок товару буде видалено з поставки після натискання «Готово».
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Скасувати</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => {
-                    void remove();
-                  }}
+                  onClick={() => { remove(); }}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   Видалити
@@ -1631,16 +1821,20 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     </tr>
     <tr className="border-b border-border">
       <td colSpan={11} className="bg-muted/30 px-3 py-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Собівартість $/кг
-          </span>
-          <div className="flex items-center gap-2">
-            <ItemCustomsChip item={item} />
-            <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
-          </div>
-        </div>
-        <ItemCustomsOverride item={item} shipmentId={shipmentId} readOnly={readOnly} />
+        {dbItem && (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Собівартість $/кг
+              </span>
+              <div className="flex items-center gap-2">
+                <ItemCustomsChip item={dbItem} />
+                <CostPair indicative={dbItem.final_cost_indicative} invoice={dbItem.final_cost_invoice} size="sm" />
+              </div>
+            </div>
+            <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />
+          </>
+        )}
         {hint && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
@@ -1664,6 +1858,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     </>
   );
 }
+
 
 function ItemCustomsChip({ item }: { item: ItemRow }) {
   const refById = useContext(CustomsRefContext);
