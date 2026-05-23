@@ -78,6 +78,14 @@ type ItemRow = {
   customs_override_duty_usd: number | null;
   customs_override_confirmed_at: string | null;
   customs_override_by: string | null;
+  // 9F Phase B — final weight model (Phase A added columns).
+  package_used: string | null;
+  net_weight_kg: number | null;
+  gross_weight_kg: number | null;
+  resolver_net_per_pallet_kg: number | null;
+  resolver_gross_per_pallet_kg: number | null;
+  net_auto: boolean | null;
+  gross_auto: boolean | null;
 };
 
 type CustomsRefMini = { id: string; product_name: string; country: string };
@@ -353,7 +361,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
         Promise.all([
           supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
           supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
@@ -649,7 +657,13 @@ function ProductsFullscreen() {
           );
         }
 
-        const totalKg = safePalletCount * palletWeight;
+        
+
+        // 9F Phase B — prefill writes new weight model + legacy compat-shim.
+        // net = gross = pc * offer.pallet_weight (no resolver, manual mode).
+        const palletWeightShim = palletWeight > 0 ? palletWeight : 0;
+        const netKg = safePalletCount * palletWeightShim;
+        const grossKg = netKg;
 
         const { data: inserted, error: insErr } = await supabase
           .from("shipment_items")
@@ -662,11 +676,18 @@ function ProductsFullscreen() {
             caliber: offer.caliber ?? null,
             variety: offer.variety ?? null,
             pallet_count: safePalletCount,
-            pallet_weight: palletWeight,
+            pallet_weight: palletWeightShim,
             unit_price: Number(offer.price_per_kg ?? 0),
             price_currency: offer.price_currency ?? "EUR",
-            qty: totalKg,
+            qty: netKg,
             unit: "kg",
+            package_used: null,
+            net_weight_kg: netKg > 0 ? netKg : null,
+            gross_weight_kg: grossKg > 0 ? grossKg : null,
+            resolver_net_per_pallet_kg: null,
+            resolver_gross_per_pallet_kg: null,
+            net_auto: false,
+            gross_auto: false,
           })
           .select("id")
           .single();
@@ -1164,10 +1185,12 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
             <th className={cn(headerCls(1), "text-left")}>Сорт</th>
             <th className={cn(headerCls(2), "text-left")}>Країна</th>
             <th className={cn(headerCls(3), "text-left")}>Калібр</th>
-            <th className={cn(headerCls(4), "text-left")}>Спец.</th>
-            <th className={cn(headerCls(5), "text-right")}>Пал.</th>
-            <th className={cn(headerCls(6), "text-right")}>Вага, кг</th>
-            <th className={cn(headerCls(7), "text-right min-w-[92px]")}>Ціна</th>
+            <th className={cn(headerCls(4), "text-left")}>SKU</th>
+            <th className={cn(headerCls(5), "text-left")}>Упаковка</th>
+            <th className={cn(headerCls(6), "text-right")}>Пал.</th>
+            <th className={cn(headerCls(7), "text-right")}>Нетто</th>
+            <th className={cn(headerCls(8), "text-right")}>Брутто</th>
+            <th className={cn(headerCls(9), "text-right min-w-[92px]")}>Ціна</th>
             <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
           </tr>
         </thead>
@@ -1197,6 +1220,8 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
+  // 9F Phase B — final weight model: одна правда (Нетто/Брутто = totals строки).
+  // resolver per-pallet base хранится скрыто в form/DB и в UI не показывается.
   const [form, setForm] = useState({
     product_name: normalizedProductName,
     variety: item.variety ?? "",
@@ -1204,11 +1229,20 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
-    pallet_weight: Number(item.pallet_weight ?? 0),
+    package_used: item.package_used ?? "",
+    net_weight_kg: Number(item.net_weight_kg ?? 0),
+    gross_weight_kg: Number(item.gross_weight_kg ?? 0),
+    resolver_net_per_pallet_kg: item.resolver_net_per_pallet_kg ?? null,
+    resolver_gross_per_pallet_kg: item.resolver_gross_per_pallet_kg ?? null,
+    net_auto: item.net_auto ?? false,
+    gross_auto: item.gross_auto ?? false,
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
   const dirtyRef = useRef(false);
+  // touchedRef — пользователь явно изменил Товар/Країна в текущей сессии.
+  // Используется как gate для resolver: открытие старой строки resolver не запускает.
+  const touchedRef = useRef({ product: false, country: false });
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     if (readOnly) return;
     dirtyRef.current = true;
@@ -1217,18 +1251,19 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
   // Field-level validation
   const palletCountNum = Number(form.pallet_count) || 0;
-  const palletWeightNum = Number(form.pallet_weight) || 0;
-  const totalWeightNum = palletCountNum * palletWeightNum;
+  const netNum = Number(form.net_weight_kg) || 0;
+  const grossNum = Number(form.gross_weight_kg) || 0;
   const invalidProduct = !form.product_name.trim();
   const unknownProduct = !!form.product_name.trim() && !isKnownProductName(form.product_name, products);
   const invalidCountry = !form.origin_country.trim();
   const invalidPallets = palletCountNum <= 0;
-  const invalidWeight = totalWeightNum <= 0;
+  const invalidNet = netNum <= 0;
+  const invalidGross = grossNum <= 0;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
-  const palletWeight = Number(form.pallet_weight) || 0;
-
-  // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
+  // Debounced autosave. Не пишет, пока строка невалидна (pc>0, net>0, gross>0, известный товар).
+  // compat-shim для legacy pallet_weight: pallet_weight = net/pc (никогда 0, никогда null
+  // для валидной строки). qty = net_weight_kg — численно идентично legacy pc*pw.
   useEffect(() => {
     if (readOnly) return;
     if (!dirtyRef.current) return;
@@ -1240,8 +1275,14 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
         return;
       }
-      const palletCount = Number(form.pallet_count);
-      const totalKg = palletCount * palletWeight;
+      const pc = Number(form.pallet_count) || 0;
+      const net = Number(form.net_weight_kg) || 0;
+      const gross = Number(form.gross_weight_kg) || 0;
+      if (pc <= 0 || net <= 0 || gross <= 0) {
+        // невалидная строка — не сохраняем, legacy pallet_weight не перетираем.
+        return;
+      }
+      const palletWeightShim = net / pc; // safe: pc>0 проверено выше
       const { error } = await supabase
         .from("shipment_items")
         .update({
@@ -1250,11 +1291,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           origin_country: normalizeCountry(form.origin_country) || null,
           caliber: form.caliber || null,
           sku: form.sku || null,
-          pallet_count: palletCount,
-          pallet_weight: palletWeight,
+          pallet_count: pc,
+          package_used: form.package_used.trim() || null,
+          net_weight_kg: net,
+          gross_weight_kg: gross,
+          resolver_net_per_pallet_kg: form.resolver_net_per_pallet_kg,
+          resolver_gross_per_pallet_kg: form.resolver_gross_per_pallet_kg,
+          net_auto: form.net_auto,
+          gross_auto: form.gross_auto,
+          pallet_weight: palletWeightShim,
+          qty: net,
           unit_price: Number(form.unit_price),
           price_currency: form.price_currency,
-          qty: totalKg,
         })
         .eq("id", item.id);
       if (error) toast.error(error.message);
@@ -1266,31 +1314,27 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id, products, qc, readOnly, shipmentId]);
+  }, [form, item.id, products, qc, readOnly, shipmentId]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 9E v4.1 — read-only resolver subline. Triggered ONLY by blur of Товар / Країна.
-  // Does NOT mutate form, pallet_weight, qty, or trigger autosave.
-  // Does NOT run on mount or on every keystroke — existing rows stay quiet until edited.
-  type ResolverStatus = "matched" | "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match";
-  type ResolverState = {
-    status: ResolverStatus;
-    package_used: string | null;
-    pallet_net_kg: number | null;
-    pallet_gross_kg: number | null;
-  } | null;
-  const [resolver, setResolver] = useState<ResolverState>(null);
+  // 9F Phase B — resolver: пишет в form state (matched / pallet_no_match) или
+  // показывает inline hint (product/country errors). Триггер строго onBlur
+  // Товар/Країна, только если пользователь явно изменил одно из этих полей
+  // в текущей сессии (touchedRef). НЕ useEffect, НЕ on mount, НЕ на keystroke.
+  type ResolverHint =
+    | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
+    | null;
+  const [hint, setHint] = useState<ResolverHint>(null);
   const resolverSeqRef = useRef(0);
-  const formRef = useRef(form);
-  useEffect(() => { formRef.current = form; }, [form]);
 
   const runResolver = useCallback(async () => {
-    const product = formRef.current.product_name.trim();
-    const country = formRef.current.origin_country.trim();
+    if (readOnly) return;
+    if (!touchedRef.current.product && !touchedRef.current.country) return;
+    const product = form.product_name.trim();
+    const country = form.origin_country.trim();
     if (!product || !country) return;
-    const seq = resolverSeqRef.current + 1;
-    resolverSeqRef.current = seq;
+    const seq = ++resolverSeqRef.current;
     try {
       const { data, error } = await supabase.rpc(
         "rpc_resolve_offer_line_defaults" as never,
@@ -1302,18 +1346,11 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         } as never,
       );
       if (seq !== resolverSeqRef.current) return;
-      if (error) { setResolver(null); return; }
+      if (error) { setHint(null); return; }
       const row = Array.isArray(data) ? (data as unknown[])[0] : data;
-      if (!row || typeof row !== "object") { setResolver(null); return; }
+      if (!row || typeof row !== "object") { setHint(null); return; }
       const r = row as Record<string, unknown>;
       const status = r.status;
-      if (
-        status !== "matched" &&
-        status !== "pallet_no_match" &&
-        status !== "product_no_match" &&
-        status !== "product_ambiguous" &&
-        status !== "country_no_match"
-      ) { setResolver(null); return; }
       const asNum = (v: unknown): number | null => {
         if (v == null || v === "") return null;
         const n = Number(v);
@@ -1321,16 +1358,52 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       };
       const asStr = (v: unknown): string | null =>
         typeof v === "string" && v.length > 0 ? v : null;
-      setResolver({
-        status,
-        package_used: asStr(r.package_used),
-        pallet_net_kg: asNum(r.pallet_net_kg),
-        pallet_gross_kg: asNum(r.pallet_gross_kg),
-      });
+
+      if (status === "matched") {
+        const pNet = asNum(r.pallet_net_kg);
+        const pGross = asNum(r.pallet_gross_kg);
+        const pkg = asStr(r.package_used);
+        setHint(null);
+        dirtyRef.current = true;
+        setForm((f) => {
+          const pc = (Number(f.pallet_count) || 0) > 0 ? Number(f.pallet_count) : 1;
+          return {
+            ...f,
+            pallet_count: pc,
+            package_used: pkg ?? f.package_used,
+            resolver_net_per_pallet_kg: pNet,
+            resolver_gross_per_pallet_kg: pGross,
+            net_auto: true,
+            gross_auto: true,
+            net_weight_kg: pNet != null ? pNet * pc : f.net_weight_kg,
+            gross_weight_kg: pGross != null ? pGross * pc : f.gross_weight_kg,
+          };
+        });
+      } else if (status === "pallet_no_match") {
+        setHint({ status: "pallet_no_match" });
+        dirtyRef.current = true;
+        setForm((f) => ({
+          ...f,
+          package_used: "",
+          resolver_net_per_pallet_kg: null,
+          resolver_gross_per_pallet_kg: null,
+          net_auto: false,
+          gross_auto: false,
+        }));
+      } else if (
+        status === "product_no_match" ||
+        status === "product_ambiguous" ||
+        status === "country_no_match"
+      ) {
+        setHint({ status });
+        // Не трогаем form / resolver_* / auto-флаги.
+      } else {
+        setHint(null);
+      }
     } catch {
-      if (seq === resolverSeqRef.current) setResolver(null);
+      if (seq === resolverSeqRef.current) setHint(null);
     }
-  }, []);
+  }, [readOnly, form.product_name, form.origin_country]);
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     // Only fire when focus leaves this cell entirely (not when moving between child elements)
@@ -1352,7 +1425,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     invalidateVehicleAndShipmentCaches(qc);
   };
 
-  const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
 
   const { setFocused } = useContext(FocusedColContext);
   return (
@@ -1368,7 +1440,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td data-col="0" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
-          onChange={(v) => set("product_name", v)}
+          onChange={(v) => {
+            if (readOnly) return;
+            touchedRef.current.product = true;
+            dirtyRef.current = true;
+            setForm((f) => ({ ...f, product_name: v }));
+          }}
           options={knownProductNames}
           placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
           className={cn(
@@ -1391,7 +1468,12 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td data-col="2" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
-          onChange={(v) => set("origin_country", v)}
+          onChange={(v) => {
+            if (readOnly) return;
+            touchedRef.current.country = true;
+            dirtyRef.current = true;
+            setForm((f) => ({ ...f, origin_country: v }));
+          }}
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
           placeholder={invalidCountry ? "Країна*" : "Країна"}
@@ -1406,49 +1488,69 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td data-col="4" className="relative px-0.5 py-0.5">
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td data-col="5" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
+      <td data-col="5" className="relative px-0.5 py-0.5">
+        <CellInput value={form.package_used} placeholder="—" onChange={(v) => set("package_used", v)} expandedMinWidth={140} readOnly={readOnly} />
+      </td>
+      <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
           invalid={invalidPallets}
           onChange={(v) => {
             if (readOnly) return;
-            // 9E v4.2 — НЕ клампим введённое значение к 0 при превышении лимита.
-            // Это раньше приводило к визуальному сбросу поля после blur
-            // (NumCell ресинхронизировал text="" когда value становилось 0),
-            // мешая пользователю заполнять строку поэтапно.
-            // Предупреждение показываем, фактическую проверку лимита
-            // делает autosave / vehicle capacity guard.
+            // 9F Phase B — capacity warning; reuse compat-derived per-pallet weight (net/pc).
+            const avgPerPallet = palletCountNum > 0 ? netNum / palletCountNum : 0;
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
-            const maxByWeight = palletWeight > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / palletWeight) : Infinity;
+            const maxByWeight = avgPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / avgPerPallet) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
             dirtyRef.current = true;
-            setForm((f) => ({ ...f, pallet_count: v }));
+            setForm((f) => {
+              const next = { ...f, pallet_count: v };
+              if (f.net_auto && f.resolver_net_per_pallet_kg != null) {
+                next.net_weight_kg = f.resolver_net_per_pallet_kg * v;
+              }
+              if (f.gross_auto && f.resolver_gross_per_pallet_kg != null) {
+                next.gross_weight_kg = f.resolver_gross_per_pallet_kg * v;
+              }
+              return next;
+            });
           }}
         />
       </td>
-      <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidWeight && "field-invalid")}>
+      <td data-col="7" className={cn("relative px-0.5 py-0.5", pulse && invalidNet && "field-invalid")}>
         <NumCell
-          value={Math.round(totalWeight)}
+          value={Math.round(netNum)}
           readOnly={readOnly}
           step="1"
-          invalid={invalidWeight}
-          onChange={(totalKgInput) => {
-            const palletCount = Number(form.pallet_count) || 0;
-            const safeTotalKg = Math.max(0, totalKgInput);
-            if (otherKg + safeTotalKg > MAX_WEIGHT_KG) {
-              toast.error(`Перевищено ліміт: макс ${MAX_WEIGHT_KG} кг на машину`);
-              return;
-            }
-            const newPerPallet = palletCount > 0 ? safeTotalKg / palletCount : safeTotalKg;
-            set("pallet_weight", newPerPallet);
+          invalid={invalidNet}
+          onChange={(v) => {
+            if (readOnly) return;
+            const safe = Math.max(0, v);
+            dirtyRef.current = true;
+            // Manual override: фиксируем итог строки, resolver base НЕ трогаем,
+            // обратной математики нет.
+            setForm((f) => ({ ...f, net_weight_kg: safe, net_auto: false }));
           }}
         />
       </td>
-      <td data-col="7" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
+      <td data-col="8" className={cn("relative px-0.5 py-0.5", pulse && invalidGross && "field-invalid")}>
+        <NumCell
+          value={Math.round(grossNum)}
+          readOnly={readOnly}
+          step="1"
+          invalid={invalidGross}
+          onChange={(v) => {
+            if (readOnly) return;
+            const safe = Math.max(0, v);
+            dirtyRef.current = true;
+            setForm((f) => ({ ...f, gross_weight_kg: safe, gross_auto: false }));
+          }}
+        />
+      </td>
+      <td data-col="9" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
@@ -1499,7 +1601,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       </td>
     </tr>
     <tr className="border-b border-border">
-      <td colSpan={9} className="bg-muted/30 px-3 py-1.5">
+      <td colSpan={11} className="bg-muted/30 px-3 py-1.5">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Собівартість $/кг
@@ -1510,50 +1612,21 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           </div>
         </div>
         <ItemCustomsOverride item={item} shipmentId={shipmentId} readOnly={readOnly} />
-        {resolver && (
-          <div className="mt-1 text-[10px] leading-snug text-muted-foreground">
-            {resolver.status === "matched" && (
-              <div className="space-y-0.5">
-                <div>
-                  Упаковка: <span className="font-medium text-foreground">{resolver.package_used ?? "—"}</span>
-                </div>
-                <div>
-                  Нетто база: <span className="font-medium text-foreground">{resolver.pallet_net_kg ?? "—"}</span> кг/пал
-                  {" · "}
-                  Брутто база: <span className="font-medium text-foreground">{resolver.pallet_gross_kg ?? "—"}</span> кг/пал
-                </div>
-                <div>
-                  Нетто всього:{" "}
-                  <span className="font-medium text-foreground">
-                    {resolver.pallet_net_kg != null && palletCountNum > 0
-                      ? Math.round(resolver.pallet_net_kg * palletCountNum)
-                      : "—"}
-                  </span>{" "}
-                  кг
-                  {" · "}
-                  Брутто всього:{" "}
-                  <span className="font-medium text-foreground">
-                    {resolver.pallet_gross_kg != null && palletCountNum > 0
-                      ? Math.round(resolver.pallet_gross_kg * palletCountNum)
-                      : "—"}
-                  </span>{" "}
-                  кг
-                </div>
-              </div>
+        {hint && (
+          <div className="mt-1 text-[10px] leading-snug">
+            {hint.status === "pallet_no_match" && (
+              <span className="text-amber-600 dark:text-amber-400">
+                Стандарт палети не знайдено — введіть Упаковка/Нетто/Брутто вручну
+              </span>
             )}
-            {resolver.status === "pallet_no_match" && (
-              <div className="text-amber-600 dark:text-amber-400">
-                Стандарт палети не знайдено — введіть вагу вручну
-              </div>
+            {hint.status === "product_no_match" && (
+              <span className="text-destructive">Товар не розпізнано</span>
             )}
-            {resolver.status === "product_no_match" && (
-              <div className="text-destructive">Товар не розпізнано</div>
+            {hint.status === "product_ambiguous" && (
+              <span className="text-destructive">Уточніть назву товару</span>
             )}
-            {resolver.status === "product_ambiguous" && (
-              <div className="text-destructive">Уточніть назву товару</div>
-            )}
-            {resolver.status === "country_no_match" && (
-              <div className="text-destructive">Країну не розпізнано</div>
+            {hint.status === "country_no_match" && (
+              <span className="text-destructive">Країну не розпізнано</span>
             )}
           </div>
         )}
