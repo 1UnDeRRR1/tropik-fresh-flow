@@ -2092,20 +2092,27 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     </tr>
     <tr className="border-b border-border">
       <td colSpan={11} className="bg-muted/30 px-3 py-1.5">
-        {dbItem && (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Собівартість $/кг
-              </span>
-              <div className="flex items-center gap-2">
-                <ItemCustomsChip item={dbItem} />
-                <CostPair indicative={dbItem.final_cost_indicative} invoice={dbItem.final_cost_invoice} size="sm" />
-              </div>
-            </div>
-            <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />
-          </>
-        )}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Собівартість $/кг
+          </span>
+          <div className="flex items-center gap-2">
+            {dbItem && <ItemCustomsChip item={dbItem} />}
+            {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
+            {(() => {
+              const useDbCost = !!dbItem && !preview.isDirty;
+              if (useDbCost) {
+                return <CostPair indicative={dbItem!.final_cost_indicative} invoice={dbItem!.final_cost_invoice} size="sm" />;
+              }
+              const v = preview.value;
+              if (v == null) {
+                return <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">—</span>;
+              }
+              return <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />;
+            })()}
+          </div>
+        </div>
+        {dbItem && <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />}
         {hint && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
