@@ -130,6 +130,8 @@ type VehicleContext = {
     origin_country: string | null;
     pallet_count: number | null;
     pallet_weight: number | null;
+    net_weight_kg: number | null;
+    gross_weight_kg: number | null;
     isCurrentShipment: boolean;
     isOwnManager: boolean;
   }>;
@@ -418,7 +420,7 @@ function ProductsFullscreen() {
           shipmentIds.length
             ? supabase
                 .from("shipment_items")
-                .select("id,shipment_id,product_name,variety,origin_country,pallet_count,pallet_weight")
+                .select("id,shipment_id,product_name,variety,origin_country,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg")
                 .in("shipment_id", shipmentIds)
                 .order("created_at")
             : Promise.resolve({ data: [] }),
@@ -457,6 +459,8 @@ function ProductsFullscreen() {
                   origin_country: vehicleItem.origin_country ?? null,
                   pallet_count: vehicleItem.pallet_count ?? null,
                   pallet_weight: vehicleItem.pallet_weight ?? null,
+                  net_weight_kg: vehicleItem.net_weight_kg ?? null,
+                  gross_weight_kg: vehicleItem.gross_weight_kg ?? null,
                   isCurrentShipment: vehicleItem.shipment_id === id,
                   isOwnManager: ownerId != null && ownerId === user?.id,
                 };
@@ -554,9 +558,15 @@ function ProductsFullscreen() {
     id: item.id,
     pallet_count: item.pallet_count,
     pallet_weight: item.pallet_weight,
+    net_weight_kg: item.net_weight_kg,
+    gross_weight_kg: item.gross_weight_kg,
   }));
   const loadedPallets = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0), 0);
-  const loadedKg = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0), 0);
+  // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
+  const loadedKg = capacityItems.reduce((sum, item) => {
+    const g = Number(item.gross_weight_kg ?? 0);
+    return sum + (g > 0 ? g : Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0));
+  }, 0);
   const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
   const canEditTransport = !!sh && (!sh.vehicle_id
@@ -1150,7 +1160,11 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
                     </div>
                   </div>
                   <div className="shrink-0 text-right text-[10px] font-medium text-foreground">
-                    {Number(loadedItem.pallet_count ?? 0)}п · {Math.round(Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0))}кг
+                    {Number(loadedItem.pallet_count ?? 0)}п · {Math.round(
+                      Number(loadedItem.gross_weight_kg ?? 0) > 0
+                        ? Number(loadedItem.gross_weight_kg)
+                        : Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0)
+                    )}кг
                   </div>
                 </li>
               ))}
@@ -1198,7 +1212,12 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
           {items.map((it) => {
             const capacitySource = vehicleContext?.loadedItems ?? items;
             const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-            const otherKg = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0)), 0);
+            // 9F Phase C2b — capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
+            const otherKg = capacitySource.reduce((a, x) => {
+              if (x.id === it.id) return a;
+              const g = Number(x.gross_weight_kg ?? 0);
+              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0));
+            }, 0);
             return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
           })}
         </tbody>
@@ -1498,10 +1517,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidPallets}
           onChange={(v) => {
             if (readOnly) return;
-            // 9F Phase B — capacity warning; reuse compat-derived per-pallet weight (net/pc).
-            const avgPerPallet = palletCountNum > 0 ? netNum / palletCountNum : 0;
+            // 9F Phase C2b — capacity warning uses gross_weight_kg / pallet_count; fallback to legacy pallet_weight.
+            // Warning only — never clamps `v`, never mutates pallet_count below.
+            const grossPerPallet = palletCountNum > 0 && grossNum > 0
+              ? grossNum / palletCountNum
+              : Number(item.pallet_weight ?? 0);
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
-            const maxByWeight = avgPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / avgPerPallet) : Infinity;
+            const maxByWeight = grossPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / grossPerPallet) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
