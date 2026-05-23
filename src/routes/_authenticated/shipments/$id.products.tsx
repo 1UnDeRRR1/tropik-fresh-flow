@@ -420,7 +420,7 @@ function ProductsFullscreen() {
           shipmentIds.length
             ? supabase
                 .from("shipment_items")
-                .select("id,shipment_id,product_name,variety,origin_country,pallet_count,pallet_weight")
+                .select("id,shipment_id,product_name,variety,origin_country,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg")
                 .in("shipment_id", shipmentIds)
                 .order("created_at")
             : Promise.resolve({ data: [] }),
