@@ -190,6 +190,82 @@ function getMissingDraftFields(d: DraftRow, products: ProductRef[]): RequiredFie
 
 type CustomsRefMini = { id: string; product_name: string; country: string };
 
+// D1-Fix v2.4 — local DB-mirroring customs preview helpers.
+// EU list copies public.is_eu_country verbatim (27 entries, Cyrillic).
+const EU_COUNTRIES = new Set<string>([
+  "АВСТРІЯ","БЕЛЬГІЯ","БОЛГАРІЯ","ХОРВАТІЯ","КІПР","ЧЕХІЯ","ДАНІЯ",
+  "ЕСТОНІЯ","ФІНЛЯНДІЯ","ФРАНЦІЯ","НІМЕЧЧИНА","ГРЕЦІЯ","УГОРЩИНА",
+  "ІРЛАНДІЯ","ІТАЛІЯ","ЛАТВІЯ","ЛИТВА","ЛЮКСЕМБУРГ","МАЛЬТА",
+  "НІДЕРЛАНДИ","ПОЛЬЩА","ПОРТУГАЛІЯ","РУМУНІЯ","СЛОВАЧЧИНА",
+  "СЛОВЕНІЯ","ІСПАНІЯ","ШВЕЦІЯ",
+]);
+function isEuCountry(c: string | null | undefined): boolean {
+  return EU_COUNTRIES.has((c ?? "").trim().toUpperCase());
+}
+function normalizeCustomsKey(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase();
+}
+function customsLookupName(productName: string | null | undefined): string {
+  const k = normalizeCustomsKey(productName);
+  // Mirror DB CASE in calc_shipment_item_costs (hardcoded aliases only).
+  if (k === "інжирний персик") return "персик";
+  if (k === "платерина нектарин") return "нектарин";
+  return (productName ?? "").trim();
+}
+type ActiveCustomsRef = {
+  id: string;
+  product_name: string;
+  country: string;
+  threshold_price_usd: number | null;
+  customs_fee_percent: number | null;
+  euro1_markup_usd: number | null;
+  euro1_percent: number | null;
+};
+function pickCustomsRefForDraft(
+  productName: string,
+  originCountry: string,
+  refs: ActiveCustomsRef[],
+): ActiveCustomsRef | null {
+  const lookup = normalizeCustomsKey(customsLookupName(productName));
+  if (!lookup) return null;
+  const origin = normalizeCustomsKey(originCountry);
+  // Exact product + country, ORDER BY threshold_price_usd DESC
+  const exact = refs
+    .filter((r) => normalizeCustomsKey(r.product_name) === lookup
+                && normalizeCustomsKey(r.country) === origin)
+    .sort((a, b) => Number(b.threshold_price_usd ?? 0) - Number(a.threshold_price_usd ?? 0));
+  if (exact.length > 0) return exact[0];
+  // Fallback product-only, ORDER BY euro1_markup_usd DESC NULLS LAST, threshold_price_usd DESC
+  const fb = refs
+    .filter((r) => normalizeCustomsKey(r.product_name) === lookup)
+    .sort((a, b) => {
+      const ae = a.euro1_markup_usd;
+      const be = b.euro1_markup_usd;
+      if (ae == null && be != null) return 1;
+      if (be == null && ae != null) return -1;
+      if (ae != null && be != null && Number(ae) !== Number(be)) return Number(be) - Number(ae);
+      return Number(b.threshold_price_usd ?? 0) - Number(a.threshold_price_usd ?? 0);
+    });
+  return fb[0] ?? null;
+}
+function computeCustomsPreview(
+  unitUsd: number,
+  ref: ActiveCustomsRef | null,
+  overrideDuty: number | null,
+): { indicative: number; invoice: number } {
+  // Confirmed override mirrors DB short-circuit (no EU branch).
+  if (overrideDuty != null) return { indicative: overrideDuty, invoice: overrideDuty };
+  if (!ref) return { indicative: 0, invoice: 0 };
+  const indicative = Number(ref.euro1_markup_usd ?? 0);
+  const threshold = Number(ref.threshold_price_usd ?? 0);
+  if (unitUsd <= threshold) return { indicative, invoice: indicative };
+  // EU decision uses ref.country, NOT draft.origin_country.
+  const isEu = isEuCountry(ref.country);
+  const pct = isEu ? Number(ref.euro1_percent ?? 0) : Number(ref.customs_fee_percent ?? 0);
+  const invoice = (unitUsd * 1.20 * pct / 100) + (unitUsd * 0.20) + 0.02;
+  return { indicative, invoice };
+}
+
 type ShipmentRow = {
   id: string;
   code: string;
