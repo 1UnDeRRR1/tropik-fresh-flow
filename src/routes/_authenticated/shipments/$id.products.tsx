@@ -122,6 +122,27 @@ type DraftRow = {
   price_currency: "EUR" | "USD";
 };
 
+// D1-Fix v2.5.4 — recognition hint shared between row resolver and commit guard.
+// Stored per-localId in a ref. Keys identify which draft values produced the
+// status so commitDraft can detect stale hints and re-check via read-only RPC.
+export type ResolverHintStatus =
+  | "matched"
+  | "pallet_no_match"
+  | "product_no_match"
+  | "product_ambiguous"
+  | "country_no_match";
+export type ResolverHintInfo = {
+  status: ResolverHintStatus;
+  productKey: string;
+  countryKey: string;
+  packageKey: string;
+};
+function resolverKeyOf(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase();
+}
+
+
+
 const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
   "product_name","variety","origin_country","caliber","sku","package_used",
   "pallet_count","net_weight_kg","gross_weight_kg",
@@ -635,29 +656,16 @@ function CustomsStatusBadge({
       </span>
     );
   }
-  const { selectedId, setSelectedId, openRef } = useContext(FallbackSelectionContext);
+  const { openRef } = useContext(FallbackSelectionContext);
   const [open, setLocalOpen] = useState(false);
   // Register the popover opener so YELLOW row chips can open the panel.
   useEffect(() => {
     openRef.current = setLocalOpen;
     return () => { openRef.current = () => {}; };
   }, [openRef]);
-  const current =
-    fallbackItems.find((f) => f.item.id === selectedId) ?? fallbackItems[0];
-  const productName = current?.item.product_name || "—";
-  const missingCountry =
-    toUaCountry(current?.item.origin_country ?? "") || current?.item.origin_country || "—";
-  const usedCountry = toUaCountry(current?.ref.country ?? "") || current?.ref.country || "—";
+  const count = fallbackItems.length;
   return (
-    <Popover
-      open={open}
-      onOpenChange={(o) => {
-        setLocalOpen(o);
-        if (o && !selectedId && fallbackItems[0]) {
-          setSelectedId(fallbackItems[0].item.id);
-        }
-      }}
-    >
+    <Popover open={open} onOpenChange={setLocalOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -667,37 +675,38 @@ function CustomsStatusBadge({
           <AlertTriangle className="h-3 w-3" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="center" className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-        <div>
-          Товар <b>{productName}</b>: країна <b>{missingCountry}</b> відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+      <PopoverContent
+        side="bottom"
+        align="center"
+        className="w-80 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+      >
+        <div className="font-semibold">
+          Fallback по товару: {count} {count === 1 ? "позиція" : count < 5 ? "позиції" : "позицій"}
         </div>
-        {fallbackItems.length > 1 && (
-          <div className="mt-2 flex flex-wrap gap-1 border-t border-amber-400/30 pt-2">
-            {fallbackItems.map((f) => {
-              const active = f.item.id === (current?.item.id ?? null);
-              const label = `${f.item.product_name || "—"} · ${toUaCountry(f.item.origin_country ?? "") || f.item.origin_country || "—"}`;
-              return (
-                <button
-                  key={f.item.id}
-                  type="button"
-                  onClick={() => setSelectedId(f.item.id)}
-                  className={cn(
-                    "rounded border px-1.5 py-0.5 text-[10px] font-medium",
-                    active
-                      ? "border-amber-500 bg-amber-200/70 text-amber-900 dark:bg-amber-800/60 dark:text-amber-100"
-                      : "border-amber-400/40 bg-transparent text-amber-700 hover:bg-amber-100 dark:text-amber-300",
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <ul className="mt-2 space-y-1.5 border-t border-amber-400/30 pt-2">
+          {fallbackItems.map((f) => {
+            const product = f.item.product_name || "—";
+            const origin =
+              toUaCountry(f.item.origin_country ?? "") || f.item.origin_country || "—";
+            const basisProduct = f.ref.product_name || "—";
+            const basisCountry = toUaCountry(f.ref.country) || f.ref.country || "—";
+            return (
+              <li key={f.item.id} className="leading-snug">
+                <div>
+                  <b>{product}</b> · <b>{origin}</b>
+                </div>
+                <div className="text-amber-700/80 dark:text-amber-300/80">
+                  базис: {basisProduct} · {basisCountry}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </PopoverContent>
     </Popover>
   );
 }
+
 
 function ProductsFullscreen() {
   const { id } = Route.useParams();
@@ -1420,9 +1429,94 @@ function ProductsFullscreen() {
       triggerShake(false);
       return;
     }
+
+    // D1-Fix v2.5.4 — product/country recognition gate BEFORE any DB writes.
+    // Uses hints captured by row resolver only when productKey/countryKey/packageKey
+    // match the current draft row; otherwise re-checks via read-only RPC.
+    const BLOCKING: ResolverHintStatus[] = [
+      "product_no_match",
+      "product_ambiguous",
+      "country_no_match",
+    ];
+    const TOAST_PRODUCT = "Товар не розпізнано. Уточніть назву товару.";
+    const TOAST_COUNTRY = "Країну не розпізнано. Уточніть країну.";
+    const TOAST_RPC_FAIL = "Не вдалося перевірити товар. Спробуйте ще раз.";
+
+    type CheckOutcome =
+      | { kind: "ok" }
+      | { kind: "block"; status: ResolverHintStatus }
+      | { kind: "rpc_fail" };
+
+    const checks: CheckOutcome[] = await Promise.all(
+      draftItems.map(async (d): Promise<CheckOutcome> => {
+        const productKey = resolverKeyOf(d.product_name);
+        const countryKey = resolverKeyOf(d.origin_country);
+        const packageKey = resolverKeyOf(d.package_used);
+        const hint = resolverHintsRef.current.get(d.localId);
+        const hintFresh =
+          hint &&
+          hint.productKey === productKey &&
+          hint.countryKey === countryKey &&
+          hint.packageKey === packageKey;
+        if (hintFresh) {
+          if (BLOCKING.includes(hint!.status)) {
+            return { kind: "block", status: hint!.status };
+          }
+          return { kind: "ok" };
+        }
+        // Missing or stale hint → read-only resolver check, no state mutation.
+        if (!productKey || !countryKey) {
+          // getMissingDraftFields already covered empty cases above; defensive
+          // pass-through here to avoid double-toasting.
+          return { kind: "ok" };
+        }
+        try {
+          const { data, error } = await supabase.rpc(
+            "rpc_resolve_offer_line_defaults" as never,
+            {
+              p_product_query: d.product_name.trim(),
+              p_country_query: d.origin_country.trim(),
+              p_package_used: d.package_used.trim() || null,
+              p_include_reserve: false,
+            } as never,
+          );
+          if (error) return { kind: "rpc_fail" };
+          const row = Array.isArray(data) ? (data as unknown[])[0] : data;
+          const status =
+            row && typeof row === "object"
+              ? ((row as Record<string, unknown>).status as ResolverHintStatus | undefined)
+              : undefined;
+          if (status && BLOCKING.includes(status)) {
+            return { kind: "block", status };
+          }
+          return { kind: "ok" };
+        } catch {
+          return { kind: "rpc_fail" };
+        }
+      }),
+    );
+
+    const rpcFailed = checks.find((c) => c.kind === "rpc_fail");
+    if (rpcFailed) {
+      toast.error(TOAST_RPC_FAIL);
+      triggerShake(false);
+      return;
+    }
+    const blocker = checks.find(
+      (c): c is { kind: "block"; status: ResolverHintStatus } => c.kind === "block",
+    );
+    if (blocker) {
+      toast.error(
+        blocker.status === "country_no_match" ? TOAST_COUNTRY : TOAST_PRODUCT,
+      );
+      triggerShake(false);
+      return;
+    }
+
     try {
       // 3. INSERT new rows (dbId === null).
       const newDrafts = draftItems.filter((d) => d.dbId === null);
+
       const insertedIds: string[] = [];
       if (newDrafts.length > 0) {
         const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
@@ -1505,6 +1599,19 @@ function ProductsFullscreen() {
     openRef: fallbackOpenRef,
   };
 
+  // D1-Fix v2.5.4 — recognition hints captured from per-row resolver runs.
+  // commitDraft consumes this map; stale or missing entries trigger a
+  // read-only resolver RPC before any DB write.
+  const resolverHintsRef = useRef<Map<string, ResolverHintInfo>>(new Map());
+  const setResolverHint = useCallback(
+    (localId: string, info: ResolverHintInfo | null) => {
+      if (info == null) resolverHintsRef.current.delete(localId);
+      else resolverHintsRef.current.set(localId, info);
+    },
+    [],
+  );
+
+
   return (
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
@@ -1574,6 +1681,8 @@ function ProductsFullscreen() {
           pulseFields={pulseFields}
           onPatch={patchDraft}
           onRemove={removeDraft}
+          onResolverHint={setResolverHint}
+
         />
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
@@ -1869,7 +1978,7 @@ const EMPTY_COMPONENTS: RowComponents = {
   matchedRef: null,
 };
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove, onResolverHint }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
@@ -1880,7 +1989,9 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   pulseFields: boolean;
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
   onRemove: (localId: string) => void;
+  onResolverHint: (localId: string, info: ResolverHintInfo | null) => void;
 }) {
+
   const [focused, setFocused] = useState<number | null>(null);
   // D1-Fix v2.5.3 — per-row breakdown panel; only one row open at a time.
   const [expandedLocalId, setExpandedLocalId] = useState<string | null>(null);
@@ -1943,7 +2054,9 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 }
                 onPatch={(patch) => onPatch(d.localId, patch)}
                 onRemove={() => onRemove(d.localId)}
+                onResolverHint={(info) => onResolverHint(d.localId, info)}
               />
+
             );
           })}
         </tbody>
@@ -1958,7 +2071,7 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, isExpanded, onToggleExpanded, onPatch, onRemove }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, isExpanded, onToggleExpanded, onPatch, onRemove, onResolverHint }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
@@ -1972,7 +2085,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   onToggleExpanded: () => void;
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
+  onResolverHint: (info: ResolverHintInfo | null) => void;
 }) {
+
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = dbCountries;
@@ -2012,6 +2127,27 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     const product = form.product_name.trim();
     const country = form.origin_country.trim();
     if (!product || !country) return;
+    const productKey = resolverKeyOf(product);
+    const countryKey = resolverKeyOf(country);
+    const packageKey = resolverKeyOf(form.package_used);
+    const reportHint = (status: ResolverHintStatus | null) => {
+      if (status == null) {
+        setHint(null);
+        onResolverHint(null);
+        return;
+      }
+      onResolverHint({ status, productKey, countryKey, packageKey });
+      if (
+        status === "pallet_no_match" ||
+        status === "product_no_match" ||
+        status === "product_ambiguous" ||
+        status === "country_no_match"
+      ) {
+        setHint({ status });
+      } else {
+        setHint(null);
+      }
+    };
     const seq = ++resolverSeqRef.current;
     try {
       const { data, error } = await supabase.rpc(
@@ -2024,9 +2160,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         } as never,
       );
       if (seq !== resolverSeqRef.current) return;
-      if (error) { setHint(null); return; }
+      if (error) { reportHint(null); return; }
       const row = Array.isArray(data) ? (data as unknown[])[0] : data;
-      if (!row || typeof row !== "object") { setHint(null); return; }
+      if (!row || typeof row !== "object") { reportHint(null); return; }
       const r = row as Record<string, unknown>;
       const status = r.status;
       const asNum = (v: unknown): number | null => {
@@ -2041,7 +2177,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         const pNet = asNum(r.pallet_net_kg);
         const pGross = asNum(r.pallet_gross_kg);
         const pkg = asStr(r.package_used);
-        setHint(null);
+        reportHint("matched");
         const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
         onPatch({
           pallet_count: pc,
@@ -2054,7 +2190,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
         });
       } else if (status === "pallet_no_match") {
-        setHint({ status: "pallet_no_match" });
+        reportHint("pallet_no_match");
         onPatch({
           package_used: "",
           resolver_net_per_pallet_kg: null,
@@ -2067,14 +2203,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         status === "product_ambiguous" ||
         status === "country_no_match"
       ) {
-        setHint({ status });
+        reportHint(status);
       } else {
-        setHint(null);
+        reportHint(null);
       }
     } catch {
-      if (seq === resolverSeqRef.current) setHint(null);
+      if (seq === resolverSeqRef.current) reportHint(null);
     }
-  }, [readOnly, form.product_name, form.origin_country, form.pallet_count, form.package_used, form.net_weight_kg, form.gross_weight_kg, onPatch]);
+  }, [readOnly, form.product_name, form.origin_country, form.package_used, form.pallet_count, form.net_weight_kg, form.gross_weight_kg, onPatch, onResolverHint]);
+
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
@@ -2091,7 +2228,23 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     onRemove();
   };
 
+  // D1-Fix v2.5.4 — collapse state lifted up so the green pill can render
+  // inside the right-aligned cluster while the expanded red panel stays below.
+  const confirmedOverrideDuty =
+    dbItem && dbItem.customs_override_confirmed_at && dbItem.customs_override_duty_usd != null
+      ? Number(dbItem.customs_override_duty_usd)
+      : null;
+  const overrideEligible =
+    !!dbItem && !dbItem.customs_match_id && isValidShipmentItem(dbItem);
+  const [overrideOpen, setOverrideOpen] = useState<boolean>(
+    overrideEligible && confirmedOverrideDuty == null,
+  );
+  useEffect(() => {
+    if (confirmedOverrideDuty != null) setOverrideOpen(false);
+  }, [confirmedOverrideDuty]);
+
   const { setFocused } = useContext(FocusedColContext);
+
   return (
     <>
     <tr
@@ -2294,19 +2447,37 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
               }
               return <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />;
             })()}
-            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time). */}
+            {/* D1-Fix v2.5.4 — collapsed green pill belongs in the right cluster
+                (alongside the customs chip / CostPair / chevron), not as a
+                separate left-aligned line below the row. */}
+            {overrideEligible && confirmedOverrideDuty != null && !overrideOpen && (
+              <ItemCustomsConfirmedPill
+                duty={confirmedOverrideDuty}
+                onReopen={() => setOverrideOpen(true)}
+                disabled={readOnly}
+              />
+            )}
+            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time).
+                D1-Fix v2.5.4 — larger tap target for mobile (h-8 w-8). */}
             <button
               type="button"
               onClick={onToggleExpanded}
               aria-label={isExpanded ? "Сховати деталі" : "Показати деталі"}
               aria-expanded={isExpanded}
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
             </button>
           </div>
         </div>
-        {dbItem && <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />}
+        {overrideEligible && overrideOpen && (
+          <ItemCustomsOverride
+            item={dbItem!}
+            shipmentId={shipmentId}
+            readOnly={readOnly}
+            onCollapse={() => setOverrideOpen(false)}
+          />
+        )}
         {hint && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
@@ -2329,11 +2500,16 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     </tr>
     {isExpanded && (
       <tr className="border-b border-border">
-        <td colSpan={11} className="bg-muted/10 px-3 py-2">
-          <RowBreakdownPanel components={preview.components} />
+        <td colSpan={11} className="bg-muted/10 px-0 py-2">
+          {/* D1-Fix v2.5.4 — sticky-left so the breakdown stays visible at
+              scrollLeft=0 even when the row is horizontally scrolled. */}
+          <div className="sticky left-0 px-3" style={{ width: "100vw", maxWidth: "100vw" }}>
+            <RowBreakdownPanel components={preview.components} />
+          </div>
         </td>
       </tr>
     )}
+
     </>
   );
 }
@@ -2445,7 +2621,42 @@ function RowBreakdownPanel({ components }: { components: RowComponents }) {
   );
 }
 
-function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; shipmentId: string; readOnly: boolean }) {
+// D1-Fix v2.5.4 — small inline pill rendered in the right-aligned cluster
+// next to the customs chip / CostPair / chevron. Clicking reopens the panel
+// (which renders below the row via ItemCustomsOverride).
+function ItemCustomsConfirmedPill({
+  duty,
+  onReopen,
+  disabled,
+}: {
+  duty: number;
+  onReopen: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onReopen}
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
+      title="Натисніть, щоб переглянути або змінити"
+    >
+      Митниця підтверджена: ${duty.toFixed(4)}/кг
+    </button>
+  );
+}
+
+function ItemCustomsOverride({
+  item,
+  shipmentId,
+  readOnly,
+  onCollapse,
+}: {
+  item: ItemRow;
+  shipmentId: string;
+  readOnly: boolean;
+  onCollapse?: () => void;
+}) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [pending, setPending] = useState(false);
@@ -2453,12 +2664,6 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
     item.customs_override_confirmed_at && item.customs_override_duty_usd != null
       ? Number(item.customs_override_duty_usd)
       : null;
-  // D1-Fix v2.5.3 — large red panel collapses after a confirmed override;
-  // user can reopen it from a compact green pill to edit/review.
-  const [collapsed, setCollapsed] = useState<boolean>(confirmedDuty != null);
-  useEffect(() => {
-    if (confirmedDuty != null) setCollapsed(true);
-  }, [confirmedDuty]);
   if (item.customs_match_id) return null;
   if (!isValidShipmentItem(item)) return null;
   const onConfirm = async (duty: number) => {
@@ -2470,7 +2675,7 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       });
       if (error) throw error;
       toast.success("Митний збір підтверджено");
-      setCollapsed(true);
+      onCollapse?.();
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipments-list"] });
@@ -2481,21 +2686,6 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       setPending(false);
     }
   };
-  if (collapsed && confirmedDuty != null) {
-    return (
-      <div className="mt-2">
-        <button
-          type="button"
-          onClick={() => setCollapsed(false)}
-          disabled={readOnly}
-          className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
-          title="Натисніть, щоб переглянути або змінити"
-        >
-          Митниця підтверджена: ${confirmedDuty.toFixed(4)}/кг
-        </button>
-      </div>
-    );
-  }
   return (
     <div className="mt-2">
       <CustomsManualOverrideField
@@ -2507,6 +2697,7 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
     </div>
   );
 }
+
 
 const FOCUS_STYLE = "border-brand bg-background ring-2 ring-brand/40";
 
