@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
 import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
@@ -265,6 +265,91 @@ function computeCustomsPreview(
   const pct = isEu ? Number(ref.euro1_percent ?? 0) : Number(ref.customs_fee_percent ?? 0);
   const invoice = (unitUsd * 1.20 * pct / 100) + (unitUsd * 0.20) + 0.02;
   return { indicative, invoice };
+}
+
+// D1-Fix v2.5.1 — live preview of final cost ($/kg) mirroring DB calc_shipment_item_costs.
+// Returns null when required draft fields are missing or unit USD cannot be resolved.
+// Formula (exact DB parity):
+//   final_indicative = unit_usd + transport_per_kg + customs_indicative
+//   final_invoice    = unit_usd + transport_per_kg + customs_invoice
+// No division of unit_usd or customs by net-per-pallet (both already $/kg).
+function computeRowPreview(
+  d: DraftRow,
+  dbItem: ItemRow | null,
+  sh: ShipmentRow | null,
+  vehicleContext: VehicleContext | null,
+  refs: ActiveCustomsRef[] | null,
+  latestEurUsd: number | null,
+  products: ProductRef[],
+): { indicative: number; invoice: number } | null {
+  if (!sh) return null;
+  if (!refs) return null;
+  // Hybrid "—" rule: any required field missing → show "—" instead of partial number.
+  if (getMissingDraftFields(d, products).length > 0) return null;
+
+  let unitUsd: number;
+  if (d.price_currency === "USD") {
+    unitUsd = d.unit_price;
+  } else {
+    const fx = sh.eur_usd_rate ?? latestEurUsd;
+    if (!fx || fx <= 0) return null;
+    unitUsd = d.unit_price * fx;
+  }
+
+  // Customs: exact (product, country) first, then product-only fallback.
+  const ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
+
+  // Override only active when product+country unchanged vs DB row.
+  let overrideDuty: number | null = null;
+  if (
+    dbItem &&
+    dbItem.customs_override_confirmed_at &&
+    dbItem.customs_override_duty_usd != null &&
+    (dbItem.product_name ?? "").trim() === d.product_name.trim() &&
+    (dbItem.origin_country ?? "").trim() === d.origin_country.trim()
+  ) {
+    overrideDuty = Number(dbItem.customs_override_duty_usd);
+  }
+  const customs = computeCustomsPreview(unitUsd, ref, overrideDuty);
+
+  // Transport — vehicle_log_usd mirrors DB exactly:
+  // - no vehicle: current shipment.logistics_cost_usd.
+  // - with vehicle: sum logistics_cost_usd over unique shipments (already deduped in vehicleContext.shipments).
+  let vehicleLogUsd = 0;
+  if (!sh.vehicle_id) {
+    vehicleLogUsd = Number(sh.logistics_cost_usd ?? 0);
+  } else {
+    vehicleLogUsd = (vehicleContext?.shipments ?? []).reduce(
+      (acc, row) => acc + Number(row.logistics_cost_usd ?? 0),
+      0,
+    );
+  }
+
+  const pc = d.pallet_count;
+  const palletLegacy = Number(dbItem?.pallet_weight ?? 0);
+  const netPerPallet =
+    pc > 0 && d.net_weight_kg > 0 ? d.net_weight_kg / pc : palletLegacy;
+  const grossPerPallet =
+    pc > 0 && d.gross_weight_kg > 0 ? d.gross_weight_kg / pc : palletLegacy;
+
+  // expected_pallets: closed mode uses vehicles.total_pallets; open mode uses DB formula.
+  let expectedPallets: number;
+  if (vehicleContext?.vehicleStatus === "closed") {
+    expectedPallets = Math.max(0, Number(vehicleContext.vehicle.total_pallets ?? 0));
+  } else if (grossPerPallet > 0) {
+    expectedPallets = Math.min(26, Math.floor(21500 / grossPerPallet));
+    if (expectedPallets < 1) expectedPallets = 1;
+  } else {
+    expectedPallets = 26;
+  }
+
+  const freightPerPallet = expectedPallets > 0 ? vehicleLogUsd / expectedPallets : 0;
+  const transportPerKg = netPerPallet > 0 ? freightPerPallet / netPerPallet : 0;
+
+  return {
+    indicative: unitUsd + transportPerKg + customs.indicative,
+    invoice: unitUsd + transportPerKg + customs.invoice,
+  };
 }
 
 type ShipmentRow = {
@@ -846,6 +931,34 @@ function ProductsFullscreen() {
     ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
     : null;
 
+  // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value }).
+  // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
+  type PreviewEntry = {
+    isDirty: boolean;
+    value: { indicative: number; invoice: number } | null;
+  };
+  const previewMap = useMemo(() => {
+    const m = new Map<string, PreviewEntry>();
+    for (const d of draftItems) {
+      const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+      const baseline = d.dbId ? baselinesRef.current.get(d.dbId) ?? null : null;
+      const isDirty = d.dbId == null || !baseline || isDraftDirty(d, baseline);
+      const value = computeRowPreview(
+        d,
+        dbItem,
+        sh ?? null,
+        vehicleContext,
+        activeCustomsRefs ?? null,
+        latestEurUsd ?? null,
+        products,
+      );
+      m.set(d.localId, { isDirty, value });
+    }
+    return m;
+    // baselinesRef is a mutable ref; intentionally excluded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
+
   const loadedPallets = effectiveLoadedItems.reduce((sum, it) => sum + Number(it.pallet_count ?? 0), 0);
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
   const loadedKg = effectiveLoadedItems.reduce((sum, it) => {
@@ -1315,6 +1428,7 @@ function ProductsFullscreen() {
           shipmentId={id}
           products={products}
           vehicleContext={effectiveVehicleContext}
+          previewMap={previewMap}
           currentShipmentEditable={currentShipmentEditable}
           pulseFields={pulseFields}
           onPatch={patchDraft}
@@ -1590,12 +1704,18 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
+type PreviewEntry = {
+  isDirty: boolean;
+  value: { indicative: number; invoice: number } | null;
+};
+
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
   products: ProductRef[];
   vehicleContext: VehicleContext | null;
+  previewMap: Map<string, PreviewEntry>;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
@@ -1642,6 +1762,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
               return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+            const preview = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null };
             return (
               <ProductRowEditor
                 key={d.localId}
@@ -1651,6 +1772,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 products={products}
                 otherPallets={otherPallets}
                 otherKg={otherKg}
+                preview={preview}
                 readOnly={!currentShipmentEditable}
                 pulse={pulseFields}
                 onPatch={(patch) => onPatch(d.localId, patch)}
@@ -1670,13 +1792,14 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false, onPatch, onRemove }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, onPatch, onRemove }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
   products: ProductRef[];
   otherPallets: number;
   otherKg: number;
+  preview: PreviewEntry;
   readOnly: boolean;
   pulse?: boolean;
   onPatch: (patch: Partial<DraftRow>) => void;
@@ -1969,20 +2092,27 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     </tr>
     <tr className="border-b border-border">
       <td colSpan={11} className="bg-muted/30 px-3 py-1.5">
-        {dbItem && (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Собівартість $/кг
-              </span>
-              <div className="flex items-center gap-2">
-                <ItemCustomsChip item={dbItem} />
-                <CostPair indicative={dbItem.final_cost_indicative} invoice={dbItem.final_cost_invoice} size="sm" />
-              </div>
-            </div>
-            <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />
-          </>
-        )}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Собівартість $/кг
+          </span>
+          <div className="flex items-center gap-2">
+            {dbItem && <ItemCustomsChip item={dbItem} />}
+            {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
+            {(() => {
+              const useDbCost = !!dbItem && !preview.isDirty;
+              if (useDbCost) {
+                return <CostPair indicative={dbItem!.final_cost_indicative} invoice={dbItem!.final_cost_invoice} size="sm" />;
+              }
+              const v = preview.value;
+              if (v == null) {
+                return <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">—</span>;
+              }
+              return <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />;
+            })()}
+          </div>
+        </div>
+        {dbItem && <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />}
         {hint && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
