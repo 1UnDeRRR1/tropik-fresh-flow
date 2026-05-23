@@ -459,6 +459,8 @@ function ProductsFullscreen() {
                   origin_country: vehicleItem.origin_country ?? null,
                   pallet_count: vehicleItem.pallet_count ?? null,
                   pallet_weight: vehicleItem.pallet_weight ?? null,
+                  net_weight_kg: vehicleItem.net_weight_kg ?? null,
+                  gross_weight_kg: vehicleItem.gross_weight_kg ?? null,
                   isCurrentShipment: vehicleItem.shipment_id === id,
                   isOwnManager: ownerId != null && ownerId === user?.id,
                 };
