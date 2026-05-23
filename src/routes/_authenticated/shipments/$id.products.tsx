@@ -602,27 +602,73 @@ function ProductsFullscreen() {
 
   const sh = data?.shipment;
   const items = data?.items ?? [];
-  const validItems = items.filter(isValidShipmentItem);
   const products = data?.products ?? [];
   const vehicleContext = data?.vehicleContext ?? null;
   const customsRefs = data?.customsRefs ?? [];
   const refById = new Map(customsRefs.map((r) => [r.id, r])) as CustomsRefIndex;
-  // Patch 6B: count RED rows (valid, no customs_match_id) lacking a confirmed
+  const country = toUaCountry(sh?.country) || "—";
+
+  // 9F Phase D1 — strict draft/confirm/save state.
+  // draftItems is the source of truth for the editor; items (DB) only feeds hydration.
+  const [draftItems, setDraftItems] = useState<DraftRow[]>([]);
+  const baselinesRef = useRef<Map<string, DraftRow>>(new Map());
+  const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+
+  const hasLocalChanges = (() => {
+    if (pendingDeletes.length > 0) return true;
+    for (const d of draftItems) {
+      if (d.dbId === null) return true;
+      const base = baselinesRef.current.get(d.dbId);
+      if (!base) return true;
+      if (isDraftDirty(d, base)) return true;
+    }
+    return false;
+  })();
+
+  // Hydrate draftItems from DB only when local state is clean.
+  // After commitDraft we clear local state, then hydration syncs to the freshly-fetched DB rows.
+  useEffect(() => {
+    if (hasLocalChanges) return;
+    const next = items.map(itemRowToDraft);
+    baselinesRef.current = new Map(next.map((d) => [d.dbId as string, { ...d }]));
+    setDraftItems(next);
+    setPendingDeletes([]);
+    // We intentionally depend on `items` reference; hasLocalChanges is checked above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
+    setDraftItems((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
+  }, []);
+
+  const removeDraft = useCallback((localId: string) => {
+    setDraftItems((prev) => {
+      const target = prev.find((d) => d.localId === localId);
+      if (!target) return prev;
+      if (target.dbId) {
+        setPendingDeletes((pd) => (pd.includes(target.dbId as string) ? pd : [...pd, target.dbId as string]));
+      }
+      return prev.filter((d) => d.localId !== localId);
+    });
+  }, []);
+
+  // DB rows currently visible (existing rows not pending delete) — used for server-computed fields
+  // (customs status, indicative/invoice cost) which only exist on persisted rows.
+  const dbItemsVisible = items.filter((it) => !pendingDeletes.includes(it.id));
+  const dbItemById = new Map(items.map((it) => [it.id, it]));
+  const validDbItems = dbItemsVisible.filter(isValidShipmentItem);
+
+  // Patch 6B: count RED rows (valid persisted, no customs_match_id) lacking a confirmed
   // manual customs duty — used to gate Done/Назад.
-  const redUnconfirmedCount = validItems.filter(
+  const redUnconfirmedCount = validDbItems.filter(
     (it) =>
       !it.customs_match_id &&
       !(it.customs_override_confirmed_at && it.customs_override_duty_usd != null),
   ).length;
-  const country = toUaCountry(sh?.country) || "—";
 
-  // Customs match status for the header indicator.
-  // - "found": every valid item matched product+country exactly in customs base.
-  // - "fallback": at least one item matched product but country differs
-  //   (the trigger picked the row with the highest indicative).
-  // - "none": no valid items yet (hide indicator).
+  // Customs match status for the header indicator (server-computed only).
   const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
-  const fallbackItems = validItems
+  const fallbackItems = validDbItems
     .map((it) => {
       const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
       if (!ref) return null;
@@ -631,41 +677,57 @@ function ProductsFullscreen() {
     })
     .filter((v): v is { item: ItemRow; ref: CustomsRefMini } => !!v);
   const customsStatus: "found" | "fallback" | "none" =
-    validItems.length === 0
+    validDbItems.length === 0
       ? "none"
       : fallbackItems.length > 0
         ? "fallback"
         : "found";
-  
-  const incompleteItems = items.filter((i) => {
-    if (Number(i.pallet_count ?? 0) <= 0) return false;
-    const missing = getMissingFields(i);
-    return missing.length > 0 || !isKnownProductName(i.product_name, products);
-  });
-  const incompleteCount = incompleteItems.length;
-  const hasRealPallets = validItems.length > 0;
+
+  // D1: incomplete + hasRealPallets are now derived from the visible draft state.
+  const incompleteCount = draftItems.filter((d) => getMissingDraftFields(d, products).length > 0).length;
+  const hasRealPallets = draftItems.some(
+    (d) => d.product_name.trim().length > 0 && d.pallet_count > 0,
+  );
   const currentShipmentOwnerId = sh ? sh.import_manager_id ?? sh.created_by ?? null : null;
-  // Editable when admin, the explicit manager, or the creator (covers vacation
-  // replacement: replacement creates the shipment, supplier belongs to the
-  // vacationing manager — DB RLS already allows it via is_shipment_owner).
   const currentShipmentEditable = !!user?.id && (
     !!isAdmin
     || sh?.created_by === user.id
     || sh?.import_manager_id === user.id
     || sh?.import_manager_id === currentManagerId
   );
-  const capacityItems = vehicleContext?.loadedItems ?? items.map((item) => ({
-    id: item.id,
-    pallet_count: item.pallet_count,
-    pallet_weight: item.pallet_weight,
-    net_weight_kg: item.net_weight_kg,
-    gross_weight_kg: item.gross_weight_kg,
+
+  // D1 §5 — capacity must reflect draftItems (not stale DB rows of current shipment).
+  // Other shipments' rows stay as-is from vehicleContext.loadedItems.
+  const currentLoadedSample = vehicleContext?.loadedItems.find((li) => li.isCurrentShipment) ?? null;
+  const draftAsLoaded = draftItems.map((d) => ({
+    id: d.localId,
+    shipment_id: id,
+    shipment_code: currentLoadedSample?.shipment_code ?? sh?.code ?? "—",
+    supplier_name: currentLoadedSample?.supplier_name ?? sh?.supplier_name ?? null,
+    owner_id: currentLoadedSample?.owner_id ?? currentShipmentOwnerId,
+    owner_name: currentLoadedSample?.owner_name ?? "Менеджер",
+    product_name: d.product_name || null,
+    variety: d.variety || null,
+    origin_country: d.origin_country || null,
+    pallet_count: d.pallet_count,
+    pallet_weight: d.pallet_count > 0 ? d.net_weight_kg / d.pallet_count : 0,
+    net_weight_kg: d.net_weight_kg,
+    gross_weight_kg: d.gross_weight_kg,
+    isCurrentShipment: true,
+    isOwnManager: (currentLoadedSample?.owner_id ?? currentShipmentOwnerId) === user?.id,
   }));
-  const loadedPallets = capacityItems.reduce((sum, item) => sum + Number(item.pallet_count ?? 0), 0);
+  const effectiveLoadedItems = vehicleContext
+    ? [...vehicleContext.loadedItems.filter((li) => !li.isCurrentShipment), ...draftAsLoaded]
+    : draftAsLoaded;
+  const effectiveVehicleContext: VehicleContext | null = vehicleContext
+    ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
+    : null;
+
+  const loadedPallets = effectiveLoadedItems.reduce((sum, it) => sum + Number(it.pallet_count ?? 0), 0);
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
-  const loadedKg = capacityItems.reduce((sum, item) => {
-    const g = Number(item.gross_weight_kg ?? 0);
-    return sum + (g > 0 ? g : Number(item.pallet_count ?? 0) * Number(item.pallet_weight ?? 0));
+  const loadedKg = effectiveLoadedItems.reduce((sum, it) => {
+    const g = Number(it.gross_weight_kg ?? 0);
+    return sum + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
   }, 0);
   const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
@@ -678,6 +740,7 @@ function ProductsFullscreen() {
   );
   const transportMissing = canEditTransport && transportCostValue <= 0;
   const canSaveForLater = !!fromOfferId && hasRealPallets && incompleteCount === 0;
+
 
   const [shake, setShake] = useState(false);
   const [flashTransport, setFlashTransport] = useState(false);
