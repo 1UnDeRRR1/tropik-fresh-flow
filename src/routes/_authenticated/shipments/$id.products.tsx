@@ -659,6 +659,12 @@ function ProductsFullscreen() {
 
         const totalKg = safePalletCount * palletWeight;
 
+        // 9F Phase B — prefill writes new weight model + legacy compat-shim.
+        // net = gross = pc * offer.pallet_weight (no resolver, manual mode).
+        const palletWeightShim = palletWeight > 0 ? palletWeight : 0;
+        const netKg = safePalletCount * palletWeightShim;
+        const grossKg = netKg;
+
         const { data: inserted, error: insErr } = await supabase
           .from("shipment_items")
           .insert({
@@ -670,11 +676,18 @@ function ProductsFullscreen() {
             caliber: offer.caliber ?? null,
             variety: offer.variety ?? null,
             pallet_count: safePalletCount,
-            pallet_weight: palletWeight,
+            pallet_weight: palletWeightShim,
             unit_price: Number(offer.price_per_kg ?? 0),
             price_currency: offer.price_currency ?? "EUR",
-            qty: totalKg,
+            qty: netKg,
             unit: "kg",
+            package_used: null,
+            net_weight_kg: netKg > 0 ? netKg : null,
+            gross_weight_kg: grossKg > 0 ? grossKg : null,
+            resolver_net_per_pallet_kg: null,
+            resolver_gross_per_pallet_kg: null,
+            net_auto: false,
+            gross_auto: false,
           })
           .select("id")
           .single();
