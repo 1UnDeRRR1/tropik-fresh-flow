@@ -1445,13 +1445,16 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
-function ProductsTable({ items, id, products, vehicleContext, currentShipmentEditable, pulseFields }: {
-  items: ItemRow[];
-  id: string;
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
+  drafts: DraftRow[];
+  dbItemById: Map<string, ItemRow>;
+  shipmentId: string;
   products: ProductRef[];
   vehicleContext: VehicleContext | null;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
+  onPatch: (localId: string, patch: Partial<DraftRow>) => void;
+  onRemove: (localId: string) => void;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
@@ -1459,6 +1462,13 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
     "px-1.5 py-2 font-medium transition-colors",
     focused === i ? "text-destructive" : "",
   );
+  // Capacity source: effective loadedItems (other shipments + draftAsLoaded for current).
+  const capacitySource = vehicleContext?.loadedItems ?? drafts.map((d) => ({
+    id: d.localId,
+    pallet_count: d.pallet_count,
+    pallet_weight: d.pallet_count > 0 ? d.net_weight_kg / d.pallet_count : 0,
+    gross_weight_kg: d.gross_weight_kg,
+  } as { id: string; pallet_count: number | null; pallet_weight: number | null; gross_weight_kg: number | null }));
   return (
     <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
       <table className="w-full min-w-[860px] text-[12px] tabular-nums">
@@ -1478,24 +1488,38 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
           </tr>
         </thead>
         <tbody>
-          {items.map((it) => {
-            const capacitySource = vehicleContext?.loadedItems ?? items;
-            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === it.id ? 0 : Number(x.pallet_count ?? 0)), 0);
-            // 9F Phase C2b — capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
+          {drafts.map((d) => {
+            const ownKey = d.localId;
+            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === ownKey ? 0 : Number(x.pallet_count ?? 0)), 0);
             const otherKg = capacitySource.reduce((a, x) => {
-              if (x.id === it.id) return a;
-              const g = Number(x.gross_weight_kg ?? 0);
-              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number(x.pallet_weight ?? 0));
+              if (x.id === ownKey) return a;
+              const g = Number((x as { gross_weight_kg?: number | null }).gross_weight_kg ?? 0);
+              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
-            return <ProductRowEditor key={it.id} item={it} shipmentId={id} products={products} otherPallets={otherPallets} otherKg={otherKg} readOnly={!currentShipmentEditable} pulse={pulseFields} />;
+            const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+            return (
+              <ProductRowEditor
+                key={d.localId}
+                draft={d}
+                dbItem={dbItem}
+                shipmentId={shipmentId}
+                products={products}
+                otherPallets={otherPallets}
+                otherKg={otherKg}
+                readOnly={!currentShipmentEditable}
+                pulse={pulseFields}
+                onPatch={(patch) => onPatch(d.localId, patch)}
+                onRemove={() => onRemove(d.localId)}
+              />
+            );
           })}
         </tbody>
       </table>
-      {/* currentShipmentEditable acts as the gate; floating "Додати товар" is rendered by the parent. */}
       <span hidden>{String(currentShipmentEditable)}</span>
     </FocusedColContext.Provider>
   );
 }
+
 
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
