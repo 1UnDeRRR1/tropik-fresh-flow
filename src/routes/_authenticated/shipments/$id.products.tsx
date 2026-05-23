@@ -2265,16 +2265,22 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {/* D1-Fix v2.5.2 — clean existing row: DB chip (with override widget below);
-                dirty existing row / new draft row: live customs status (display-only). */}
+            {/* D1-Fix v2.5.3 — customs chip derived uniformly from preview.components
+                so the chip (clean + dirty + new) and breakdown panel never disagree.
+                Hidden when product recognition is in conflict to avoid mixed messages. */}
             {(() => {
-              if (dbItem && !preview.isDirty) {
-                return <ItemCustomsChip item={dbItem} />;
+              if (hint && (hint.status === "product_no_match" || hint.status === "product_ambiguous")) {
+                return null;
               }
-              if (preview.hasCustomsInputs && preview.liveCustomsStatus) {
-                return <CustomsStatusChip status={preview.liveCustomsStatus} compact />;
+              if (!preview.hasCustomsInputs) return null;
+              const basis = preview.components.customsBasis;
+              if (basis === "manual") return null;
+              const status: "green" | "yellow" | "red" =
+                basis === "exact" ? "green" : basis === "fallback" ? "yellow" : "red";
+              if (status === "yellow") {
+                return <YellowFallbackChip components={preview.components} />;
               }
-              return null;
+              return <CustomsStatusChip status={status} compact />;
             })()}
             {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
             {(() => {
@@ -2288,6 +2294,16 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
               }
               return <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />;
             })()}
+            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time). */}
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-label={isExpanded ? "Сховати деталі" : "Показати деталі"}
+              aria-expanded={isExpanded}
+              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+            </button>
           </div>
         </div>
         {dbItem && <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />}
@@ -2311,6 +2327,13 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         )}
       </td>
     </tr>
+    {isExpanded && (
+      <tr className="border-b border-border">
+        <td colSpan={11} className="bg-muted/10 px-3 py-2">
+          <RowBreakdownPanel components={preview.components} />
+        </td>
+      </tr>
+    )}
     </>
   );
 }
