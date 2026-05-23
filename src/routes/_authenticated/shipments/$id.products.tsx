@@ -1270,6 +1270,80 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // 9E v4 — read-only resolver subline. Does NOT mutate form, pallet_weight, qty, or trigger autosave.
+  type ResolverStatus = "matched" | "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match";
+  type ResolverState = {
+    status: ResolverStatus;
+    package_used: string | null;
+    pallet_net_kg: number | null;
+    pallet_gross_kg: number | null;
+  } | null;
+  const [resolver, setResolver] = useState<ResolverState>(null);
+  const resolverSeqRef = useRef(0);
+
+  useEffect(() => {
+    const product = form.product_name.trim();
+    const country = form.origin_country.trim();
+    if (!product || !country) {
+      resolverSeqRef.current += 1;
+      setResolver(null);
+      return;
+    }
+    const seq = resolverSeqRef.current + 1;
+    resolverSeqRef.current = seq;
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.rpc(
+          "rpc_resolve_offer_line_defaults" as never,
+          {
+            p_product_query: product,
+            p_country_query: country,
+            p_package_used: null,
+            p_include_reserve: false,
+          } as never,
+        );
+        if (seq !== resolverSeqRef.current) return;
+        if (error) {
+          setResolver(null);
+          return;
+        }
+        const row = Array.isArray(data) ? (data as unknown[])[0] : data;
+        if (!row || typeof row !== "object") {
+          setResolver(null);
+          return;
+        }
+        const r = row as Record<string, unknown>;
+        const status = r.status;
+        if (
+          status !== "matched" &&
+          status !== "pallet_no_match" &&
+          status !== "product_no_match" &&
+          status !== "product_ambiguous" &&
+          status !== "country_no_match"
+        ) {
+          setResolver(null);
+          return;
+        }
+        const asNum = (v: unknown): number | null => {
+          if (v == null || v === "") return null;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+        const asStr = (v: unknown): string | null =>
+          typeof v === "string" && v.length > 0 ? v : null;
+        setResolver({
+          status,
+          package_used: asStr(r.package_used),
+          pallet_net_kg: asNum(r.pallet_net_kg),
+          pallet_gross_kg: asNum(r.pallet_gross_kg),
+        });
+      } catch {
+        if (seq === resolverSeqRef.current) setResolver(null);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.product_name, form.origin_country]);
+
   const remove = async () => {
     if (readOnly) {
       toast.error("Можна редагувати лише власні товари");
