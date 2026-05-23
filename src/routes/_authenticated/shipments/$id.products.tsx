@@ -1792,13 +1792,14 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false, onPatch, onRemove }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, onPatch, onRemove }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
   products: ProductRef[];
   otherPallets: number;
   otherKg: number;
+  preview: PreviewEntry;
   readOnly: boolean;
   pulse?: boolean;
   onPatch: (patch: Partial<DraftRow>) => void;
