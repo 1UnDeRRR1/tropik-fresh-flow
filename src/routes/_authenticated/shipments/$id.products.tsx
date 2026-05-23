@@ -946,20 +946,14 @@ function ProductsFullscreen() {
 
 
 
+  // D1 §8 — "Назад": discard local draft + pendingDeletes, no DB writes.
+  // Safety: deleteShipmentIfEmpty only removes a truly empty newly created shipment
+  // (it checks the DB; under D1 manual rows never reach DB until "Готово", so a fresh
+  // shipment with no prefill and no committed rows stays eligible for cleanup).
   const leaveProducts = async () => {
-    // Auto-cleanup: drop empty/placeholder rows on exit so they don't
-    // persist as fake products.
-    const emptyIds = items
-      .filter(
-        (item) =>
-          !(item.product_name ?? "").trim() ||
-          item.product_name === "Новий товар" ||
-          Number(item.pallet_count ?? 0) <= 0,
-      )
-      .map((item) => item.id);
-    if (emptyIds.length > 0) {
-      await supabase.from("shipment_items").delete().in("id", emptyIds);
-    }
+    setDraftItems([]);
+    setPendingDeletes([]);
+    baselinesRef.current = new Map();
     const deleted = await deleteShipmentIfEmpty(id);
     if (deleted) {
       navigate({ to: "/shipments" });
@@ -971,15 +965,8 @@ function ProductsFullscreen() {
     navigate({ to: "/shipments/$id", params: { id } });
   };
 
-
-  const blockExit = (e: React.MouseEvent) => {
-    if (incompleteCount > 0 || !hasRealPallets) {
-      e.preventDefault();
-      triggerShake(false);
-    }
-  };
-
-  const addItem = async () => {
+  // D1 — manual addItem: local draft only, NO INSERT.
+  const addItem = () => {
     if (!currentShipmentEditable) {
       toast.error("Ви можете додавати товари лише у власну поставку");
       return;
@@ -988,21 +975,118 @@ function ProductsFullscreen() {
       toast.error("У спільному авто більше немає вільного місця");
       return;
     }
-    const { error } = await supabase.from("shipment_items").insert({
-      shipment_id: id,
-      product_name: "Новий товар",
-      qty: 0,
-      unit: "kg",
-      unit_price: 0,
-      price_currency: "EUR",
-      pallet_count: 0,
-      pallet_weight: 0,
-    });
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
-    qc.invalidateQueries({ queryKey: ["shipment", id] });
-    invalidateVehicleAndShipmentCaches(qc);
+    setDraftItems((prev) => [...prev, emptyDraftRow()]);
   };
+
+  // D1 §6 — INSERT/UPDATE payload preserves current net/gross + legacy compat-shim.
+  const buildPayload = useCallback(
+    (d: DraftRow, opts: { forUpdate: boolean }): Record<string, unknown> => {
+      const pc = d.pallet_count;
+      const net = d.net_weight_kg;
+      const palletWeightShim = pc > 0 ? net / pc : 0;
+      const resolvedName =
+        resolveProductOption(d.product_name, products.map((p) => p.name)) ??
+        canonicalizeProductName(d.product_name);
+      const payload: Record<string, unknown> = {
+        product_name: resolvedName,
+        variety: d.variety || null,
+        origin_country: normalizeCountry(d.origin_country) || null,
+        caliber: d.caliber || null,
+        sku: d.sku || null,
+        package_used: d.package_used.trim() || null,
+        pallet_count: pc,
+        net_weight_kg: net,
+        gross_weight_kg: d.gross_weight_kg,
+        resolver_net_per_pallet_kg: d.resolver_net_per_pallet_kg,
+        resolver_gross_per_pallet_kg: d.resolver_gross_per_pallet_kg,
+        net_auto: d.net_auto,
+        gross_auto: d.gross_auto,
+        pallet_weight: palletWeightShim,
+        qty: net,
+        unit: "kg",
+        unit_price: d.unit_price,
+        price_currency: d.price_currency,
+      };
+      if (!opts.forUpdate) payload.shipment_id = id;
+      return payload;
+    },
+    [products, id],
+  );
+
+  // D1 §3 — non-atomic client batch: validate → INSERT new → UPDATE dirty → DELETE last.
+  const commitDraft = async () => {
+    if (!currentShipmentEditable) {
+      toast.error("Ви можете редагувати лише власну поставку");
+      return;
+    }
+    // 1. Validate every visible draft row.
+    const anyInvalid = draftItems.some((d) => getMissingDraftFields(d, products).length > 0);
+    if (anyInvalid) {
+      toast.error("Заповніть обов'язкові поля");
+      triggerShake(false);
+      return;
+    }
+    try {
+      // 2. INSERT new rows (dbId === null).
+      const newDrafts = draftItems.filter((d) => d.dbId === null);
+      const insertedIds: string[] = [];
+      if (newDrafts.length > 0) {
+        const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
+        const { data: insertedRows, error: insErr } = await supabase
+          .from("shipment_items")
+          .insert(payloads)
+          .select("id");
+        if (insErr) {
+          toast.error(translateError(insErr));
+          return;
+        }
+        (insertedRows ?? []).forEach((row) => insertedIds.push((row as { id: string }).id));
+      }
+
+      // 3. UPDATE dirty existing rows (dbId !== null).
+      for (const d of draftItems) {
+        if (d.dbId === null) continue;
+        const base = baselinesRef.current.get(d.dbId);
+        if (base && !isDraftDirty(d, base)) continue;
+        const { error: upErr } = await supabase
+          .from("shipment_items")
+          .update(buildPayload(d, { forUpdate: true }))
+          .eq("id", d.dbId);
+        if (upErr) {
+          toast.error(translateError(upErr));
+          return;
+        }
+      }
+
+      // 4. DELETE pendingDeletes LAST.
+      if (pendingDeletes.length > 0) {
+        const { error: delErr } = await supabase
+          .from("shipment_items")
+          .delete()
+          .in("id", pendingDeletes);
+        if (delErr) {
+          toast.error(translateError(delErr));
+          // Data is already inserted/updated successfully; deletion failure does not lose data.
+        }
+      }
+
+      // 5. Clear local state so hydration takes over after refetch.
+      setDraftItems([]);
+      setPendingDeletes([]);
+      baselinesRef.current = new Map();
+
+      await syncVehicleStateForShipment(id);
+      qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+      qc.invalidateQueries({ queryKey: ["shipment", id] });
+      invalidateVehicleAndShipmentCaches(qc);
+      // silence unused-warning: insertedIds available for future link-back logic if needed.
+      void insertedIds;
+      navigate({ to: "/shipments/$id", params: { id } });
+    } catch (e) {
+      toast.error(translateError(e));
+    }
+  };
+
 
   const tryLeave = (e: React.MouseEvent | null) => {
     if (redUnconfirmedCount > 0) {
