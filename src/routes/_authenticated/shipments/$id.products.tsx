@@ -1185,10 +1185,12 @@ function ProductsTable({ items, id, products, vehicleContext, currentShipmentEdi
             <th className={cn(headerCls(1), "text-left")}>Сорт</th>
             <th className={cn(headerCls(2), "text-left")}>Країна</th>
             <th className={cn(headerCls(3), "text-left")}>Калібр</th>
-            <th className={cn(headerCls(4), "text-left")}>Спец.</th>
-            <th className={cn(headerCls(5), "text-right")}>Пал.</th>
-            <th className={cn(headerCls(6), "text-right")}>Вага, кг</th>
-            <th className={cn(headerCls(7), "text-right min-w-[92px]")}>Ціна</th>
+            <th className={cn(headerCls(4), "text-left")}>SKU</th>
+            <th className={cn(headerCls(5), "text-left")}>Упаковка</th>
+            <th className={cn(headerCls(6), "text-right")}>Пал.</th>
+            <th className={cn(headerCls(7), "text-right")}>Нетто</th>
+            <th className={cn(headerCls(8), "text-right")}>Брутто</th>
+            <th className={cn(headerCls(9), "text-right min-w-[92px]")}>Ціна</th>
             <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
           </tr>
         </thead>
