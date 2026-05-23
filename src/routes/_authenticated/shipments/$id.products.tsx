@@ -88,6 +88,106 @@ type ItemRow = {
   gross_auto: boolean | null;
 };
 
+// 9F Phase D1 — strict draft/confirm/save contract.
+// Manual rows live in local state until "Готово" commits them.
+// addItem / edit / delete never touch the DB on their own — only commitDraft does.
+type DraftRow = {
+  localId: string;          // "tmp_<uuid>" for new rows; dbId for existing rows
+  dbId: string | null;      // null = new row not yet inserted
+  product_name: string;
+  variety: string;
+  origin_country: string;
+  caliber: string;
+  sku: string;
+  package_used: string;
+  pallet_count: number;
+  net_weight_kg: number;
+  gross_weight_kg: number;
+  resolver_net_per_pallet_kg: number | null;
+  resolver_gross_per_pallet_kg: number | null;
+  net_auto: boolean;
+  gross_auto: boolean;
+  unit_price: number;
+  price_currency: "EUR" | "USD";
+};
+
+const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
+  "product_name","variety","origin_country","caliber","sku","package_used",
+  "pallet_count","net_weight_kg","gross_weight_kg",
+  "resolver_net_per_pallet_kg","resolver_gross_per_pallet_kg",
+  "net_auto","gross_auto","unit_price","price_currency",
+];
+
+function itemRowToDraft(item: ItemRow): DraftRow {
+  return {
+    localId: item.id,
+    dbId: item.id,
+    product_name: item.product_name === "Новий товар" ? "" : (item.product_name ?? ""),
+    variety: item.variety ?? "",
+    origin_country: item.origin_country ?? "",
+    caliber: item.caliber ?? "",
+    sku: item.sku ?? "",
+    package_used: item.package_used ?? "",
+    pallet_count: Number(item.pallet_count ?? 0),
+    net_weight_kg: Number(item.net_weight_kg ?? 0),
+    gross_weight_kg: Number(item.gross_weight_kg ?? 0),
+    resolver_net_per_pallet_kg: item.resolver_net_per_pallet_kg ?? null,
+    resolver_gross_per_pallet_kg: item.resolver_gross_per_pallet_kg ?? null,
+    net_auto: item.net_auto ?? false,
+    gross_auto: item.gross_auto ?? false,
+    unit_price: Number(item.unit_price ?? 0),
+    price_currency: ((item.price_currency ?? "EUR") as "EUR" | "USD"),
+  };
+}
+
+function emptyDraftRow(): DraftRow {
+  const uuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return {
+    localId: `tmp_${uuid}`,
+    dbId: null,
+    product_name: "",
+    variety: "",
+    origin_country: "",
+    caliber: "",
+    sku: "",
+    package_used: "",
+    pallet_count: 0,
+    net_weight_kg: 0,
+    gross_weight_kg: 0,
+    resolver_net_per_pallet_kg: null,
+    resolver_gross_per_pallet_kg: null,
+    net_auto: false,
+    gross_auto: false,
+    unit_price: 0,
+    price_currency: "EUR",
+  };
+}
+
+function isDraftDirty(a: DraftRow, b: DraftRow): boolean {
+  for (const k of DRAFT_EDITABLE_KEYS) {
+    const av = a[k];
+    const bv = b[k];
+    if (typeof av === "number" && typeof bv === "number") {
+      if (Math.abs(av - bv) > 1e-9) return true;
+    } else if (av !== bv) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getMissingDraftFields(d: DraftRow, products: ProductRef[]): RequiredField[] {
+  const missing: RequiredField[] = [];
+  if (!d.product_name.trim() || !isKnownProductName(d.product_name, products)) missing.push("product_name");
+  if (!d.origin_country.trim()) missing.push("origin_country");
+  if (d.pallet_count <= 0) missing.push("pallet_count");
+  if (d.net_weight_kg <= 0 || d.gross_weight_kg <= 0) missing.push("total_weight");
+  if (!d.unit_price || d.unit_price <= 0) missing.push("unit_price");
+  return missing;
+}
+
 type CustomsRefMini = { id: string; product_name: string; country: string };
 
 type ShipmentRow = {
