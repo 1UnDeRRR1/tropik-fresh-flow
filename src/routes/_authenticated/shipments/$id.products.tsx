@@ -931,6 +931,34 @@ function ProductsFullscreen() {
     ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
     : null;
 
+  // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value }).
+  // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
+  type PreviewEntry = {
+    isDirty: boolean;
+    value: { indicative: number; invoice: number } | null;
+  };
+  const previewMap = useMemo(() => {
+    const m = new Map<string, PreviewEntry>();
+    for (const d of draftItems) {
+      const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+      const baseline = d.dbId ? baselinesRef.current.get(d.dbId) ?? null : null;
+      const isDirty = d.dbId == null || !baseline || isDraftDirty(d, baseline);
+      const value = computeRowPreview(
+        d,
+        dbItem,
+        sh ?? null,
+        vehicleContext,
+        activeCustomsRefs ?? null,
+        latestEurUsd ?? null,
+        products,
+      );
+      m.set(d.localId, { isDirty, value });
+    }
+    return m;
+    // baselinesRef is a mutable ref; intentionally excluded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
+
   const loadedPallets = effectiveLoadedItems.reduce((sum, it) => sum + Number(it.pallet_count ?? 0), 0);
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
   const loadedKg = effectiveLoadedItems.reduce((sum, it) => {
