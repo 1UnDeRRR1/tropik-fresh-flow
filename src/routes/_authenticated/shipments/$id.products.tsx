@@ -1517,10 +1517,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidPallets}
           onChange={(v) => {
             if (readOnly) return;
-            // 9F Phase B — capacity warning; reuse compat-derived per-pallet weight (net/pc).
-            const avgPerPallet = palletCountNum > 0 ? netNum / palletCountNum : 0;
+            // 9F Phase C2b — capacity warning uses gross_weight_kg / pallet_count; fallback to legacy pallet_weight.
+            // Warning only — never clamps `v`, never mutates pallet_count below.
+            const grossPerPallet = palletCountNum > 0 && grossNum > 0
+              ? grossNum / palletCountNum
+              : Number(item.pallet_weight ?? 0);
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
-            const maxByWeight = avgPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / avgPerPallet) : Infinity;
+            const maxByWeight = grossPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / grossPerPallet) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
