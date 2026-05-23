@@ -773,7 +773,7 @@ function ProductsFullscreen() {
       const { data: refs } = matchIds.length
         ? await supabase
             .from("customs_reference")
-            .select("id,product_name,country")
+            .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_markup_usd,euro1_percent")
             .in("id", matchIds)
         : { data: [] };
       return {
