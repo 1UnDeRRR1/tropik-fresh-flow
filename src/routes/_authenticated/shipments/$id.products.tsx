@@ -626,6 +626,10 @@ function ProductsFullscreen() {
   const { data } = useQuery({
     queryKey: ["shipment-products", user?.id, id],
     enabled: !loading && !!user,
+    // D1-Fix v2.5.2 — vehicle close / sibling updates: refetch when tab regains focus
+    // and on every mount. Hydration guard (line ~839) ensures dirty draft state is preserved.
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
@@ -933,9 +937,15 @@ function ProductsFullscreen() {
 
   // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value }).
   // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
+  // D1-Fix v2.5.2 — also carries live customs status for dirty/new rows.
   type PreviewEntry = {
     isDirty: boolean;
     value: { indicative: number; invoice: number } | null;
+    // hasCustomsInputs: both product_name and origin_country non-empty
+    hasCustomsInputs: boolean;
+    // liveCustomsStatus: "green" exact (product+country), "yellow" product-only fallback,
+    // "red" no ref found. null when hasCustomsInputs is false.
+    liveCustomsStatus: "green" | "yellow" | "red" | null;
   };
   const previewMap = useMemo(() => {
     const m = new Map<string, PreviewEntry>();
@@ -952,7 +962,26 @@ function ProductsFullscreen() {
         latestEurUsd ?? null,
         products,
       );
-      m.set(d.localId, { isDirty, value });
+      // Live customs match (strict): exact (product, country) first, product-only fallback.
+      // Uses the same pickCustomsRefForDraft helper as the cost preview, which uses ONLY the
+      // two approved aliases (інжирний персик→персик, платерина нектарин→нектарин).
+      const productTrim = d.product_name.trim();
+      const countryTrim = d.origin_country.trim();
+      const hasCustomsInputs = !!productTrim && !!countryTrim;
+      let liveCustomsStatus: "green" | "yellow" | "red" | null = null;
+      if (hasCustomsInputs && activeCustomsRefs) {
+        const ref = pickCustomsRefForDraft(productTrim, countryTrim, activeCustomsRefs);
+        if (!ref) {
+          liveCustomsStatus = "red";
+        } else if (
+          normalizeCustomsKey(ref.country) === normalizeCustomsKey(countryTrim)
+        ) {
+          liveCustomsStatus = "green";
+        } else {
+          liveCustomsStatus = "yellow";
+        }
+      }
+      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus });
     }
     return m;
     // baselinesRef is a mutable ref; intentionally excluded.
@@ -1707,6 +1736,9 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
 type PreviewEntry = {
   isDirty: boolean;
   value: { indicative: number; invoice: number } | null;
+  // D1-Fix v2.5.2 — live customs status fields (for dirty/new rows).
+  hasCustomsInputs: boolean;
+  liveCustomsStatus: "green" | "yellow" | "red" | null;
 };
 
 function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
@@ -1762,7 +1794,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
               return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
-            const preview = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null };
+            const preview = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null };
             return (
               <ProductRowEditor
                 key={d.localId}
@@ -2000,15 +2032,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
               patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
             }
-            // Capacity warning — mirror the top АВТО block formula exactly.
-            // Predict this row's contribution AFTER the patch (no per-pallet extrapolation
-            // from a manually-entered total gross).
-            const fallbackPalletWeight = Number(dbItem?.pallet_weight ?? 0);
-            const newRowGross = patch.gross_weight_kg != null
-              ? Number(patch.gross_weight_kg)
-              : (grossNum > 0 ? grossNum : v * fallbackPalletWeight);
+            // D1-Fix v2.5.2 — capacity warning uses the same visible-draft source as top АВТО.
+            // Top АВТО formula (line ~964): kg = gross > 0 ? gross : pc * pallet_weight,
+            // where draftAsLoaded.pallet_weight = net/pc, so the fallback equals net.
+            // No dbItem.pallet_weight fallback here — top АВТО would not use it either.
+            const simGross = patch.gross_weight_kg != null ? Number(patch.gross_weight_kg) : grossNum;
+            const simNet = patch.net_weight_kg != null ? Number(patch.net_weight_kg) : netNum;
+            const newRowKg = simGross > 0 ? simGross : simNet;
             const newTotalPallets = otherPallets + v;
-            const newTotalKg = otherKg + newRowGross;
+            const newTotalKg = otherKg + newRowKg;
             if (newTotalPallets > MAX_PALLETS || newTotalKg > MAX_WEIGHT_KG) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
@@ -2097,7 +2129,17 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {dbItem && <ItemCustomsChip item={dbItem} />}
+            {/* D1-Fix v2.5.2 — clean existing row: DB chip (with override widget below);
+                dirty existing row / new draft row: live customs status (display-only). */}
+            {(() => {
+              if (dbItem && !preview.isDirty) {
+                return <ItemCustomsChip item={dbItem} />;
+              }
+              if (preview.hasCustomsInputs && preview.liveCustomsStatus) {
+                return <CustomsStatusChip status={preview.liveCustomsStatus} compact />;
+              }
+              return null;
+            })()}
             {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
             {(() => {
               const useDbCost = !!dbItem && !preview.isDirty;
