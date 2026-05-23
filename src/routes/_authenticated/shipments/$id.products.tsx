@@ -691,6 +691,38 @@ function ProductsFullscreen() {
     },
   });
 
+  // D1-Fix v2.4 — one-shot prefetch of all active customs_reference rows (965 entries; <= 2000 ceiling).
+  // No per-keypress DB hits; staleTime keeps cache warm for 5 minutes.
+  const { data: activeCustomsRefs } = useQuery({
+    queryKey: ["customs-reference-active"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customs_reference")
+        .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_markup_usd,euro1_percent")
+        .eq("active", true)
+        .range(0, 1999);
+      return (data ?? []) as ActiveCustomsRef[];
+    },
+  });
+
+  // D1-Fix v2.4 — latest EUR->USD fallback when shipment has no eur_usd_rate yet.
+  const { data: latestEurUsd } = useQuery({
+    queryKey: ["fx-eur-usd-latest"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("exchange_rates")
+        .select("rate")
+        .eq("base_currency", "EUR")
+        .eq("target_currency", "USD")
+        .order("rate_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ? Number((data as { rate: number }).rate) : null;
+    },
+  });
+
   const sh = data?.shipment;
   const items = data?.items ?? [];
   const products = data?.products ?? [];
