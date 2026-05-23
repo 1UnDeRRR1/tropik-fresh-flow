@@ -1990,7 +1990,7 @@ const EMPTY_COMPONENTS: RowComponents = {
   matchedRef: null,
 };
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove, onResolverHint }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
@@ -2001,7 +2001,9 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   pulseFields: boolean;
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
   onRemove: (localId: string) => void;
+  onResolverHint: (localId: string, info: ResolverHintInfo | null) => void;
 }) {
+
   const [focused, setFocused] = useState<number | null>(null);
   // D1-Fix v2.5.3 — per-row breakdown panel; only one row open at a time.
   const [expandedLocalId, setExpandedLocalId] = useState<string | null>(null);
