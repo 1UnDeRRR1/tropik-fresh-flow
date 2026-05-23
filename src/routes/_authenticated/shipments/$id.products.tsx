@@ -1693,6 +1693,8 @@ function ProductsFullscreen() {
           pulseFields={pulseFields}
           onPatch={patchDraft}
           onRemove={removeDraft}
+          onResolverHint={setResolverHint}
+
         />
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
