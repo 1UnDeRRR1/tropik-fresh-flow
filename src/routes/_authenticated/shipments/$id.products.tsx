@@ -2582,7 +2582,42 @@ function RowBreakdownPanel({ components }: { components: RowComponents }) {
   );
 }
 
-function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; shipmentId: string; readOnly: boolean }) {
+// D1-Fix v2.5.4 — small inline pill rendered in the right-aligned cluster
+// next to the customs chip / CostPair / chevron. Clicking reopens the panel
+// (which renders below the row via ItemCustomsOverride).
+function ItemCustomsConfirmedPill({
+  duty,
+  onReopen,
+  disabled,
+}: {
+  duty: number;
+  onReopen: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onReopen}
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
+      title="Натисніть, щоб переглянути або змінити"
+    >
+      Митниця підтверджена: ${duty.toFixed(4)}/кг
+    </button>
+  );
+}
+
+function ItemCustomsOverride({
+  item,
+  shipmentId,
+  readOnly,
+  onCollapse,
+}: {
+  item: ItemRow;
+  shipmentId: string;
+  readOnly: boolean;
+  onCollapse?: () => void;
+}) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [pending, setPending] = useState(false);
@@ -2590,12 +2625,6 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
     item.customs_override_confirmed_at && item.customs_override_duty_usd != null
       ? Number(item.customs_override_duty_usd)
       : null;
-  // D1-Fix v2.5.3 — large red panel collapses after a confirmed override;
-  // user can reopen it from a compact green pill to edit/review.
-  const [collapsed, setCollapsed] = useState<boolean>(confirmedDuty != null);
-  useEffect(() => {
-    if (confirmedDuty != null) setCollapsed(true);
-  }, [confirmedDuty]);
   if (item.customs_match_id) return null;
   if (!isValidShipmentItem(item)) return null;
   const onConfirm = async (duty: number) => {
@@ -2607,7 +2636,7 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       });
       if (error) throw error;
       toast.success("Митний збір підтверджено");
-      setCollapsed(true);
+      onCollapse?.();
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipments-list"] });
@@ -2618,21 +2647,6 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       setPending(false);
     }
   };
-  if (collapsed && confirmedDuty != null) {
-    return (
-      <div className="mt-2">
-        <button
-          type="button"
-          onClick={() => setCollapsed(false)}
-          disabled={readOnly}
-          className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
-          title="Натисніть, щоб переглянути або змінити"
-        >
-          Митниця підтверджена: ${confirmedDuty.toFixed(4)}/кг
-        </button>
-      </div>
-    );
-  }
   return (
     <div className="mt-2">
       <CustomsManualOverrideField
@@ -2644,6 +2658,7 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
     </div>
   );
 }
+
 
 const FOCUS_STYLE = "border-brand bg-background ring-2 ring-brand/40";
 
