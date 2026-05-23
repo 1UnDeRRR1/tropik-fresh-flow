@@ -267,6 +267,91 @@ function computeCustomsPreview(
   return { indicative, invoice };
 }
 
+// D1-Fix v2.5.1 — live preview of final cost ($/kg) mirroring DB calc_shipment_item_costs.
+// Returns null when required draft fields are missing or unit USD cannot be resolved.
+// Formula (exact DB parity):
+//   final_indicative = unit_usd + transport_per_kg + customs_indicative
+//   final_invoice    = unit_usd + transport_per_kg + customs_invoice
+// No division of unit_usd or customs by net-per-pallet (both already $/kg).
+function computeRowPreview(
+  d: DraftRow,
+  dbItem: ItemRow | null,
+  sh: ShipmentRow | null,
+  vehicleContext: VehicleContext | null,
+  refs: ActiveCustomsRef[] | null,
+  latestEurUsd: number | null,
+  products: ProductRef[],
+): { indicative: number; invoice: number } | null {
+  if (!sh) return null;
+  if (!refs) return null;
+  // Hybrid "—" rule: any required field missing → show "—" instead of partial number.
+  if (getMissingDraftFields(d, products).length > 0) return null;
+
+  let unitUsd: number;
+  if (d.price_currency === "USD") {
+    unitUsd = d.unit_price;
+  } else {
+    const fx = sh.eur_usd_rate ?? latestEurUsd;
+    if (!fx || fx <= 0) return null;
+    unitUsd = d.unit_price * fx;
+  }
+
+  // Customs: exact (product, country) first, then product-only fallback.
+  const ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
+
+  // Override only active when product+country unchanged vs DB row.
+  let overrideDuty: number | null = null;
+  if (
+    dbItem &&
+    dbItem.customs_override_confirmed_at &&
+    dbItem.customs_override_duty_usd != null &&
+    (dbItem.product_name ?? "").trim() === d.product_name.trim() &&
+    (dbItem.origin_country ?? "").trim() === d.origin_country.trim()
+  ) {
+    overrideDuty = Number(dbItem.customs_override_duty_usd);
+  }
+  const customs = computeCustomsPreview(unitUsd, ref, overrideDuty);
+
+  // Transport — vehicle_log_usd mirrors DB exactly:
+  // - no vehicle: current shipment.logistics_cost_usd.
+  // - with vehicle: sum logistics_cost_usd over unique shipments (already deduped in vehicleContext.shipments).
+  let vehicleLogUsd = 0;
+  if (!sh.vehicle_id) {
+    vehicleLogUsd = Number(sh.logistics_cost_usd ?? 0);
+  } else {
+    vehicleLogUsd = (vehicleContext?.shipments ?? []).reduce(
+      (acc, row) => acc + Number(row.logistics_cost_usd ?? 0),
+      0,
+    );
+  }
+
+  const pc = d.pallet_count;
+  const palletLegacy = Number(dbItem?.pallet_weight ?? 0);
+  const netPerPallet =
+    pc > 0 && d.net_weight_kg > 0 ? d.net_weight_kg / pc : palletLegacy;
+  const grossPerPallet =
+    pc > 0 && d.gross_weight_kg > 0 ? d.gross_weight_kg / pc : palletLegacy;
+
+  // expected_pallets: closed mode uses vehicles.total_pallets; open mode uses DB formula.
+  let expectedPallets: number;
+  if (vehicleContext?.vehicleStatus === "closed") {
+    expectedPallets = Math.max(0, Number(vehicleContext.vehicle.total_pallets ?? 0));
+  } else if (grossPerPallet > 0) {
+    expectedPallets = Math.min(26, Math.floor(21500 / grossPerPallet));
+    if (expectedPallets < 1) expectedPallets = 1;
+  } else {
+    expectedPallets = 26;
+  }
+
+  const freightPerPallet = expectedPallets > 0 ? vehicleLogUsd / expectedPallets : 0;
+  const transportPerKg = netPerPallet > 0 ? freightPerPallet / netPerPallet : 0;
+
+  return {
+    indicative: unitUsd + transportPerKg + customs.indicative,
+    invoice: unitUsd + transportPerKg + customs.invoice,
+  };
+}
+
 type ShipmentRow = {
   id: string;
   code: string;
