@@ -1220,6 +1220,8 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
   const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
+  // 9F Phase B — final weight model: одна правда (Нетто/Брутто = totals строки).
+  // resolver per-pallet base хранится скрыто в form/DB и в UI не показывается.
   const [form, setForm] = useState({
     product_name: normalizedProductName,
     variety: item.variety ?? "",
@@ -1227,11 +1229,20 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     caliber: item.caliber ?? "",
     sku: item.sku ?? "",
     pallet_count: item.pallet_count ?? 0,
-    pallet_weight: Number(item.pallet_weight ?? 0),
+    package_used: item.package_used ?? "",
+    net_weight_kg: Number(item.net_weight_kg ?? 0),
+    gross_weight_kg: Number(item.gross_weight_kg ?? 0),
+    resolver_net_per_pallet_kg: item.resolver_net_per_pallet_kg ?? null,
+    resolver_gross_per_pallet_kg: item.resolver_gross_per_pallet_kg ?? null,
+    net_auto: item.net_auto ?? false,
+    gross_auto: item.gross_auto ?? false,
     unit_price: item.unit_price ?? 0,
     price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
   });
   const dirtyRef = useRef(false);
+  // touchedRef — пользователь явно изменил Товар/Країна в текущей сессии.
+  // Используется как gate для resolver: открытие старой строки resolver не запускает.
+  const touchedRef = useRef({ product: false, country: false });
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
     if (readOnly) return;
     dirtyRef.current = true;
@@ -1240,18 +1251,19 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
   // Field-level validation
   const palletCountNum = Number(form.pallet_count) || 0;
-  const palletWeightNum = Number(form.pallet_weight) || 0;
-  const totalWeightNum = palletCountNum * palletWeightNum;
+  const netNum = Number(form.net_weight_kg) || 0;
+  const grossNum = Number(form.gross_weight_kg) || 0;
   const invalidProduct = !form.product_name.trim();
   const unknownProduct = !!form.product_name.trim() && !isKnownProductName(form.product_name, products);
   const invalidCountry = !form.origin_country.trim();
   const invalidPallets = palletCountNum <= 0;
-  const invalidWeight = totalWeightNum <= 0;
+  const invalidNet = netNum <= 0;
+  const invalidGross = grossNum <= 0;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
-  const palletWeight = Number(form.pallet_weight) || 0;
-
-  // Debounced autosave + refresh to pull in trigger-computed final_cost_indicative
+  // Debounced autosave. Не пишет, пока строка невалидна (pc>0, net>0, gross>0, известный товар).
+  // compat-shim для legacy pallet_weight: pallet_weight = net/pc (никогда 0, никогда null
+  // для валидной строки). qty = net_weight_kg — численно идентично legacy pc*pw.
   useEffect(() => {
     if (readOnly) return;
     if (!dirtyRef.current) return;
@@ -1263,8 +1275,14 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
         return;
       }
-      const palletCount = Number(form.pallet_count);
-      const totalKg = palletCount * palletWeight;
+      const pc = Number(form.pallet_count) || 0;
+      const net = Number(form.net_weight_kg) || 0;
+      const gross = Number(form.gross_weight_kg) || 0;
+      if (pc <= 0 || net <= 0 || gross <= 0) {
+        // невалидная строка — не сохраняем, legacy pallet_weight не перетираем.
+        return;
+      }
+      const palletWeightShim = net / pc; // safe: pc>0 проверено выше
       const { error } = await supabase
         .from("shipment_items")
         .update({
@@ -1273,11 +1291,18 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           origin_country: normalizeCountry(form.origin_country) || null,
           caliber: form.caliber || null,
           sku: form.sku || null,
-          pallet_count: palletCount,
-          pallet_weight: palletWeight,
+          pallet_count: pc,
+          package_used: form.package_used.trim() || null,
+          net_weight_kg: net,
+          gross_weight_kg: gross,
+          resolver_net_per_pallet_kg: form.resolver_net_per_pallet_kg,
+          resolver_gross_per_pallet_kg: form.resolver_gross_per_pallet_kg,
+          net_auto: form.net_auto,
+          gross_auto: form.gross_auto,
+          pallet_weight: palletWeightShim,
+          qty: net,
           unit_price: Number(form.unit_price),
           price_currency: form.price_currency,
-          qty: totalKg,
         })
         .eq("id", item.id);
       if (error) toast.error(error.message);
@@ -1289,31 +1314,27 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [form, palletWeight, item.id, products, qc, readOnly, shipmentId]);
+  }, [form, item.id, products, qc, readOnly, shipmentId]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 9E v4.1 — read-only resolver subline. Triggered ONLY by blur of Товар / Країна.
-  // Does NOT mutate form, pallet_weight, qty, or trigger autosave.
-  // Does NOT run on mount or on every keystroke — existing rows stay quiet until edited.
-  type ResolverStatus = "matched" | "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match";
-  type ResolverState = {
-    status: ResolverStatus;
-    package_used: string | null;
-    pallet_net_kg: number | null;
-    pallet_gross_kg: number | null;
-  } | null;
-  const [resolver, setResolver] = useState<ResolverState>(null);
+  // 9F Phase B — resolver: пишет в form state (matched / pallet_no_match) или
+  // показывает inline hint (product/country errors). Триггер строго onBlur
+  // Товар/Країна, только если пользователь явно изменил одно из этих полей
+  // в текущей сессии (touchedRef). НЕ useEffect, НЕ on mount, НЕ на keystroke.
+  type ResolverHint =
+    | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
+    | null;
+  const [hint, setHint] = useState<ResolverHint>(null);
   const resolverSeqRef = useRef(0);
-  const formRef = useRef(form);
-  useEffect(() => { formRef.current = form; }, [form]);
 
   const runResolver = useCallback(async () => {
-    const product = formRef.current.product_name.trim();
-    const country = formRef.current.origin_country.trim();
+    if (readOnly) return;
+    if (!touchedRef.current.product && !touchedRef.current.country) return;
+    const product = form.product_name.trim();
+    const country = form.origin_country.trim();
     if (!product || !country) return;
-    const seq = resolverSeqRef.current + 1;
-    resolverSeqRef.current = seq;
+    const seq = ++resolverSeqRef.current;
     try {
       const { data, error } = await supabase.rpc(
         "rpc_resolve_offer_line_defaults" as never,
@@ -1325,18 +1346,11 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         } as never,
       );
       if (seq !== resolverSeqRef.current) return;
-      if (error) { setResolver(null); return; }
+      if (error) { setHint(null); return; }
       const row = Array.isArray(data) ? (data as unknown[])[0] : data;
-      if (!row || typeof row !== "object") { setResolver(null); return; }
+      if (!row || typeof row !== "object") { setHint(null); return; }
       const r = row as Record<string, unknown>;
       const status = r.status;
-      if (
-        status !== "matched" &&
-        status !== "pallet_no_match" &&
-        status !== "product_no_match" &&
-        status !== "product_ambiguous" &&
-        status !== "country_no_match"
-      ) { setResolver(null); return; }
       const asNum = (v: unknown): number | null => {
         if (v == null || v === "") return null;
         const n = Number(v);
@@ -1344,16 +1358,52 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       };
       const asStr = (v: unknown): string | null =>
         typeof v === "string" && v.length > 0 ? v : null;
-      setResolver({
-        status,
-        package_used: asStr(r.package_used),
-        pallet_net_kg: asNum(r.pallet_net_kg),
-        pallet_gross_kg: asNum(r.pallet_gross_kg),
-      });
+
+      if (status === "matched") {
+        const pNet = asNum(r.pallet_net_kg);
+        const pGross = asNum(r.pallet_gross_kg);
+        const pkg = asStr(r.package_used);
+        setHint(null);
+        dirtyRef.current = true;
+        setForm((f) => {
+          const pc = (Number(f.pallet_count) || 0) > 0 ? Number(f.pallet_count) : 1;
+          return {
+            ...f,
+            pallet_count: pc,
+            package_used: pkg ?? f.package_used,
+            resolver_net_per_pallet_kg: pNet,
+            resolver_gross_per_pallet_kg: pGross,
+            net_auto: true,
+            gross_auto: true,
+            net_weight_kg: pNet != null ? pNet * pc : f.net_weight_kg,
+            gross_weight_kg: pGross != null ? pGross * pc : f.gross_weight_kg,
+          };
+        });
+      } else if (status === "pallet_no_match") {
+        setHint({ status: "pallet_no_match" });
+        dirtyRef.current = true;
+        setForm((f) => ({
+          ...f,
+          package_used: "",
+          resolver_net_per_pallet_kg: null,
+          resolver_gross_per_pallet_kg: null,
+          net_auto: false,
+          gross_auto: false,
+        }));
+      } else if (
+        status === "product_no_match" ||
+        status === "product_ambiguous" ||
+        status === "country_no_match"
+      ) {
+        setHint({ status });
+        // Не трогаем form / resolver_* / auto-флаги.
+      } else {
+        setHint(null);
+      }
     } catch {
-      if (seq === resolverSeqRef.current) setResolver(null);
+      if (seq === resolverSeqRef.current) setHint(null);
     }
-  }, []);
+  }, [readOnly, form.product_name, form.origin_country]);
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     // Only fire when focus leaves this cell entirely (not when moving between child elements)
@@ -1375,7 +1425,6 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     invalidateVehicleAndShipmentCaches(qc);
   };
 
-  const totalWeight = (Number(form.pallet_count) || 0) * palletWeight;
 
   const { setFocused } = useContext(FocusedColContext);
   return (
