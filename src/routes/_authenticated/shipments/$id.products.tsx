@@ -1922,7 +1922,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
               return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
-            const preview = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null };
+            const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
             return (
               <ProductRowEditor
                 key={d.localId}
