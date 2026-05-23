@@ -1441,9 +1441,94 @@ function ProductsFullscreen() {
       triggerShake(false);
       return;
     }
+
+    // D1-Fix v2.5.4 — product/country recognition gate BEFORE any DB writes.
+    // Uses hints captured by row resolver only when productKey/countryKey/packageKey
+    // match the current draft row; otherwise re-checks via read-only RPC.
+    const BLOCKING: ResolverHintStatus[] = [
+      "product_no_match",
+      "product_ambiguous",
+      "country_no_match",
+    ];
+    const TOAST_PRODUCT = "Товар не розпізнано. Уточніть назву товару.";
+    const TOAST_COUNTRY = "Країну не розпізнано. Уточніть країну.";
+    const TOAST_RPC_FAIL = "Не вдалося перевірити товар. Спробуйте ще раз.";
+
+    type CheckOutcome =
+      | { kind: "ok" }
+      | { kind: "block"; status: ResolverHintStatus }
+      | { kind: "rpc_fail" };
+
+    const checks: CheckOutcome[] = await Promise.all(
+      draftItems.map(async (d): Promise<CheckOutcome> => {
+        const productKey = resolverKeyOf(d.product_name);
+        const countryKey = resolverKeyOf(d.origin_country);
+        const packageKey = resolverKeyOf(d.package_used);
+        const hint = resolverHintsRef.current.get(d.localId);
+        const hintFresh =
+          hint &&
+          hint.productKey === productKey &&
+          hint.countryKey === countryKey &&
+          hint.packageKey === packageKey;
+        if (hintFresh) {
+          if (BLOCKING.includes(hint!.status)) {
+            return { kind: "block", status: hint!.status };
+          }
+          return { kind: "ok" };
+        }
+        // Missing or stale hint → read-only resolver check, no state mutation.
+        if (!productKey || !countryKey) {
+          // getMissingDraftFields already covered empty cases above; defensive
+          // pass-through here to avoid double-toasting.
+          return { kind: "ok" };
+        }
+        try {
+          const { data, error } = await supabase.rpc(
+            "rpc_resolve_offer_line_defaults" as never,
+            {
+              p_product_query: d.product_name.trim(),
+              p_country_query: d.origin_country.trim(),
+              p_package_used: d.package_used.trim() || null,
+              p_include_reserve: false,
+            } as never,
+          );
+          if (error) return { kind: "rpc_fail" };
+          const row = Array.isArray(data) ? (data as unknown[])[0] : data;
+          const status =
+            row && typeof row === "object"
+              ? ((row as Record<string, unknown>).status as ResolverHintStatus | undefined)
+              : undefined;
+          if (status && BLOCKING.includes(status)) {
+            return { kind: "block", status };
+          }
+          return { kind: "ok" };
+        } catch {
+          return { kind: "rpc_fail" };
+        }
+      }),
+    );
+
+    const rpcFailed = checks.find((c) => c.kind === "rpc_fail");
+    if (rpcFailed) {
+      toast.error(TOAST_RPC_FAIL);
+      triggerShake(false);
+      return;
+    }
+    const blocker = checks.find(
+      (c): c is { kind: "block"; status: ResolverHintStatus } => c.kind === "block",
+    );
+    if (blocker) {
+      toast.error(
+        blocker.status === "country_no_match" ? TOAST_COUNTRY : TOAST_PRODUCT,
+      );
+      triggerShake(false);
+      return;
+    }
+
     try {
       // 3. INSERT new rows (dbId === null).
       const newDrafts = draftItems.filter((d) => d.dbId === null);
+
       const insertedIds: string[] = [];
       if (newDrafts.length > 0) {
         const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
