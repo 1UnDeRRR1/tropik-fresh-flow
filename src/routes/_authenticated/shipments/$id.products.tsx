@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, createContext, useContext, useCallback, type ReactNode } from "react";
+import { useEffect, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
 import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
@@ -1270,7 +1270,9 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 9E v4 — read-only resolver subline. Does NOT mutate form, pallet_weight, qty, or trigger autosave.
+  // 9E v4.1 — read-only resolver subline. Triggered ONLY by blur of Товар / Країна.
+  // Does NOT mutate form, pallet_weight, qty, or trigger autosave.
+  // Does NOT run on mount or on every keystroke — existing rows stay quiet until edited.
   type ResolverStatus = "matched" | "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match";
   type ResolverState = {
     status: ResolverStatus;
@@ -1280,69 +1282,62 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   } | null;
   const [resolver, setResolver] = useState<ResolverState>(null);
   const resolverSeqRef = useRef(0);
+  const formRef = useRef(form);
+  useEffect(() => { formRef.current = form; }, [form]);
 
-  useEffect(() => {
-    const product = form.product_name.trim();
-    const country = form.origin_country.trim();
-    if (!product || !country) {
-      resolverSeqRef.current += 1;
-      setResolver(null);
-      return;
-    }
+  const runResolver = useCallback(async () => {
+    const product = formRef.current.product_name.trim();
+    const country = formRef.current.origin_country.trim();
+    if (!product || !country) return;
     const seq = resolverSeqRef.current + 1;
     resolverSeqRef.current = seq;
-    const t = setTimeout(async () => {
-      try {
-        const { data, error } = await supabase.rpc(
-          "rpc_resolve_offer_line_defaults" as never,
-          {
-            p_product_query: product,
-            p_country_query: country,
-            p_package_used: null,
-            p_include_reserve: false,
-          } as never,
-        );
-        if (seq !== resolverSeqRef.current) return;
-        if (error) {
-          setResolver(null);
-          return;
-        }
-        const row = Array.isArray(data) ? (data as unknown[])[0] : data;
-        if (!row || typeof row !== "object") {
-          setResolver(null);
-          return;
-        }
-        const r = row as Record<string, unknown>;
-        const status = r.status;
-        if (
-          status !== "matched" &&
-          status !== "pallet_no_match" &&
-          status !== "product_no_match" &&
-          status !== "product_ambiguous" &&
-          status !== "country_no_match"
-        ) {
-          setResolver(null);
-          return;
-        }
-        const asNum = (v: unknown): number | null => {
-          if (v == null || v === "") return null;
-          const n = Number(v);
-          return Number.isFinite(n) ? n : null;
-        };
-        const asStr = (v: unknown): string | null =>
-          typeof v === "string" && v.length > 0 ? v : null;
-        setResolver({
-          status,
-          package_used: asStr(r.package_used),
-          pallet_net_kg: asNum(r.pallet_net_kg),
-          pallet_gross_kg: asNum(r.pallet_gross_kg),
-        });
-      } catch {
-        if (seq === resolverSeqRef.current) setResolver(null);
-      }
-    }, 500);
-    return () => clearTimeout(t);
-  }, [form.product_name, form.origin_country]);
+    try {
+      const { data, error } = await supabase.rpc(
+        "rpc_resolve_offer_line_defaults" as never,
+        {
+          p_product_query: product,
+          p_country_query: country,
+          p_package_used: null,
+          p_include_reserve: false,
+        } as never,
+      );
+      if (seq !== resolverSeqRef.current) return;
+      if (error) { setResolver(null); return; }
+      const row = Array.isArray(data) ? (data as unknown[])[0] : data;
+      if (!row || typeof row !== "object") { setResolver(null); return; }
+      const r = row as Record<string, unknown>;
+      const status = r.status;
+      if (
+        status !== "matched" &&
+        status !== "pallet_no_match" &&
+        status !== "product_no_match" &&
+        status !== "product_ambiguous" &&
+        status !== "country_no_match"
+      ) { setResolver(null); return; }
+      const asNum = (v: unknown): number | null => {
+        if (v == null || v === "") return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      const asStr = (v: unknown): string | null =>
+        typeof v === "string" && v.length > 0 ? v : null;
+      setResolver({
+        status,
+        package_used: asStr(r.package_used),
+        pallet_net_kg: asNum(r.pallet_net_kg),
+        pallet_gross_kg: asNum(r.pallet_gross_kg),
+      });
+    } catch {
+      if (seq === resolverSeqRef.current) setResolver(null);
+    }
+  }, []);
+
+  const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
+    // Only fire when focus leaves this cell entirely (not when moving between child elements)
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    void runResolver();
+  };
+
 
   const remove = async () => {
     if (readOnly) {
@@ -1370,7 +1365,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       }}
       onBlurCapture={() => setFocused(null)}
     >
-      <td data-col="0" className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
+      <td data-col="0" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
@@ -1393,7 +1388,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       <td data-col="1" className="relative px-0.5 py-0.5">
         <VarietyCell value={form.variety} onChange={(v) => set("variety", v)} productName={form.product_name} readOnly={readOnly} />
       </td>
-      <td data-col="2" className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
+      <td data-col="2" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => set("origin_country", v)}
