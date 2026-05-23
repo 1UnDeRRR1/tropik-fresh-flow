@@ -1793,7 +1793,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 px-3 py-1 text-left"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Авто</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Авто · завантаження машини</span>
         <span className="text-[11px] text-foreground">
           <span className="font-semibold">{totalPallets}</span>
           <span className="text-muted-foreground">/{MAX_PALLETS}п</span>
