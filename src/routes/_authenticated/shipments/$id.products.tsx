@@ -313,6 +313,8 @@ type VehicleContext = {
     isCurrentShipment: boolean;
     isOwnManager: boolean;
   }>;
+  vehicleStatus: string | null;
+  shipments: Array<{ id: string; logistics_cost_usd: number | null }>;
 };
 
 type ProductRef = { name: string; default_pallet_weight: number | null };
