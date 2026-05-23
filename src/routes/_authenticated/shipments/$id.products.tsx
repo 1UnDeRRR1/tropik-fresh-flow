@@ -2363,16 +2363,104 @@ function ItemCustomsChip({ item }: { item: ItemRow }) {
   return <CustomsStatusChip status={status} compact />;
 }
 
+// D1-Fix v2.5.3 — yellow fallback chip with explanation-only popover.
+// Used uniformly for clean and dirty/new rows. No override dialog from yellow.
+function YellowFallbackChip({ components }: { components: RowComponents }) {
+  const usedProduct = components.matchedRef?.product_name || "—";
+  const usedCountryRaw = components.matchedRef?.country || "";
+  const usedCountry = (usedCountryRaw && toUaCountry(usedCountryRaw)) || usedCountryRaw || "—";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="cursor-pointer"
+          title="Показати пояснення митниці для цієї позиції"
+        >
+          <CustomsStatusChip status="yellow" compact />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+      >
+        <div className="font-semibold">Точну країну не знайдено</div>
+        <div className="mt-1">Розрахунок виконано за товаром.</div>
+        <div className="mt-2">
+          Використаний рядок: <b>{usedProduct}</b> · <b>{usedCountry}</b>
+        </div>
+        {components.customsIndicative != null && (
+          <div className="mt-2">
+            Митниця індикатив: <b>${components.customsIndicative.toFixed(4)}/кг</b>
+          </div>
+        )}
+        {components.customsInvoice != null && (
+          <div>
+            Митниця інвойс: <b>${components.customsInvoice.toFixed(4)}/кг</b>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// D1-Fix v2.5.3 — per-row component breakdown panel.
+// Shows ready component values only. No formulas. No calculation steps.
+// Final indicative/invoice are NOT duplicated here — they live in the main cost row.
+function RowBreakdownPanel({ components }: { components: RowComponents }) {
+  const fmtMoney = (n: number | null) => (n == null ? "—" : `$${n.toFixed(4)}`);
+  const fmtPrice = (n: number | null, ccy: string | null) =>
+    n == null ? "—" : `${n.toFixed(4)} ${ccy ?? ""}`.trim();
+  const fmtRate = (n: number | null) => (n == null ? "—" : n.toFixed(4));
+  const countryLabel =
+    (components.country && (toUaCountry(components.country) || components.country)) || "—";
+  const basisLabel =
+    components.customsBasis === "exact"
+      ? "точне співпадіння"
+      : components.customsBasis === "fallback"
+        ? "fallback за товаром"
+        : components.customsBasis === "manual"
+          ? "ручна сума"
+          : "немає митного запису";
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground tabular-nums">{value}</span>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-[11px] sm:grid-cols-2 lg:grid-cols-3">
+      <Row label="Товар" value={`${components.productName || "—"} · ${countryLabel}`} />
+      <Row label="Ціна" value={fmtPrice(components.inputPrice, components.inputCurrency)} />
+      {components.inputCurrency === "EUR" && (
+        <Row label="Курс EUR→USD" value={fmtRate(components.fxRate)} />
+      )}
+      <Row label="Ціна USD/кг" value={fmtMoney(components.unitUsd)} />
+      <Row label="Транспорт USD/кг" value={fmtMoney(components.transportPerKg)} />
+      <Row label="Митниця індикатив USD/кг" value={fmtMoney(components.customsIndicative)} />
+      <Row label="Митниця інвойс USD/кг" value={fmtMoney(components.customsInvoice)} />
+      <Row label="Митна основа" value={basisLabel} />
+    </div>
+  );
+}
+
 function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; shipmentId: string; readOnly: boolean }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [pending, setPending] = useState(false);
-  if (item.customs_match_id) return null;
-  if (!isValidShipmentItem(item)) return null;
   const confirmedDuty =
     item.customs_override_confirmed_at && item.customs_override_duty_usd != null
       ? Number(item.customs_override_duty_usd)
       : null;
+  // D1-Fix v2.5.3 — large red panel collapses after a confirmed override;
+  // user can reopen it from a compact green pill to edit/review.
+  const [collapsed, setCollapsed] = useState<boolean>(confirmedDuty != null);
+  useEffect(() => {
+    if (confirmedDuty != null) setCollapsed(true);
+  }, [confirmedDuty]);
+  if (item.customs_match_id) return null;
+  if (!isValidShipmentItem(item)) return null;
   const onConfirm = async (duty: number) => {
     setPending(true);
     try {
@@ -2382,6 +2470,7 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       });
       if (error) throw error;
       toast.success("Митний збір підтверджено");
+      setCollapsed(true);
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipments-list"] });
@@ -2392,6 +2481,21 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       setPending(false);
     }
   };
+  if (collapsed && confirmedDuty != null) {
+    return (
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          disabled={readOnly}
+          className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Натисніть, щоб переглянути або змінити"
+        >
+          Митниця підтверджена: ${confirmedDuty.toFixed(4)}/кг
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="mt-2">
       <CustomsManualOverrideField
