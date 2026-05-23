@@ -1534,16 +1534,23 @@ export type Database = {
           final_cost_indicative: number | null
           final_cost_invoice: number | null
           fx_rate_used: number | null
+          gross_auto: boolean
+          gross_weight_kg: number | null
           id: string
           indicative_price: number | null
           invoice_price: number | null
           linked_offer_id: string | null
+          net_auto: boolean
+          net_weight_kg: number | null
           origin_country: string | null
+          package_used: string | null
           pallet_count: number | null
           pallet_weight: number | null
           price_currency: string
           product_name: string
           qty: number
+          resolver_gross_per_pallet_kg: number | null
+          resolver_net_per_pallet_kg: number | null
           shipment_id: string
           sku: string | null
           unit: string
@@ -1567,16 +1574,23 @@ export type Database = {
           final_cost_indicative?: number | null
           final_cost_invoice?: number | null
           fx_rate_used?: number | null
+          gross_auto?: boolean
+          gross_weight_kg?: number | null
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
           linked_offer_id?: string | null
+          net_auto?: boolean
+          net_weight_kg?: number | null
           origin_country?: string | null
+          package_used?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
           price_currency?: string
           product_name: string
           qty?: number
+          resolver_gross_per_pallet_kg?: number | null
+          resolver_net_per_pallet_kg?: number | null
           shipment_id: string
           sku?: string | null
           unit?: string
@@ -1600,16 +1614,23 @@ export type Database = {
           final_cost_indicative?: number | null
           final_cost_invoice?: number | null
           fx_rate_used?: number | null
+          gross_auto?: boolean
+          gross_weight_kg?: number | null
           id?: string
           indicative_price?: number | null
           invoice_price?: number | null
           linked_offer_id?: string | null
+          net_auto?: boolean
+          net_weight_kg?: number | null
           origin_country?: string | null
+          package_used?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
           price_currency?: string
           product_name?: string
           qty?: number
+          resolver_gross_per_pallet_kg?: number | null
+          resolver_net_per_pallet_kg?: number | null
           shipment_id?: string
           sku?: string | null
           unit?: string
@@ -2399,16 +2420,23 @@ export type Database = {
           final_cost_indicative: number | null
           final_cost_invoice: number | null
           fx_rate_used: number | null
+          gross_auto: boolean
+          gross_weight_kg: number | null
           id: string
           indicative_price: number | null
           invoice_price: number | null
           linked_offer_id: string | null
+          net_auto: boolean
+          net_weight_kg: number | null
           origin_country: string | null
+          package_used: string | null
           pallet_count: number | null
           pallet_weight: number | null
           price_currency: string
           product_name: string
           qty: number
+          resolver_gross_per_pallet_kg: number | null
+          resolver_net_per_pallet_kg: number | null
           shipment_id: string
           sku: string | null
           unit: string
