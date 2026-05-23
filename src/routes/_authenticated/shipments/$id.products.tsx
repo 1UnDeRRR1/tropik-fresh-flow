@@ -1882,6 +1882,8 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   onRemove: (localId: string) => void;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
+  // D1-Fix v2.5.3 — per-row breakdown panel; only one row open at a time.
+  const [expandedLocalId, setExpandedLocalId] = useState<string | null>(null);
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
   const headerCls = (i: number) => cn(
     "px-1.5 py-2 font-medium transition-colors",
