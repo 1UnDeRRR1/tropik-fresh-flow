@@ -1365,7 +1365,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
       }}
       onBlurCapture={() => setFocused(null)}
     >
-      <td data-col="0" className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
+      <td data-col="0" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => set("product_name", v)}
