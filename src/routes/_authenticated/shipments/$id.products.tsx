@@ -1851,6 +1851,22 @@ type PreviewEntry = {
   // D1-Fix v2.5.2 — live customs status fields (for dirty/new rows).
   hasCustomsInputs: boolean;
   liveCustomsStatus: "green" | "yellow" | "red" | null;
+  // D1-Fix v2.5.3 — ready component values for the per-row breakdown panel.
+  components: RowComponents;
+};
+
+const EMPTY_COMPONENTS: RowComponents = {
+  productName: "",
+  country: "",
+  inputPrice: null,
+  inputCurrency: null,
+  fxRate: null,
+  unitUsd: null,
+  transportPerKg: null,
+  customsIndicative: null,
+  customsInvoice: null,
+  customsBasis: "none",
+  matchedRef: null,
 };
 
 function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
