@@ -1149,8 +1149,25 @@ function ProductsFullscreen() {
       triggerShake(false);
       return;
     }
+    // 2. D1-Fix v2.4 — capacity validation (vehicle-wide) BEFORE any DB writes.
+    // No pallet_count clamp; only block "Готово".
+    const capPallets = effectiveLoadedItems.reduce((s, it) => s + Number(it.pallet_count ?? 0), 0);
+    const capGrossKg = effectiveLoadedItems.reduce((s, it) => {
+      const g = Number(it.gross_weight_kg ?? 0);
+      return s + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
+    }, 0);
+    if (capGrossKg > MAX_WEIGHT_KG) {
+      toast.error(`Перевищено вагу авто: ${Math.round(capGrossKg)} кг > ${MAX_WEIGHT_KG} кг`);
+      triggerShake(false);
+      return;
+    }
+    if (capPallets > MAX_PALLETS) {
+      toast.error(`Перевищено палети авто: ${capPallets} > ${MAX_PALLETS}`);
+      triggerShake(false);
+      return;
+    }
     try {
-      // 2. INSERT new rows (dbId === null).
+      // 3. INSERT new rows (dbId === null).
       const newDrafts = draftItems.filter((d) => d.dbId === null);
       const insertedIds: string[] = [];
       if (newDrafts.length > 0) {
@@ -1166,7 +1183,7 @@ function ProductsFullscreen() {
         (insertedRows ?? []).forEach((row) => insertedIds.push((row as { id: string }).id));
       }
 
-      // 3. UPDATE dirty existing rows (dbId !== null).
+      // 4. UPDATE dirty existing rows (dbId !== null).
       for (const d of draftItems) {
         if (d.dbId === null) continue;
         const base = baselinesRef.current.get(d.dbId);
@@ -1181,7 +1198,7 @@ function ProductsFullscreen() {
         }
       }
 
-      // 4. DELETE pendingDeletes LAST.
+      // 5. DELETE pendingDeletes LAST.
       if (pendingDeletes.length > 0) {
         const { error: delErr } = await supabase
           .from("shipment_items")
@@ -1189,20 +1206,25 @@ function ProductsFullscreen() {
           .in("id", pendingDeletes);
         if (delErr) {
           toast.error(translateError(delErr));
-          // Data is already inserted/updated successfully; deletion failure does not lose data.
         }
       }
 
-      // 5. Clear local state so hydration takes over after refetch.
+      // 6. Clear local state so hydration takes over after refetch.
       setDraftItems([]);
       setPendingDeletes([]);
       baselinesRef.current = new Map();
 
       await syncVehicleStateForShipment(id);
+      // D1-Fix v2.4 — invalidate then FORCE-refetch ["shipment", id] before navigate.
+      // Details page reads final_cost_* from this key; "type: all" reaches the unmounted route.
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
       qc.invalidateQueries({ queryKey: ["shipment", id] });
+      qc.invalidateQueries({ queryKey: ["shipments"] });
+      if (sh?.vehicle_id) {
+        qc.invalidateQueries({ queryKey: ["vehicle-transport", sh.vehicle_id, id] });
+      }
       invalidateVehicleAndShipmentCaches(qc);
-      // silence unused-warning: insertedIds available for future link-back logic if needed.
+      await qc.refetchQueries({ queryKey: ["shipment", id], type: "all" });
       void insertedIds;
       navigate({ to: "/shipments/$id", params: { id } });
     } catch (e) {
