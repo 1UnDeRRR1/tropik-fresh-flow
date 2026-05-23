@@ -1870,21 +1870,24 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           invalid={invalidPallets}
           onChange={(v) => {
             if (readOnly) return;
-            const grossPerPallet = palletCountNum > 0 && grossNum > 0
-              ? grossNum / palletCountNum
-              : Number(dbItem?.pallet_weight ?? 0);
-            const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
-            const maxByWeight = grossPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / grossPerPallet) : Infinity;
-            const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
-            if (v > max) {
-              toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
-            }
             const patch: Partial<DraftRow> = { pallet_count: v };
             if (form.net_auto && form.resolver_net_per_pallet_kg != null) {
               patch.net_weight_kg = form.resolver_net_per_pallet_kg * v;
             }
             if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
               patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
+            }
+            // Capacity warning — mirror the top АВТО block formula exactly.
+            // Predict this row's contribution AFTER the patch (no per-pallet extrapolation
+            // from a manually-entered total gross).
+            const fallbackPalletWeight = Number(dbItem?.pallet_weight ?? 0);
+            const newRowGross = patch.gross_weight_kg != null
+              ? Number(patch.gross_weight_kg)
+              : (grossNum > 0 ? grossNum : v * fallbackPalletWeight);
+            const newTotalPallets = otherPallets + v;
+            const newTotalKg = otherKg + newRowGross;
+            if (newTotalPallets > MAX_PALLETS || newTotalKg > MAX_WEIGHT_KG) {
+              toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
             onPatch(patch);
           }}
