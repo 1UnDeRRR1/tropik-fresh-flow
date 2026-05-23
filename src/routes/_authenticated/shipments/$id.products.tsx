@@ -32,7 +32,17 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status
 import { allocateTransport } from "@/lib/transport";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
-type CustomsRefIndex = Map<string, { id: string; product_name: string; country: string }>;
+// D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
+// breakdown values directly from the saved customs_match_id row (deactivation-safe).
+type CustomsRefIndex = Map<string, {
+  id: string;
+  product_name: string;
+  country: string;
+  threshold_price_usd: number | null;
+  customs_fee_percent: number | null;
+  euro1_markup_usd: number | null;
+  euro1_percent: number | null;
+}>;
 const CustomsRefContext = createContext<CustomsRefIndex>(new Map());
 
 // Patch 6B follow-up: per-row YELLOW selection so the explanation panel can
@@ -189,7 +199,15 @@ function getMissingDraftFields(d: DraftRow, products: ProductRef[]): RequiredFie
   return missing;
 }
 
-type CustomsRefMini = { id: string; product_name: string; country: string };
+type CustomsRefMini = {
+  id: string;
+  product_name: string;
+  country: string;
+  threshold_price_usd: number | null;
+  customs_fee_percent: number | null;
+  euro1_markup_usd: number | null;
+  euro1_percent: number | null;
+};
 
 // D1-Fix v2.4 — local DB-mirroring customs preview helpers.
 // EU list copies public.is_eu_country verbatim (27 entries, Cyrillic).
@@ -267,12 +285,26 @@ function computeCustomsPreview(
   return { indicative, invoice };
 }
 
-// D1-Fix v2.5.1 — live preview of final cost ($/kg) mirroring DB calc_shipment_item_costs.
-// Returns null when required draft fields are missing or unit USD cannot be resolved.
-// Formula (exact DB parity):
-//   final_indicative = unit_usd + transport_per_kg + customs_indicative
-//   final_invoice    = unit_usd + transport_per_kg + customs_invoice
-// No division of unit_usd or customs by net-per-pallet (both already $/kg).
+// D1-Fix v2.5.3 — row breakdown components (ready values only, no formulas).
+export type RowComponents = {
+  productName: string;
+  country: string;
+  inputPrice: number | null;
+  inputCurrency: "EUR" | "USD" | null;
+  fxRate: number | null;          // only when input currency is EUR
+  unitUsd: number | null;
+  transportPerKg: number | null;
+  customsIndicative: number | null;
+  customsInvoice: number | null;
+  customsBasis: "exact" | "fallback" | "none" | "manual";
+  matchedRef: { product_name: string; country: string } | null;
+};
+
+// D1-Fix v2.5.3 — single helper returning both final preview value AND component values.
+// Clean-row safety: when isClean, customs ref comes ONLY from savedRefForClean
+// (the saved customs_match_id row from refById). pickCustomsRefForDraft is NEVER
+// called for clean rows, and active-flag filtering can't drop a saved match.
+// Live mode (dirty/new draft rows) keeps the existing pickCustomsRefForDraft logic.
 function computeRowPreview(
   d: DraftRow,
   dbItem: ItemRow | null,
@@ -281,25 +313,64 @@ function computeRowPreview(
   refs: ActiveCustomsRef[] | null,
   latestEurUsd: number | null,
   products: ProductRef[],
-): { indicative: number; invoice: number } | null {
-  if (!sh) return null;
-  if (!refs) return null;
-  // Hybrid "—" rule: any required field missing → show "—" instead of partial number.
-  if (getMissingDraftFields(d, products).length > 0) return null;
+  isClean: boolean,
+  savedRefForClean: ActiveCustomsRef | null,
+): { value: { indicative: number; invoice: number } | null; components: RowComponents } {
+  const components: RowComponents = {
+    productName: d.product_name,
+    country: d.origin_country,
+    inputPrice: d.unit_price > 0 ? d.unit_price : null,
+    inputCurrency: d.price_currency,
+    fxRate: null,
+    unitUsd: null,
+    transportPerKg: null,
+    customsIndicative: null,
+    customsInvoice: null,
+    customsBasis: "none",
+    matchedRef: null,
+  };
 
-  let unitUsd: number;
-  if (d.price_currency === "USD") {
-    unitUsd = d.unit_price;
-  } else {
-    const fx = sh.eur_usd_rate ?? latestEurUsd;
-    if (!fx || fx <= 0) return null;
-    unitUsd = d.unit_price * fx;
+  // Unit USD (always derive when possible, even if other fields missing).
+  let unitUsd: number | null = null;
+  if (d.unit_price > 0) {
+    if (d.price_currency === "USD") {
+      unitUsd = d.unit_price;
+    } else {
+      const fx = (sh?.eur_usd_rate ?? latestEurUsd) ?? null;
+      if (fx && fx > 0) {
+        components.fxRate = fx;
+        unitUsd = d.unit_price * fx;
+      }
+    }
+  }
+  components.unitUsd = unitUsd;
+
+  // Customs ref selection.
+  let ref: ActiveCustomsRef | null = null;
+  if (isClean) {
+    // Clean row: use ONLY the saved customs_match_id row, never re-pick.
+    ref = savedRefForClean;
+    if (ref) {
+      const sameCountry =
+        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.customsBasis = sameCountry ? "exact" : "fallback";
+    } else {
+      components.customsBasis = "none";
+    }
+  } else if (refs && d.product_name.trim() && d.origin_country.trim()) {
+    ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
+    if (ref) {
+      const sameCountry =
+        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.customsBasis = sameCountry ? "exact" : "fallback";
+    } else {
+      components.customsBasis = "none";
+    }
   }
 
-  // Customs: exact (product, country) first, then product-only fallback.
-  const ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
-
-  // Override only active when product+country unchanged vs DB row.
+  // Confirmed manual override (only when product+country unchanged vs DB row).
   let overrideDuty: number | null = null;
   if (
     dbItem &&
@@ -309,47 +380,70 @@ function computeRowPreview(
     (dbItem.origin_country ?? "").trim() === d.origin_country.trim()
   ) {
     overrideDuty = Number(dbItem.customs_override_duty_usd);
-  }
-  const customs = computeCustomsPreview(unitUsd, ref, overrideDuty);
-
-  // Transport — vehicle_log_usd mirrors DB exactly:
-  // - no vehicle: current shipment.logistics_cost_usd.
-  // - with vehicle: sum logistics_cost_usd over unique shipments (already deduped in vehicleContext.shipments).
-  let vehicleLogUsd = 0;
-  if (!sh.vehicle_id) {
-    vehicleLogUsd = Number(sh.logistics_cost_usd ?? 0);
-  } else {
-    vehicleLogUsd = (vehicleContext?.shipments ?? []).reduce(
-      (acc, row) => acc + Number(row.logistics_cost_usd ?? 0),
-      0,
-    );
+    components.customsBasis = "manual";
+    components.matchedRef = null;
   }
 
-  const pc = d.pallet_count;
-  const palletLegacy = Number(dbItem?.pallet_weight ?? 0);
-  const netPerPallet =
-    pc > 0 && d.net_weight_kg > 0 ? d.net_weight_kg / pc : palletLegacy;
-  const grossPerPallet =
-    pc > 0 && d.gross_weight_kg > 0 ? d.gross_weight_kg / pc : palletLegacy;
-
-  // expected_pallets: closed mode uses vehicles.total_pallets; open mode uses DB formula.
-  let expectedPallets: number;
-  if (vehicleContext?.vehicleStatus === "closed") {
-    expectedPallets = Math.max(0, Number(vehicleContext.vehicle.total_pallets ?? 0));
-  } else if (grossPerPallet > 0) {
-    expectedPallets = Math.min(26, Math.floor(21500 / grossPerPallet));
-    if (expectedPallets < 1) expectedPallets = 1;
-  } else {
-    expectedPallets = 26;
+  // Customs preview ($/kg). When unitUsd known we use full helper; otherwise
+  // override may still produce values without unitUsd.
+  if (unitUsd != null) {
+    const c = computeCustomsPreview(unitUsd, ref, overrideDuty);
+    components.customsIndicative = c.indicative;
+    components.customsInvoice = c.invoice;
+  } else if (overrideDuty != null) {
+    components.customsIndicative = overrideDuty;
+    components.customsInvoice = overrideDuty;
   }
 
-  const freightPerPallet = expectedPallets > 0 ? vehicleLogUsd / expectedPallets : 0;
-  const transportPerKg = netPerPallet > 0 ? freightPerPallet / netPerPallet : 0;
+  // Transport per kg — only when shipment context known.
+  if (sh) {
+    let vehicleLogUsd = 0;
+    if (!sh.vehicle_id) {
+      vehicleLogUsd = Number(sh.logistics_cost_usd ?? 0);
+    } else {
+      vehicleLogUsd = (vehicleContext?.shipments ?? []).reduce(
+        (acc, row) => acc + Number(row.logistics_cost_usd ?? 0),
+        0,
+      );
+    }
+    const pc = d.pallet_count;
+    const palletLegacy = Number(dbItem?.pallet_weight ?? 0);
+    const netPerPallet =
+      pc > 0 && d.net_weight_kg > 0 ? d.net_weight_kg / pc : palletLegacy;
+    const grossPerPallet =
+      pc > 0 && d.gross_weight_kg > 0 ? d.gross_weight_kg / pc : palletLegacy;
+    let expectedPallets: number;
+    if (vehicleContext?.vehicleStatus === "closed") {
+      expectedPallets = Math.max(0, Number(vehicleContext.vehicle.total_pallets ?? 0));
+    } else if (grossPerPallet > 0) {
+      expectedPallets = Math.min(26, Math.floor(21500 / grossPerPallet));
+      if (expectedPallets < 1) expectedPallets = 1;
+    } else {
+      expectedPallets = 26;
+    }
+    const freightPerPallet = expectedPallets > 0 ? vehicleLogUsd / expectedPallets : 0;
+    const transportPerKg = netPerPallet > 0 ? freightPerPallet / netPerPallet : 0;
+    components.transportPerKg = transportPerKg;
+  }
 
-  return {
-    indicative: unitUsd + transportPerKg + customs.indicative,
-    invoice: unitUsd + transportPerKg + customs.invoice,
-  };
+  // Full preview total only if all required draft fields filled.
+  let value: { indicative: number; invoice: number } | null = null;
+  if (
+    sh &&
+    refs &&
+    getMissingDraftFields(d, products).length === 0 &&
+    unitUsd != null &&
+    components.transportPerKg != null &&
+    components.customsIndicative != null &&
+    components.customsInvoice != null
+  ) {
+    value = {
+      indicative: unitUsd + components.transportPerKg + components.customsIndicative,
+      invoice: unitUsd + components.transportPerKg + components.customsInvoice,
+    };
+  }
+
+  return { value, components };
 }
 
 type ShipmentRow = {
@@ -755,7 +849,7 @@ function ProductsFullscreen() {
       const { data: refs } = matchIds.length
         ? await supabase
             .from("customs_reference")
-            .select("id,product_name,country")
+            .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_markup_usd,euro1_percent")
             .in("id", matchIds)
         : { data: [] };
       return {
@@ -935,17 +1029,17 @@ function ProductsFullscreen() {
     ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
     : null;
 
-  // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value }).
+  // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value, components }).
   // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
-  // D1-Fix v2.5.2 — also carries live customs status for dirty/new rows.
+  // D1-Fix v2.5.2 — also carries live customs status.
+  // D1-Fix v2.5.3 — also carries component breakdown values; clean rows use
+  // the saved customs_match_id row from refById (deactivation-safe), never re-pick.
   type PreviewEntry = {
     isDirty: boolean;
     value: { indicative: number; invoice: number } | null;
-    // hasCustomsInputs: both product_name and origin_country non-empty
     hasCustomsInputs: boolean;
-    // liveCustomsStatus: "green" exact (product+country), "yellow" product-only fallback,
-    // "red" no ref found. null when hasCustomsInputs is false.
     liveCustomsStatus: "green" | "yellow" | "red" | null;
+    components: RowComponents;
   };
   const previewMap = useMemo(() => {
     const m = new Map<string, PreviewEntry>();
@@ -953,7 +1047,28 @@ function ProductsFullscreen() {
       const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
       const baseline = d.dbId ? baselinesRef.current.get(d.dbId) ?? null : null;
       const isDirty = d.dbId == null || !baseline || isDraftDirty(d, baseline);
-      const value = computeRowPreview(
+
+      // D1-Fix v2.5.3 — clean-row customs safety: look up the exact saved
+      // customs_match_id row from refById (4-col widened select includes the
+      // numeric fields needed for indicative/invoice computation).
+      const isClean = !isDirty;
+      let savedRefForClean: ActiveCustomsRef | null = null;
+      if (isClean && dbItem?.customs_match_id) {
+        const r = refById.get(dbItem.customs_match_id);
+        if (r) {
+          savedRefForClean = {
+            id: r.id,
+            product_name: r.product_name,
+            country: r.country,
+            threshold_price_usd: r.threshold_price_usd,
+            customs_fee_percent: r.customs_fee_percent,
+            euro1_markup_usd: r.euro1_markup_usd,
+            euro1_percent: r.euro1_percent,
+          };
+        }
+      }
+
+      const { value, components } = computeRowPreview(
         d,
         dbItem,
         sh ?? null,
@@ -961,30 +1076,27 @@ function ProductsFullscreen() {
         activeCustomsRefs ?? null,
         latestEurUsd ?? null,
         products,
+        isClean,
+        savedRefForClean,
       );
-      // Live customs match (strict): exact (product, country) first, product-only fallback.
-      // Uses the same pickCustomsRefForDraft helper as the cost preview, which uses ONLY the
-      // two approved aliases (інжирний персик→персик, платерина нектарин→нектарин).
+
+      // Live customs chip status derived from the same components.customsBasis
+      // so the chip and breakdown panel can never disagree.
       const productTrim = d.product_name.trim();
       const countryTrim = d.origin_country.trim();
       const hasCustomsInputs = !!productTrim && !!countryTrim;
       let liveCustomsStatus: "green" | "yellow" | "red" | null = null;
-      if (hasCustomsInputs && activeCustomsRefs) {
-        const ref = pickCustomsRefForDraft(productTrim, countryTrim, activeCustomsRefs);
-        if (!ref) {
-          liveCustomsStatus = "red";
-        } else if (
-          normalizeCustomsKey(ref.country) === normalizeCustomsKey(countryTrim)
-        ) {
-          liveCustomsStatus = "green";
-        } else {
-          liveCustomsStatus = "yellow";
-        }
+      if (hasCustomsInputs) {
+        if (components.customsBasis === "exact") liveCustomsStatus = "green";
+        else if (components.customsBasis === "fallback") liveCustomsStatus = "yellow";
+        else if (components.customsBasis === "none") liveCustomsStatus = "red";
+        // "manual" leaves chip null — the manual override widget owns the UI.
       }
-      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus });
+
+      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus, components });
     }
     return m;
-    // baselinesRef is a mutable ref; intentionally excluded.
+    // baselinesRef and refById are intentionally excluded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
 
@@ -1681,7 +1793,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 px-3 py-1 text-left"
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Авто</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Авто · завантаження машини</span>
         <span className="text-[11px] text-foreground">
           <span className="font-semibold">{totalPallets}</span>
           <span className="text-muted-foreground">/{MAX_PALLETS}п</span>
@@ -1739,6 +1851,22 @@ type PreviewEntry = {
   // D1-Fix v2.5.2 — live customs status fields (for dirty/new rows).
   hasCustomsInputs: boolean;
   liveCustomsStatus: "green" | "yellow" | "red" | null;
+  // D1-Fix v2.5.3 — ready component values for the per-row breakdown panel.
+  components: RowComponents;
+};
+
+const EMPTY_COMPONENTS: RowComponents = {
+  productName: "",
+  country: "",
+  inputPrice: null,
+  inputCurrency: null,
+  fxRate: null,
+  unitUsd: null,
+  transportPerKg: null,
+  customsIndicative: null,
+  customsInvoice: null,
+  customsBasis: "none",
+  matchedRef: null,
 };
 
 function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
@@ -1754,6 +1882,8 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   onRemove: (localId: string) => void;
 }) {
   const [focused, setFocused] = useState<number | null>(null);
+  // D1-Fix v2.5.3 — per-row breakdown panel; only one row open at a time.
+  const [expandedLocalId, setExpandedLocalId] = useState<string | null>(null);
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
   const headerCls = (i: number) => cn(
     "px-1.5 py-2 font-medium transition-colors",
@@ -1794,7 +1924,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
               return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
             }, 0);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
-            const preview = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null };
+            const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
             return (
               <ProductRowEditor
                 key={d.localId}
@@ -1807,6 +1937,10 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 preview={preview}
                 readOnly={!currentShipmentEditable}
                 pulse={pulseFields}
+                isExpanded={expandedLocalId === d.localId}
+                onToggleExpanded={() =>
+                  setExpandedLocalId((cur) => (cur === d.localId ? null : d.localId))
+                }
                 onPatch={(patch) => onPatch(d.localId, patch)}
                 onRemove={() => onRemove(d.localId)}
               />
@@ -1824,7 +1958,7 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, onPatch, onRemove }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, isExpanded, onToggleExpanded, onPatch, onRemove }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
@@ -1834,6 +1968,8 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   preview: PreviewEntry;
   readOnly: boolean;
   pulse?: boolean;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
 }) {
@@ -2129,16 +2265,22 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             Собівартість $/кг
           </span>
           <div className="flex items-center gap-2">
-            {/* D1-Fix v2.5.2 — clean existing row: DB chip (with override widget below);
-                dirty existing row / new draft row: live customs status (display-only). */}
+            {/* D1-Fix v2.5.3 — customs chip derived uniformly from preview.components
+                so the chip (clean + dirty + new) and breakdown panel never disagree.
+                Hidden when product recognition is in conflict to avoid mixed messages. */}
             {(() => {
-              if (dbItem && !preview.isDirty) {
-                return <ItemCustomsChip item={dbItem} />;
+              if (hint && (hint.status === "product_no_match" || hint.status === "product_ambiguous")) {
+                return null;
               }
-              if (preview.hasCustomsInputs && preview.liveCustomsStatus) {
-                return <CustomsStatusChip status={preview.liveCustomsStatus} compact />;
+              if (!preview.hasCustomsInputs) return null;
+              const basis = preview.components.customsBasis;
+              if (basis === "manual") return null;
+              const status: "green" | "yellow" | "red" =
+                basis === "exact" ? "green" : basis === "fallback" ? "yellow" : "red";
+              if (status === "yellow") {
+                return <YellowFallbackChip components={preview.components} />;
               }
-              return null;
+              return <CustomsStatusChip status={status} compact />;
             })()}
             {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
             {(() => {
@@ -2152,6 +2294,16 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
               }
               return <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />;
             })()}
+            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time). */}
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-label={isExpanded ? "Сховати деталі" : "Показати деталі"}
+              aria-expanded={isExpanded}
+              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+            </button>
           </div>
         </div>
         {dbItem && <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />}
@@ -2175,6 +2327,13 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         )}
       </td>
     </tr>
+    {isExpanded && (
+      <tr className="border-b border-border">
+        <td colSpan={11} className="bg-muted/10 px-3 py-2">
+          <RowBreakdownPanel components={preview.components} />
+        </td>
+      </tr>
+    )}
     </>
   );
 }
@@ -2204,16 +2363,104 @@ function ItemCustomsChip({ item }: { item: ItemRow }) {
   return <CustomsStatusChip status={status} compact />;
 }
 
+// D1-Fix v2.5.3 — yellow fallback chip with explanation-only popover.
+// Used uniformly for clean and dirty/new rows. No override dialog from yellow.
+function YellowFallbackChip({ components }: { components: RowComponents }) {
+  const usedProduct = components.matchedRef?.product_name || "—";
+  const usedCountryRaw = components.matchedRef?.country || "";
+  const usedCountry = (usedCountryRaw && toUaCountry(usedCountryRaw)) || usedCountryRaw || "—";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="cursor-pointer"
+          title="Показати пояснення митниці для цієї позиції"
+        >
+          <CustomsStatusChip status="yellow" compact />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+      >
+        <div className="font-semibold">Точну країну не знайдено</div>
+        <div className="mt-1">Розрахунок виконано за товаром.</div>
+        <div className="mt-2">
+          Використаний рядок: <b>{usedProduct}</b> · <b>{usedCountry}</b>
+        </div>
+        {components.customsIndicative != null && (
+          <div className="mt-2">
+            Митниця індикатив: <b>${components.customsIndicative.toFixed(4)}/кг</b>
+          </div>
+        )}
+        {components.customsInvoice != null && (
+          <div>
+            Митниця інвойс: <b>${components.customsInvoice.toFixed(4)}/кг</b>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// D1-Fix v2.5.3 — per-row component breakdown panel.
+// Shows ready component values only. No formulas. No calculation steps.
+// Final indicative/invoice are NOT duplicated here — they live in the main cost row.
+function RowBreakdownPanel({ components }: { components: RowComponents }) {
+  const fmtMoney = (n: number | null) => (n == null ? "—" : `$${n.toFixed(4)}`);
+  const fmtPrice = (n: number | null, ccy: string | null) =>
+    n == null ? "—" : `${n.toFixed(4)} ${ccy ?? ""}`.trim();
+  const fmtRate = (n: number | null) => (n == null ? "—" : n.toFixed(4));
+  const countryLabel =
+    (components.country && (toUaCountry(components.country) || components.country)) || "—";
+  const basisLabel =
+    components.customsBasis === "exact"
+      ? "точне співпадіння"
+      : components.customsBasis === "fallback"
+        ? "fallback за товаром"
+        : components.customsBasis === "manual"
+          ? "ручна сума"
+          : "немає митного запису";
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground tabular-nums">{value}</span>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-[11px] sm:grid-cols-2 lg:grid-cols-3">
+      <Row label="Товар" value={`${components.productName || "—"} · ${countryLabel}`} />
+      <Row label="Ціна" value={fmtPrice(components.inputPrice, components.inputCurrency)} />
+      {components.inputCurrency === "EUR" && (
+        <Row label="Курс EUR→USD" value={fmtRate(components.fxRate)} />
+      )}
+      <Row label="Ціна USD/кг" value={fmtMoney(components.unitUsd)} />
+      <Row label="Транспорт USD/кг" value={fmtMoney(components.transportPerKg)} />
+      <Row label="Митниця індикатив USD/кг" value={fmtMoney(components.customsIndicative)} />
+      <Row label="Митниця інвойс USD/кг" value={fmtMoney(components.customsInvoice)} />
+      <Row label="Митна основа" value={basisLabel} />
+    </div>
+  );
+}
+
 function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; shipmentId: string; readOnly: boolean }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [pending, setPending] = useState(false);
-  if (item.customs_match_id) return null;
-  if (!isValidShipmentItem(item)) return null;
   const confirmedDuty =
     item.customs_override_confirmed_at && item.customs_override_duty_usd != null
       ? Number(item.customs_override_duty_usd)
       : null;
+  // D1-Fix v2.5.3 — large red panel collapses after a confirmed override;
+  // user can reopen it from a compact green pill to edit/review.
+  const [collapsed, setCollapsed] = useState<boolean>(confirmedDuty != null);
+  useEffect(() => {
+    if (confirmedDuty != null) setCollapsed(true);
+  }, [confirmedDuty]);
+  if (item.customs_match_id) return null;
+  if (!isValidShipmentItem(item)) return null;
   const onConfirm = async (duty: number) => {
     setPending(true);
     try {
@@ -2223,6 +2470,7 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       });
       if (error) throw error;
       toast.success("Митний збір підтверджено");
+      setCollapsed(true);
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
       qc.invalidateQueries({ queryKey: ["shipments-list"] });
@@ -2233,6 +2481,21 @@ function ItemCustomsOverride({ item, shipmentId, readOnly }: { item: ItemRow; sh
       setPending(false);
     }
   };
+  if (collapsed && confirmedDuty != null) {
+    return (
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          disabled={readOnly}
+          className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Натисніть, щоб переглянути або змінити"
+        >
+          Митниця підтверджена: ${confirmedDuty.toFixed(4)}/кг
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="mt-2">
       <CustomsManualOverrideField
