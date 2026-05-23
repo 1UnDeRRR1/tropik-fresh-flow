@@ -656,29 +656,16 @@ function CustomsStatusBadge({
       </span>
     );
   }
-  const { selectedId, setSelectedId, openRef } = useContext(FallbackSelectionContext);
+  const { openRef } = useContext(FallbackSelectionContext);
   const [open, setLocalOpen] = useState(false);
   // Register the popover opener so YELLOW row chips can open the panel.
   useEffect(() => {
     openRef.current = setLocalOpen;
     return () => { openRef.current = () => {}; };
   }, [openRef]);
-  const current =
-    fallbackItems.find((f) => f.item.id === selectedId) ?? fallbackItems[0];
-  const productName = current?.item.product_name || "—";
-  const missingCountry =
-    toUaCountry(current?.item.origin_country ?? "") || current?.item.origin_country || "—";
-  const usedCountry = toUaCountry(current?.ref.country ?? "") || current?.ref.country || "—";
+  const count = fallbackItems.length;
   return (
-    <Popover
-      open={open}
-      onOpenChange={(o) => {
-        setLocalOpen(o);
-        if (o && !selectedId && fallbackItems[0]) {
-          setSelectedId(fallbackItems[0].item.id);
-        }
-      }}
-    >
+    <Popover open={open} onOpenChange={setLocalOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -688,37 +675,38 @@ function CustomsStatusBadge({
           <AlertTriangle className="h-3 w-3" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="center" className="w-72 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-        <div>
-          Товар <b>{productName}</b>: країна <b>{missingCountry}</b> відсутня у митній базі, собівартість розрахована по найвищому індикативу для цього товару (<b>{usedCountry}</b>).
+      <PopoverContent
+        side="bottom"
+        align="center"
+        className="w-80 border-amber-400/40 bg-amber-50 p-3 text-[11px] leading-snug text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+      >
+        <div className="font-semibold">
+          Fallback по товару: {count} {count === 1 ? "позиція" : count < 5 ? "позиції" : "позицій"}
         </div>
-        {fallbackItems.length > 1 && (
-          <div className="mt-2 flex flex-wrap gap-1 border-t border-amber-400/30 pt-2">
-            {fallbackItems.map((f) => {
-              const active = f.item.id === (current?.item.id ?? null);
-              const label = `${f.item.product_name || "—"} · ${toUaCountry(f.item.origin_country ?? "") || f.item.origin_country || "—"}`;
-              return (
-                <button
-                  key={f.item.id}
-                  type="button"
-                  onClick={() => setSelectedId(f.item.id)}
-                  className={cn(
-                    "rounded border px-1.5 py-0.5 text-[10px] font-medium",
-                    active
-                      ? "border-amber-500 bg-amber-200/70 text-amber-900 dark:bg-amber-800/60 dark:text-amber-100"
-                      : "border-amber-400/40 bg-transparent text-amber-700 hover:bg-amber-100 dark:text-amber-300",
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <ul className="mt-2 space-y-1.5 border-t border-amber-400/30 pt-2">
+          {fallbackItems.map((f) => {
+            const product = f.item.product_name || "—";
+            const origin =
+              toUaCountry(f.item.origin_country ?? "") || f.item.origin_country || "—";
+            const basisProduct = f.ref.product_name || "—";
+            const basisCountry = toUaCountry(f.ref.country) || f.ref.country || "—";
+            return (
+              <li key={f.item.id} className="leading-snug">
+                <div>
+                  <b>{product}</b> · <b>{origin}</b>
+                </div>
+                <div className="text-amber-700/80 dark:text-amber-300/80">
+                  базис: {basisProduct} · {basisCountry}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </PopoverContent>
     </Popover>
   );
 }
+
 
 function ProductsFullscreen() {
   const { id } = Route.useParams();
