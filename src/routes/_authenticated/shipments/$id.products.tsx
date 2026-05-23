@@ -1704,12 +1704,18 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   );
 }
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
+type PreviewEntry = {
+  isDirty: boolean;
+  value: { indicative: number; invoice: number } | null;
+};
+
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
   products: ProductRef[];
   vehicleContext: VehicleContext | null;
+  previewMap: Map<string, PreviewEntry>;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
