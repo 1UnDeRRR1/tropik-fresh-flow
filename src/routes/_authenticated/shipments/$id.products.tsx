@@ -122,6 +122,27 @@ type DraftRow = {
   price_currency: "EUR" | "USD";
 };
 
+// D1-Fix v2.5.4 — recognition hint shared between row resolver and commit guard.
+// Stored per-localId in a ref. Keys identify which draft values produced the
+// status so commitDraft can detect stale hints and re-check via read-only RPC.
+export type ResolverHintStatus =
+  | "matched"
+  | "pallet_no_match"
+  | "product_no_match"
+  | "product_ambiguous"
+  | "country_no_match";
+export type ResolverHintInfo = {
+  status: ResolverHintStatus;
+  productKey: string;
+  countryKey: string;
+  packageKey: string;
+};
+function resolverKeyOf(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase();
+}
+
+
+
 const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
   "product_name","variety","origin_country","caliber","sku","package_used",
   "pallet_count","net_weight_kg","gross_weight_kg",
