@@ -1428,6 +1428,7 @@ function ProductsFullscreen() {
           shipmentId={id}
           products={products}
           vehicleContext={effectiveVehicleContext}
+          previewMap={previewMap}
           currentShipmentEditable={currentShipmentEditable}
           pulseFields={pulseFields}
           onPatch={patchDraft}
