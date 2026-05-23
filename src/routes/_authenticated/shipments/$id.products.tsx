@@ -657,7 +657,7 @@ function ProductsFullscreen() {
           );
         }
 
-        const totalKg = safePalletCount * palletWeight;
+        
 
         // 9F Phase B — prefill writes new weight model + legacy compat-shim.
         // net = gross = pc * offer.pallet_weight (no resolver, manual mode).
