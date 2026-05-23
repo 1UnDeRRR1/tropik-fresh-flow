@@ -1525,40 +1525,28 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false }: { item: ItemRow; shipmentId: string; products: ProductRef[]; otherPallets: number; otherKg: number; readOnly: boolean; pulse?: boolean }) {
-  const qc = useQueryClient();
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, readOnly, pulse = false, onPatch, onRemove }: {
+  draft: DraftRow;
+  dbItem: ItemRow | null;
+  shipmentId: string;
+  products: ProductRef[];
+  otherPallets: number;
+  otherKg: number;
+  readOnly: boolean;
+  pulse?: boolean;
+  onPatch: (patch: Partial<DraftRow>) => void;
+  onRemove: () => void;
+}) {
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
-  const normalizedProductName = item.product_name === "Новий товар" ? "" : (item.product_name ?? "");
-  // 9F Phase B — final weight model: одна правда (Нетто/Брутто = totals строки).
-  // resolver per-pallet base хранится скрыто в form/DB и в UI не показывается.
-  const [form, setForm] = useState({
-    product_name: normalizedProductName,
-    variety: item.variety ?? "",
-    origin_country: item.origin_country ?? "",
-    caliber: item.caliber ?? "",
-    sku: item.sku ?? "",
-    pallet_count: item.pallet_count ?? 0,
-    package_used: item.package_used ?? "",
-    net_weight_kg: Number(item.net_weight_kg ?? 0),
-    gross_weight_kg: Number(item.gross_weight_kg ?? 0),
-    resolver_net_per_pallet_kg: item.resolver_net_per_pallet_kg ?? null,
-    resolver_gross_per_pallet_kg: item.resolver_gross_per_pallet_kg ?? null,
-    net_auto: item.net_auto ?? false,
-    gross_auto: item.gross_auto ?? false,
-    unit_price: item.unit_price ?? 0,
-    price_currency: (item.price_currency ?? "EUR") as "EUR" | "USD",
-  });
-  const dirtyRef = useRef(false);
-  // touchedRef — пользователь явно изменил Товар/Країна в текущей сессии.
-  // Используется как gate для resolver: открытие старой строки resolver не запускает.
+  // D1: draft is the source of truth — no internal form state, no autosave.
+  const form = draft;
   const touchedRef = useRef({ product: false, country: false });
-  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+  const set = <K extends keyof DraftRow>(k: K, v: DraftRow[K]) => {
     if (readOnly) return;
-    dirtyRef.current = true;
-    setForm((f) => ({ ...f, [k]: v }));
+    onPatch({ [k]: v } as Partial<DraftRow>);
   };
 
   // Field-level validation
@@ -1573,67 +1561,9 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
   const invalidGross = grossNum <= 0;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
-  // Debounced autosave. Не пишет, пока строка невалидна (pc>0, net>0, gross>0, известный товар).
-  // compat-shim для legacy pallet_weight: pallet_weight = net/pc (никогда 0, никогда null
-  // для валидной строки). qty = net_weight_kg — численно идентично legacy pc*pw.
-  useEffect(() => {
-    if (readOnly) return;
-    if (!dirtyRef.current) return;
-    const t = setTimeout(async () => {
-      const resolvedName =
-        resolveProductOption(form.product_name, products.map((p) => p.name)) ??
-        canonicalizeProductName(form.product_name);
-      const trimmedProductName = resolvedName;
-      if (!trimmedProductName || !isKnownProductName(trimmedProductName, products)) {
-        return;
-      }
-      const pc = Number(form.pallet_count) || 0;
-      const net = Number(form.net_weight_kg) || 0;
-      const gross = Number(form.gross_weight_kg) || 0;
-      if (pc <= 0 || net <= 0 || gross <= 0) {
-        // невалидная строка — не сохраняем, legacy pallet_weight не перетираем.
-        return;
-      }
-      const palletWeightShim = net / pc; // safe: pc>0 проверено выше
-      const { error } = await supabase
-        .from("shipment_items")
-        .update({
-          product_name: trimmedProductName,
-          variety: form.variety || null,
-          origin_country: normalizeCountry(form.origin_country) || null,
-          caliber: form.caliber || null,
-          sku: form.sku || null,
-          pallet_count: pc,
-          package_used: form.package_used.trim() || null,
-          net_weight_kg: net,
-          gross_weight_kg: gross,
-          resolver_net_per_pallet_kg: form.resolver_net_per_pallet_kg,
-          resolver_gross_per_pallet_kg: form.resolver_gross_per_pallet_kg,
-          net_auto: form.net_auto,
-          gross_auto: form.gross_auto,
-          pallet_weight: palletWeightShim,
-          qty: net,
-          unit_price: Number(form.unit_price),
-          price_currency: form.price_currency,
-        })
-        .eq("id", item.id);
-      if (error) toast.error(error.message);
-      else {
-        dirtyRef.current = false;
-        await syncVehicleStateForShipment(shipmentId);
-        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-        invalidateVehicleAndShipmentCaches(qc);
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [form, item.id, products, qc, readOnly, shipmentId]);
-
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 9F Phase B — resolver: пишет в form state (matched / pallet_no_match) или
-  // показывает inline hint (product/country errors). Триггер строго onBlur
-  // Товар/Країна, только если пользователь явно изменил одно из этих полей
-  // в текущей сессии (touchedRef). НЕ useEffect, НЕ on mount, НЕ на keystroke.
+  // Resolver — onBlur of Товар/Країна, gated by touchedRef.
   type ResolverHint =
     | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
     | null;
@@ -1676,67 +1606,54 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
         const pGross = asNum(r.pallet_gross_kg);
         const pkg = asStr(r.package_used);
         setHint(null);
-        dirtyRef.current = true;
-        setForm((f) => {
-          const pc = (Number(f.pallet_count) || 0) > 0 ? Number(f.pallet_count) : 1;
-          return {
-            ...f,
-            pallet_count: pc,
-            package_used: pkg ?? f.package_used,
-            resolver_net_per_pallet_kg: pNet,
-            resolver_gross_per_pallet_kg: pGross,
-            net_auto: true,
-            gross_auto: true,
-            net_weight_kg: pNet != null ? pNet * pc : f.net_weight_kg,
-            gross_weight_kg: pGross != null ? pGross * pc : f.gross_weight_kg,
-          };
+        const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
+        onPatch({
+          pallet_count: pc,
+          package_used: pkg ?? form.package_used,
+          resolver_net_per_pallet_kg: pNet,
+          resolver_gross_per_pallet_kg: pGross,
+          net_auto: true,
+          gross_auto: true,
+          net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
+          gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
         });
       } else if (status === "pallet_no_match") {
         setHint({ status: "pallet_no_match" });
-        dirtyRef.current = true;
-        setForm((f) => ({
-          ...f,
+        onPatch({
           package_used: "",
           resolver_net_per_pallet_kg: null,
           resolver_gross_per_pallet_kg: null,
           net_auto: false,
           gross_auto: false,
-        }));
+        });
       } else if (
         status === "product_no_match" ||
         status === "product_ambiguous" ||
         status === "country_no_match"
       ) {
         setHint({ status });
-        // Не трогаем form / resolver_* / auto-флаги.
       } else {
         setHint(null);
       }
     } catch {
       if (seq === resolverSeqRef.current) setHint(null);
     }
-  }, [readOnly, form.product_name, form.origin_country]);
+  }, [readOnly, form.product_name, form.origin_country, form.pallet_count, form.package_used, form.net_weight_kg, form.gross_weight_kg, onPatch]);
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
-    // Only fire when focus leaves this cell entirely (not when moving between child elements)
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     void runResolver();
   };
 
-
-  const remove = async () => {
+  // D1: remove is local-only. DB DELETE happens last in commitDraft.
+  const remove = () => {
     if (readOnly) {
       toast.error("Можна редагувати лише власні товари");
       return;
     }
-    const { error } = await supabase.from("shipment_items").delete().eq("id", item.id);
-    if (error) return toast.error(error.message);
     setConfirmOpen(false);
-    await syncVehicleStateForShipment(shipmentId);
-    qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipmentId] });
-    invalidateVehicleAndShipmentCaches(qc);
+    onRemove();
   };
-
 
   const { setFocused } = useContext(FocusedColContext);
   return (
@@ -1755,8 +1672,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.product = true;
-            dirtyRef.current = true;
-            setForm((f) => ({ ...f, product_name: v }));
+            onPatch({ product_name: v });
           }}
           options={knownProductNames}
           placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
@@ -1783,8 +1699,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.country = true;
-            dirtyRef.current = true;
-            setForm((f) => ({ ...f, origin_country: v }));
+            onPatch({ origin_country: v });
           }}
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
@@ -1810,28 +1725,23 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           invalid={invalidPallets}
           onChange={(v) => {
             if (readOnly) return;
-            // 9F Phase C2b — capacity warning uses gross_weight_kg / pallet_count; fallback to legacy pallet_weight.
-            // Warning only — never clamps `v`, never mutates pallet_count below.
             const grossPerPallet = palletCountNum > 0 && grossNum > 0
               ? grossNum / palletCountNum
-              : Number(item.pallet_weight ?? 0);
+              : Number(dbItem?.pallet_weight ?? 0);
             const maxByPallets = Math.max(0, MAX_PALLETS - otherPallets);
             const maxByWeight = grossPerPallet > 0 ? Math.floor(Math.max(0, MAX_WEIGHT_KG - otherKg) / grossPerPallet) : Infinity;
             const max = Math.max(0, Math.min(maxByPallets, maxByWeight));
             if (v > max) {
               toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
             }
-            dirtyRef.current = true;
-            setForm((f) => {
-              const next = { ...f, pallet_count: v };
-              if (f.net_auto && f.resolver_net_per_pallet_kg != null) {
-                next.net_weight_kg = f.resolver_net_per_pallet_kg * v;
-              }
-              if (f.gross_auto && f.resolver_gross_per_pallet_kg != null) {
-                next.gross_weight_kg = f.resolver_gross_per_pallet_kg * v;
-              }
-              return next;
-            });
+            const patch: Partial<DraftRow> = { pallet_count: v };
+            if (form.net_auto && form.resolver_net_per_pallet_kg != null) {
+              patch.net_weight_kg = form.resolver_net_per_pallet_kg * v;
+            }
+            if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
+              patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
+            }
+            onPatch(patch);
           }}
         />
       </td>
@@ -1844,10 +1754,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
-            dirtyRef.current = true;
-            // Manual override: фиксируем итог строки, resolver base НЕ трогаем,
-            // обратной математики нет.
-            setForm((f) => ({ ...f, net_weight_kg: safe, net_auto: false }));
+            onPatch({ net_weight_kg: safe, net_auto: false });
           }}
         />
       </td>
@@ -1860,8 +1767,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
-            dirtyRef.current = true;
-            setForm((f) => ({ ...f, gross_weight_kg: safe, gross_auto: false }));
+            onPatch({ gross_weight_kg: safe, gross_auto: false });
           }}
         />
       </td>
@@ -1896,15 +1802,13 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
               <AlertDialogHeader>
                 <AlertDialogTitle>Видалити позицію?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Рядок товару буде видалено з поставки без можливості швидкого відновлення.
+                  Рядок товару буде видалено з поставки після натискання «Готово».
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Скасувати</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => {
-                    void remove();
-                  }}
+                  onClick={() => { remove(); }}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   Видалити
@@ -1917,16 +1821,20 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     </tr>
     <tr className="border-b border-border">
       <td colSpan={11} className="bg-muted/30 px-3 py-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Собівартість $/кг
-          </span>
-          <div className="flex items-center gap-2">
-            <ItemCustomsChip item={item} />
-            <CostPair indicative={item.final_cost_indicative} invoice={item.final_cost_invoice} size="sm" />
-          </div>
-        </div>
-        <ItemCustomsOverride item={item} shipmentId={shipmentId} readOnly={readOnly} />
+        {dbItem && (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Собівартість $/кг
+              </span>
+              <div className="flex items-center gap-2">
+                <ItemCustomsChip item={dbItem} />
+                <CostPair indicative={dbItem.final_cost_indicative} invoice={dbItem.final_cost_invoice} size="sm" />
+              </div>
+            </div>
+            <ItemCustomsOverride item={dbItem} shipmentId={shipmentId} readOnly={readOnly} />
+          </>
+        )}
         {hint && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
@@ -1950,6 +1858,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     </>
   );
 }
+
 
 function ItemCustomsChip({ item }: { item: ItemRow }) {
   const refById = useContext(CustomsRefContext);
