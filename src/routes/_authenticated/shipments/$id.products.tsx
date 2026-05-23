@@ -1109,8 +1109,15 @@ function TransportBar({
 
 function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId, customsStatus, fallbackItems }: { vehicleContext: VehicleContext; currentShipmentId: string; customsStatus?: "found" | "fallback" | "none"; fallbackItems?: Array<{ item: ItemRow; ref: CustomsRefMini }> }) {
   const [open, setOpen] = useState(false);
-  const totalPallets = Number(vehicleContext.vehicle.total_pallets ?? 0);
-  const totalKg = Number(vehicleContext.vehicle.total_weight_kg ?? 0);
+  // 9F Phase C2b-Fix — live aggregate from loadedItems (gross-based),
+  // not vehicles.total_weight_kg (which is still net-based via DB trigger).
+  const totalPallets = vehicleContext.loadedItems.reduce(
+    (sum, it) => sum + Number(it.pallet_count ?? 0), 0,
+  );
+  const totalKg = vehicleContext.loadedItems.reduce((sum, it) => {
+    const g = Number(it.gross_weight_kg ?? 0);
+    return sum + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
+  }, 0);
   const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
   const tight = remainingPallets <= 1;
