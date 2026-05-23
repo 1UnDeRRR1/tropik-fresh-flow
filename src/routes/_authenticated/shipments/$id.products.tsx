@@ -1332,7 +1332,7 @@ function ProductRowEditor({ item, shipmentId, products, otherPallets, otherKg, r
     }
   }, []);
 
-  const handleResolverBlur = (e: FocusEvent<HTMLDivElement>) => {
+  const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     // Only fire when focus leaves this cell entirely (not when moving between child elements)
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     void runResolver();
