@@ -78,6 +78,14 @@ type ItemRow = {
   customs_override_duty_usd: number | null;
   customs_override_confirmed_at: string | null;
   customs_override_by: string | null;
+  // 9F Phase B — final weight model (Phase A added columns).
+  package_used: string | null;
+  net_weight_kg: number | null;
+  gross_weight_kg: number | null;
+  resolver_net_per_pallet_kg: number | null;
+  resolver_gross_per_pallet_kg: number | null;
+  net_auto: boolean | null;
+  gross_auto: boolean | null;
 };
 
 type CustomsRefMini = { id: string; product_name: string; country: string };
