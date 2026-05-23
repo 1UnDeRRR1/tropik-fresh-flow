@@ -2228,7 +2228,23 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     onRemove();
   };
 
+  // D1-Fix v2.5.4 — collapse state lifted up so the green pill can render
+  // inside the right-aligned cluster while the expanded red panel stays below.
+  const confirmedOverrideDuty =
+    dbItem && dbItem.customs_override_confirmed_at && dbItem.customs_override_duty_usd != null
+      ? Number(dbItem.customs_override_duty_usd)
+      : null;
+  const overrideEligible =
+    !!dbItem && !dbItem.customs_match_id && isValidShipmentItem(dbItem);
+  const [overrideOpen, setOverrideOpen] = useState<boolean>(
+    overrideEligible && confirmedOverrideDuty == null,
+  );
+  useEffect(() => {
+    if (confirmedOverrideDuty != null) setOverrideOpen(false);
+  }, [confirmedOverrideDuty]);
+
   const { setFocused } = useContext(FocusedColContext);
+
   return (
     <>
     <tr
