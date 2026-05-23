@@ -542,7 +542,7 @@ function ProductsFullscreen() {
     enabled: !loading && !!user,
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
-        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
+        supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
         Promise.all([
           supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
@@ -555,6 +555,8 @@ function ProductsFullscreen() {
         country: string | null;
         logistics_cost: number | null;
         logistics_cost_currency: string | null;
+        logistics_cost_usd: number | null;
+        eur_usd_rate: number | null;
         vehicle_id: string | null;
         created_by: string | null;
         import_manager_id: string | null;
@@ -566,12 +568,12 @@ function ProductsFullscreen() {
         const [{ data: v }, { data: siblingShipments }] = await Promise.all([
           supabase
             .from("vehicles" as never)
-            .select("id,code,country,total_pallets,total_weight_kg,created_by")
+            .select("id,code,country,total_pallets,total_weight_kg,created_by,status")
             .eq("id", sh.vehicle_id)
             .single(),
           supabase
             .from("shipments")
-            .select("id,code,created_by,import_manager_id,logistics_cost,logistics_cost_currency,suppliers(name)")
+            .select("id,code,created_by,import_manager_id,logistics_cost,logistics_cost_currency,logistics_cost_usd,suppliers(name)")
             .eq("vehicle_id", sh.vehicle_id)
             .order("created_at"),
         ]);
@@ -584,6 +586,7 @@ function ProductsFullscreen() {
           import_manager_id: row.import_manager_id ?? null,
           logistics_cost: row.logistics_cost ?? null,
           logistics_cost_currency: row.logistics_cost_currency ?? null,
+          logistics_cost_usd: (row as { logistics_cost_usd?: number | null }).logistics_cost_usd ?? null,
           supplier_name: row.suppliers?.name ?? null,
           owner_id: row.import_manager_id ?? row.created_by ?? null,
         }));
@@ -612,6 +615,11 @@ function ProductsFullscreen() {
         const profileNameById = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"]));
         const shipmentById = new Map(shipmentsForVehicle.map((row) => [row.id, row]));
         const ownerShipment = shipmentsForVehicle.find((row) => row.created_by === vehicleOwnerId) ?? shipmentsForVehicle.find((row) => Number(row.logistics_cost ?? 0) > 0) ?? null;
+
+        // D1-Fix v2.4 — dedupe shipments by id for transportTotalUsd computation.
+        const dedupedShipments = Array.from(
+          new Map(shipmentsForVehicle.map((row) => [row.id, { id: row.id, logistics_cost_usd: row.logistics_cost_usd }])).values(),
+        );
 
         vehicleContext = v
           ? {
@@ -645,6 +653,8 @@ function ProductsFullscreen() {
                   isOwnManager: ownerId != null && ownerId === user?.id,
                 };
               }),
+              vehicleStatus: (v as { status?: string | null } | null)?.status ?? null,
+              shipments: dedupedShipments,
             }
           : null;
       }
