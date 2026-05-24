@@ -2021,8 +2021,9 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
 
 
   const [focused, setFocused] = useState<number | null>(null);
-  // D1-Fix v2.5.3 — per-row breakdown panel; only one row open at a time.
-  const [expandedLocalId, setExpandedLocalId] = useState<string | null>(null);
+  // D1-Fix v2.5.5 — per-row breakdown panel removed; row chevron now shortcuts
+  // to the single TopCalculationZone above the table.
+
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
   const headerCls = (i: number) => cn(
     "px-1.5 py-2 font-medium transition-colors",
