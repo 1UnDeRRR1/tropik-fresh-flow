@@ -1904,7 +1904,7 @@ function TransportBar({
   );
 }
 
-function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId, customsStatus, fallbackItems }: { vehicleContext: VehicleContext; currentShipmentId: string; customsStatus?: "found" | "fallback" | "none"; fallbackItems?: Array<{ item: ItemRow; ref: CustomsRefMini }> }) {
+function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
   const [open, setOpen] = useState(false);
   // 9F Phase C2b-Fix — live aggregate from loadedItems (gross-based),
   // not vehicles.total_weight_kg (which is still net-based via DB trigger).
@@ -1940,13 +1940,13 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
           вільно {remainingPallets}п · {Math.round(remainingKg)}кг
         </span>
         <span className="ml-auto flex items-center gap-1 text-[10px]">
-          {customsStatus && customsStatus !== "none" && (
-            <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems ?? []} />
-          )}
+          {/* D1-Fix v2.5.5 — customs status badge moved into the new
+              TopCalculationZone (single source of truth for cost details). */}
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", open && "rotate-180")} />
         </span>
 
       </button>
+
       {open && (
         <div className="max-h-52 overflow-y-auto border-t border-border">
           {count === 0 ? (
