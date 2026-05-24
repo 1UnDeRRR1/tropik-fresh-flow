@@ -1904,6 +1904,284 @@ function TransportBar({
   );
 }
 
+// D1-Fix v2.5.5 — single top calculation zone.
+// Source of truth = visible draftItems (clean / dirty / new / invalid-recognition),
+// minus pendingDeletes (string[] of dbIds — array semantics, type unchanged).
+// Component values come from previewMap (computeRowPreview with isClean=true for
+// clean rows -> saved customs_match_id via refById, never re-picked). final_cost_*
+// is NEVER read here and is NEVER displayed (no duplicate of the row's CostPair).
+function TopCalculationZone({
+  draftItems,
+  pendingDeletes,
+  previewMap,
+  resolverHints,
+  openTick,
+  scrollTarget,
+}: {
+  draftItems: DraftRow[];
+  pendingDeletes: string[];
+  previewMap: Map<string, PreviewEntry>;
+  resolverHints: Map<string, ResolverHintInfo>;
+  openTick: number;
+  scrollTarget: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Visible rows = draftItems minus pending-deleted dbIds. New rows (dbId=null)
+  // are always included so the manager sees them BEFORE "Готово".
+  const visible = useMemo(
+    () =>
+      draftItems.filter(
+        (d) => !(d.dbId && pendingDeletes.includes(d.dbId)),
+      ),
+    [draftItems, pendingDeletes],
+  );
+
+  // Open + scroll/highlight when a row chevron fires (openTick increments).
+  useEffect(() => {
+    if (openTick === 0) return;
+    setOpen(true);
+    const raf = requestAnimationFrame(() => {
+      if (!scrollTarget) return;
+      const el = document.querySelector(
+        `[data-topzone-row-id="${CSS.escape(scrollTarget)}"]`,
+      );
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("ring-2", "ring-brand");
+      window.setTimeout(() => {
+        el.classList.remove("ring-2", "ring-brand");
+      }, 1500);
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTick]);
+
+  // Markers — derived from the SAME visible rows.
+  let hasYellow = false;
+  let hasRed = false;
+  let hasManual = false;
+  for (const d of visible) {
+    const h = resolverHints.get(d.localId);
+    if (
+      h &&
+      (h.status === "product_no_match" ||
+        h.status === "product_ambiguous" ||
+        h.status === "country_no_match")
+    ) {
+      hasRed = true;
+      continue;
+    }
+    const c = previewMap.get(d.localId)?.components;
+    if (!c) continue;
+    if (c.customsBasis === "fallback") hasYellow = true;
+    else if (
+      c.customsBasis === "none" &&
+      d.product_name.trim() &&
+      d.origin_country.trim()
+    )
+      hasRed = true;
+    else if (c.customsBasis === "manual") hasManual = true;
+  }
+
+  const count = visible.length;
+  const wordForm =
+    count === 1 ? "позиція" : count >= 2 && count <= 4 ? "позиції" : "позицій";
+
+  return (
+    <div className="border-b border-border bg-card/70">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-1 text-left"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Собівартість
+        </span>
+        <span className="text-[11px] text-foreground">
+          <span className="font-semibold">{count}</span>
+          <span className="text-muted-foreground"> {wordForm}</span>
+        </span>
+        <span className="ml-auto flex items-center gap-1.5 text-[11px] font-semibold">
+          {hasYellow && (
+            <span
+              title="Fallback по товару"
+              className="text-amber-600 dark:text-amber-400"
+            >
+              ⚠
+            </span>
+          )}
+          {hasRed && (
+            <span
+              title="Митну базу або товар/країну не знайдено"
+              className="text-destructive"
+            >
+              ✕
+            </span>
+          )}
+          {hasManual && (
+            <span
+              title="Ручна сума митного збору"
+              className="text-success"
+            >
+              ✎
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform text-muted-foreground",
+              open && "rotate-180",
+            )}
+          />
+        </span>
+      </button>
+      {open && (
+        <div className="max-h-64 overflow-y-auto border-t border-border px-2 py-2">
+          {count === 0 ? (
+            <div className="px-1 py-1 text-[12px] text-muted-foreground">
+              Поки що немає позицій
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {visible.map((d) => (
+                <TopCalcEntry
+                  key={d.localId}
+                  draft={d}
+                  preview={previewMap.get(d.localId) ?? null}
+                  hint={resolverHints.get(d.localId) ?? null}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopCalcEntry({
+  draft,
+  preview,
+  hint,
+}: {
+  draft: DraftRow;
+  preview: PreviewEntry | null;
+  hint: ResolverHintInfo | null;
+}) {
+  const productInvalid =
+    !!hint &&
+    (hint.status === "product_no_match" || hint.status === "product_ambiguous");
+  const countryInvalid = !!hint && hint.status === "country_no_match";
+  const isInvalid = productInvalid || countryInvalid;
+
+  const c = preview?.components ?? EMPTY_COMPONENTS;
+
+  const productLabel = draft.product_name.trim() || "—";
+  const countryLabel =
+    (draft.origin_country &&
+      (toUaCountry(draft.origin_country) || draft.origin_country)) ||
+    "—";
+
+  const fmtMoney = (n: number | null) =>
+    isInvalid || n == null ? "—" : `$${n.toFixed(4)}`;
+  const fmtPrice = (n: number | null, ccy: "EUR" | "USD" | null) =>
+    isInvalid || n == null ? "—" : `${n.toFixed(4)} ${ccy ?? ""}`.trim();
+  const fmtRate = (n: number | null) =>
+    isInvalid || n == null ? "—" : n.toFixed(4);
+
+  let basisText: string;
+  let basisCls = "text-muted-foreground";
+  if (productInvalid) {
+    basisText = "Митна база: недоступна, товар не розпізнано";
+    basisCls = "text-destructive";
+  } else if (countryInvalid) {
+    basisText = "Митна база: недоступна, країну не розпізнано";
+    basisCls = "text-destructive";
+  } else if (c.customsBasis === "exact" && c.matchedRef) {
+    const cc = toUaCountry(c.matchedRef.country) || c.matchedRef.country;
+    basisText = `Використано: ${c.matchedRef.product_name} / ${cc}`;
+  } else if (c.customsBasis === "fallback" && c.matchedRef) {
+    const cc = toUaCountry(c.matchedRef.country) || c.matchedRef.country;
+    basisText = `Митна база: fallback по товару · Використано: ${c.matchedRef.product_name} / ${cc}`;
+    basisCls = "text-amber-700 dark:text-amber-400";
+  } else if (c.customsBasis === "manual") {
+    const d = c.customsIndicative ?? 0;
+    basisText = `Митний збір введено вручну: ${d.toFixed(4)} USD/кг`;
+    basisCls = "text-success";
+  } else {
+    basisText =
+      "Митна база: товар не знайдено · Розрахунок без митної складової";
+    basisCls = "text-destructive";
+  }
+
+  const containerCls = isInvalid
+    ? "border-destructive/40 bg-destructive/5"
+    : c.customsBasis === "fallback"
+      ? "border-amber-400/40 bg-amber-50/60 dark:bg-amber-950/20"
+      : c.customsBasis === "none" &&
+          draft.product_name.trim() &&
+          draft.origin_country.trim()
+        ? "border-destructive/40 bg-destructive/5"
+        : c.customsBasis === "manual"
+          ? "border-success/40 bg-success/5"
+          : "border-border";
+
+  return (
+    <li
+      data-topzone-row-id={draft.localId}
+      className={cn(
+        "rounded border px-2 py-1.5 text-[11px] leading-snug",
+        containerCls,
+      )}
+    >
+      <div className="font-semibold">
+        {productLabel} · {countryLabel}
+        {isInvalid && (
+          <span className="ml-1 text-destructive">
+            ·{" "}
+            {productInvalid
+              ? hint?.status === "product_ambiguous"
+                ? "Уточніть назву товару"
+                : "Товар не розпізнано"
+              : "Країну не розпізнано"}
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 grid grid-cols-2 gap-x-3 gap-y-0.5 tabular-nums sm:grid-cols-3">
+        <span>
+          <span className="text-muted-foreground">Ціна: </span>
+          {fmtPrice(c.inputPrice, c.inputCurrency)}
+        </span>
+        {c.inputCurrency === "EUR" && (
+          <span>
+            <span className="text-muted-foreground">Курс EUR→USD: </span>
+            {fmtRate(c.fxRate)}
+          </span>
+        )}
+        <span>
+          <span className="text-muted-foreground">Ціна USD/кг: </span>
+          {fmtMoney(c.unitUsd)}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Транспорт: </span>
+          {fmtMoney(c.transportPerKg)}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Митниця інд.: </span>
+          {fmtMoney(c.customsIndicative)}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Митниця інв.: </span>
+          {fmtMoney(c.customsInvoice)}
+        </span>
+      </div>
+      <div className={cn("mt-0.5", basisCls)}>{basisText}</div>
+    </li>
+  );
+}
+
+
+
 function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
   const [open, setOpen] = useState(false);
   // 9F Phase C2b-Fix — live aggregate from loadedItems (gross-based),
