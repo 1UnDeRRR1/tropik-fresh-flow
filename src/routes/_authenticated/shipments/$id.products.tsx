@@ -2183,9 +2183,11 @@ function TopCalcEntry({
 
 
 function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
-  const [open, setOpen] = useState(false);
   // 9F Phase C2b-Fix — live aggregate from loadedItems (gross-based),
   // not vehicles.total_weight_kg (which is still net-based via DB trigger).
+  // D1-Fix v2.5.6 (Issue 1) — old expanded Auto duplicate list removed.
+  // Product details live in the TopCalculationZone ("Собівартість · N позицій")
+  // and in the editor table. Here we only keep compact capacity counters.
   const totalPallets = vehicleContext.loadedItems.reduce(
     (sum, it) => sum + Number(it.pallet_count ?? 0), 0,
   );
@@ -2196,16 +2198,10 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
   const tight = remainingPallets <= 1;
-  const count = vehicleContext.loadedItems.length;
-
 
   return (
     <div className="border-b border-border bg-card/70">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-1 text-left"
-      >
+      <div className="flex w-full items-center gap-2 px-3 py-1">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Авто · завантаження машини</span>
         <span className="text-[11px] text-foreground">
           <span className="font-semibold">{totalPallets}</span>
@@ -2217,43 +2213,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
         <span className={cn("text-[11px] font-semibold", tight ? "text-destructive" : "text-emerald-600")}>
           вільно {remainingPallets}п · {Math.round(remainingKg)}кг
         </span>
-        <span className="ml-auto flex items-center gap-1 text-[10px]">
-          {/* D1-Fix v2.5.5 — customs status badge moved into the new
-              TopCalculationZone (single source of truth for cost details). */}
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", open && "rotate-180")} />
-        </span>
-
-      </button>
-
-      {open && (
-        <div className="max-h-52 overflow-y-auto border-t border-border">
-          {count === 0 ? (
-            <div className="px-3 py-2 text-[12px] text-muted-foreground">Поки що немає завантажених товарів</div>
-          ) : (
-            <ul className="divide-y divide-border/60">
-              {vehicleContext.loadedItems.map((loadedItem) => (
-                <li key={loadedItem.id} className={cn("flex items-center justify-between gap-2 px-3 py-1.5", loadedItem.isCurrentShipment && "bg-brand/5")}>
-                  <div className="min-w-0">
-                    <div className="truncate text-[12px] font-medium text-foreground">
-                      {loadedItem.product_name || "—"}{loadedItem.variety ? ` · ${loadedItem.variety}` : ""}
-                    </div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                      {loadedItem.shipment_code} · {loadedItem.owner_name}{loadedItem.isCurrentShipment ? " · ваша" : ""}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right text-[10px] font-medium text-foreground">
-                    {Number(loadedItem.pallet_count ?? 0)}п · {Math.round(
-                      Number(loadedItem.gross_weight_kg ?? 0) > 0
-                        ? Number(loadedItem.gross_weight_kg)
-                        : Number(loadedItem.pallet_count ?? 0) * Number(loadedItem.pallet_weight ?? 0)
-                    )}кг
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
