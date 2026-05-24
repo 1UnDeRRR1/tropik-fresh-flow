@@ -2687,7 +2687,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
                 so the chip (clean + dirty + new) and breakdown panel never disagree.
                 Hidden when product recognition is in conflict to avoid mixed messages. */}
             {(() => {
-              if (hint && (hint.status === "product_no_match" || hint.status === "product_ambiguous")) {
+              if (
+                hint &&
+                (hint.status === "product_no_match" ||
+                  hint.status === "product_ambiguous" ||
+                  hint.status === "country_no_match")
+              ) {
                 return null;
               }
               if (!preview.hasCustomsInputs) return null;
@@ -2700,8 +2705,19 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
               }
               return <CustomsStatusChip status={status} compact />;
             })()}
-            {/* D1-Fix v2.5.1 — clean existing row: DB final cost; dirty/new: live preview ("—" if incomplete). */}
+            {/* D1-Fix v2.5.7 — invalid product/country rows show "—" for CostPair
+                in both clean dbItem path and dirty/new previewMap path, so stale
+                final_cost or live customs-derived preview cannot leak as a valid
+                cost for an unrecognized product or country. */}
             {(() => {
+              if (
+                hint &&
+                (hint.status === "product_no_match" ||
+                  hint.status === "product_ambiguous" ||
+                  hint.status === "country_no_match")
+              ) {
+                return <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">—</span>;
+              }
               const useDbCost = !!dbItem && !preview.isDirty;
               if (useDbCost) {
                 return <CostPair indicative={dbItem!.final_cost_indicative} invoice={dbItem!.final_cost_invoice} size="sm" />;
