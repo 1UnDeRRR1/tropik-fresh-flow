@@ -1669,11 +1669,19 @@ function ProductsFullscreen() {
         <SharedVehicleSummary
           vehicleContext={effectiveVehicleContext}
           currentShipmentId={id}
-          customsStatus={customsStatus}
-          fallbackItems={fallbackItems}
         />
       )}
 
+      {/* D1-Fix v2.5.5 — single top calculation zone (source of truth for
+          per-row component values). Visible draftItems excluding pendingDeletes. */}
+      <TopCalculationZone
+        draftItems={draftItems}
+        pendingDeletes={pendingDeletes}
+        previewMap={previewMap}
+        resolverHints={resolverHints}
+        openTick={topZoneOpenTick}
+        scrollTarget={topZoneScrollTarget}
+      />
 
       <ProductsScrollArea
         itemsCount={draftItems.length}
@@ -1699,8 +1707,9 @@ function ProductsFullscreen() {
           onPatch={patchDraft}
           onRemove={removeDraft}
           onResolverHint={setResolverHint}
-
+          onShowBreakdown={openTopZone}
         />
+
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
             <Button
