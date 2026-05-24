@@ -1600,16 +1600,33 @@ function ProductsFullscreen() {
   };
 
   // D1-Fix v2.5.4 — recognition hints captured from per-row resolver runs.
-  // commitDraft consumes this map; stale or missing entries trigger a
+  // commitDraft consumes the ref; stale or missing entries trigger a
   // read-only resolver RPC before any DB write.
+  // D1-Fix v2.5.5 — state mirror (resolverHints) drives top-zone re-render.
+  // The ref keeps commit/delete behavior identical to v2.5.4.
   const resolverHintsRef = useRef<Map<string, ResolverHintInfo>>(new Map());
+  const [resolverHints, setResolverHints] = useState<Map<string, ResolverHintInfo>>(new Map());
   const setResolverHint = useCallback(
     (localId: string, info: ResolverHintInfo | null) => {
       if (info == null) resolverHintsRef.current.delete(localId);
       else resolverHintsRef.current.set(localId, info);
+      setResolverHints((prev) => {
+        const next = new Map(prev);
+        if (info == null) next.delete(localId);
+        else next.set(localId, info);
+        return next;
+      });
     },
     [],
   );
+
+  // D1-Fix v2.5.5 — Top calculation zone open/scroll trigger from row chevrons.
+  const [topZoneOpenTick, setTopZoneOpenTick] = useState(0);
+  const [topZoneScrollTarget, setTopZoneScrollTarget] = useState<string | null>(null);
+  const openTopZone = useCallback((localId: string) => {
+    setTopZoneScrollTarget(localId);
+    setTopZoneOpenTick((t) => t + 1);
+  }, []);
 
 
   return (
