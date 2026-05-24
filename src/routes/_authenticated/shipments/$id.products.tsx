@@ -1600,16 +1600,33 @@ function ProductsFullscreen() {
   };
 
   // D1-Fix v2.5.4 — recognition hints captured from per-row resolver runs.
-  // commitDraft consumes this map; stale or missing entries trigger a
+  // commitDraft consumes the ref; stale or missing entries trigger a
   // read-only resolver RPC before any DB write.
+  // D1-Fix v2.5.5 — state mirror (resolverHints) drives top-zone re-render.
+  // The ref keeps commit/delete behavior identical to v2.5.4.
   const resolverHintsRef = useRef<Map<string, ResolverHintInfo>>(new Map());
+  const [resolverHints, setResolverHints] = useState<Map<string, ResolverHintInfo>>(new Map());
   const setResolverHint = useCallback(
     (localId: string, info: ResolverHintInfo | null) => {
       if (info == null) resolverHintsRef.current.delete(localId);
       else resolverHintsRef.current.set(localId, info);
+      setResolverHints((prev) => {
+        const next = new Map(prev);
+        if (info == null) next.delete(localId);
+        else next.set(localId, info);
+        return next;
+      });
     },
     [],
   );
+
+  // D1-Fix v2.5.5 — Top calculation zone open/scroll trigger from row chevrons.
+  const [topZoneOpenTick, setTopZoneOpenTick] = useState(0);
+  const [topZoneScrollTarget, setTopZoneScrollTarget] = useState<string | null>(null);
+  const openTopZone = useCallback((localId: string) => {
+    setTopZoneScrollTarget(localId);
+    setTopZoneOpenTick((t) => t + 1);
+  }, []);
 
 
   return (
@@ -1652,11 +1669,19 @@ function ProductsFullscreen() {
         <SharedVehicleSummary
           vehicleContext={effectiveVehicleContext}
           currentShipmentId={id}
-          customsStatus={customsStatus}
-          fallbackItems={fallbackItems}
         />
       )}
 
+      {/* D1-Fix v2.5.5 — single top calculation zone (source of truth for
+          per-row component values). Visible draftItems excluding pendingDeletes. */}
+      <TopCalculationZone
+        draftItems={draftItems}
+        pendingDeletes={pendingDeletes}
+        previewMap={previewMap}
+        resolverHints={resolverHints}
+        openTick={topZoneOpenTick}
+        scrollTarget={topZoneScrollTarget}
+      />
 
       <ProductsScrollArea
         itemsCount={draftItems.length}
@@ -1682,8 +1707,9 @@ function ProductsFullscreen() {
           onPatch={patchDraft}
           onRemove={removeDraft}
           onResolverHint={setResolverHint}
-
+          onShowBreakdown={openTopZone}
         />
+
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
             <Button
@@ -1878,7 +1904,285 @@ function TransportBar({
   );
 }
 
-function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId, customsStatus, fallbackItems }: { vehicleContext: VehicleContext; currentShipmentId: string; customsStatus?: "found" | "fallback" | "none"; fallbackItems?: Array<{ item: ItemRow; ref: CustomsRefMini }> }) {
+// D1-Fix v2.5.5 — single top calculation zone.
+// Source of truth = visible draftItems (clean / dirty / new / invalid-recognition),
+// minus pendingDeletes (string[] of dbIds — array semantics, type unchanged).
+// Component values come from previewMap (computeRowPreview with isClean=true for
+// clean rows -> saved customs_match_id via refById, never re-picked). final_cost_*
+// is NEVER read here and is NEVER displayed (no duplicate of the row's CostPair).
+function TopCalculationZone({
+  draftItems,
+  pendingDeletes,
+  previewMap,
+  resolverHints,
+  openTick,
+  scrollTarget,
+}: {
+  draftItems: DraftRow[];
+  pendingDeletes: string[];
+  previewMap: Map<string, PreviewEntry>;
+  resolverHints: Map<string, ResolverHintInfo>;
+  openTick: number;
+  scrollTarget: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Visible rows = draftItems minus pending-deleted dbIds. New rows (dbId=null)
+  // are always included so the manager sees them BEFORE "Готово".
+  const visible = useMemo(
+    () =>
+      draftItems.filter(
+        (d) => !(d.dbId && pendingDeletes.includes(d.dbId)),
+      ),
+    [draftItems, pendingDeletes],
+  );
+
+  // Open + scroll/highlight when a row chevron fires (openTick increments).
+  useEffect(() => {
+    if (openTick === 0) return;
+    setOpen(true);
+    const raf = requestAnimationFrame(() => {
+      if (!scrollTarget) return;
+      const el = document.querySelector(
+        `[data-topzone-row-id="${CSS.escape(scrollTarget)}"]`,
+      );
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("ring-2", "ring-brand");
+      window.setTimeout(() => {
+        el.classList.remove("ring-2", "ring-brand");
+      }, 1500);
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTick]);
+
+  // Markers — derived from the SAME visible rows.
+  let hasYellow = false;
+  let hasRed = false;
+  let hasManual = false;
+  for (const d of visible) {
+    const h = resolverHints.get(d.localId);
+    if (
+      h &&
+      (h.status === "product_no_match" ||
+        h.status === "product_ambiguous" ||
+        h.status === "country_no_match")
+    ) {
+      hasRed = true;
+      continue;
+    }
+    const c = previewMap.get(d.localId)?.components;
+    if (!c) continue;
+    if (c.customsBasis === "fallback") hasYellow = true;
+    else if (
+      c.customsBasis === "none" &&
+      d.product_name.trim() &&
+      d.origin_country.trim()
+    )
+      hasRed = true;
+    else if (c.customsBasis === "manual") hasManual = true;
+  }
+
+  const count = visible.length;
+  const wordForm =
+    count === 1 ? "позиція" : count >= 2 && count <= 4 ? "позиції" : "позицій";
+
+  return (
+    <div className="border-b border-border bg-card/70">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-1 text-left"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Собівартість
+        </span>
+        <span className="text-[11px] text-foreground">
+          <span className="font-semibold">{count}</span>
+          <span className="text-muted-foreground"> {wordForm}</span>
+        </span>
+        <span className="ml-auto flex items-center gap-1.5 text-[11px] font-semibold">
+          {hasYellow && (
+            <span
+              title="Fallback по товару"
+              className="text-amber-600 dark:text-amber-400"
+            >
+              ⚠
+            </span>
+          )}
+          {hasRed && (
+            <span
+              title="Митну базу або товар/країну не знайдено"
+              className="text-destructive"
+            >
+              ✕
+            </span>
+          )}
+          {hasManual && (
+            <span
+              title="Ручна сума митного збору"
+              className="text-success"
+            >
+              ✎
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform text-muted-foreground",
+              open && "rotate-180",
+            )}
+          />
+        </span>
+      </button>
+      {open && (
+        <div className="max-h-64 overflow-y-auto border-t border-border px-2 py-2">
+          {count === 0 ? (
+            <div className="px-1 py-1 text-[12px] text-muted-foreground">
+              Поки що немає позицій
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {visible.map((d) => (
+                <TopCalcEntry
+                  key={d.localId}
+                  draft={d}
+                  preview={previewMap.get(d.localId) ?? null}
+                  hint={resolverHints.get(d.localId) ?? null}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopCalcEntry({
+  draft,
+  preview,
+  hint,
+}: {
+  draft: DraftRow;
+  preview: PreviewEntry | null;
+  hint: ResolverHintInfo | null;
+}) {
+  const productInvalid =
+    !!hint &&
+    (hint.status === "product_no_match" || hint.status === "product_ambiguous");
+  const countryInvalid = !!hint && hint.status === "country_no_match";
+  const isInvalid = productInvalid || countryInvalid;
+
+  const c = preview?.components ?? EMPTY_COMPONENTS;
+
+  const productLabel = draft.product_name.trim() || "—";
+  const countryLabel =
+    (draft.origin_country &&
+      (toUaCountry(draft.origin_country) || draft.origin_country)) ||
+    "—";
+
+  const fmtMoney = (n: number | null) =>
+    isInvalid || n == null ? "—" : `$${n.toFixed(4)}`;
+  const fmtPrice = (n: number | null, ccy: "EUR" | "USD" | null) =>
+    isInvalid || n == null ? "—" : `${n.toFixed(4)} ${ccy ?? ""}`.trim();
+  const fmtRate = (n: number | null) =>
+    isInvalid || n == null ? "—" : n.toFixed(4);
+
+  let basisText: string;
+  let basisCls = "text-muted-foreground";
+  if (productInvalid) {
+    basisText = "Митна база: недоступна, товар не розпізнано";
+    basisCls = "text-destructive";
+  } else if (countryInvalid) {
+    basisText = "Митна база: недоступна, країну не розпізнано";
+    basisCls = "text-destructive";
+  } else if (c.customsBasis === "exact" && c.matchedRef) {
+    const cc = toUaCountry(c.matchedRef.country) || c.matchedRef.country;
+    basisText = `Використано: ${c.matchedRef.product_name} / ${cc}`;
+  } else if (c.customsBasis === "fallback" && c.matchedRef) {
+    const cc = toUaCountry(c.matchedRef.country) || c.matchedRef.country;
+    basisText = `Митна база: fallback по товару · Використано: ${c.matchedRef.product_name} / ${cc}`;
+    basisCls = "text-amber-700 dark:text-amber-400";
+  } else if (c.customsBasis === "manual") {
+    const d = c.customsIndicative ?? 0;
+    basisText = `Митний збір введено вручну: ${d.toFixed(4)} USD/кг`;
+    basisCls = "text-success";
+  } else {
+    basisText =
+      "Митна база: товар не знайдено · Розрахунок без митної складової";
+    basisCls = "text-destructive";
+  }
+
+  const containerCls = isInvalid
+    ? "border-destructive/40 bg-destructive/5"
+    : c.customsBasis === "fallback"
+      ? "border-amber-400/40 bg-amber-50/60 dark:bg-amber-950/20"
+      : c.customsBasis === "none" &&
+          draft.product_name.trim() &&
+          draft.origin_country.trim()
+        ? "border-destructive/40 bg-destructive/5"
+        : c.customsBasis === "manual"
+          ? "border-success/40 bg-success/5"
+          : "border-border";
+
+  return (
+    <li
+      data-topzone-row-id={draft.localId}
+      className={cn(
+        "rounded border px-2 py-1.5 text-[11px] leading-snug",
+        containerCls,
+      )}
+    >
+      <div className="font-semibold">
+        {productLabel} · {countryLabel}
+        {isInvalid && (
+          <span className="ml-1 text-destructive">
+            ·{" "}
+            {productInvalid
+              ? hint?.status === "product_ambiguous"
+                ? "Уточніть назву товару"
+                : "Товар не розпізнано"
+              : "Країну не розпізнано"}
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 grid grid-cols-2 gap-x-3 gap-y-0.5 tabular-nums sm:grid-cols-3">
+        <span>
+          <span className="text-muted-foreground">Ціна: </span>
+          {fmtPrice(c.inputPrice, c.inputCurrency)}
+        </span>
+        {c.inputCurrency === "EUR" && (
+          <span>
+            <span className="text-muted-foreground">Курс EUR→USD: </span>
+            {fmtRate(c.fxRate)}
+          </span>
+        )}
+        <span>
+          <span className="text-muted-foreground">Ціна USD/кг: </span>
+          {fmtMoney(c.unitUsd)}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Транспорт: </span>
+          {fmtMoney(c.transportPerKg)}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Митниця інд.: </span>
+          {fmtMoney(c.customsIndicative)}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Митниця інв.: </span>
+          {fmtMoney(c.customsInvoice)}
+        </span>
+      </div>
+      <div className={cn("mt-0.5", basisCls)}>{basisText}</div>
+    </li>
+  );
+}
+
+
+
+function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipmentId }: { vehicleContext: VehicleContext; currentShipmentId: string }) {
   const [open, setOpen] = useState(false);
   // 9F Phase C2b-Fix — live aggregate from loadedItems (gross-based),
   // not vehicles.total_weight_kg (which is still net-based via DB trigger).
@@ -1914,13 +2218,13 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
           вільно {remainingPallets}п · {Math.round(remainingKg)}кг
         </span>
         <span className="ml-auto flex items-center gap-1 text-[10px]">
-          {customsStatus && customsStatus !== "none" && (
-            <CustomsStatusBadge status={customsStatus} fallbackItems={fallbackItems ?? []} />
-          )}
+          {/* D1-Fix v2.5.5 — customs status badge moved into the new
+              TopCalculationZone (single source of truth for cost details). */}
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", open && "rotate-180")} />
         </span>
 
       </button>
+
       {open && (
         <div className="max-h-52 overflow-y-auto border-t border-border">
           {count === 0 ? (
@@ -1978,7 +2282,7 @@ const EMPTY_COMPONENTS: RowComponents = {
   matchedRef: null,
 };
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove, onResolverHint }: {
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove, onResolverHint, onShowBreakdown }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
@@ -1990,11 +2294,14 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
   onRemove: (localId: string) => void;
   onResolverHint: (localId: string, info: ResolverHintInfo | null) => void;
+  onShowBreakdown: (localId: string) => void;
 }) {
 
+
   const [focused, setFocused] = useState<number | null>(null);
-  // D1-Fix v2.5.3 — per-row breakdown panel; only one row open at a time.
-  const [expandedLocalId, setExpandedLocalId] = useState<string | null>(null);
+  // D1-Fix v2.5.5 — per-row breakdown panel removed; row chevron now shortcuts
+  // to the single TopCalculationZone above the table.
+
   const setFocusedCb = useCallback((i: number | null) => setFocused(i), []);
   const headerCls = (i: number) => cn(
     "px-1.5 py-2 font-medium transition-colors",
@@ -2048,13 +2355,11 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 preview={preview}
                 readOnly={!currentShipmentEditable}
                 pulse={pulseFields}
-                isExpanded={expandedLocalId === d.localId}
-                onToggleExpanded={() =>
-                  setExpandedLocalId((cur) => (cur === d.localId ? null : d.localId))
-                }
+                onShowBreakdown={() => onShowBreakdown(d.localId)}
                 onPatch={(patch) => onPatch(d.localId, patch)}
                 onRemove={() => onRemove(d.localId)}
                 onResolverHint={(info) => onResolverHint(d.localId, info)}
+
               />
 
             );
@@ -2071,7 +2376,7 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, isExpanded, onToggleExpanded, onPatch, onRemove, onResolverHint }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, onShowBreakdown, onPatch, onRemove, onResolverHint }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
@@ -2081,12 +2386,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   preview: PreviewEntry;
   readOnly: boolean;
   pulse?: boolean;
-  isExpanded: boolean;
-  onToggleExpanded: () => void;
+  onShowBreakdown: () => void;
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
   onResolverHint: (info: ResolverHintInfo | null) => void;
 }) {
+
 
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
@@ -2457,16 +2762,16 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
                 disabled={readOnly}
               />
             )}
-            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time).
-                D1-Fix v2.5.4 — larger tap target for mobile (h-8 w-8). */}
+            {/* D1-Fix v2.5.5 — chevron is a shortcut to the top calculation
+                zone (single breakdown surface). Works for clean / dirty / new /
+                invalid-recognition rows. */}
             <button
               type="button"
-              onClick={onToggleExpanded}
-              aria-label={isExpanded ? "Сховати деталі" : "Показати деталі"}
-              aria-expanded={isExpanded}
+              onClick={onShowBreakdown}
+              aria-label="Показати розрахунок угорі"
               className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+              <ChevronDown className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -2498,17 +2803,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         )}
       </td>
     </tr>
-    {isExpanded && (
-      <tr className="border-b border-border">
-        <td colSpan={11} className="bg-muted/10 px-0 py-2">
-          {/* D1-Fix v2.5.4 — sticky-left so the breakdown stays visible at
-              scrollLeft=0 even when the row is horizontally scrolled. */}
-          <div className="sticky left-0 px-3" style={{ width: "100vw", maxWidth: "100vw" }}>
-            <RowBreakdownPanel components={preview.components} />
-          </div>
-        </td>
-      </tr>
-    )}
+
 
     </>
   );
