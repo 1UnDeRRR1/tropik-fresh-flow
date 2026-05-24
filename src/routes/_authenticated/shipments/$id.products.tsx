@@ -2484,16 +2484,16 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
                 disabled={readOnly}
               />
             )}
-            {/* D1-Fix v2.5.3 — chevron toggles per-row component breakdown (one at a time).
-                D1-Fix v2.5.4 — larger tap target for mobile (h-8 w-8). */}
+            {/* D1-Fix v2.5.5 — chevron is a shortcut to the top calculation
+                zone (single breakdown surface). Works for clean / dirty / new /
+                invalid-recognition rows. */}
             <button
               type="button"
-              onClick={onToggleExpanded}
-              aria-label={isExpanded ? "Сховати деталі" : "Показати деталі"}
-              aria-expanded={isExpanded}
+              onClick={onShowBreakdown}
+              aria-label="Показати розрахунок угорі"
               className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+              <ChevronDown className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -2525,17 +2525,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         )}
       </td>
     </tr>
-    {isExpanded && (
-      <tr className="border-b border-border">
-        <td colSpan={11} className="bg-muted/10 px-0 py-2">
-          {/* D1-Fix v2.5.4 — sticky-left so the breakdown stays visible at
-              scrollLeft=0 even when the row is horizontally scrolled. */}
-          <div className="sticky left-0 px-3" style={{ width: "100vw", maxWidth: "100vw" }}>
-            <RowBreakdownPanel components={preview.components} />
-          </div>
-        </td>
-      </tr>
-    )}
+
 
     </>
   );
