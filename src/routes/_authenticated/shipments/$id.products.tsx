@@ -3144,10 +3144,16 @@ function PackageCell({
             })
           )}
         </div>
+        {fallbackLabel ? (
+          <div className="border-t px-3 py-1.5 text-[11px] text-amber-700 bg-amber-50">
+            {fallbackLabel}
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
 }
+
 
 
 function VarietyCell({ value, onChange, productName, readOnly }: { value: string; onChange: (v: string) => void; productName: string; readOnly: boolean }) {
