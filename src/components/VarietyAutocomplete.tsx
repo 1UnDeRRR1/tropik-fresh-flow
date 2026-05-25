@@ -1,5 +1,7 @@
 import * as React from "react";
 import { useRef, useState } from "react";
+
+const TOUCH_SLOP = 8;
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
