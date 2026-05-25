@@ -2575,6 +2575,11 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           productName={form.product_name}
           countryName={form.origin_country}
           readOnly={readOnly}
+          onChangeText={(text) => {
+            // Manual free-text edit — preserve user input even when no DB standards exist.
+            // Net/gross are NOT touched here; user enters them manually in their own cells.
+            onPatch({ package_used: text });
+          }}
           onSelect={(opt) => {
             const pc = Number(form.pallet_count) > 0 ? Number(form.pallet_count) : 1;
             const pNet = opt.pallet_net_kg;
@@ -2592,6 +2597,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
+
       <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
