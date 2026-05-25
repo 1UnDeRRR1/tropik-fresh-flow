@@ -97,16 +97,19 @@ export function DraftOfferLineRow({
     const product = productQuery.trim();
     const country = countryQuery.trim();
 
+    // Clear stale resolver state immediately on product/country change
+    seqRef.current += 1;
+    setResolver(null);
+    setRpcError(null);
+
     if (!product || !country) {
-      seqRef.current += 1;
       setResolving(false);
-      setResolver(null);
-      setRpcError(null);
       return;
     }
 
-    const seq = seqRef.current + 1;
-    seqRef.current = seq;
+    setResolving(true);
+    const seq = seqRef.current;
+
 
     const timer = setTimeout(async () => {
       setResolving(true);
