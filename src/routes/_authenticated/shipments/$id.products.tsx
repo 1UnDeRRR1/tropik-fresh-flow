@@ -2564,8 +2564,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.country = true;
+            setHint(null);
+            onResolverHint(null);
+            setResolverBusy(true);
             onPatch({ origin_country: v });
           }}
+
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
           placeholder={invalidCountry ? "Країна*" : "Країна"}
