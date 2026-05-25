@@ -1264,6 +1264,109 @@ export type Database = {
         }
         Relationships: []
       }
+      operational_positions: {
+        Row: {
+          caliber: string | null
+          client_row_id: string | null
+          created_at: string
+          created_by: string | null
+          current_status: string
+          notes: string | null
+          owner_user_id: string | null
+          packaging: string | null
+          pallet_qty: number | null
+          position_id: string
+          product_id: string
+          product_origin_country_id: string
+          source_context: string | null
+          source_row_key: string | null
+          supplier_id: string | null
+          updated_at: string
+          variety_id: number | null
+        }
+        Insert: {
+          caliber?: string | null
+          client_row_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_status?: string
+          notes?: string | null
+          owner_user_id?: string | null
+          packaging?: string | null
+          pallet_qty?: number | null
+          position_id?: string
+          product_id: string
+          product_origin_country_id: string
+          source_context?: string | null
+          source_row_key?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          variety_id?: number | null
+        }
+        Update: {
+          caliber?: string | null
+          client_row_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_status?: string
+          notes?: string | null
+          owner_user_id?: string | null
+          packaging?: string | null
+          pallet_qty?: number | null
+          position_id?: string
+          product_id?: string
+          product_origin_country_id?: string
+          source_context?: string | null
+          source_row_key?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          variety_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_positions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_positions_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_positions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_positions_product_origin_country_id_fkey"
+            columns: ["product_origin_country_id"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_positions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operational_positions_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "product_varieties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pallet_standards: {
         Row: {
           box_gross_kg: number | null
@@ -1344,6 +1447,489 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "product_dictionary"
             referencedColumns: ["canonical_product_id"]
+          },
+        ]
+      }
+      position_branch_allocations: {
+        Row: {
+          approved_qty: number
+          branch_id: string
+          cancelled_qty: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_notes: string | null
+          id: string
+          ordered_qty: number
+          position_id: string
+          remaining_qty: number | null
+          requested_qty: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_qty?: number
+          branch_id: string
+          cancelled_qty?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          id?: string
+          ordered_qty?: number
+          position_id: string
+          remaining_qty?: number | null
+          requested_qty?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_qty?: number
+          branch_id?: string
+          cancelled_qty?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_notes?: string | null
+          id?: string
+          ordered_qty?: number
+          position_id?: string
+          remaining_qty?: number | null
+          requested_qty?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_branch_allocations_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_branch_allocations_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_branch_allocations_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
+      }
+      position_cost_current: {
+        Row: {
+          fx_rate_date: string | null
+          fx_rate_snapshot: number | null
+          indicative_cost_usd: number | null
+          invoice_cost_usd: number | null
+          position_id: string
+          source_event_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          fx_rate_date?: string | null
+          fx_rate_snapshot?: number | null
+          indicative_cost_usd?: number | null
+          invoice_cost_usd?: number | null
+          position_id: string
+          source_event_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          fx_rate_date?: string | null
+          fx_rate_snapshot?: number | null
+          indicative_cost_usd?: number | null
+          invoice_cost_usd?: number | null
+          position_id?: string
+          source_event_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_cost_current_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: true
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "position_cost_current_source_event_id_fkey"
+            columns: ["source_event_id"]
+            isOneToOne: false
+            referencedRelation: "position_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      position_cost_history: {
+        Row: {
+          created_at: string
+          fx_rate_date: string | null
+          fx_rate_snapshot: number | null
+          id: string
+          indicative_cost_usd: number | null
+          invoice_cost_usd: number | null
+          position_id: string
+          reason: string | null
+          source_event_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fx_rate_date?: string | null
+          fx_rate_snapshot?: number | null
+          id?: string
+          indicative_cost_usd?: number | null
+          invoice_cost_usd?: number | null
+          position_id: string
+          reason?: string | null
+          source_event_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fx_rate_date?: string | null
+          fx_rate_snapshot?: number | null
+          id?: string
+          indicative_cost_usd?: number | null
+          invoice_cost_usd?: number | null
+          position_id?: string
+          reason?: string | null
+          source_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_cost_history_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "position_cost_history_source_event_id_fkey"
+            columns: ["source_event_id"]
+            isOneToOne: false
+            referencedRelation: "position_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      position_documents: {
+        Row: {
+          created_at: string
+          doc_type: string
+          external_url: string | null
+          id: string
+          notes: string | null
+          position_id: string
+          storage_path: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          doc_type: string
+          external_url?: string | null
+          id?: string
+          notes?: string | null
+          position_id: string
+          storage_path?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          doc_type?: string
+          external_url?: string | null
+          id?: string
+          notes?: string | null
+          position_id?: string
+          storage_path?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_documents_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "position_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      position_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json | null
+          position_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          position_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_events_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
+      }
+      position_logistics_legs: {
+        Row: {
+          actual_date: string | null
+          actual_qty: number | null
+          created_at: string
+          id: string
+          leg_number: number
+          notes: string | null
+          planned_date: string | null
+          planned_qty: number | null
+          position_id: string
+          shipment_id: string | null
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          actual_date?: string | null
+          actual_qty?: number | null
+          created_at?: string
+          id?: string
+          leg_number: number
+          notes?: string | null
+          planned_date?: string | null
+          planned_qty?: number | null
+          position_id: string
+          shipment_id?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          actual_date?: string | null
+          actual_qty?: number | null
+          created_at?: string
+          id?: string
+          leg_number?: number
+          notes?: string | null
+          planned_date?: string | null
+          planned_qty?: number | null
+          position_id?: string
+          shipment_id?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_logistics_legs_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "position_logistics_legs_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_logistics_legs_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_logistics_legs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      position_shipment_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          pallet_qty_linked: number
+          position_id: string
+          shipment_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pallet_qty_linked: number
+          position_id: string
+          shipment_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pallet_qty_linked?: number
+          position_id?: string
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_shipment_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_shipment_links_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "position_shipment_links_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_shipment_links_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      position_split_links: {
+        Row: {
+          child_position_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          parent_position_id: string
+          split_reason: string | null
+        }
+        Insert: {
+          child_position_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_position_id: string
+          split_reason?: string | null
+        }
+        Update: {
+          child_position_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_position_id?: string
+          split_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_split_links_child_position_id_fkey"
+            columns: ["child_position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "position_split_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_split_links_parent_position_id_fkey"
+            columns: ["parent_position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
+      }
+      position_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          position_id: string
+          reason: string | null
+          to_status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          position_id: string
+          reason?: string | null
+          to_status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          position_id?: string
+          reason?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_status_history_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
           },
         ]
       }
@@ -1699,6 +2285,64 @@ export type Database = {
           },
           {
             foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_branch"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_readiness_checks: {
+        Row: {
+          check_type: string
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          shipment_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          check_type: string
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          shipment_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          check_type?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          shipment_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_readiness_checks_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_readiness_checks_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_readiness_checks_shipment_id_fkey"
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments_branch"
