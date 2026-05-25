@@ -106,16 +106,41 @@ function BranchOffersPage() {
     return m;
   }, [myResponses]);
 
-  const visibleOffers = useMemo(() => {
+  const baseVisibleOffers = useMemo(() => {
     const list = offers ?? [];
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const filtered = list.filter((o) => {
+    return list.filter((o) => {
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
-      // closed / expired: show only to branches that responded, and only for 7 days
       if (!responseByOffer[o.id]) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
     });
+  }, [offers, responseByOffer]);
+
+  const managerNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
+    return m;
+  }, [managerNames]);
+
+  // Filter options derived ONLY from rows visible to this branch
+  const productOptions = useMemo(
+    () => Array.from(new Set(baseVisibleOffers.map((o) => o.product_name).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
+    [baseVisibleOffers],
+  );
+  const countryOptions = useMemo(
+    () => Array.from(new Set(baseVisibleOffers.map((o) => o.origin_country).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "uk")),
+    [baseVisibleOffers],
+  );
+  const managerOptions = useMemo(() => {
+    const ids = Array.from(new Set(baseVisibleOffers.map((o) => o.created_by).filter(Boolean)));
+    return ids
+      .map((id) => ({ id, name: managerNameById[id] ?? "" }))
+      .filter((m) => m.name)
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+  }, [baseVisibleOffers, managerNameById]);
+
+  const visibleOffers = useMemo(() => {
     const shipMap: Record<string, { eta: string | null; arrived_at: string | null }> = {};
     for (const s of shipments ?? []) shipMap[s.id] = { eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
     const arrivalDate = (o: ManagerOffer): string | null => {
@@ -124,6 +149,12 @@ function BranchOffersPage() {
     };
     const eventTs = (o: ManagerOffer): number =>
       new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+    const filtered = baseVisibleOffers.filter((o) => {
+      if (fProduct && o.product_name !== fProduct) return false;
+      if (fCountry && o.origin_country !== fCountry) return false;
+      if (fManager && o.created_by !== fManager) return false;
+      return true;
+    });
     const sorted = [...filtered];
     if (sortBy === "date") {
       sorted.sort((a, b) => {
@@ -141,13 +172,8 @@ function BranchOffersPage() {
       sorted.sort((a, b) => eventTs(b) - eventTs(a));
     }
     return sorted;
-  }, [offers, responseByOffer, shipments, sortBy]);
+  }, [baseVisibleOffers, shipments, sortBy, fProduct, fCountry, fManager]);
 
-  const managerNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
-    return m;
-  }, [managerNames]);
 
   const shipmentById = useMemo(() => {
     const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
