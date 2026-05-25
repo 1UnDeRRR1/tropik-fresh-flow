@@ -45,6 +45,10 @@ function BranchOffersPage() {
   const qc = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [fProduct, setFProduct] = useState<string>("");
+  const [fCountry, setFCountry] = useState<string>("");
+  const [fManager, setFManager] = useState<string>("");
+
 
   const { data: offers, isLoading } = useQuery({
     queryKey: ["branch-active-offers"],
