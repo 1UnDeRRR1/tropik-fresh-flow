@@ -1052,6 +1052,7 @@ export type Database = {
           packaging: string | null
           pallet_weight: number | null
           pipeline_status: Database["public"]["Enums"]["pipeline_status"]
+          position_id: string | null
           prev_expected_eta: string | null
           prev_indicative_cost_usd: number | null
           prev_invoice_cost_usd: number | null
@@ -1088,6 +1089,7 @@ export type Database = {
           packaging?: string | null
           pallet_weight?: number | null
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
+          position_id?: string | null
           prev_expected_eta?: string | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
@@ -1124,6 +1126,7 @@ export type Database = {
           packaging?: string | null
           pallet_weight?: number | null
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
+          position_id?: string | null
           prev_expected_eta?: string | null
           prev_indicative_cost_usd?: number | null
           prev_invoice_cost_usd?: number | null
@@ -1136,7 +1139,15 @@ export type Database = {
           updated_at?: string
           variety?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "manager_offers_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
       }
       manager_supplier_assignments: {
         Row: {
@@ -2184,6 +2195,7 @@ export type Database = {
           package_used: string | null
           pallet_count: number | null
           pallet_weight: number | null
+          position_id: string | null
           price_currency: string
           product_name: string
           qty: number
@@ -2224,6 +2236,7 @@ export type Database = {
           package_used?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
+          position_id?: string | null
           price_currency?: string
           product_name: string
           qty?: number
@@ -2264,6 +2277,7 @@ export type Database = {
           package_used?: string | null
           pallet_count?: number | null
           pallet_weight?: number | null
+          position_id?: string | null
           price_currency?: string
           product_name?: string
           qty?: number
@@ -2284,6 +2298,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "manager_offers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
           },
           {
             foreignKeyName: "shipment_items_shipment_id_fkey"
@@ -3080,6 +3101,7 @@ export type Database = {
           packaging: string | null
           pallet_weight: number | null
           pipeline_status: Database["public"]["Enums"]["pipeline_status"]
+          position_id: string | null
           prev_expected_eta: string | null
           prev_indicative_cost_usd: number | null
           prev_invoice_cost_usd: number | null
@@ -3128,6 +3150,7 @@ export type Database = {
           package_used: string | null
           pallet_count: number | null
           pallet_weight: number | null
+          position_id: string | null
           price_currency: string
           product_name: string
           qty: number
