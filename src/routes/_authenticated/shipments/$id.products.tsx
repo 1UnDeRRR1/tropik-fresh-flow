@@ -2570,7 +2570,27 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
       <td data-col="5" className="relative px-0.5 py-0.5">
-        <CellInput value={form.package_used} placeholder="—" onChange={(v) => set("package_used", v)} expandedMinWidth={140} readOnly={readOnly} />
+        <PackageCell
+          value={form.package_used}
+          productName={form.product_name}
+          countryName={form.origin_country}
+          readOnly={readOnly}
+          onSelect={(opt) => {
+            const pc = Number(form.pallet_count) > 0 ? Number(form.pallet_count) : 1;
+            const pNet = opt.pallet_net_kg;
+            const pGross = opt.pallet_gross_kg;
+            onPatch({
+              package_used: opt.package_used,
+              pallet_count: Number(form.pallet_count) > 0 ? Number(form.pallet_count) : pc,
+              resolver_net_per_pallet_kg: pNet,
+              resolver_gross_per_pallet_kg: pGross,
+              net_auto: true,
+              gross_auto: true,
+              net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
+              gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
+            });
+          }}
+        />
       </td>
       <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
