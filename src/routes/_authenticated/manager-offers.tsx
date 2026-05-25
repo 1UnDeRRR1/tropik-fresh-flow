@@ -266,7 +266,25 @@ function ManagerOffersPage() {
         .select("*")
         .neq("status", "deleted")
         .order("created_at", { ascending: false });
-      if (!isAdmin) q = q.eq("created_by", user!.id);
+      if (!isAdmin) {
+        // Position-anchor visibility: include rows the user created OR rows
+        // attached to a position where the user is the responsible manager.
+        // Legacy rows (position_id IS NULL) keep working via created_by.
+        const { data: ownedPositions } = await supabase
+          .from("operational_positions")
+          .select("position_id")
+          .eq("owner_user_id", user!.id);
+        const positionIds = (ownedPositions ?? [])
+          .map((p) => (p as { position_id: string }).position_id)
+          .filter(Boolean);
+        if (positionIds.length > 0) {
+          q = q.or(
+            `created_by.eq.${user!.id},position_id.in.(${positionIds.join(",")})`,
+          );
+        } else {
+          q = q.eq("created_by", user!.id);
+        }
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as ManagerOffer[];
