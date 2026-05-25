@@ -88,9 +88,9 @@ export async function attachOfferToPosition(
         p_source_context: "manager_offer",
         p_source_row_key: input.offerId,
         p_client_row_id: input.offerId,
-        p_caliber: input.caliber ?? null,
-        p_package_used: input.packaging ?? null,
-        p_responsible_manager_id: input.responsibleManagerId ?? null,
+        p_caliber: input.caliber ?? undefined,
+        p_package_used: input.packaging ?? undefined,
+        p_responsible_manager_id: input.responsibleManagerId ?? undefined,
       },
     );
     if (draftErr) return { attached: false, reason: draftErr.message };
@@ -102,7 +102,7 @@ export async function attachOfferToPosition(
       {
         p_offer_id: input.offerId,
         p_position_id: positionId,
-        p_responsible_manager_id: input.responsibleManagerId ?? null,
+        p_responsible_manager_id: input.responsibleManagerId ?? undefined,
       },
     );
     if (attachErr) return { attached: false, reason: attachErr.message };
