@@ -1,14 +1,7 @@
-const RAW_PRODUCT_NAME_ALIASES: Record<string, string> = {
-  "kiwi": "Ківі",
-  "kiwi kosh": "Ківі (кош)",
-  "kiwi кош": "Ківі (кош)",
-  "kiwi (kosh)": "Ківі (кош)",
-  "киви": "Ківі",
-  "киви кош": "Ківі (кош)",
-  "киви (кош)": "Ківі (кош)",
-  "ківі кош": "Ківі (кош)",
-  "ківі (кош)": "Ківі (кош)",
-};
+// Phase 0 — runtime product alias resolution is DB-backed via alias-cache.
+// No hardcoded alias map. Signatures kept sync; cache miss → identity fallback.
+
+import { getProductAliases } from "@/lib/alias-cache";
 
 export function normalizeProductKey(value: string | null | undefined) {
   return (value ?? "")
@@ -21,17 +14,11 @@ export function normalizeProductKey(value: string | null | undefined) {
     .trim();
 }
 
-export const PRODUCT_NAME_ALIASES = Object.fromEntries(
-  Object.entries(RAW_PRODUCT_NAME_ALIASES).map(([alias, canonical]) => [
-    normalizeProductKey(alias),
-    canonical,
-  ]),
-) as Record<string, string>;
-
 export function canonicalizeProductName(value: string | null | undefined) {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return "";
-  return PRODUCT_NAME_ALIASES[normalizeProductKey(trimmed)] ?? trimmed;
+  const aliases = getProductAliases();
+  return aliases[normalizeProductKey(trimmed)] ?? trimmed;
 }
 
 export function resolveProductOption(value: string | null | undefined, options: string[]) {
@@ -41,7 +28,8 @@ export function resolveProductOption(value: string | null | undefined, options: 
   const direct = options.find((option) => normalizeProductKey(option) === normalizedInput);
   if (direct) return direct;
 
-  const aliased = PRODUCT_NAME_ALIASES[normalizedInput];
+  const aliases = getProductAliases();
+  const aliased = aliases[normalizedInput];
   if (aliased) {
     return options.find((option) => normalizeProductKey(option) === normalizeProductKey(aliased)) ?? aliased;
   }
