@@ -1435,14 +1435,16 @@ function OfferEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = useMemo(() => dbCountries, [dbCountries]);
+  const isAdmin = hasRole(["admin", "super_admin"]);
 
   const [items, setItems] = useState<ItemEntry[]>([]);
   const [selectiveOpen, setSelectiveOpen] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState<Record<string, boolean>>({});
+  const [selectedResponsibleManagerId, setSelectedResponsibleManagerId] = useState("");
 
   const { data: productOptions = [] } = useQuery({
     queryKey: ["product-dictionary-names"],
@@ -1464,11 +1466,25 @@ function OfferEditor({
 
   const { data: currentManagerId, isLoading: currentManagerIdLoading } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
-    enabled: !!user,
+    enabled: !!user && !isAdmin,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("current_import_manager_id");
       if (error) throw error;
       return (data as string | null) ?? null;
+    },
+  });
+
+  const { data: activeManagers = [], isLoading: activeManagersLoading } = useQuery({
+    queryKey: ["active-import-managers"],
+    enabled: open && isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("import_managers")
+        .select("id,full_name,is_active")
+        .eq("is_active", true)
+        .order("full_name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; full_name: string | null; is_active: boolean }[];
     },
   });
 
@@ -1508,8 +1524,10 @@ function OfferEditor({
         o && o.customs_override_duty_usd != null ? Number(o.customs_override_duty_usd) : null;
       setItems([makeEntry(offer ? offerToForm(offer) : emptyForm(), confirmed)]);
       setSelectiveOpen(false);
+      setSelectedResponsibleManagerId(offer?.import_manager_id ?? "");
     } else {
       setItems([]);
+      setSelectedResponsibleManagerId("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, offer?.id]);
@@ -1630,10 +1648,16 @@ function OfferEditor({
       }
 
       const createdIds: string[] = [];
-      if (currentManagerIdLoading) {
+      if (!isAdmin && currentManagerIdLoading) {
         throw new Error("Зачекайте, визначається імпорт-менеджер");
       }
-      if (!currentManagerId) {
+      if (isAdmin && activeManagersLoading) {
+        throw new Error("Зачекайте, завантажуються менеджери");
+      }
+      const selectedManagerId = selectedResponsibleManagerId || null;
+      const importManagerId = isAdmin ? selectedManagerId : currentManagerId;
+      const responsibleManagerId = isAdmin ? selectedManagerId : currentManagerId;
+      if (!isAdmin && !currentManagerId) {
         throw new Error("Не вдалось визначити імпорт-менеджера для пропозиції");
       }
       try {
@@ -1647,7 +1671,7 @@ function OfferEditor({
             .insert({
               ...(payload as any),
               created_by: user.id,
-              import_manager_id: currentManagerId,
+              import_manager_id: importManagerId,
               status: initialStatus,
               target_mode: mode,
             } as any)
@@ -1656,25 +1680,25 @@ function OfferEditor({
           if (createError) throw createError;
           createdIds.push(created.id);
 
-          // Position-anchor wiring (best-effort, non-blocking).
-          // Creates an operational_position and links manager_offers.position_id
-          // via rpc_position_attach_offer. If product/country aren't in the
-          // dictionaries, we leave position_id NULL (legacy fallback path).
-          // We do NOT roll back the offer if this step fails.
           const offerPayload = payload as {
             product_name: string;
             origin_country: string;
             caliber?: string | null;
             packaging?: string | null;
           };
-          await attachOfferToPosition({
+          const attachResult = await attachOfferToPosition({
             offerId: created.id,
             productName: offerPayload.product_name,
             originCountry: offerPayload.origin_country,
             caliber: offerPayload.caliber ?? null,
             packaging: offerPayload.packaging ?? null,
-            responsibleManagerId: currentManagerId ?? null,
+            responsibleManagerId,
           });
+          if (!attachResult.attached) {
+            throw new Error(
+              `Не вдалося створити позицію для пропозиції (${attachResult.stage}: ${attachResult.reason})`,
+            );
+          }
 
           if (isRed) {
             const { error: rpcErr } = await supabase.rpc(
@@ -1731,6 +1755,31 @@ function OfferEditor({
           <SheetTitle>{offer ? "Редагувати пропозицію" : "Нова пропозиція"}</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-4">
+          {!offer && isAdmin && (
+            <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+              <label className="block text-sm">
+                <span className="mb-1 block text-muted-foreground">Відповідальний менеджер</span>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+                  value={selectedResponsibleManagerId}
+                  onChange={(e) => setSelectedResponsibleManagerId(e.target.value)}
+                >
+                  <option value="">Не призначати зараз</option>
+                  {activeManagers.map((manager) => (
+                    <option key={manager.id} value={manager.id}>
+                      {manager.full_name ?? "—"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="text-xs text-muted-foreground">
+                {selectedResponsibleManagerId
+                  ? "Нова пропозиція буде створена для вибраного відповідального менеджера."
+                  : "Нова пропозиція буде створена з відповідальним у статусі очікує призначення."}
+              </div>
+            </div>
+          )}
+
           {items.map((it, idx) => (
             <OfferItemEditor
               key={it.id}
