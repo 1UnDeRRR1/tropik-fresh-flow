@@ -2078,9 +2078,11 @@ export type Database = {
           avatar_url: string | null
           branch_id: string | null
           created_at: string
+          display_name: string | null
           full_name: string | null
           id: string
           is_active: boolean
+          job_title: string | null
           phone: string | null
           updated_at: string
         }
@@ -2088,9 +2090,11 @@ export type Database = {
           avatar_url?: string | null
           branch_id?: string | null
           created_at?: string
+          display_name?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean
+          job_title?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -2098,9 +2102,11 @@ export type Database = {
           avatar_url?: string | null
           branch_id?: string | null
           created_at?: string
+          display_name?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean
+          job_title?: string | null
           phone?: string | null
           updated_at?: string
         }
