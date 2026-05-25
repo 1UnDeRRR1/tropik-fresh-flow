@@ -71,6 +71,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
+import { usePackageOptionsFor, type PackageOption } from "@/hooks/usePackageOptions";
 
 type ItemRow = {
   id: string;
@@ -2569,7 +2570,27 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
       <td data-col="5" className="relative px-0.5 py-0.5">
-        <CellInput value={form.package_used} placeholder="—" onChange={(v) => set("package_used", v)} expandedMinWidth={140} readOnly={readOnly} />
+        <PackageCell
+          value={form.package_used}
+          productName={form.product_name}
+          countryName={form.origin_country}
+          readOnly={readOnly}
+          onSelect={(opt) => {
+            const pc = Number(form.pallet_count) > 0 ? Number(form.pallet_count) : 1;
+            const pNet = opt.pallet_net_kg;
+            const pGross = opt.pallet_gross_kg;
+            onPatch({
+              package_used: opt.package_used,
+              pallet_count: Number(form.pallet_count) > 0 ? Number(form.pallet_count) : pc,
+              resolver_net_per_pallet_kg: pNet,
+              resolver_gross_per_pallet_kg: pGross,
+              net_auto: true,
+              gross_auto: true,
+              net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
+              gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
+            });
+          }}
+        />
       </td>
       <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
@@ -2998,6 +3019,88 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
         className,
       )}
     />
+  );
+}
+
+function PackageCell({
+  value,
+  productName,
+  countryName,
+  readOnly,
+  onSelect,
+}: {
+  value: string;
+  productName: string;
+  countryName: string;
+  readOnly: boolean;
+  onSelect: (opt: PackageOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: options = [], isLoading } = usePackageOptionsFor(productName, countryName);
+  const display = value || "—";
+  if (readOnly) {
+    return (
+      <div className="h-8 truncate px-1.5 py-1 text-[12px] text-foreground/90">{display}</div>
+    );
+  }
+  const enabled = !!productName.trim();
+  return (
+    <Popover open={open} onOpenChange={(o) => enabled && setOpen(o)}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={!enabled}
+          className={cn(
+            "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-60",
+            !value && "text-muted-foreground",
+          )}
+        >
+          {display}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={2}
+        className="z-50 w-[280px] max-w-[90vw] overflow-hidden p-0"
+      >
+        <div
+          className="max-h-[260px] overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {isLoading ? (
+            <div className="px-3 py-2 text-[12px] text-muted-foreground">Завантаження…</div>
+          ) : options.length === 0 ? (
+            <div className="px-3 py-2 text-[12px] text-muted-foreground">
+              Немає стандартів тари для цього товару та країни
+            </div>
+          ) : (
+            options.map((opt, i) => {
+              const active = value && value.trim().toLowerCase() === opt.package_used.toLowerCase();
+              return (
+                <button
+                  key={`${opt.package_used}|${opt.pallet_net_kg ?? ""}|${opt.pallet_gross_kg ?? ""}|${i}`}
+                  type="button"
+                  onClick={() => {
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
+                    active && "bg-accent/60",
+                  )}
+                >
+                  <div className="font-medium truncate">{opt.package_used}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    net {opt.pallet_net_kg ?? "—"} / gross {opt.pallet_gross_kg ?? "—"} кг
+                    {opt.pallet_size ? ` · ${opt.pallet_size}` : ""}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
