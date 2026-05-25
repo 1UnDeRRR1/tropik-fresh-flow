@@ -1,8 +1,10 @@
 import { createFileRoute, Outlet, Navigate, Link, useRouter } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { Logo } from "@/components/Logo";
 import { translateError } from "@/lib/mutation-helpers";
+import { initAliasCache } from "@/lib/alias-cache";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -12,6 +14,8 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const { user, loading, dataLoaded, primaryRole } = useAuth();
+  // Phase 0 — warm DB-backed alias cache once auth is established.
+  useEffect(() => { if (user) initAliasCache(); }, [user]);
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">

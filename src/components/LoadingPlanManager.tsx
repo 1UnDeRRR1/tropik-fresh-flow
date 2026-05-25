@@ -43,17 +43,17 @@ export function LoadingPlanManager() {
   const varieties = useVarietiesFor(form.product_name);
 
   const { data: products } = useQuery({
-    queryKey: ["products", "active", "names"],
+    queryKey: ["product-dictionary", "names"],
     queryFn: async () => {
-      const [productsResult, varietiesResult] = await Promise.all([
-        supabase.from("products").select("name").eq("is_active", true).order("name"),
+      const [dictResult, varietiesResult] = await Promise.all([
+        supabase.from("product_dictionary").select("product_name_ua").order("product_name_ua"),
         supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
       ]);
-      if (productsResult.error) throw productsResult.error;
+      if (dictResult.error) throw dictResult.error;
       if (varietiesResult.error) throw varietiesResult.error;
       return Array.from(
         new Set([
-          ...(productsResult.data ?? []).map((r) => r.name as string),
+          ...(dictResult.data ?? []).map((r) => r.product_name_ua as string),
           ...(varietiesResult.data ?? []).map((r) => r.product_name_ua as string),
         ].map((name) => name.trim()).filter(Boolean)),
       ).sort((a, b) => a.localeCompare(b, "uk"));
