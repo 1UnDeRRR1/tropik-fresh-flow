@@ -1343,7 +1343,6 @@ export type Database = {
           product_key: string
           product_name_en: string | null
           product_name_ua: string
-          source_product_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1357,7 +1356,6 @@ export type Database = {
           product_key: string
           product_name_en?: string | null
           product_name_ua: string
-          source_product_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1371,18 +1369,9 @@ export type Database = {
           product_key?: string
           product_name_en?: string | null
           product_name_ua?: string
-          source_product_id?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "product_dictionary_source_product_id_fkey"
-            columns: ["source_product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       product_varieties: {
         Row: {
