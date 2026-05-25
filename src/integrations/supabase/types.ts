@@ -1138,6 +1138,45 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_supplier_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          manager_id: string
+          source_code: string | null
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          manager_id: string
+          source_code?: string | null
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          manager_id?: string
+          source_code?: string | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_supplier_assignments_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_supplier_assignments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: true
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manager_vacations: {
         Row: {
           created_at: string
