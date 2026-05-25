@@ -3064,7 +3064,10 @@ function PackageCell({
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: options = [], isLoading } = usePackageOptionsFor(productName, countryName);
+  const { data: resolved, isLoading } = usePalletResolver(productName, countryName);
+  const options: PackageOption[] = resolved?.options ?? [];
+  const fallbackLabel = resolved?.isFallback ? resolved?.fallbackExplanation : null;
+
 
   if (readOnly) {
     return (
