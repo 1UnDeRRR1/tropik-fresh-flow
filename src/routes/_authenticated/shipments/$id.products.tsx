@@ -30,6 +30,11 @@ import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status";
 import { allocateTransport } from "@/lib/transport";
+import {
+  createPositionForShipmentItem,
+  attachShipmentItemToPosition,
+  rollbackBirthPosition,
+} from "@/lib/position-attach";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 // D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
@@ -1167,11 +1172,24 @@ function ProductsFullscreen() {
         const { data: offer, error: offerErr } = await supabase
           .from("manager_offers")
           .select(
-            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency",
+            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,position_id,import_manager_id",
           )
           .eq("id", fromOfferId)
           .maybeSingle();
         if (offerErr || !offer) return;
+
+        // Phase 2 hard guard: offers without a position anchor are legacy.
+        // Do NOT silently mint a new product identity here — block the
+        // prefill explicitly so the user fixes the source offer first.
+        const offerPositionId =
+          (offer as { position_id?: string | null }).position_id ?? null;
+        if (!offerPositionId) {
+          prefillRunRef.current = false;
+          toast.error(
+            "Пропозиція без position_id (legacy). Створення поставки за пропозицією заблоковано.",
+          );
+          return;
+        }
 
         const palletWeight = Number(offer.pallet_weight ?? 0);
 
@@ -1199,7 +1217,6 @@ function ProductsFullscreen() {
 
         const pending = approvedTotal - orderedTotal - cancelledTotal;
 
-        // Desired: заповнити фуру біля ліміту 21000 кг / MAX_PALLETS.
         const TARGET_KG = 21000;
         const desiredPalletCount =
           palletWeight > 0
@@ -1218,10 +1235,6 @@ function ProductsFullscreen() {
           );
         }
 
-        
-
-        // 9F Phase B — prefill writes new weight model + legacy compat-shim.
-        // net = gross = pc * offer.pallet_weight (no resolver, manual mode).
         const palletWeightShim = palletWeight > 0 ? palletWeight : 0;
         const netKg = safePalletCount * palletWeightShim;
         const grossKg = netKg;
@@ -1259,6 +1272,23 @@ function ProductsFullscreen() {
         }
         const newItemId = inserted!.id as string;
 
+        // Phase 2: attach the new shipment_item to the offer's existing
+        // position_id. NEVER mint a new position from text fields here.
+        const attachRes = await attachShipmentItemToPosition({
+          shipmentItemId: newItemId,
+          positionId: offerPositionId,
+          palletQty: safePalletCount,
+        });
+        if (!attachRes.ok) {
+          // Cleanup the just-inserted orphan shipment_item (no other links yet).
+          await supabase.from("shipment_items").delete().eq("id", newItemId);
+          prefillRunRef.current = false;
+          toast.error(
+            `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`,
+          );
+          return;
+        }
+
         // Copy freight from offer to shipment if shipment has no freight yet.
         if (
           (sh.logistics_cost == null || Number(sh.logistics_cost) <= 0) &&
@@ -1273,7 +1303,7 @@ function ProductsFullscreen() {
             .eq("id", id);
         }
 
-        // FIFO allocation через RPC (єдиний канонічний шлях прив'язки offer ↔ shipment).
+        // FIFO allocation через RPC (легасі shipment ↔ offer облік палет).
         const { error: rpcErr } = await supabase.rpc(
           "link_offer_to_shipment_item_fifo",
           {
@@ -1285,7 +1315,6 @@ function ProductsFullscreen() {
           },
         );
         if (rpcErr) {
-          // Cleanup orphan shipment_item, якщо немає прив'язок.
           const { data: ap } = await supabase
             .from("manager_offer_allocation_parts")
             .select("id")
@@ -1322,9 +1351,6 @@ function ProductsFullscreen() {
         qc.invalidateQueries({ queryKey: ["manager-offers"] });
         qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
         qc.invalidateQueries({ queryKey: ["manager-offer-responses", offer.id] });
-
-        qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
-        qc.invalidateQueries({ queryKey: ["shipment", id] });
         invalidateVehicleAndShipmentCaches(qc);
       } catch {
         prefillRunRef.current = false;
@@ -1516,21 +1542,76 @@ function ProductsFullscreen() {
     }
 
     try {
-      // 3. INSERT new rows (dbId === null).
+      // 3. Phase 2: INSERT new rows ONE BY ONE with position anchor.
+      // For each new draft: create operational_position (draft) → insert
+      // shipment_item → attach to position via RPC. On any failure, delete
+      // all just-inserted items and roll back their fresh positions.
       const newDrafts = draftItems.filter((d) => d.dbId === null);
 
       const insertedIds: string[] = [];
-      if (newDrafts.length > 0) {
-        const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
-        const { data: insertedRows, error: insErr } = await supabase
-          .from("shipment_items")
-          .insert(payloads as never)
-          .select("id");
-        if (insErr) {
-          toast.error(translateError(insErr));
-          return;
+      const createdPositionIds: string[] = [];
+      let abortReason: string | null = null;
+
+      for (const d of newDrafts) {
+        // 3a. Create draft position (resolves product+country, no reserve).
+        const posRes = await createPositionForShipmentItem({
+          productName: d.product_name,
+          originCountry: d.origin_country,
+          sourceContext: "shipment_item_manual",
+          sourceRowKey: `${id}:${d.localId}`,
+          clientRowId: d.localId,
+          caliber: d.caliber || null,
+          packaging: d.package_used || null,
+          responsibleManagerId: sh?.import_manager_id ?? null,
+          palletQty: d.pallet_count > 0 ? d.pallet_count : null,
+        });
+        if (!posRes.ok) {
+          abortReason =
+            posRes.stage === "resolve_product"
+              ? "Товар не розпізнано. Уточніть назву товару."
+              : posRes.stage === "resolve_country"
+                ? "Країну не розпізнано. Уточніть країну."
+                : `Не вдалося створити позицію: ${posRes.reason}`;
+          break;
         }
-        (insertedRows ?? []).forEach((row) => insertedIds.push((row as { id: string }).id));
+        createdPositionIds.push(posRes.positionId);
+
+        // 3b. Insert the single shipment_item.
+        const payload = buildPayload(d, { forUpdate: false });
+        const { data: insRow, error: insErr } = await supabase
+          .from("shipment_items")
+          .insert(payload as never)
+          .select("id")
+          .single();
+        if (insErr || !insRow) {
+          abortReason = translateError(insErr ?? new Error("insert_failed"));
+          break;
+        }
+        const newItemId = (insRow as { id: string }).id;
+        insertedIds.push(newItemId);
+
+        // 3c. Attach item to fresh position + verify shipment_items.position_id.
+        const attachRes = await attachShipmentItemToPosition({
+          shipmentItemId: newItemId,
+          positionId: posRes.positionId,
+          palletQty: d.pallet_count > 0 ? d.pallet_count : null,
+        });
+        if (!attachRes.ok) {
+          abortReason = `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`;
+          break;
+        }
+      }
+
+      if (abortReason) {
+        // Cleanup orphan shipment_items and roll back their positions.
+        if (insertedIds.length > 0) {
+          await supabase.from("shipment_items").delete().in("id", insertedIds);
+        }
+        for (const pid of createdPositionIds) {
+          await rollbackBirthPosition(pid);
+        }
+        toast.error(abortReason);
+        return;
       }
 
       // 4. UPDATE dirty existing rows (dbId !== null).

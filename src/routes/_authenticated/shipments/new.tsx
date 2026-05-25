@@ -247,7 +247,7 @@ function NewShipment() {
     queryFn: async () => {
       const { data: offer, error } = await supabase
         .from("manager_offers")
-        .select("origin_country,linked_shipment_id,import_manager_id")
+        .select("origin_country,linked_shipment_id,import_manager_id,position_id")
         .eq("id", search.fromOffer!)
         .maybeSingle();
       if (error) throw error;
@@ -268,6 +268,10 @@ function NewShipment() {
         supplierId: linkedShipment?.supplier_id ?? null,
         country: linkedShipment?.country ?? offer.origin_country ?? null,
         offerManagerId: offer.import_manager_id ?? null,
+        // Phase 2 audit: surface offer.position_id even though products page
+        // re-fetches it. NULL signals legacy offer (no anchor) → products
+        // page will block the prefill.
+        offerPositionId: (offer as { position_id?: string | null }).position_id ?? null,
       };
     },
   });
@@ -406,14 +410,25 @@ function NewShipment() {
 
       const shipmentId = crypto.randomUUID();
 
-      const assignedManagerId =
-        fromOfferPrefill?.offerManagerId
-        ?? selectedSupplier?.import_manager_id
-        ?? currentManagerId
-        ?? null;
-
-      if (!assignedManagerId && search.fromOffer) {
-        toast.error("Не вдалось визначити імпорт-менеджера для поставки з пропозиції");
+      // Phase 2 strict manager assignment.
+      // Rule: supplier known → manager comes from the supplier's assignment.
+      //       No assignment → block.
+      //       admin/super_admin never silently become the responsible manager
+      //       (no fallback to currentManagerId for those roles).
+      const isAdminActor = hasRole(["super_admin", "admin"]);
+      const supplierManagerId = selectedSupplier?.import_manager_id ?? null;
+      let assignedManagerId: string | null = supplierManagerId;
+      if (!assignedManagerId && !isAdminActor) {
+        // Import manager flow: they own their own shipment when the supplier
+        // has no explicit assignment yet.
+        assignedManagerId = currentManagerId ?? null;
+      }
+      if (!assignedManagerId) {
+        toast.error(
+          isAdminActor
+            ? "Постачальнику не призначено імпорт-менеджера. Призначте менеджера й повторіть."
+            : "Не вдалось визначити імпорт-менеджера для поставки",
+        );
         setSubmitting(false);
         return;
       }
