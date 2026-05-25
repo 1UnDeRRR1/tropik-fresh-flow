@@ -2085,6 +2085,7 @@ export type Database = {
           job_title: string | null
           phone: string | null
           updated_at: string
+          visual_mark: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -2097,6 +2098,7 @@ export type Database = {
           job_title?: string | null
           phone?: string | null
           updated_at?: string
+          visual_mark?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -2109,6 +2111,7 @@ export type Database = {
           job_title?: string | null
           phone?: string | null
           updated_at?: string
+          visual_mark?: string | null
         }
         Relationships: [
           {
