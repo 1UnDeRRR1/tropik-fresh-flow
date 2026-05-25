@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { resolvePalletForText } from "@/lib/pallet-resolver";
 
 type ResolverStatus =
   | "matched"
@@ -115,26 +115,50 @@ export function DraftOfferLineRow({
       setRpcError(null);
 
       try {
-        const { data, error } = await supabase.rpc(
-          "rpc_resolve_offer_line_defaults" as never,
-          {
-            p_product_query: product,
-            p_country_query: country,
-            p_package_used: null,
-            p_include_reserve: false,
-          } as never,
-        );
+        // Unified pallet resolver — same source as the packaging dropdown.
+        const pal = await resolvePalletForText(product, country);
         if (seq !== seqRef.current) return;
-        if (error) {
-          setResolver(null);
-          setRpcError(`${error.code ?? ""} ${error.message}`.trim());
-          return;
-        }
-        const r = toResolverResult(data);
-        if (!r) {
-          setResolver(null);
-          setRpcError("RPC повернув порожню відповідь");
-          return;
+
+        // Derive a status compatible with the existing hint UI.
+        // Product/country recognition: if dict_id missing → product_no_match.
+        // Pallet: matchType exact/compound_group/all_fallback → matched.
+        //         no_match (with dict resolved) → pallet_no_match.
+        let r: ResolverResult;
+        if (!pal.dictionaryId) {
+          r = {
+            status: "product_no_match",
+            product_name_ua: null,
+            product_candidate_count: 0,
+            country_name: null,
+            package_used: null,
+            pallet_net_kg: null,
+            pallet_gross_kg: null,
+            pallet_selected_by: null,
+          };
+        } else if (pal.matchType === "no_match" || !pal.selected) {
+          r = {
+            status: "pallet_no_match",
+            product_name_ua: pal.productNameUa,
+            product_candidate_count: 1,
+            country_name: country || null,
+            package_used: null,
+            pallet_net_kg: null,
+            pallet_gross_kg: null,
+            pallet_selected_by: null,
+          };
+        } else {
+          r = {
+            status: "matched",
+            product_name_ua: pal.productNameUa,
+            product_candidate_count: 1,
+            country_name: country || null,
+            package_used: pal.selected.package_used,
+            pallet_net_kg: pal.selected.pallet_net_kg,
+            pallet_gross_kg: pal.selected.pallet_gross_kg,
+            pallet_selected_by: pal.isFallback
+              ? (pal.fallbackExplanation ?? pal.matchType)
+              : pal.matchType,
+          };
         }
         setResolver(r);
 
@@ -162,7 +186,7 @@ export function DraftOfferLineRow({
             setGrossRaw(fmtKg(r.pallet_gross_kg * qty));
           }
         } else if (r.status === "pallet_no_match") {
-          // Product/country recognized, no pallet standard → manual entry for net/gross
+          // Product recognized, no pallet standard → manual entry for net/gross
           setBaseNet(null);
           setBaseGross(null);
           if (!pkgManualRef.current) setPackageRaw("");
