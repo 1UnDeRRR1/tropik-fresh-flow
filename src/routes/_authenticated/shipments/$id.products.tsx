@@ -3034,40 +3034,56 @@ function PackageCell({
   countryName,
   readOnly,
   onSelect,
+  onChangeText,
 }: {
   value: string;
   productName: string;
   countryName: string;
   readOnly: boolean;
   onSelect: (opt: PackageOption) => void;
+  onChangeText: (text: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { data: options = [], isLoading } = usePackageOptionsFor(productName, countryName);
-  const display = value || "—";
+
   if (readOnly) {
     return (
-      <div className="h-8 truncate px-1.5 py-1 text-[12px] text-foreground/90">{display}</div>
+      <div className="h-8 truncate px-1.5 py-1 text-[12px] text-foreground/90">{value || "—"}</div>
     );
   }
-  const enabled = !!productName.trim();
+
+  // Manual input is ALWAYS available. The popover offers DB-standard suggestions
+  // when they exist — selecting one fills net/gross. If there are no standards,
+  // typing still works and the value is preserved.
   return (
-    <Popover open={open} onOpenChange={(o) => enabled && setOpen(o)}>
+    <Popover open={open && focused} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          disabled={!enabled}
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          placeholder="—"
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => {
+            onChangeText(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onFocus={() => { setFocused(true); setOpen(true); }}
+          onBlur={() => { setFocused(false); }}
           className={cn(
-            "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-60",
+            "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
             !value && "text-muted-foreground",
           )}
-        >
-          {display}
-        </button>
+        />
       </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={2}
         className="z-50 w-[280px] max-w-[90vw] overflow-hidden p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div
           className="max-h-[260px] overflow-y-auto overscroll-contain"
@@ -3077,7 +3093,7 @@ function PackageCell({
             <div className="px-3 py-2 text-[12px] text-muted-foreground">Завантаження…</div>
           ) : options.length === 0 ? (
             <div className="px-3 py-2 text-[12px] text-muted-foreground">
-              Немає стандартів тари для цього товару та країни
+              Немає стандартів тари — введіть вручну
             </div>
           ) : (
             options.map((opt, i) => {
@@ -3086,9 +3102,11 @@ function PackageCell({
                 <button
                   key={`${opt.package_used}|${opt.pallet_net_kg ?? ""}|${opt.pallet_gross_kg ?? ""}|${i}`}
                   type="button"
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                     onSelect(opt);
                     setOpen(false);
+                    inputRef.current?.blur();
                   }}
                   className={cn(
                     "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
@@ -3109,6 +3127,7 @@ function PackageCell({
     </Popover>
   );
 }
+
 
 function VarietyCell({ value, onChange, productName, readOnly }: { value: string; onChange: (v: string) => void; productName: string; readOnly: boolean }) {
   const varieties = useVarietiesFor(productName);
