@@ -1341,7 +1341,7 @@ export type Database = {
             foreignKeyName: "operational_positions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "product_dictionary"
             referencedColumns: ["id"]
           },
           {
