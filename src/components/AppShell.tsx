@@ -243,11 +243,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             {primaryRole && (
               <div className="text-right leading-tight">
                 <div className="text-sm font-semibold text-foreground">
-                  {profile?.full_name ?? ""}
+                  {(() => {
+                    const name = profile?.display_name ?? profile?.full_name ?? "";
+                    if (profile?.visual_mark === "red_tereshchenko_t" && name.length > 0) {
+                      return (
+                        <>
+                          <span className="text-destructive">{name.charAt(0)}</span>
+                          {name.slice(1)}
+                        </>
+                      );
+                    }
+                    return name;
+                  })()}
                 </div>
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {ROLE_LABEL_UK[primaryRole]}
-                </div>
+                {profile?.job_title ? (
+                  <div className="text-[11px] text-muted-foreground">{profile.job_title}</div>
+                ) : null}
               </div>
             )}
             <Link

@@ -15,6 +15,9 @@ export type AppRole =
 export interface Profile {
   id: string;
   full_name: string | null;
+  display_name: string | null;
+  job_title: string | null;
+  visual_mark: string | null;
   branch_id: string | null;
   avatar_url: string | null;
   phone: string | null;
@@ -154,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUserData = async (uid: string) => {
     const [{ data: prof, error: profileError }, { data: rs, error: rolesError }] = await Promise.all([
-      supabase.from("profiles").select("id,full_name,branch_id,avatar_url,phone").eq("id", uid).maybeSingle(),
+      supabase.from("profiles").select("id,full_name,display_name,job_title,visual_mark,branch_id,avatar_url,phone").eq("id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
 

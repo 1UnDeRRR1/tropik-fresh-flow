@@ -12,7 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
-import { PreviewRoleSwitcher } from "@/components/PreviewRoleSwitcher";
+// PreviewRoleSwitcher removed — no Pilot/mock users in user-facing UI.
 import { useEffect } from "react";
 import { installGlobalErrorLogger, logSystem } from "@/lib/system-log";
 
@@ -149,7 +149,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
-        <PreviewRoleSwitcher />
+        {/* PreviewRoleSwitcher removed */}
         <Toaster position="top-center" />
       </AuthProvider>
     </QueryClientProvider>
