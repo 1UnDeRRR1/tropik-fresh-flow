@@ -62,14 +62,21 @@ export function usePackageOptionsFor(
         .or(orParts.join(","));
       if (error) throw error;
 
-      // 4) Filter by country (or accept generic "All origins average").
+      // 4) Filter by country (or accept generic "all origins" rows).
+      const GENERIC = new Set([
+        "all origins average",
+        "all",
+        "усі країни",
+        "все страны",
+      ]);
       const matched = (data ?? []).filter((r) => {
         if (!country) return true;
         const en = (r.country_en ?? "").toLowerCase();
         const ru = (r.country_ru ?? "").toLowerCase();
-        if (en === "all origins average") return true;
+        if (GENERIC.has(en) || GENERIC.has(ru)) return true;
         return (en && countryForms.has(en)) || (ru && countryForms.has(ru));
       });
+
 
       // 5) De-duplicate identical (package, size, net, gross) tuples.
       const seen = new Set<string>();
