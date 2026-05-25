@@ -3327,6 +3327,27 @@ export type Database = {
           status: string
         }[]
       }
+      rpc_position_create_draft: {
+        Args: {
+          p_caliber?: string
+          p_client_row_id?: string
+          p_free_description?: string
+          p_package_used?: string
+          p_pallet_qty?: number
+          p_product_id: string
+          p_product_origin_country_id: string
+          p_source_context?: string
+          p_source_row_key?: string
+          p_supplier_id?: string
+          p_variety_id?: number
+        }
+        Returns: {
+          created: boolean
+          current_status: string
+          idempotency_status: string
+          position_id: string
+        }[]
+      }
       rpc_resolve_country: {
         Args: { p_input: string }
         Returns: {
