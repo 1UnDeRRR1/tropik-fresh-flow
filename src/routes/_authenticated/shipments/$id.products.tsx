@@ -72,7 +72,7 @@ import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
-import { usePackageOptionsFor, type PackageOption } from "@/hooks/usePackageOptions";
+import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
 
 type ItemRow = {
   id: string;
