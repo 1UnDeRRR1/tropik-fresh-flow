@@ -3385,6 +3385,7 @@ export type Database = {
           p_pallet_qty?: number
           p_product_id: string
           p_product_origin_country_id: string
+          p_responsible_manager_id?: string
           p_source_context?: string
           p_source_row_key?: string
           p_supplier_id?: string
@@ -3392,8 +3393,10 @@ export type Database = {
         }
         Returns: {
           created: boolean
+          created_by: string
           current_status: string
           idempotency_status: string
+          owner_user_id: string
           position_id: string
         }[]
       }
