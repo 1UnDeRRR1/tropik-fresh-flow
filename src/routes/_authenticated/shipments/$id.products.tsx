@@ -2533,8 +2533,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.product = true;
+            setHint(null);
+            onResolverHint(null);
+            setResolverBusy(true);
             onPatch({ product_name: v });
           }}
+
           options={knownProductNames}
           placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
           className={cn(
