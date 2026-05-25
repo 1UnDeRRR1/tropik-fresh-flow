@@ -112,8 +112,8 @@ export function DraftOfferLineRow({
 
 
     const timer = setTimeout(async () => {
-      setResolving(true);
       setRpcError(null);
+
       try {
         const { data, error } = await supabase.rpc(
           "rpc_resolve_offer_line_defaults" as never,
