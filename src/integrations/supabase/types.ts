@@ -3384,6 +3384,14 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_position_attach_shipment: {
+        Args: {
+          p_pallet_qty_linked?: number
+          p_position_id: string
+          p_shipment_item_id: string
+        }
+        Returns: Json
+      }
       rpc_position_create_draft: {
         Args: {
           p_caliber?: string
