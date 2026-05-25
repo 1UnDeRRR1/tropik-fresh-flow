@@ -480,6 +480,19 @@ function BranchOffersPage() {
                   </>
                 ) : null}
 
+                {r && o.status === "active" && r.approved_pallets == null && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={cancelRequest.isPending}
+                    onClick={() => cancelRequest.mutate(r.id)}
+                  >
+                    Скасувати запит
+                  </Button>
+                )}
+
+
                 {r && (
                   <div className="ml-auto text-right text-sm">
                     <div className="text-muted-foreground">
