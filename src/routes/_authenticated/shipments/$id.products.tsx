@@ -3022,6 +3022,88 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
   );
 }
 
+function PackageCell({
+  value,
+  productName,
+  countryName,
+  readOnly,
+  onSelect,
+}: {
+  value: string;
+  productName: string;
+  countryName: string;
+  readOnly: boolean;
+  onSelect: (opt: PackageOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: options = [], isLoading } = usePackageOptionsFor(productName, countryName);
+  const display = value || "—";
+  if (readOnly) {
+    return (
+      <div className="h-8 truncate px-1.5 py-1 text-[12px] text-foreground/90">{display}</div>
+    );
+  }
+  const enabled = !!productName.trim();
+  return (
+    <Popover open={open} onOpenChange={(o) => enabled && setOpen(o)}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={!enabled}
+          className={cn(
+            "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-60",
+            !value && "text-muted-foreground",
+          )}
+        >
+          {display}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={2}
+        className="z-50 w-[280px] max-w-[90vw] overflow-hidden p-0"
+      >
+        <div
+          className="max-h-[260px] overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {isLoading ? (
+            <div className="px-3 py-2 text-[12px] text-muted-foreground">Завантаження…</div>
+          ) : options.length === 0 ? (
+            <div className="px-3 py-2 text-[12px] text-muted-foreground">
+              Немає стандартів тари для цього товару та країни
+            </div>
+          ) : (
+            options.map((opt, i) => {
+              const active = value && value.trim().toLowerCase() === opt.package_used.toLowerCase();
+              return (
+                <button
+                  key={`${opt.package_used}|${opt.pallet_net_kg ?? ""}|${opt.pallet_gross_kg ?? ""}|${i}`}
+                  type="button"
+                  onClick={() => {
+                    onSelect(opt);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
+                    active && "bg-accent/60",
+                  )}
+                >
+                  <div className="font-medium truncate">{opt.package_used}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    net {opt.pallet_net_kg ?? "—"} / gross {opt.pallet_gross_kg ?? "—"} кг
+                    {opt.pallet_size ? ` · ${opt.pallet_size}` : ""}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function VarietyCell({ value, onChange, productName, readOnly }: { value: string; onChange: (v: string) => void; productName: string; readOnly: boolean }) {
   const varieties = useVarietiesFor(productName);
   return (
