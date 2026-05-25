@@ -71,6 +71,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
+import { usePackageOptionsFor, type PackageOption } from "@/hooks/usePackageOptions";
 
 type ItemRow = {
   id: string;
