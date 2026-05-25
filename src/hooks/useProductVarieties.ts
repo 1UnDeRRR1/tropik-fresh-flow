@@ -38,10 +38,30 @@ export function useAllProductVarieties() {
   });
 }
 
+/**
+ * Strip trailing packaging-qualifier token from a UA product name so that
+ * variants like "Полуниця (ваг)" / "Черешня (фас)" still resolve to the
+ * base product's variety list. Scope: varieties ONLY — do not reuse for
+ * pallet_standards / customs_reference / cost / product identity.
+ */
+function stripPackagingQualifier(name: string): string {
+  return name.replace(/\s*\((?:ваг|кош|фас|пучок|зелень|корінь|стебло)\)\s*$/i, "").trim();
+}
+
 export function useVarietiesFor(productName: string | null | undefined): string[] {
   const { data } = useAllProductVarieties();
   return useMemo(() => {
     if (!productName || !data) return [];
-    return data[normalizeProductKey(productName)] ?? [];
+    // 1) Exact match on the selected product name.
+    const exact = data[normalizeProductKey(productName)];
+    if (exact && exact.length) return exact;
+    // 2) Fallback: strip trailing packaging qualifier and look up the base
+    //    product (e.g. "Полуниця (ваг)" → "Полуниця").
+    const base = stripPackagingQualifier(productName);
+    if (base && base !== productName) {
+      const baseHit = data[normalizeProductKey(base)];
+      if (baseHit && baseHit.length) return baseHit;
+    }
+    return [];
   }, [productName, data]);
 }
