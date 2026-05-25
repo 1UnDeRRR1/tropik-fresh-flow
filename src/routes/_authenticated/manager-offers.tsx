@@ -37,6 +37,7 @@ import { resolveProductOption } from "@/lib/product-aliases";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/lib/customs-status";
+import { attachOfferToPosition } from "@/lib/position-attach";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -265,7 +266,25 @@ function ManagerOffersPage() {
         .select("*")
         .neq("status", "deleted")
         .order("created_at", { ascending: false });
-      if (!isAdmin) q = q.eq("created_by", user!.id);
+      if (!isAdmin) {
+        // Position-anchor visibility: include rows the user created OR rows
+        // attached to a position where the user is the responsible manager.
+        // Legacy rows (position_id IS NULL) keep working via created_by.
+        const { data: ownedPositions } = await supabase
+          .from("operational_positions")
+          .select("position_id")
+          .eq("owner_user_id", user!.id);
+        const positionIds = (ownedPositions ?? [])
+          .map((p) => (p as { position_id: string }).position_id)
+          .filter(Boolean);
+        if (positionIds.length > 0) {
+          q = q.or(
+            `created_by.eq.${user!.id},position_id.in.(${positionIds.join(",")})`,
+          );
+        } else {
+          q = q.eq("created_by", user!.id);
+        }
+      }
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as ManagerOffer[];
@@ -356,6 +375,94 @@ function ManagerOffersPage() {
     for (const c of creators ?? []) m[c.id] = c.full_name ?? "—";
     return m;
   }, [creators]);
+
+  // Position-anchor responsible-manager resolution. For offers with a
+  // position_id, the "Менеджер" displayed = operational_positions.owner_user_id.
+  // Falls back to created_by ONLY for legacy rows where position_id IS NULL.
+  const positionIdsForOffers = useMemo(
+    () => Array.from(new Set((offers ?? []).map((o) => (o as ManagerOffer & { position_id?: string | null }).position_id).filter((v): v is string => !!v))),
+    [offers],
+  );
+
+  const { data: positionOwners } = useQuery({
+    queryKey: ["manager-offer-position-owners", positionIdsForOffers],
+    enabled: positionIdsForOffers.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("operational_positions")
+        .select("position_id,owner_user_id")
+        .in("position_id", positionIdsForOffers);
+      if (error) throw error;
+      return (data ?? []) as { position_id: string; owner_user_id: string | null }[];
+    },
+  });
+
+  const ownerUserIdByPosition = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    for (const p of positionOwners ?? []) m[p.position_id] = p.owner_user_id;
+    return m;
+  }, [positionOwners]);
+
+  const ownerProfileIds = useMemo(
+    () => Array.from(new Set(Object.values(ownerUserIdByPosition).filter((v): v is string => !!v))),
+    [ownerUserIdByPosition],
+  );
+
+  const { data: ownerProfiles } = useQuery({
+    queryKey: ["manager-offer-owner-profiles", ownerProfileIds],
+    enabled: ownerProfileIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", ownerProfileIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const ownerNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of ownerProfiles ?? []) m[p.id] = p.full_name ?? "—";
+    return m;
+  }, [ownerProfiles]);
+
+  // Returns { label, pending, actor } for the "Менеджер" column.
+  // Rule: when position_id exists, ALWAYS show responsible manager (or pending).
+  // created_by is shown separately as "Створив" only when distinct from owner.
+  function getResponsible(o: ManagerOffer): {
+    label: string;
+    pending: boolean;
+    actor: string | null;
+    isLegacy: boolean;
+  } {
+    const positionId = (o as ManagerOffer & { position_id?: string | null }).position_id;
+    if (!positionId) {
+      // Legacy row — no position anchor, fall back to created_by.
+      return {
+        label: creatorById[o.created_by] ?? "—",
+        pending: false,
+        actor: null,
+        isLegacy: true,
+      };
+    }
+    const ownerId = ownerUserIdByPosition[positionId];
+    if (!ownerId) {
+      return {
+        label: "не призначено",
+        pending: true,
+        actor: creatorById[o.created_by] ?? null,
+        isLegacy: false,
+      };
+    }
+    const actor = ownerId !== o.created_by ? creatorById[o.created_by] ?? null : null;
+    return {
+      label: ownerNameById[ownerId] ?? "—",
+      pending: false,
+      actor,
+      isLegacy: false,
+    };
+  }
 
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -532,8 +639,12 @@ function ManagerOffersPage() {
     [merged, detailOfferId],
   );
 
-  // Check if there's at least one shipment with a matching, undistributed item.
-  // Match by product_name + origin_country + caliber (when caliber is set on the offer).
+  // Legacy text-matching path: only authoritative for rows without a
+  // position_id. New position-anchored rows must NOT use product_name +
+  // origin_country + caliber as identity — they will use position_id-based
+  // attach in a follow-up step.
+  const detailOfferPositionId = (detailOffer as (ManagerOffer & { position_id?: string | null }) | null)?.position_id ?? null;
+  const detailLegacyLinkEnabled = !!detailOffer && !!user && !detailOfferPositionId;
   const { data: detailLinkableCount } = useQuery({
     queryKey: [
       "detail-offer-linkable",
@@ -543,7 +654,7 @@ function ManagerOffersPage() {
       detailOffer?.caliber,
       user?.id,
     ],
-    enabled: !!detailOffer && !!user,
+    enabled: detailLegacyLinkEnabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
@@ -747,7 +858,14 @@ function ManagerOffersPage() {
                           {etaShow ? new Date(etaShow).toLocaleDateString("uk-UA") : "—"}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">
-                          {creatorById[o.created_by] ?? "—"}
+                          {(() => {
+                            const r = getResponsible(o);
+                            return (
+                              <span className={r.pending ? "italic text-warning" : undefined}>
+                                {r.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-2 text-right">
                           {o.offered_pallets != null
@@ -885,10 +1003,26 @@ function ManagerOffersPage() {
                       </Link>
                     </div>
                   )}
-                  <div>
-                    <span className="text-muted-foreground">Менеджер: </span>
-                    <b>{creatorById[o.created_by] ?? "—"}</b>
-                  </div>
+                  {(() => {
+                    const r = getResponsible(o);
+                    return (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground">
+                            {r.isLegacy ? "Менеджер: " : "Відповідальний: "}
+                          </span>
+                          <b className={r.pending ? "italic text-warning" : undefined}>
+                            {r.label}
+                          </b>
+                        </div>
+                        {!r.isLegacy && r.actor && (
+                          <div className="text-xs text-muted-foreground">
+                            Створив: <b>{r.actor}</b>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-muted-foreground">Цільові філії:</span>
                     {o.target_mode === "all" ? (
@@ -1521,6 +1655,26 @@ function OfferEditor({
             .single();
           if (createError) throw createError;
           createdIds.push(created.id);
+
+          // Position-anchor wiring (best-effort, non-blocking).
+          // Creates an operational_position and links manager_offers.position_id
+          // via rpc_position_attach_offer. If product/country aren't in the
+          // dictionaries, we leave position_id NULL (legacy fallback path).
+          // We do NOT roll back the offer if this step fails.
+          const offerPayload = payload as {
+            product_name: string;
+            origin_country: string;
+            caliber?: string | null;
+            packaging?: string | null;
+          };
+          await attachOfferToPosition({
+            offerId: created.id,
+            productName: offerPayload.product_name,
+            originCountry: offerPayload.origin_country,
+            caliber: offerPayload.caliber ?? null,
+            packaging: offerPayload.packaging ?? null,
+            responsibleManagerId: currentManagerId ?? null,
+          });
 
           if (isRed) {
             const { error: rpcErr } = await supabase.rpc(
