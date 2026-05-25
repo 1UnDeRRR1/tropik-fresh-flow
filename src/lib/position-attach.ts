@@ -27,13 +27,11 @@ export type AttachResult =
       reason: string;
     };
 
-async function resolveProductId(name: string): Promise<string | null> {
+export async function resolveProductId(name: string): Promise<string | null> {
   const n = name.trim();
   if (!n) return null;
   const { data, error } = await supabase.rpc("rpc_resolve_product_exact", {
     p_query: n,
-    // Runtime birth-flow MUST NOT pull frozen-reserve products into the
-    // operational dictionary anchor. See POSITION_ID core rule.
     p_include_reserve: false,
   });
   if (error) throw error;
@@ -42,7 +40,7 @@ async function resolveProductId(name: string): Promise<string | null> {
   return row.dictionary_id as string;
 }
 
-async function resolveCountryId(name: string): Promise<string | null> {
+export async function resolveCountryId(name: string): Promise<string | null> {
   const n = name.trim();
   if (!n) return null;
   const { data, error } = await supabase.rpc("rpc_resolve_country", {
