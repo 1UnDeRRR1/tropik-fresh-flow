@@ -97,20 +97,23 @@ export function DraftOfferLineRow({
     const product = productQuery.trim();
     const country = countryQuery.trim();
 
+    // Clear stale resolver state immediately on product/country change
+    seqRef.current += 1;
+    setResolver(null);
+    setRpcError(null);
+
     if (!product || !country) {
-      seqRef.current += 1;
       setResolving(false);
-      setResolver(null);
-      setRpcError(null);
       return;
     }
 
-    const seq = seqRef.current + 1;
-    seqRef.current = seq;
+    setResolving(true);
+    const seq = seqRef.current;
+
 
     const timer = setTimeout(async () => {
-      setResolving(true);
       setRpcError(null);
+
       try {
         const { data, error } = await supabase.rpc(
           "rpc_resolve_offer_line_defaults" as never,
@@ -238,10 +241,12 @@ export function DraftOfferLineRow({
           text: `matched · ${resolver.product_name_ua ?? "—"} · ${resolver.country_name ?? "—"}${resolver.pallet_selected_by ? ` · ${resolver.pallet_selected_by}` : ""}`,
         };
       case "pallet_no_match":
+        if (resolving) return null;
         return {
           variant: "secondary" as const,
           text: `pallet_no_match · ${resolver.product_name_ua ?? "—"} · ${resolver.country_name ?? "—"} — введіть вагу вручну`,
         };
+
       case "product_ambiguous":
         return {
           variant: "secondary" as const,

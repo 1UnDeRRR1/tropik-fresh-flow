@@ -45,6 +45,10 @@ function BranchOffersPage() {
   const qc = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [fProduct, setFProduct] = useState<string>("");
+  const [fCountry, setFCountry] = useState<string>("");
+  const [fManager, setFManager] = useState<string>("");
+
 
   const { data: offers, isLoading } = useQuery({
     queryKey: ["branch-active-offers"],
@@ -102,16 +106,41 @@ function BranchOffersPage() {
     return m;
   }, [myResponses]);
 
-  const visibleOffers = useMemo(() => {
+  const baseVisibleOffers = useMemo(() => {
     const list = offers ?? [];
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const filtered = list.filter((o) => {
+    return list.filter((o) => {
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
-      // closed / expired: show only to branches that responded, and only for 7 days
       if (!responseByOffer[o.id]) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
     });
+  }, [offers, responseByOffer]);
+
+  const managerNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
+    return m;
+  }, [managerNames]);
+
+  // Filter options derived ONLY from rows visible to this branch
+  const productOptions = useMemo(
+    () => Array.from(new Set(baseVisibleOffers.map((o) => o.product_name).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
+    [baseVisibleOffers],
+  );
+  const countryOptions = useMemo(
+    () => Array.from(new Set(baseVisibleOffers.map((o) => o.origin_country).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "uk")),
+    [baseVisibleOffers],
+  );
+  const managerOptions = useMemo(() => {
+    const ids = Array.from(new Set(baseVisibleOffers.map((o) => o.created_by).filter(Boolean)));
+    return ids
+      .map((id) => ({ id, name: managerNameById[id] ?? "" }))
+      .filter((m) => m.name)
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+  }, [baseVisibleOffers, managerNameById]);
+
+  const visibleOffers = useMemo(() => {
     const shipMap: Record<string, { eta: string | null; arrived_at: string | null }> = {};
     for (const s of shipments ?? []) shipMap[s.id] = { eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
     const arrivalDate = (o: ManagerOffer): string | null => {
@@ -120,6 +149,12 @@ function BranchOffersPage() {
     };
     const eventTs = (o: ManagerOffer): number =>
       new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+    const filtered = baseVisibleOffers.filter((o) => {
+      if (fProduct && o.product_name !== fProduct) return false;
+      if (fCountry && o.origin_country !== fCountry) return false;
+      if (fManager && o.created_by !== fManager) return false;
+      return true;
+    });
     const sorted = [...filtered];
     if (sortBy === "date") {
       sorted.sort((a, b) => {
@@ -137,13 +172,8 @@ function BranchOffersPage() {
       sorted.sort((a, b) => eventTs(b) - eventTs(a));
     }
     return sorted;
-  }, [offers, responseByOffer, shipments, sortBy]);
+  }, [baseVisibleOffers, shipments, sortBy, fProduct, fCountry, fManager]);
 
-  const managerNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const r of managerNames ?? []) if (r.full_name) m[r.id] = r.full_name;
-    return m;
-  }, [managerNames]);
 
   const shipmentById = useMemo(() => {
     const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
@@ -180,6 +210,22 @@ function BranchOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const cancelRequest = useMutation({
+    mutationFn: async (responseId: string) => {
+      const { error } = await supabase
+        .from("manager_offer_responses")
+        .delete()
+        .eq("id", responseId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Запит скасовано", { duration: 1500 });
+      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   if (!branchId) {
     return (
       <div>
@@ -195,9 +241,47 @@ function BranchOffersPage() {
         title="Пропозиції ЗЕД"
         subtitle="Активні пропозиції менеджерів. Введіть бажану кількість палет."
       />
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {productOptions.length > 1 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={fProduct}
+              onChange={(e) => setFProduct(e.target.value)}
+            >
+              <option value="">Усі товари</option>
+              {productOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          )}
+          {countryOptions.length > 1 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={fCountry}
+              onChange={(e) => setFCountry(e.target.value)}
+            >
+              <option value="">Усі країни</option>
+              {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+          {managerOptions.length > 1 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={fManager}
+              onChange={(e) => setFManager(e.target.value)}
+            >
+              <option value="">Усі менеджери</option>
+              {managerOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          )}
+          {(fProduct || fCountry || fManager) && (
+            <Button size="sm" variant="ghost" onClick={() => { setFProduct(""); setFCountry(""); setFManager(""); }}>
+              Скинути
+            </Button>
+          )}
+        </div>
         <SortByMenu value={sortBy} onChange={setSortBy} />
       </div>
+
       {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
       {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
@@ -321,13 +405,14 @@ function BranchOffersPage() {
                 />
               </div>
 
-              {/* Responsible manager (confirmed/linked only) */}
-              {(o.status === "linked" || o.status === "confirmed") && managerNameById[o.created_by] && (
+              {/* Responsible manager — shown for all statuses when known */}
+              {managerNameById[o.created_by] && (
                 <div className="mt-1 text-sm text-muted-foreground">
                   Відповідальний менеджер:{" "}
                   <b className="text-foreground">{managerNameById[o.created_by]}</b>
                 </div>
               )}
+
 
               {/* Expected date */}
               {etaDate && (
@@ -394,6 +479,19 @@ function BranchOffersPage() {
                     </Button>
                   </>
                 ) : null}
+
+                {r && o.status === "active" && r.approved_pallets == null && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={cancelRequest.isPending}
+                    onClick={() => cancelRequest.mutate(r.id)}
+                  >
+                    Скасувати запит
+                  </Button>
+                )}
+
 
                 {r && (
                   <div className="ml-auto text-right text-sm">

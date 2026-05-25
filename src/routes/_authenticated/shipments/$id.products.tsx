@@ -2384,7 +2384,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
     | null;
   const [hint, setHint] = useState<ResolverHint>(null);
+  const [resolverBusy, setResolverBusy] = useState(false);
   const resolverSeqRef = useRef(0);
+
 
   const runResolver = useCallback(async () => {
     if (readOnly) return;
@@ -2414,8 +2416,10 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       }
     };
     const seq = ++resolverSeqRef.current;
+    setResolverBusy(true);
     try {
       const { data, error } = await supabase.rpc(
+
         "rpc_resolve_offer_line_defaults" as never,
         {
           p_product_query: product,
@@ -2474,8 +2478,11 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       }
     } catch {
       if (seq === resolverSeqRef.current) reportHint(null);
+    } finally {
+      if (seq === resolverSeqRef.current) setResolverBusy(false);
     }
   }, [readOnly, form.product_name, form.origin_country, form.package_used, form.pallet_count, form.net_weight_kg, form.gross_weight_kg, onPatch, onResolverHint]);
+
 
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
@@ -2526,8 +2533,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.product = true;
+            setHint(null);
+            onResolverHint(null);
+            setResolverBusy(true);
             onPatch({ product_name: v });
           }}
+
           options={knownProductNames}
           placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
           className={cn(
@@ -2553,8 +2564,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           onChange={(v) => {
             if (readOnly) return;
             touchedRef.current.country = true;
+            setHint(null);
+            onResolverHint(null);
+            setResolverBusy(true);
             onPatch({ origin_country: v });
           }}
+
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
           placeholder={invalidCountry ? "Країна*" : "Країна"}
@@ -2785,7 +2800,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             onCollapse={() => setOverrideOpen(false)}
           />
         )}
-        {hint && (
+        {hint && !resolverBusy && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
               <span className="text-amber-600 dark:text-amber-400">
