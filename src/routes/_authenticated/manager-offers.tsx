@@ -37,7 +37,7 @@ import { resolveProductOption } from "@/lib/product-aliases";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/lib/customs-status";
-import { attachOfferToPosition } from "@/lib/position-attach";
+import { attachOfferToPosition, rollbackBirthPosition } from "@/lib/position-attach";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -1475,16 +1475,39 @@ function OfferEditor({
   });
 
   const { data: activeManagers = [], isLoading: activeManagersLoading } = useQuery({
-    queryKey: ["active-import-managers"],
+    queryKey: ["active-import-managers", "import-manager-role"],
     enabled: open && isAdmin,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Selector must show ONLY active import_managers that are linked to a
+      // real user with the 'import_manager' role. Exclude inactive rows,
+      // rows without user_id, and rows whose user is admin/super_admin only.
+      const { data: rows, error } = await supabase
         .from("import_managers")
-        .select("id,full_name,is_active")
+        .select("id,full_name,is_active,user_id")
         .eq("is_active", true)
+        .not("user_id", "is", null)
         .order("full_name");
       if (error) throw error;
-      return (data ?? []) as { id: string; full_name: string | null; is_active: boolean }[];
+      const candidates = (rows ?? []) as {
+        id: string;
+        full_name: string | null;
+        is_active: boolean;
+        user_id: string | null;
+      }[];
+      const userIds = candidates
+        .map((r) => r.user_id)
+        .filter((v): v is string => !!v);
+      if (userIds.length === 0) return [];
+      const { data: roleRows, error: roleError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "import_manager")
+        .in("user_id", userIds);
+      if (roleError) throw roleError;
+      const valid = new Set((roleRows ?? []).map((r) => r.user_id as string));
+      return candidates
+        .filter((r) => r.user_id && valid.has(r.user_id))
+        .map(({ id, full_name, is_active }) => ({ id, full_name, is_active }));
     },
   });
 
@@ -1648,6 +1671,7 @@ function OfferEditor({
       }
 
       const createdIds: string[] = [];
+      const createdPositionIds: string[] = [];
       if (!isAdmin && currentManagerIdLoading) {
         throw new Error("Зачекайте, визначається імпорт-менеджер");
       }
@@ -1699,6 +1723,7 @@ function OfferEditor({
               `Не вдалося створити позицію для пропозиції (${attachResult.stage}: ${attachResult.reason})`,
             );
           }
+          createdPositionIds.push(attachResult.positionId);
 
           if (isRed) {
             const { error: rpcErr } = await supabase.rpc(
@@ -1725,8 +1750,19 @@ function OfferEditor({
           }
         }
       } catch (error) {
+        // Strict birth-flow cleanup: remove offer-side rows FIRST (targets,
+        // then offers — which also clears manager_offers.position_id refs),
+        // THEN ask the backend to safely drop any orphan positions created
+        // in this submit. The rollback RPC is a no-op if other links exist.
         if (createdIds.length) {
+          await supabase
+            .from("manager_offer_targets")
+            .delete()
+            .in("offer_id", createdIds);
           await supabase.from("manager_offers").delete().in("id", createdIds);
+        }
+        for (const pid of createdPositionIds) {
+          await rollbackBirthPosition(pid);
         }
         throw error;
       }
