@@ -2800,7 +2800,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             onCollapse={() => setOverrideOpen(false)}
           />
         )}
-        {hint && (
+        {hint && !resolverBusy && (
           <div className="mt-1 text-[10px] leading-snug">
             {hint.status === "pallet_no_match" && (
               <span className="text-amber-600 dark:text-amber-400">
