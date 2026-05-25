@@ -1671,6 +1671,7 @@ function OfferEditor({
       }
 
       const createdIds: string[] = [];
+      const createdPositionIds: string[] = [];
       if (!isAdmin && currentManagerIdLoading) {
         throw new Error("Зачекайте, визначається імпорт-менеджер");
       }
@@ -1722,6 +1723,7 @@ function OfferEditor({
               `Не вдалося створити позицію для пропозиції (${attachResult.stage}: ${attachResult.reason})`,
             );
           }
+          createdPositionIds.push(attachResult.positionId);
 
           if (isRed) {
             const { error: rpcErr } = await supabase.rpc(
@@ -1748,8 +1750,19 @@ function OfferEditor({
           }
         }
       } catch (error) {
+        // Strict birth-flow cleanup: remove offer-side rows FIRST (targets,
+        // then offers — which also clears manager_offers.position_id refs),
+        // THEN ask the backend to safely drop any orphan positions created
+        // in this submit. The rollback RPC is a no-op if other links exist.
         if (createdIds.length) {
+          await supabase
+            .from("manager_offer_targets")
+            .delete()
+            .in("offer_id", createdIds);
           await supabase.from("manager_offers").delete().in("id", createdIds);
+        }
+        for (const pid of createdPositionIds) {
+          await rollbackBirthPosition(pid);
         }
         throw error;
       }
