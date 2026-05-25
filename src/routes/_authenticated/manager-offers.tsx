@@ -1003,10 +1003,26 @@ function ManagerOffersPage() {
                       </Link>
                     </div>
                   )}
-                  <div>
-                    <span className="text-muted-foreground">Менеджер: </span>
-                    <b>{creatorById[o.created_by] ?? "—"}</b>
-                  </div>
+                  {(() => {
+                    const r = getResponsible(o);
+                    return (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground">
+                            {r.isLegacy ? "Менеджер: " : "Відповідальний: "}
+                          </span>
+                          <b className={r.pending ? "italic text-warning" : undefined}>
+                            {r.label}
+                          </b>
+                        </div>
+                        {!r.isLegacy && r.actor && (
+                          <div className="text-xs text-muted-foreground">
+                            Створив: <b>{r.actor}</b>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-muted-foreground">Цільові філії:</span>
                     {o.target_mode === "all" ? (
