@@ -63,8 +63,17 @@ export function usePalletResolver(
       );
       if (error) throw error;
 
-      const row = Array.isArray(data) ? data[0] : data;
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | {
+            options: unknown;
+            match_type: string | null;
+            is_fallback: boolean | null;
+            fallback_explanation: string | null;
+          }
+        | null
+        | undefined;
       if (!row) return EMPTY;
+
 
       const rawOptions = (row.options ?? []) as Array<{
         package_used: string | null;
