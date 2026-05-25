@@ -1656,6 +1656,26 @@ function OfferEditor({
           if (createError) throw createError;
           createdIds.push(created.id);
 
+          // Position-anchor wiring (best-effort, non-blocking).
+          // Creates an operational_position and links manager_offers.position_id
+          // via rpc_position_attach_offer. If product/country aren't in the
+          // dictionaries, we leave position_id NULL (legacy fallback path).
+          // We do NOT roll back the offer if this step fails.
+          const offerPayload = payload as {
+            product_name: string;
+            origin_country: string;
+            caliber?: string | null;
+            packaging?: string | null;
+          };
+          await attachOfferToPosition({
+            offerId: created.id,
+            productName: offerPayload.product_name,
+            originCountry: offerPayload.origin_country,
+            caliber: offerPayload.caliber ?? null,
+            packaging: offerPayload.packaging ?? null,
+            responsibleManagerId: currentManagerId ?? null,
+          });
+
           if (isRed) {
             const { error: rpcErr } = await supabase.rpc(
               "confirm_manager_offer_customs_override",
