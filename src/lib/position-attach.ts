@@ -32,7 +32,9 @@ async function resolveProductId(name: string): Promise<string | null> {
   if (!n) return null;
   const { data, error } = await supabase.rpc("rpc_resolve_product_exact", {
     p_query: n,
-    p_include_reserve: true,
+    // Runtime birth-flow MUST NOT pull frozen-reserve products into the
+    // operational dictionary anchor. See POSITION_ID core rule.
+    p_include_reserve: false,
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : null;
