@@ -3424,6 +3424,13 @@ export type Database = {
           position_id: string
         }[]
       }
+      rpc_position_rollback_birth: {
+        Args: { p_position_id: string }
+        Returns: {
+          reason: string
+          rolled_back: boolean
+        }[]
+      }
       rpc_resolve_country: {
         Args: { p_input: string }
         Returns: {
