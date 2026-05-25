@@ -241,9 +241,47 @@ function BranchOffersPage() {
         title="Пропозиції ЗЕД"
         subtitle="Активні пропозиції менеджерів. Введіть бажану кількість палет."
       />
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {productOptions.length > 1 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={fProduct}
+              onChange={(e) => setFProduct(e.target.value)}
+            >
+              <option value="">Усі товари</option>
+              {productOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          )}
+          {countryOptions.length > 1 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={fCountry}
+              onChange={(e) => setFCountry(e.target.value)}
+            >
+              <option value="">Усі країни</option>
+              {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+          {managerOptions.length > 1 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={fManager}
+              onChange={(e) => setFManager(e.target.value)}
+            >
+              <option value="">Усі менеджери</option>
+              {managerOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          )}
+          {(fProduct || fCountry || fManager) && (
+            <Button size="sm" variant="ghost" onClick={() => { setFProduct(""); setFCountry(""); setFManager(""); }}>
+              Скинути
+            </Button>
+          )}
+        </div>
         <SortByMenu value={sortBy} onChange={setSortBy} />
       </div>
+
       {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
       {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
