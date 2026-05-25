@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { COUNTRY_ALIASES } from "@/lib/country-search";
 
 /**
- * Loads country aliases from the DB and merges them with the static
- * COUNTRY_ALIASES fallback. Keys are lowercased alias forms (EN names,
- * ISO2/ISO3 codes, multilingual variants); values are canonical Ukrainian
- * country names matching `countries.name`.
+ * Loads country aliases from the DB (`country_aliases`). Keys are lowercased
+ * alias forms; values are canonical Ukrainian country names matching
+ * `countries.name`. No hardcoded fallback (Phase 0 cleanup).
  */
 export function useCountryAliases(): Record<string, string> {
   const { data } = useQuery({
@@ -31,5 +29,5 @@ export function useCountryAliases(): Record<string, string> {
     },
     staleTime: 10 * 60 * 1000,
   });
-  return { ...COUNTRY_ALIASES, ...(data ?? {}) };
+  return data ?? {};
 }

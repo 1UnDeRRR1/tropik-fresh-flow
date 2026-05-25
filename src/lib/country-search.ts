@@ -1,62 +1,9 @@
-// Shared country search utilities for autocomplete & cost calc lookups.
-// Canonical names come from the global `countries` table (UPPERCASE Ukrainian).
-// Aliases map lowercased EN / RU / partial UA forms to a canonical UA string
-// (case-insensitive — the actual option from DB wins).
+// Phase 0 — country alias resolution / suggestion is DB-backed via alias-cache.
+// No hardcoded COUNTRY_ALIASES constant. Signatures kept sync; cache miss is
+// safe (resolveCountry returns null; suggestCountries returns []), identical
+// to legacy behavior on unknown input.
 
-export const COUNTRY_ALIASES: Record<string, string> = {
-  // Greece
-  greece: "Греція", gr: "Греція", греция: "Греція",
-  // Italy
-  italy: "Італія", it: "Італія", италия: "Італія",
-  // Spain
-  spain: "Іспанія", es: "Іспанія", испания: "Іспанія",
-  // Netherlands
-  netherlands: "Нідерланди", holland: "Нідерланди", nl: "Нідерланди",
-  нидерланды: "Нідерланди", голландия: "Нідерланди",
-  // Belgium
-  belgium: "Бельгія", be: "Бельгія", бельгия: "Бельгія",
-  // Poland
-  poland: "Польща", pl: "Польща", польша: "Польща",
-  // Moldova
-  moldova: "Молдова", md: "Молдова", молдавия: "Молдова",
-  // Albania
-  albania: "Албанія", al: "Албанія", албания: "Албанія",
-  // North Macedonia
-  macedonia: "Північна Македонія",
-  "north macedonia": "Північна Македонія",
-  mk: "Північна Македонія",
-  македония: "Північна Македонія",
-  "северная македония": "Північна Македонія",
-  северная: "Північна Македонія",
-  північна: "Північна Македонія",
-  // Turkey
-  turkey: "Туреччина", tr: "Туреччина", турция: "Туреччина",
-  // France
-  france: "Франція", fr: "Франція", франция: "Франція",
-  // Germany
-  germany: "Німеччина", de: "Німеччина", германия: "Німеччина",
-  // Portugal
-  portugal: "Португалія", pt: "Португалія", португалия: "Португалія",
-  // Romania
-  romania: "Румунія", ro: "Румунія", румыния: "Румунія",
-  // Serbia
-  serbia: "Сербія", rs: "Сербія", сербия: "Сербія",
-  // Georgia
-  georgia: "Грузія", ge: "Грузія", грузия: "Грузія",
-  // Egypt
-  egypt: "Єгипет", eg: "Єгипет", египет: "Єгипет",
-  // Morocco
-  morocco: "Марокко", ma: "Марокко",
-  // UK
-  uk: "Велика Британія", britain: "Велика Британія",
-  "united kingdom": "Велика Британія", великобритания: "Велика Британія",
-  // USA
-  usa: "США", us: "США",
-  // South Africa
-  "south africa": "ПАР", southafrica: "ПАР",
-  // EU
-  eu: "ЄС",
-};
+import { getCountryAliases } from "@/lib/alias-cache";
 
 /** Find a canonical option matching `value` (case-insensitive) via direct match,
  *  alias map, or — if exactly one option contains the query as substring — that one.
@@ -64,7 +11,7 @@ export const COUNTRY_ALIASES: Record<string, string> = {
 export function resolveCountry(
   value: string,
   options: string[],
-  aliases: Record<string, string> = COUNTRY_ALIASES,
+  aliases: Record<string, string> = getCountryAliases(),
 ): string | null {
   const v = value.trim().toLowerCase();
   if (!v) return null;
@@ -75,7 +22,7 @@ export function resolveCountry(
     const found = options.find((o) => o.toLowerCase() === aliased.toLowerCase());
     if (found) return found;
   }
-  // Unique prefix fallback (e.g. "македон" → "ПІВНІЧНА МАКЕДОНІЯ" only if sole prefix match)
+  // Unique prefix fallback
   const subs = options.filter((o) => o.toLowerCase().startsWith(v));
   if (subs.length === 1) return subs[0];
   return null;
@@ -86,7 +33,7 @@ export function resolveCountry(
 export function suggestCountries(
   value: string,
   options: string[],
-  aliases: Record<string, string> = COUNTRY_ALIASES,
+  aliases: Record<string, string> = getCountryAliases(),
   limit = 3,
 ): string[] {
   const v = value.trim().toLowerCase();

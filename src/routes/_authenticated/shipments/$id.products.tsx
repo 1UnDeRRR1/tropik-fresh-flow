@@ -518,7 +518,9 @@ type VehicleContext = {
   shipments: Array<{ id: string; logistics_cost_usd: number | null }>;
 };
 
-type ProductRef = { name: string; default_pallet_weight: number | null };
+// Phase 0 — legacy products.default_pallet_weight removed. Pallet/net/gross
+// come from pallet_standards via DB resolver only. No product-only fallback.
+type ProductRef = { name: string };
 
 function normalizeProductValue(value: string | null | undefined) {
   return normalizeProductKey(value);
@@ -738,7 +740,7 @@ function ProductsFullscreen() {
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
         supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
         Promise.all([
-          supabase.from("products").select("name,default_pallet_weight").eq("is_active", true),
+          supabase.from("product_dictionary").select("product_name_ua").order("product_name_ua"),
           supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
         ]),
       ]);
@@ -867,13 +869,10 @@ function ProductsFullscreen() {
         products: Array.from(
           new Map(
             [
-              ...((prods[0].data ?? []) as ProductRef[]),
-              ...((prods[1].data ?? []).map((row) => ({
-                name: row.product_name_ua as string,
-                default_pallet_weight: null,
-              })) as ProductRef[]),
+              ...((prods[0].data ?? []).map((row) => ({ name: row.product_name_ua as string })) as ProductRef[]),
+              ...((prods[1].data ?? []).map((row) => ({ name: row.product_name_ua as string })) as ProductRef[]),
             ]
-              .map((product) => [normalizeProductKey(product.name), { name: product.name.trim(), default_pallet_weight: product.default_pallet_weight ?? null }] as const)
+              .map((product) => [normalizeProductKey(product.name), { name: product.name.trim() }] as const)
               .filter(([key]) => !!key),
           ).values(),
         ),
