@@ -30,6 +30,11 @@ import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status";
 import { allocateTransport } from "@/lib/transport";
+import {
+  createPositionForShipmentItem,
+  attachShipmentItemToPosition,
+  rollbackBirthPosition,
+} from "@/lib/position-attach";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 // D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
