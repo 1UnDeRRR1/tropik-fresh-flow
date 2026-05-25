@@ -205,3 +205,20 @@ export async function attachOfferToPosition(
 
   return { attached: true, positionId };
 }
+
+/**
+ * Safe rollback of a freshly-born position from the UI birth-flow.
+ * Calls the security-definer RPC that deletes operational_positions +
+ * position_events ONLY IF no other links exist (no offers, no shipment_items,
+ * no allocation parts, no shipment links). Never throws.
+ */
+export async function rollbackBirthPosition(positionId: string): Promise<void> {
+  try {
+    await supabase.rpc("rpc_position_rollback_birth", {
+      p_position_id: positionId,
+    });
+  } catch (error) {
+    console.error("[position-attach] rollback failed", positionId, error);
+  }
+}
+
