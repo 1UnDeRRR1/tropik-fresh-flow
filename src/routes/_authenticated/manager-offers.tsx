@@ -858,7 +858,14 @@ function ManagerOffersPage() {
                           {etaShow ? new Date(etaShow).toLocaleDateString("uk-UA") : "—"}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">
-                          {creatorById[o.created_by] ?? "—"}
+                          {(() => {
+                            const r = getResponsible(o);
+                            return (
+                              <span className={r.pending ? "italic text-warning" : undefined}>
+                                {r.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-2 text-right">
                           {o.offered_pallets != null
