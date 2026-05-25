@@ -639,8 +639,12 @@ function ManagerOffersPage() {
     [merged, detailOfferId],
   );
 
-  // Check if there's at least one shipment with a matching, undistributed item.
-  // Match by product_name + origin_country + caliber (when caliber is set on the offer).
+  // Legacy text-matching path: only authoritative for rows without a
+  // position_id. New position-anchored rows must NOT use product_name +
+  // origin_country + caliber as identity — they will use position_id-based
+  // attach in a follow-up step.
+  const detailOfferPositionId = (detailOffer as (ManagerOffer & { position_id?: string | null }) | null)?.position_id ?? null;
+  const detailLegacyLinkEnabled = !!detailOffer && !!user && !detailOfferPositionId;
   const { data: detailLinkableCount } = useQuery({
     queryKey: [
       "detail-offer-linkable",
@@ -650,7 +654,7 @@ function ManagerOffersPage() {
       detailOffer?.caliber,
       user?.id,
     ],
-    enabled: !!detailOffer && !!user,
+    enabled: detailLegacyLinkEnabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
