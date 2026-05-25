@@ -1172,11 +1172,24 @@ function ProductsFullscreen() {
         const { data: offer, error: offerErr } = await supabase
           .from("manager_offers")
           .select(
-            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency",
+            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,position_id,import_manager_id",
           )
           .eq("id", fromOfferId)
           .maybeSingle();
         if (offerErr || !offer) return;
+
+        // Phase 2 hard guard: offers without a position anchor are legacy.
+        // Do NOT silently mint a new product identity here — block the
+        // prefill explicitly so the user fixes the source offer first.
+        const offerPositionId =
+          (offer as { position_id?: string | null }).position_id ?? null;
+        if (!offerPositionId) {
+          prefillRunRef.current = false;
+          toast.error(
+            "Пропозиція без position_id (legacy). Створення поставки за пропозицією заблоковано.",
+          );
+          return;
+        }
 
         const palletWeight = Number(offer.pallet_weight ?? 0);
 
@@ -1204,7 +1217,6 @@ function ProductsFullscreen() {
 
         const pending = approvedTotal - orderedTotal - cancelledTotal;
 
-        // Desired: заповнити фуру біля ліміту 21000 кг / MAX_PALLETS.
         const TARGET_KG = 21000;
         const desiredPalletCount =
           palletWeight > 0
@@ -1223,10 +1235,6 @@ function ProductsFullscreen() {
           );
         }
 
-        
-
-        // 9F Phase B — prefill writes new weight model + legacy compat-shim.
-        // net = gross = pc * offer.pallet_weight (no resolver, manual mode).
         const palletWeightShim = palletWeight > 0 ? palletWeight : 0;
         const netKg = safePalletCount * palletWeightShim;
         const grossKg = netKg;
@@ -1264,6 +1272,23 @@ function ProductsFullscreen() {
         }
         const newItemId = inserted!.id as string;
 
+        // Phase 2: attach the new shipment_item to the offer's existing
+        // position_id. NEVER mint a new position from text fields here.
+        const attachRes = await attachShipmentItemToPosition({
+          shipmentItemId: newItemId,
+          positionId: offerPositionId,
+          palletQty: safePalletCount,
+        });
+        if (!attachRes.ok) {
+          // Cleanup the just-inserted orphan shipment_item (no other links yet).
+          await supabase.from("shipment_items").delete().eq("id", newItemId);
+          prefillRunRef.current = false;
+          toast.error(
+            `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`,
+          );
+          return;
+        }
+
         // Copy freight from offer to shipment if shipment has no freight yet.
         if (
           (sh.logistics_cost == null || Number(sh.logistics_cost) <= 0) &&
@@ -1278,7 +1303,7 @@ function ProductsFullscreen() {
             .eq("id", id);
         }
 
-        // FIFO allocation через RPC (єдиний канонічний шлях прив'язки offer ↔ shipment).
+        // FIFO allocation через RPC (легасі shipment ↔ offer облік палет).
         const { error: rpcErr } = await supabase.rpc(
           "link_offer_to_shipment_item_fifo",
           {
@@ -1290,7 +1315,6 @@ function ProductsFullscreen() {
           },
         );
         if (rpcErr) {
-          // Cleanup orphan shipment_item, якщо немає прив'язок.
           const { data: ap } = await supabase
             .from("manager_offer_allocation_parts")
             .select("id")
@@ -1327,9 +1351,6 @@ function ProductsFullscreen() {
         qc.invalidateQueries({ queryKey: ["manager-offers"] });
         qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
         qc.invalidateQueries({ queryKey: ["manager-offer-responses", offer.id] });
-
-        qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
-        qc.invalidateQueries({ queryKey: ["shipment", id] });
         invalidateVehicleAndShipmentCaches(qc);
       } catch {
         prefillRunRef.current = false;
