@@ -220,3 +220,112 @@ export async function rollbackBirthPosition(positionId: string): Promise<void> {
   }
 }
 
+// ===========================================================================
+// Phase 2: Shipment-item birth-flow position wiring.
+// Every NEW shipment_items row created from the UI MUST anchor to a
+// position_id. No text-only legacy rows. Failures roll back the inserted
+// shipment_item and the freshly-minted position (if safe).
+// ===========================================================================
+
+type CreatePositionForShipmentInput = {
+  productName: string;
+  originCountry: string;
+  sourceContext: string;
+  sourceRowKey: string;
+  clientRowId?: string;
+  caliber?: string | null;
+  packaging?: string | null;
+  responsibleManagerId?: string | null;
+  palletQty?: number | null;
+};
+
+export type CreatePositionResult =
+  | { ok: true; positionId: string }
+  | {
+      ok: false;
+      stage: "resolve_product" | "resolve_country" | "create_draft";
+      reason: string;
+    };
+
+export async function createPositionForShipmentItem(
+  input: CreatePositionForShipmentInput,
+): Promise<CreatePositionResult> {
+  let productId: string | null;
+  try {
+    productId = await resolveProductId(input.productName);
+  } catch (e) {
+    return { ok: false, stage: "resolve_product", reason: (e as Error).message ?? "unknown_error" };
+  }
+  if (!productId) return { ok: false, stage: "resolve_product", reason: "product_not_resolved" };
+
+  let countryId: string | null;
+  try {
+    countryId = await resolveCountryId(input.originCountry);
+  } catch (e) {
+    return { ok: false, stage: "resolve_country", reason: (e as Error).message ?? "unknown_error" };
+  }
+  if (!countryId) return { ok: false, stage: "resolve_country", reason: "country_not_resolved" };
+
+  try {
+    const res = await supabase.rpc("rpc_position_create_draft", {
+      p_product_id: productId,
+      p_product_origin_country_id: countryId,
+      p_source_context: input.sourceContext,
+      p_source_row_key: input.sourceRowKey,
+      p_client_row_id: input.clientRowId ?? input.sourceRowKey,
+      p_caliber: input.caliber ?? undefined,
+      p_package_used: input.packaging ?? undefined,
+      p_responsible_manager_id: input.responsibleManagerId ?? undefined,
+      p_pallet_qty: input.palletQty ?? undefined,
+    });
+    if (res.error) return { ok: false, stage: "create_draft", reason: res.error.message };
+    const positionId = Array.isArray(res.data) ? (res.data[0]?.position_id as string | undefined) : undefined;
+    if (!positionId) return { ok: false, stage: "create_draft", reason: "no_position_id_returned" };
+    return { ok: true, positionId };
+  } catch (e) {
+    return { ok: false, stage: "create_draft", reason: (e as Error).message ?? "unknown_error" };
+  }
+}
+
+export type AttachShipmentItemResult =
+  | { ok: true }
+  | { ok: false; stage: "attach_shipment" | "verify_item_position"; reason: string };
+
+/**
+ * Attach an existing shipment_items row to an existing operational_positions
+ * row via rpc_position_attach_shipment, then verify shipment_items.position_id
+ * was persisted. Never mints a position_id.
+ */
+export async function attachShipmentItemToPosition(input: {
+  shipmentItemId: string;
+  positionId: string;
+  palletQty?: number | null;
+}): Promise<AttachShipmentItemResult> {
+  try {
+    const r = await supabase.rpc("rpc_position_attach_shipment", {
+      p_shipment_item_id: input.shipmentItemId,
+      p_position_id: input.positionId,
+      p_pallet_qty_linked: input.palletQty ?? undefined,
+    });
+    if (r.error) return { ok: false, stage: "attach_shipment", reason: r.error.message };
+  } catch (e) {
+    return { ok: false, stage: "attach_shipment", reason: (e as Error).message ?? "unknown_error" };
+  }
+
+  try {
+    const verify = await supabase
+      .from("shipment_items")
+      .select("position_id")
+      .eq("id", input.shipmentItemId)
+      .maybeSingle();
+    if (verify.error) return { ok: false, stage: "verify_item_position", reason: verify.error.message };
+    if ((verify.data?.position_id as string | undefined) !== input.positionId) {
+      return { ok: false, stage: "verify_item_position", reason: "shipment_item_position_not_persisted" };
+    }
+  } catch (e) {
+    return { ok: false, stage: "verify_item_position", reason: (e as Error).message ?? "unknown_error" };
+  }
+  return { ok: true };
+}
+
+
