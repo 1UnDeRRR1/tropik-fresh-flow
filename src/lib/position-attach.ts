@@ -83,7 +83,16 @@ async function resolveCountryId(name: string): Promise<string | null> {
 export async function attachOfferToPosition(
   input: AttachInput,
 ): Promise<AttachResult> {
-  const productId = await resolveProductId(input.productName);
+  let productId: string | null;
+  try {
+    productId = await resolveProductId(input.productName);
+  } catch (error) {
+    return {
+      attached: false,
+      stage: "resolve_product",
+      reason: (error as Error).message ?? "unknown_error",
+    };
+  }
   if (!productId) {
     return {
       attached: false,
@@ -92,7 +101,16 @@ export async function attachOfferToPosition(
     };
   }
 
-  const countryId = await resolveCountryId(input.originCountry);
+  let countryId: string | null;
+  try {
+    countryId = await resolveCountryId(input.originCountry);
+  } catch (error) {
+    return {
+      attached: false,
+      stage: "resolve_country",
+      reason: (error as Error).message ?? "unknown_error",
+    };
+  }
   if (!countryId) {
     return {
       attached: false,
@@ -101,9 +119,11 @@ export async function attachOfferToPosition(
     };
   }
 
-  const { data: draft, error: draftErr } = await supabase.rpc(
-    "rpc_position_create_draft",
-    {
+  let draft:
+    | { position_id?: string | null }[]
+    | null;
+  try {
+    const result = await supabase.rpc("rpc_position_create_draft", {
       p_product_id: productId,
       p_product_origin_country_id: countryId,
       p_source_context: "manager_offer",
@@ -112,10 +132,17 @@ export async function attachOfferToPosition(
       p_caliber: input.caliber ?? undefined,
       p_package_used: input.packaging ?? undefined,
       p_responsible_manager_id: input.responsibleManagerId ?? undefined,
-    },
-  );
-  if (draftErr) {
-    return { attached: false, stage: "create_draft", reason: draftErr.message };
+    });
+    if (result.error) {
+      return { attached: false, stage: "create_draft", reason: result.error.message };
+    }
+    draft = result.data as { position_id?: string | null }[] | null;
+  } catch (error) {
+    return {
+      attached: false,
+      stage: "create_draft",
+      reason: (error as Error).message ?? "unknown_error",
+    };
   }
 
   const positionId = Array.isArray(draft) ? draft[0]?.position_id : null;
@@ -127,20 +154,37 @@ export async function attachOfferToPosition(
     };
   }
 
-  const { error: attachErr } = await supabase.rpc("rpc_position_attach_offer", {
-    p_offer_id: input.offerId,
-    p_position_id: positionId,
-    p_responsible_manager_id: input.responsibleManagerId ?? undefined,
-  });
-  if (attachErr) {
-    return { attached: false, stage: "attach_offer", reason: attachErr.message };
+  try {
+    const attachResult = await supabase.rpc("rpc_position_attach_offer", {
+      p_offer_id: input.offerId,
+      p_position_id: positionId,
+      p_responsible_manager_id: input.responsibleManagerId ?? undefined,
+    });
+    if (attachResult.error) {
+      return { attached: false, stage: "attach_offer", reason: attachResult.error.message };
+    }
+  } catch (error) {
+    return {
+      attached: false,
+      stage: "attach_offer",
+      reason: (error as Error).message ?? "unknown_error",
+    };
   }
 
-  const persisted = await supabase
-    .from("manager_offers")
-    .select("position_id")
-    .eq("id", input.offerId)
-    .maybeSingle();
+  let persisted;
+  try {
+    persisted = await supabase
+      .from("manager_offers")
+      .select("position_id")
+      .eq("id", input.offerId)
+      .maybeSingle();
+  } catch (error) {
+    return {
+      attached: false,
+      stage: "verify_offer_position",
+      reason: (error as Error).message ?? "unknown_error",
+    };
+  }
   if (persisted.error) {
     return {
       attached: false,
