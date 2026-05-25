@@ -3359,6 +3359,23 @@ export type Database = {
           status: string
         }[]
       }
+      rpc_pallet_standard_resolve: {
+        Args: { p_country: string; p_dictionary_id: string }
+        Returns: {
+          canonical_product_id: string
+          country_name: string
+          fallback_explanation: string
+          is_fallback: boolean
+          match_type: string
+          options: Json
+          product_dictionary_id: string
+          product_name_ua: string
+          selected_package_used: string
+          selected_pallet_gross_kg: number
+          selected_pallet_net_kg: number
+          selected_pallet_standard_id: string
+        }[]
+      }
       rpc_position_create_draft: {
         Args: {
           p_caliber?: string

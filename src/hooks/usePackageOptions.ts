@@ -1,12 +1,9 @@
-// Phase 2 — clean pallet_standards-driven package picker.
+// Phase 3 — unified pallet/packaging resolver.
 //
-// Returns the list of packaging options (package_used / pallet_size / net /
-// gross) for a given Ukrainian product name + Ukrainian country name. Country
-// matching uses country_aliases (UA → EN/RU) plus "All origins average" as
-// a generic fallback row when present.
-//
-// Source-of-truth: pallet_standards only. No legacy fallback, no
-// products.default_pallet_weight.
+// Both the dropdown options list and the default (heaviest gross) come from
+// a single source of truth: `rpc_pallet_standard_resolve`. Tier order is
+// exact → compound_group → all_fallback → no_match. Europe/Overseas regional
+// tier is intentionally deferred (no Europe-continent map in `countries`).
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,84 +15,107 @@ export type PackageOption = {
   pallet_gross_kg: number | null;
 };
 
-export function usePackageOptionsFor(
+export type PalletResolverMatchType =
+  | "exact"
+  | "compound_group"
+  | "all_fallback"
+  | "no_match";
+
+export type PalletResolverResult = {
+  options: PackageOption[];
+  matchType: PalletResolverMatchType;
+  isFallback: boolean;
+  fallbackExplanation: string | null;
+};
+
+const EMPTY: PalletResolverResult = {
+  options: [],
+  matchType: "no_match",
+  isFallback: false,
+  fallbackExplanation: null,
+};
+
+/** Full resolver result (options + fallback metadata). */
+export function usePalletResolver(
   productNameUa: string | null | undefined,
   countryNameUa: string | null | undefined,
 ) {
   const product = (productNameUa ?? "").trim();
   const country = (countryNameUa ?? "").trim();
+
   return useQuery({
-    queryKey: ["pallet-options", product.toLowerCase(), country.toLowerCase()],
+    queryKey: ["pallet-resolve", product.toLowerCase(), country.toLowerCase()],
     enabled: !!product,
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<PackageOption[]> => {
-      // 1) Resolve UA product → canonical_product_id (best-effort).
+    queryFn: async (): Promise<PalletResolverResult> => {
+      // Resolve UA product → product_dictionary.id (uuid).
       const { data: dictRows } = await supabase
         .from("product_dictionary")
-        .select("canonical_product_id,product_name_ua")
+        .select("id,product_name_ua")
         .eq("product_name_ua", product)
         .limit(1);
-      const canonId = dictRows?.[0]?.canonical_product_id as string | undefined;
+      const dictId = dictRows?.[0]?.id as string | undefined;
+      if (!dictId) return EMPTY;
 
-      // 2) Build set of EN/RU country forms that map to the chosen UA country.
-      const countryForms = new Set<string>();
-      if (country) {
-        countryForms.add(country.toLowerCase());
-        const { data: aliasRows } = await supabase
-          .from("country_aliases")
-          .select("alias")
-          .eq("country_name", country);
-        for (const r of aliasRows ?? []) {
-          if (r.alias) countryForms.add(String(r.alias).toLowerCase());
-        }
-      }
-
-      // 3) Pull all pallet_standards rows for this product (by id or label).
-      const orParts: string[] = [];
-      if (canonId) orParts.push(`canonical_product_id.eq.${canonId}`);
-      orParts.push(`product_label.eq.${product.replace(/,/g, "")}`);
-      const { data, error } = await supabase
-        .from("pallet_standards")
-        .select(
-          "package_used,pallet_size,pallet_net_kg,pallet_gross_kg,country_en,country_ru,product_label,canonical_product_id",
-        )
-        .or(orParts.join(","));
+      const { data, error } = await supabase.rpc(
+        "rpc_pallet_standard_resolve" as never,
+        { p_dictionary_id: dictId, p_country: country || null } as never,
+      );
       if (error) throw error;
 
-      // 4) Filter by country (or accept generic "all origins" rows).
-      const GENERIC = new Set([
-        "all origins average",
-        "all",
-        "усі країни",
-        "все страны",
-      ]);
-      const matched = (data ?? []).filter((r) => {
-        if (!country) return true;
-        const en = (r.country_en ?? "").toLowerCase();
-        const ru = (r.country_ru ?? "").toLowerCase();
-        if (GENERIC.has(en) || GENERIC.has(ru)) return true;
-        return (en && countryForms.has(en)) || (ru && countryForms.has(ru));
-      });
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | {
+            options: unknown;
+            match_type: string | null;
+            is_fallback: boolean | null;
+            fallback_explanation: string | null;
+          }
+        | null
+        | undefined;
+      if (!row) return EMPTY;
 
 
-      // 5) De-duplicate identical (package, size, net, gross) tuples.
-      const seen = new Set<string>();
-      const out: PackageOption[] = [];
-      for (const r of matched) {
-        if (!r.package_used) continue;
-        const key = `${r.package_used}|${r.pallet_size ?? ""}|${r.pallet_net_kg ?? ""}|${r.pallet_gross_kg ?? ""}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push({
-          package_used: r.package_used,
-          pallet_size: r.pallet_size,
-          pallet_net_kg: r.pallet_net_kg as number | null,
-          pallet_gross_kg: r.pallet_gross_kg as number | null,
-        });
-      }
-      // Heaviest gross first (default resolver picks the heaviest).
-      out.sort((a, b) => (b.pallet_gross_kg ?? 0) - (a.pallet_gross_kg ?? 0));
-      return out;
+      const rawOptions = (row.options ?? []) as Array<{
+        package_used: string | null;
+        pallet_size: string | null;
+        pallet_net_kg: number | string | null;
+        pallet_gross_kg: number | string | null;
+      }>;
+
+      const options: PackageOption[] = rawOptions
+        .filter((o) => !!o?.package_used)
+        .map((o) => ({
+          package_used: String(o.package_used),
+          pallet_size: o.pallet_size ?? null,
+          pallet_net_kg:
+            o.pallet_net_kg == null ? null : Number(o.pallet_net_kg),
+          pallet_gross_kg:
+            o.pallet_gross_kg == null ? null : Number(o.pallet_gross_kg),
+        }));
+
+      return {
+        options,
+        matchType: (row.match_type ?? "no_match") as PalletResolverMatchType,
+        isFallback: !!row.is_fallback,
+        fallbackExplanation: (row.fallback_explanation ?? null) as
+          | string
+          | null,
+      };
     },
   });
+}
+
+/**
+ * Back-compat shim used by existing callers that only need the options list.
+ * Returns the same shape as before; data flows through the unified RPC.
+ */
+export function usePackageOptionsFor(
+  productNameUa: string | null | undefined,
+  countryNameUa: string | null | undefined,
+) {
+  const q = usePalletResolver(productNameUa, countryNameUa);
+  return {
+    ...q,
+    data: q.data?.options ?? [],
+  };
 }

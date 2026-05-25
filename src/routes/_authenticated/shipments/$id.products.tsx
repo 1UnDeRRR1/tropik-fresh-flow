@@ -72,7 +72,7 @@ import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
-import { usePackageOptionsFor, type PackageOption } from "@/hooks/usePackageOptions";
+import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
 
 type ItemRow = {
   id: string;
@@ -3064,7 +3064,10 @@ function PackageCell({
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: options = [], isLoading } = usePackageOptionsFor(productName, countryName);
+  const { data: resolved, isLoading } = usePalletResolver(productName, countryName);
+  const options: PackageOption[] = resolved?.options ?? [];
+  const fallbackLabel = resolved?.isFallback ? resolved?.fallbackExplanation : null;
+
 
   if (readOnly) {
     return (
@@ -3141,10 +3144,16 @@ function PackageCell({
             })
           )}
         </div>
+        {fallbackLabel ? (
+          <div className="border-t px-3 py-1.5 text-[11px] text-amber-700 bg-amber-50">
+            {fallbackLabel}
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
 }
+
 
 
 function VarietyCell({ value, onChange, productName, readOnly }: { value: string; onChange: (v: string) => void; productName: string; readOnly: boolean }) {
