@@ -3376,6 +3376,14 @@ export type Database = {
           selected_pallet_standard_id: string
         }[]
       }
+      rpc_position_attach_offer: {
+        Args: {
+          p_offer_id: string
+          p_position_id: string
+          p_responsible_manager_id?: string
+        }
+        Returns: Json
+      }
       rpc_position_create_draft: {
         Args: {
           p_caliber?: string
