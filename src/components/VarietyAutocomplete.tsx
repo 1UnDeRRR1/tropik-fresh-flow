@@ -5,10 +5,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * Free-text input that suggests varieties for the currently selected product.
- * - Suggestions show only after the 2nd character is typed.
- * - Match is prefix-only (case-insensitive), in input order.
- * - At most 3 suggestions visible at once.
- * - Accepts any free-form value (varieties are not restricted to the list).
+ *
+ * Behavior (Phase 2 fix):
+ * - On focus with empty input → shows ALL varieties for the selected product.
+ * - On input → substring (case-insensitive) match against the variety list.
+ * - List is scrollable (max height ~240px), shows up to 50 rows.
+ * - Variety remains optional — empty value is allowed.
  */
 export function VarietyAutocomplete({
   value,
@@ -33,10 +35,23 @@ export function VarietyAutocomplete({
 
   const trimmed = value.trim();
   const q = trimmed.toLowerCase();
-  const suggestions =
-    trimmed.length >= 2 && varieties.length > 0
-      ? varieties.filter((v) => v.toLowerCase().startsWith(q) && v.toLowerCase() !== q).slice(0, 3)
-      : [];
+
+  // Substring match. When input is empty AND focused → show everything.
+  const filtered = (() => {
+    if (!varieties.length) return [];
+    if (!q) return varieties.slice(0, 50);
+    const starts: string[] = [];
+    const contains: string[] = [];
+    for (const v of varieties) {
+      const lv = v.toLowerCase();
+      if (lv === q) continue; // already exact match — no need to suggest
+      if (lv.startsWith(q)) starts.push(v);
+      else if (lv.includes(q)) contains.push(v);
+    }
+    return [...starts, ...contains].slice(0, 50);
+  })();
+
+  const showDropdown = focused && filtered.length > 0;
 
   const accept = (s: string) => {
     onChange(s);
@@ -65,20 +80,21 @@ export function VarietyAutocomplete({
           setFocused(false);
         }}
         onKeyDown={(e) => {
-          if ((e.key === "Tab" || e.key === "Enter") && suggestions[0]) {
+          if ((e.key === "Tab" || e.key === "Enter") && filtered[0]) {
             e.preventDefault();
-            accept(suggestions[0]);
+            accept(filtered[0]);
           }
           if (e.key === "Escape") inputRef.current?.blur();
         }}
         className={inputClassName}
       />
-      {focused && suggestions.length > 0 && (
+      {showDropdown && (
         <div
-          className="absolute left-0 top-[calc(100%+2px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
+          className="absolute left-0 top-[calc(100%+2px)] z-50 max-h-[240px] min-w-[200px] max-w-[85vw] overflow-y-auto overscroll-contain rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
           onMouseDown={(e) => e.preventDefault()}
+          style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {suggestions.map((s) => {
+          {filtered.map((s) => {
             const pick = () => {
               acceptingRef.current = true;
               accept(s);
