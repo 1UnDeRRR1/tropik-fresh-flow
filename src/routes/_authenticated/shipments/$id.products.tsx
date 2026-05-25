@@ -2420,6 +2420,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     const seq = ++resolverSeqRef.current;
     setResolverBusy(true);
     try {
+      // 1) Product/country recognition status (still served by the legacy
+      //    RPC because the unified resolver doesn't expose
+      //    product_no_match / product_ambiguous / country_no_match).
       const { data, error } = await supabase.rpc(
 
         "rpc_resolve_offer_line_defaults" as never,
@@ -2436,18 +2439,26 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       if (!row || typeof row !== "object") { reportHint(null); return; }
       const r = row as Record<string, unknown>;
       const status = r.status;
-      const asNum = (v: unknown): number | null => {
-        if (v == null || v === "") return null;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
-      };
-      const asStr = (v: unknown): string | null =>
-        typeof v === "string" && v.length > 0 ? v : null;
 
-      if (status === "matched") {
-        const pNet = asNum(r.pallet_net_kg);
-        const pGross = asNum(r.pallet_gross_kg);
-        const pkg = asStr(r.package_used);
+      if (
+        status === "product_no_match" ||
+        status === "product_ambiguous" ||
+        status === "country_no_match"
+      ) {
+        reportHint(status);
+        return;
+      }
+
+      // 2) Pallet autofill — single source of truth shared with the
+      //    packaging dropdown (`usePalletResolver`). Tier order:
+      //    exact → compound_group → all_fallback → no_match.
+      const pal = await resolvePalletForText(product, country);
+      if (seq !== resolverSeqRef.current) return;
+
+      if (pal.matchType !== "no_match" && pal.selected) {
+        const pNet = pal.selected.pallet_net_kg;
+        const pGross = pal.selected.pallet_gross_kg;
+        const pkg = pal.selected.package_used;
         reportHint("matched");
         const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
         onPatch({
@@ -2460,7 +2471,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
           gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
         });
-      } else if (status === "pallet_no_match") {
+      } else {
         reportHint("pallet_no_match");
         onPatch({
           package_used: "",
@@ -2469,14 +2480,6 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           net_auto: false,
           gross_auto: false,
         });
-      } else if (
-        status === "product_no_match" ||
-        status === "product_ambiguous" ||
-        status === "country_no_match"
-      ) {
-        reportHint(status);
-      } else {
-        reportHint(null);
       }
     } catch {
       if (seq === resolverSeqRef.current) reportHint(null);
