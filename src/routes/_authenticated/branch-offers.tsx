@@ -210,6 +210,22 @@ function BranchOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const cancelRequest = useMutation({
+    mutationFn: async (responseId: string) => {
+      const { error } = await supabase
+        .from("manager_offer_responses")
+        .delete()
+        .eq("id", responseId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Запит скасовано", { duration: 1500 });
+      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   if (!branchId) {
     return (
       <div>
