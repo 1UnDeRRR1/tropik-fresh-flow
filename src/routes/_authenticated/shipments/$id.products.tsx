@@ -69,6 +69,7 @@ export const Route = createFileRoute("/_authenticated/shipments/$id/products")({
 });
 
 import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 import { usePackageOptionsFor, type PackageOption } from "@/hooks/usePackageOptions";
@@ -2355,6 +2356,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
 
   const dbCountries = useCountryOptions();
   const countryAliases = useCountryAliases();
+  const productAliases = useProductAliases();
   const COUNTRY_OPTIONS = dbCountries;
   const knownProductNames = products.map((product) => product.name);
   // D1: draft is the source of truth — no internal form state, no autosave.
@@ -2540,6 +2542,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
 
           options={knownProductNames}
+          aliases={productAliases}
           placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
           className={cn(
             "font-medium",
