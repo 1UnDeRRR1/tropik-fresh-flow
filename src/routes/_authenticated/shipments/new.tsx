@@ -410,14 +410,25 @@ function NewShipment() {
 
       const shipmentId = crypto.randomUUID();
 
-      const assignedManagerId =
-        fromOfferPrefill?.offerManagerId
-        ?? selectedSupplier?.import_manager_id
-        ?? currentManagerId
-        ?? null;
-
-      if (!assignedManagerId && search.fromOffer) {
-        toast.error("Не вдалось визначити імпорт-менеджера для поставки з пропозиції");
+      // Phase 2 strict manager assignment.
+      // Rule: supplier known → manager comes from the supplier's assignment.
+      //       No assignment → block.
+      //       admin/super_admin never silently become the responsible manager
+      //       (no fallback to currentManagerId for those roles).
+      const isAdminActor = hasRole(["super_admin", "admin"]);
+      const supplierManagerId = selectedSupplier?.import_manager_id ?? null;
+      let assignedManagerId: string | null = supplierManagerId;
+      if (!assignedManagerId && !isAdminActor) {
+        // Import manager flow: they own their own shipment when the supplier
+        // has no explicit assignment yet.
+        assignedManagerId = currentManagerId ?? null;
+      }
+      if (!assignedManagerId) {
+        toast.error(
+          isAdminActor
+            ? "Постачальнику не призначено імпорт-менеджера. Призначте менеджера й повторіть."
+            : "Не вдалось визначити імпорт-менеджера для поставки",
+        );
         setSubmitting(false);
         return;
       }
