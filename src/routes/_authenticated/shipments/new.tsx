@@ -247,7 +247,7 @@ function NewShipment() {
     queryFn: async () => {
       const { data: offer, error } = await supabase
         .from("manager_offers")
-        .select("origin_country,linked_shipment_id,import_manager_id")
+        .select("origin_country,linked_shipment_id,import_manager_id,position_id")
         .eq("id", search.fromOffer!)
         .maybeSingle();
       if (error) throw error;
@@ -268,6 +268,10 @@ function NewShipment() {
         supplierId: linkedShipment?.supplier_id ?? null,
         country: linkedShipment?.country ?? offer.origin_country ?? null,
         offerManagerId: offer.import_manager_id ?? null,
+        // Phase 2 audit: surface offer.position_id even though products page
+        // re-fetches it. NULL signals legacy offer (no anchor) → products
+        // page will block the prefill.
+        offerPositionId: (offer as { position_id?: string | null }).position_id ?? null,
       };
     },
   });
