@@ -1348,7 +1348,7 @@ function ProductsFullscreen() {
     await syncVehicleStateForShipment(id);
     qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
     invalidateVehicleAndShipmentCaches(qc);
-    navigate({ to: "/shipments/$id", params: { id } });
+    navigate({ to: "/shipments" });
   };
 
   // D1 — manual addItem: local draft only, NO INSERT.
@@ -1574,7 +1574,7 @@ function ProductsFullscreen() {
       invalidateVehicleAndShipmentCaches(qc);
       await qc.refetchQueries({ queryKey: ["shipment", id], type: "all" });
       void insertedIds;
-      navigate({ to: "/shipments/$id", params: { id } });
+      navigate({ to: "/shipments" });
     } catch (e) {
       toast.error(translateError(e));
     }

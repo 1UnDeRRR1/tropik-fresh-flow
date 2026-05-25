@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
 import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
 import logoSrc from "@/assets/tropik-logo.png";
-import { useAuth, defaultRoutePerRole, ROLE_LABEL_UK } from "@/lib/auth";
+import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FxRateBadge } from "@/components/FxRateBadge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -243,11 +243,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             {primaryRole && (
               <div className="text-right leading-tight">
                 <div className="text-sm font-semibold text-foreground">
-                  {profile?.full_name ?? ""}
+                  {(() => {
+                    const name = profile?.display_name ?? profile?.full_name ?? "";
+                    if (profile?.visual_mark === "red_tereshchenko_t" && name.length > 0) {
+                      return (
+                        <>
+                          <span className="text-destructive">{name.charAt(0)}</span>
+                          {name.slice(1)}
+                        </>
+                      );
+                    }
+                    return name;
+                  })()}
                 </div>
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {ROLE_LABEL_UK[primaryRole]}
-                </div>
+                {profile?.job_title ? (
+                  <div className="text-[11px] text-muted-foreground">{profile.job_title}</div>
+                ) : null}
               </div>
             )}
             <Link
