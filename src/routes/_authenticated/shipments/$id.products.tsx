@@ -2478,8 +2478,11 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       }
     } catch {
       if (seq === resolverSeqRef.current) reportHint(null);
+    } finally {
+      if (seq === resolverSeqRef.current) setResolverBusy(false);
     }
   }, [readOnly, form.product_name, form.origin_country, form.package_used, form.pallet_count, form.net_weight_kg, form.gross_weight_kg, onPatch, onResolverHint]);
+
 
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
