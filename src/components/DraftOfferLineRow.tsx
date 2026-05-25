@@ -241,10 +241,12 @@ export function DraftOfferLineRow({
           text: `matched · ${resolver.product_name_ua ?? "—"} · ${resolver.country_name ?? "—"}${resolver.pallet_selected_by ? ` · ${resolver.pallet_selected_by}` : ""}`,
         };
       case "pallet_no_match":
+        if (resolving) return null;
         return {
           variant: "secondary" as const,
           text: `pallet_no_match · ${resolver.product_name_ua ?? "—"} · ${resolver.country_name ?? "—"} — введіть вагу вручну`,
         };
+
       case "product_ambiguous":
         return {
           variant: "secondary" as const,
