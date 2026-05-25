@@ -101,14 +101,34 @@ export function VarietyAutocomplete({
               acceptingRef.current = true;
               accept(s);
             };
+            const touchStart = { x: 0, y: 0, moved: false };
             return (
               <button
                 key={s}
                 type="button"
-                style={{ touchAction: "manipulation" }}
+                style={{ touchAction: "pan-y" }}
+                onTouchStart={(e) => {
+                  const t = e.touches[0];
+                  touchStart.x = t.clientX;
+                  touchStart.y = t.clientY;
+                  touchStart.moved = false;
+                }}
+                onTouchMove={(e) => {
+                  const t = e.touches[0];
+                  if (
+                    Math.abs(t.clientX - touchStart.x) > TOUCH_SLOP ||
+                    Math.abs(t.clientY - touchStart.y) > TOUCH_SLOP
+                  ) {
+                    touchStart.moved = true;
+                  }
+                }}
+                onTouchEnd={(e) => {
+                  if (touchStart.moved) return; // it was a scroll, not a tap
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pick();
+                }}
                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); pick(); }}
-                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); pick(); }}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); pick(); }}
                 className="block w-full truncate px-3 py-2 text-left text-[13px] text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
               >
                 {s}
