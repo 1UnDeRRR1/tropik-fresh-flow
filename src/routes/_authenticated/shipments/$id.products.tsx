@@ -2416,8 +2416,10 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       }
     };
     const seq = ++resolverSeqRef.current;
+    setResolverBusy(true);
     try {
       const { data, error } = await supabase.rpc(
+
         "rpc_resolve_offer_line_defaults" as never,
         {
           p_product_query: product,
