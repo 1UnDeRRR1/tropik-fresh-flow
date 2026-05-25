@@ -1542,21 +1542,76 @@ function ProductsFullscreen() {
     }
 
     try {
-      // 3. INSERT new rows (dbId === null).
+      // 3. Phase 2: INSERT new rows ONE BY ONE with position anchor.
+      // For each new draft: create operational_position (draft) → insert
+      // shipment_item → attach to position via RPC. On any failure, delete
+      // all just-inserted items and roll back their fresh positions.
       const newDrafts = draftItems.filter((d) => d.dbId === null);
 
       const insertedIds: string[] = [];
-      if (newDrafts.length > 0) {
-        const payloads = newDrafts.map((d) => buildPayload(d, { forUpdate: false }));
-        const { data: insertedRows, error: insErr } = await supabase
-          .from("shipment_items")
-          .insert(payloads as never)
-          .select("id");
-        if (insErr) {
-          toast.error(translateError(insErr));
-          return;
+      const createdPositionIds: string[] = [];
+      let abortReason: string | null = null;
+
+      for (const d of newDrafts) {
+        // 3a. Create draft position (resolves product+country, no reserve).
+        const posRes = await createPositionForShipmentItem({
+          productName: d.product_name,
+          originCountry: d.origin_country,
+          sourceContext: "shipment_item_manual",
+          sourceRowKey: `${id}:${d.localId}`,
+          clientRowId: d.localId,
+          caliber: d.caliber || null,
+          packaging: d.package_used || null,
+          responsibleManagerId: sh?.import_manager_id ?? null,
+          palletQty: d.pallet_count > 0 ? d.pallet_count : null,
+        });
+        if (!posRes.ok) {
+          abortReason =
+            posRes.stage === "resolve_product"
+              ? "Товар не розпізнано. Уточніть назву товару."
+              : posRes.stage === "resolve_country"
+                ? "Країну не розпізнано. Уточніть країну."
+                : `Не вдалося створити позицію: ${posRes.reason}`;
+          break;
         }
-        (insertedRows ?? []).forEach((row) => insertedIds.push((row as { id: string }).id));
+        createdPositionIds.push(posRes.positionId);
+
+        // 3b. Insert the single shipment_item.
+        const payload = buildPayload(d, { forUpdate: false });
+        const { data: insRow, error: insErr } = await supabase
+          .from("shipment_items")
+          .insert(payload as never)
+          .select("id")
+          .single();
+        if (insErr || !insRow) {
+          abortReason = translateError(insErr ?? new Error("insert_failed"));
+          break;
+        }
+        const newItemId = (insRow as { id: string }).id;
+        insertedIds.push(newItemId);
+
+        // 3c. Attach item to fresh position + verify shipment_items.position_id.
+        const attachRes = await attachShipmentItemToPosition({
+          shipmentItemId: newItemId,
+          positionId: posRes.positionId,
+          palletQty: d.pallet_count > 0 ? d.pallet_count : null,
+        });
+        if (!attachRes.ok) {
+          abortReason = `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`;
+          break;
+        }
+      }
+
+      if (abortReason) {
+        // Cleanup orphan shipment_items and roll back their positions.
+        if (insertedIds.length > 0) {
+          await supabase.from("shipment_items").delete().in("id", insertedIds);
+        }
+        for (const pid of createdPositionIds) {
+          await rollbackBirthPosition(pid);
+        }
+        toast.error(abortReason);
+        return;
       }
 
       // 4. UPDATE dirty existing rows (dbId !== null).
