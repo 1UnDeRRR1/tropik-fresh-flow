@@ -376,6 +376,94 @@ function ManagerOffersPage() {
     return m;
   }, [creators]);
 
+  // Position-anchor responsible-manager resolution. For offers with a
+  // position_id, the "Менеджер" displayed = operational_positions.owner_user_id.
+  // Falls back to created_by ONLY for legacy rows where position_id IS NULL.
+  const positionIdsForOffers = useMemo(
+    () => Array.from(new Set((offers ?? []).map((o) => (o as ManagerOffer & { position_id?: string | null }).position_id).filter((v): v is string => !!v))),
+    [offers],
+  );
+
+  const { data: positionOwners } = useQuery({
+    queryKey: ["manager-offer-position-owners", positionIdsForOffers],
+    enabled: positionIdsForOffers.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("operational_positions")
+        .select("position_id,owner_user_id")
+        .in("position_id", positionIdsForOffers);
+      if (error) throw error;
+      return (data ?? []) as { position_id: string; owner_user_id: string | null }[];
+    },
+  });
+
+  const ownerUserIdByPosition = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    for (const p of positionOwners ?? []) m[p.position_id] = p.owner_user_id;
+    return m;
+  }, [positionOwners]);
+
+  const ownerProfileIds = useMemo(
+    () => Array.from(new Set(Object.values(ownerUserIdByPosition).filter((v): v is string => !!v))),
+    [ownerUserIdByPosition],
+  );
+
+  const { data: ownerProfiles } = useQuery({
+    queryKey: ["manager-offer-owner-profiles", ownerProfileIds],
+    enabled: ownerProfileIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", ownerProfileIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const ownerNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of ownerProfiles ?? []) m[p.id] = p.full_name ?? "—";
+    return m;
+  }, [ownerProfiles]);
+
+  // Returns { label, pending, actor } for the "Менеджер" column.
+  // Rule: when position_id exists, ALWAYS show responsible manager (or pending).
+  // created_by is shown separately as "Створив" only when distinct from owner.
+  function getResponsible(o: ManagerOffer): {
+    label: string;
+    pending: boolean;
+    actor: string | null;
+    isLegacy: boolean;
+  } {
+    const positionId = (o as ManagerOffer & { position_id?: string | null }).position_id;
+    if (!positionId) {
+      // Legacy row — no position anchor, fall back to created_by.
+      return {
+        label: creatorById[o.created_by] ?? "—",
+        pending: false,
+        actor: null,
+        isLegacy: true,
+      };
+    }
+    const ownerId = ownerUserIdByPosition[positionId];
+    if (!ownerId) {
+      return {
+        label: "не призначено",
+        pending: true,
+        actor: creatorById[o.created_by] ?? null,
+        isLegacy: false,
+      };
+    }
+    const actor = ownerId !== o.created_by ? creatorById[o.created_by] ?? null : null;
+    return {
+      label: ownerNameById[ownerId] ?? "—",
+      pending: false,
+      actor,
+      isLegacy: false,
+    };
+  }
+
   const branchById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const b of branches ?? []) m[b.id] = b.name;
