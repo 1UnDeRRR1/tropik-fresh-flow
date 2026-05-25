@@ -2384,7 +2384,9 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
     | null;
   const [hint, setHint] = useState<ResolverHint>(null);
+  const [resolverBusy, setResolverBusy] = useState(false);
   const resolverSeqRef = useRef(0);
+
 
   const runResolver = useCallback(async () => {
     if (readOnly) return;
