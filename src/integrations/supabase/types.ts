@@ -437,7 +437,11 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_eu: boolean
+          iso2: string | null
+          iso3: string | null
           name: string
+          scope_type: string
           sort_order: number
           updated_at: string
         }
@@ -446,7 +450,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_eu?: boolean
+          iso2?: string | null
+          iso3?: string | null
           name: string
+          scope_type?: string
           sort_order?: number
           updated_at?: string
         }
@@ -455,7 +463,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_eu?: boolean
+          iso2?: string | null
+          iso3?: string | null
           name?: string
+          scope_type?: string
           sort_order?: number
           updated_at?: string
         }
@@ -465,6 +477,7 @@ export type Database = {
         Row: {
           alias: string
           alias_normalized: string
+          alias_type: string | null
           country_name: string
           created_at: string
           id: number
@@ -473,6 +486,7 @@ export type Database = {
         Insert: {
           alias: string
           alias_normalized: string
+          alias_type?: string | null
           country_name: string
           created_at?: string
           id?: number
@@ -481,6 +495,7 @@ export type Database = {
         Update: {
           alias?: string
           alias_normalized?: string
+          alias_type?: string | null
           country_name?: string
           created_at?: string
           id?: number
