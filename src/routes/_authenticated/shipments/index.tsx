@@ -554,7 +554,7 @@ function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code:
             }}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
           >
-            <Pencil className="h-3.5 w-3.5" /> Редагувати
+            <Pencil className="h-3.5 w-3.5" /> Деталі / службові дії
           </button>
           <button
             type="button"
