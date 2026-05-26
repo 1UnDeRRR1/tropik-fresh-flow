@@ -200,21 +200,44 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
         {personalAssets ? (
-          /* Full-bleed personal header banner — only for users with a package */
+          /* Full-bleed personal header banner — only for users with a package.
+             width/height attributes on each <source> + <img> let the browser
+             reserve the correct aspect-ratio box before the image decodes,
+             so the header never pops in late and shoves nav down. */
           <div className="relative w-full pt-safe">
             <picture>
-              {/*
-                Mobile viewports (<768px) get the dedicated header_mobile
-                asset; tablet/desktop (>=768px) get header_desktop. Each
-                asset is rendered at its native aspect ratio (no crop,
-                no object-cover).
-              */}
-              <source media="(max-width: 767px)" type="image/webp" srcSet={personalAssets.headerMobileWebp} />
-              <source media="(max-width: 767px)" type="image/png" srcSet={personalAssets.headerMobilePng} />
-              <source media="(min-width: 768px)" type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
-              <source media="(min-width: 768px)" type="image/png" srcSet={personalAssets.headerDesktopPng} />
+              <source
+                media="(max-width: 767px)"
+                type="image/webp"
+                srcSet={personalAssets.headerMobileWebp}
+                width={personalAssets.headerMobileWidth}
+                height={personalAssets.headerMobileHeight}
+              />
+              <source
+                media="(max-width: 767px)"
+                type="image/png"
+                srcSet={personalAssets.headerMobilePng}
+                width={personalAssets.headerMobileWidth}
+                height={personalAssets.headerMobileHeight}
+              />
+              <source
+                media="(min-width: 768px)"
+                type="image/webp"
+                srcSet={personalAssets.headerDesktopWebp}
+                width={personalAssets.headerDesktopWidth}
+                height={personalAssets.headerDesktopHeight}
+              />
+              <source
+                media="(min-width: 768px)"
+                type="image/png"
+                srcSet={personalAssets.headerDesktopPng}
+                width={personalAssets.headerDesktopWidth}
+                height={personalAssets.headerDesktopHeight}
+              />
               <img
                 src={personalAssets.headerDesktopPng}
+                width={personalAssets.headerDesktopWidth}
+                height={personalAssets.headerDesktopHeight}
                 alt=""
                 className="block h-auto w-full"
                 loading="eager"
