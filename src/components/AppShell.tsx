@@ -204,22 +204,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="relative w-full pt-safe">
             <picture>
               {/*
-                Use the wide desktop asset (2880×720, 4:1) on every viewport.
-                With `w-full h-auto` it scales to a thin strip on mobile
-                (~110px tall at 440px width) — matching the desktop look
-                without cropping. Mobile-specific asset intentionally not
-                used here.
+                Mobile viewports (<768px) get the dedicated header_mobile
+                asset; tablet/desktop (>=768px) get header_desktop. Each
+                asset is rendered at its native aspect ratio (no crop,
+                no object-cover).
               */}
-              <source type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
-              <source type="image/png" srcSet={personalAssets.headerDesktopPng} />
-              {/*
-                Render the mobile/desktop header asset at its native aspect
-                ratio. No max-height clamp and no object-cover — the asset
-                was prepared for its target viewport and must not be cropped
-                or squashed. The browser picks the correct <source> via the
-                media query, so mobile gets header_mobile and desktop gets
-                header_desktop.
-              */}
+              <source media="(max-width: 767px)" type="image/webp" srcSet={personalAssets.headerMobileWebp} />
+              <source media="(max-width: 767px)" type="image/png" srcSet={personalAssets.headerMobilePng} />
+              <source media="(min-width: 768px)" type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
+              <source media="(min-width: 768px)" type="image/png" srcSet={personalAssets.headerDesktopPng} />
               <img
                 src={personalAssets.headerDesktopPng}
                 alt=""
