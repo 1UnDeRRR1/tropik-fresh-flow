@@ -323,3 +323,22 @@
 ::-webkit-input-placeholder { font-style: italic; font-weight: 300; opacity: 0.45; }
 ::-moz-placeholder { font-style: italic; font-weight: 300; opacity: 0.45; }
 :-ms-input-placeholder { font-style: italic; font-weight: 300; opacity: 0.45; }
+
+/* iOS Safari auto-zooms any form field with font-size < 16px and can
+   leave the viewport stuck at the zoomed scale. Force min 16px on
+   mobile for inputs/selects/textareas. Desktop styling is unaffected. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Prevent accidental horizontal page-scroll from wide tables/modals on
+   narrow viewports. Wide content stays scrollable inside its own
+   container (TableScroller) instead of dragging the whole page. */
+html, body {
+  overflow-x: hidden;
+}
+
