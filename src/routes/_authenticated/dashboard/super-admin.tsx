@@ -32,8 +32,34 @@ function SuperAdminDashboard() {
     },
   });
 
+  const { user } = useAuth();
+  const assets = getWorkspaceAssetsForUser(user?.id);
+
   return (
     <div className="space-y-5">
+      {assets && (
+        <picture>
+          <source
+            media="(max-width: 767px)"
+            type="image/webp"
+            srcSet={assets.headerMobileWebp}
+          />
+          <source
+            media="(max-width: 767px)"
+            type="image/png"
+            srcSet={assets.headerMobilePng}
+          />
+          <source media="(min-width: 768px)" type="image/webp" srcSet={assets.headerDesktopWebp} />
+          <source media="(min-width: 768px)" type="image/png" srcSet={assets.headerDesktopPng} />
+          <img
+            src={assets.headerDesktopPng}
+            alt=""
+            className="block w-full rounded-2xl object-cover shadow-card"
+            loading="eager"
+            decoding="async"
+          />
+        </picture>
+      )}
       <PageHeader title="Головна SA" subtitle="Повний контроль системи" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
