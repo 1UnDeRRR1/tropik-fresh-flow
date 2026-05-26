@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,9 +96,7 @@ function ArchivePage() {
                   {unloaded.map((s) => (
                     <tr key={s.id} className="hover:bg-muted/40">
                       <td className="px-2 py-2 font-mono text-[11px] font-semibold">
-                        <Link to="/shipments/$id" params={{ id: s.id }} className="hover:underline">
-                          {s.code}
-                        </Link>
+                        {s.code}
                       </td>
                       <td className="px-2 py-2 text-muted-foreground">{toUaCountry(s.country) ?? "—"}</td>
                       <td className="px-2 py-2 text-muted-foreground">{fmtDate(s.eta)}</td>

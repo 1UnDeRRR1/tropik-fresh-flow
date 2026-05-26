@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Plus, MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { Plus, MoreVertical, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
@@ -511,7 +511,6 @@ function LogisticsIndicator({
 
 function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code: string; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -545,17 +544,6 @@ function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code:
       </button>
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-36 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              navigate({ to: "/shipments/$id", params: { id: shipmentId } });
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Деталі / службові дії
-          </button>
           <button
             type="button"
             onClick={onDelete}

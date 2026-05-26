@@ -994,8 +994,7 @@ function ManagerOffersPage() {
                     <div>
                       <span className="text-muted-foreground">Поставка: </span>
                       <Link
-                        to="/shipments/$id"
-                        params={{ id: o.linked_shipment_id }}
+                        to="/shipments"
                         className="font-semibold text-primary underline-offset-2 hover:underline"
                         onClick={() => setDetailOfferId(null)}
                       >
