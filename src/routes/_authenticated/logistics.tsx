@@ -99,10 +99,31 @@ function resolveManagerName(
 }
 
 function LogisticsPage() {
+  const { user, hasRole } = useAuth();
   const [filter, setFilter] = useState<LogisticsFilter>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
+
+  // Manager-only visibility scope: an import_manager (without admin/logistics)
+  // must only see vehicles that belong to him (own import_manager_id on
+  // shipment or its supplier). Admin / super_admin / logistics see everything.
+  const isPrivileged = hasRole(["super_admin", "admin", "logistics"]);
+  const isManagerOnly = !isPrivileged && hasRole("import_manager");
+
+  const { data: myImId = null } = useQuery({
+    queryKey: ["logistics-my-im-id", user?.id ?? null],
+    enabled: !!user?.id && isManagerOnly,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("import_managers")
+        .select("id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data?.id ?? null;
+    },
+  });
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["logistics-board"],
@@ -142,26 +163,36 @@ function LogisticsPage() {
     staleTime: 5 * 60_000,
   });
 
+  // Manager-only ownership filter — applied as early as possible so chужі
+  // машини never appear in the list, counts, search, or summary.
+  const ownedRows = useMemo(() => {
+    if (!isManagerOnly) return rows;
+    if (!myImId) return [];
+    return rows.filter(
+      (r) => r.import_manager_id === myImId || r.supplier?.import_manager_id === myImId,
+    );
+  }, [rows, isManagerOnly, myImId]);
+
   const counts = useMemo(() => {
     const c: Record<LogisticsFilter, number> = {
-      all: rows.length,
+      all: ownedRows.length,
       incoming: 0,
       assigned: 0,
       loading: 0,
       transit: 0,
     };
-    for (const r of rows) {
+    for (const r of ownedRows) {
       for (const f of ["incoming", "assigned", "loading", "transit"] as LogisticsFilter[]) {
         const list = LOGISTICS_FILTER_STATUSES[f];
         if (list && list.includes(r.logistics_status)) c[f]++;
       }
     }
     return c;
-  }, [rows]);
+  }, [ownedRows]);
 
   const filtered = useMemo(() => {
     const list = LOGISTICS_FILTER_STATUSES[filter];
-    let out = list ? rows.filter((r) => list.includes(r.logistics_status)) : rows;
+    let out = list ? ownedRows.filter((r) => list.includes(r.logistics_status)) : ownedRows;
     out = out.filter((r) => {
       if (r.archived_at) return false;
       if (board === "unloaded") return !!r.unloaded_at && r.status !== "cancelled";
@@ -186,7 +217,7 @@ function LogisticsPage() {
       );
     }
     return out;
-  }, [rows, filter, search, managerMap]);
+  }, [ownedRows, filter, search, managerMap]);
 
   return (
     <div>
@@ -241,7 +272,7 @@ function LogisticsPage() {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : board === "summary" ? (
-        <SummaryTable rows={rows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
+        <SummaryTable rows={ownedRows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
       ) : filtered.length === 0 ? (
         <EmptyState title="Порожньо" hint="Немає поставок для обраного фільтру." />
       ) : (
