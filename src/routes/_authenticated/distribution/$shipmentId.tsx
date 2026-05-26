@@ -254,11 +254,7 @@ function DistributionMatrix() {
         qc.refetchQueries({ queryKey: ["shipments-list"], type: "all" }),
         qc.refetchQueries({ queryKey: ["distribution-list"], type: "all" }),
       ]);
-      if (router.history.canGoBack()) {
-        router.history.back();
-      } else {
-        void router.navigate({ to: "/shipments/$id", params: { id: shipmentId } });
-      }
+      void router.navigate({ to: "/shipments" });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
+import { Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
 import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/analytics", label: "Аналітика", icon: BarChart3 },
         ...(isAdmin ? [{ to: "/statistics", label: "Статистика", icon: LineChart }] : []),
         { to: "/calendar", label: "Календар", icon: Calendar },
-        ...(isAdmin ? [{ to: "/master-data", label: "Master", icon: Database }] : []),
+        
         ...(isSuper ? [{ to: "/super-admin", label: "Супер", icon: Shield }] : []),
         { to: "/archive", label: "Архів", icon: Archive },
         { to: "/settings", label: "Профіль", icon: Settings },
