@@ -231,7 +231,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </picture>
             {primaryRole && displayName && (
               <div className="pointer-events-none absolute right-3 top-3 max-w-[60%] text-right leading-tight md:right-6 md:top-5">
-                <div className="text-2xl font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] md:text-4xl">
+                <div className="text-base font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] md:text-2xl">
                   {showRedT ? (
                     <>
                       <span className="text-red-500">{displayName.charAt(0)}</span>
@@ -242,7 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 </div>
                 {profile?.job_title && (
-                  <div className="mt-1 text-sm font-semibold text-white/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] md:text-lg">
+                  <div className="mt-0.5 text-[0.65rem] font-semibold text-white/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] md:text-sm">
                     {profile.job_title}
                   </div>
                 )}

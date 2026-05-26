@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { getPersonalAssets } from "@/lib/branch-assets";
-import { Logo } from "@/components/Logo";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 
@@ -14,22 +13,21 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 /**
- * Splash shown while auth state is hydrating. Personal splash image is only
- * rendered AFTER profile loads, for users with a personal package. Initial
- * pre-auth splash is always the neutral Logo — no Tereshchenko leakage to
- * other users.
+ * Splash shown while auth state is hydrating. If the user has a personal
+ * asset package, render their full-bleed splash. Otherwise show a neutral
+ * spinner — never the old Tropik logo card.
  */
 function SplashScreen({ userId, branchId }: { userId?: string | null; branchId?: string | null }) {
   const personal = getPersonalAssets(userId, branchId);
   if (!personal) {
     return (
       <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-background">
-        <Logo size={140} className="animate-pulse" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-foreground" />
       </div>
     );
   }
   return (
-    <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center overflow-hidden bg-background">
+    <div className="fixed inset-0 z-50 h-dvh w-screen overflow-hidden bg-background">
       <picture>
         <source media="(max-width: 767px)" type="image/webp" srcSet={personal.splashMobileWebp} />
         <source media="(max-width: 767px)" type="image/png" srcSet={personal.splashMobilePng} />
