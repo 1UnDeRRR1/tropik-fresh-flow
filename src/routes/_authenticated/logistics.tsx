@@ -175,24 +175,24 @@ function LogisticsPage() {
 
   const counts = useMemo(() => {
     const c: Record<LogisticsFilter, number> = {
-      all: rows.length,
+      all: ownedRows.length,
       incoming: 0,
       assigned: 0,
       loading: 0,
       transit: 0,
     };
-    for (const r of rows) {
+    for (const r of ownedRows) {
       for (const f of ["incoming", "assigned", "loading", "transit"] as LogisticsFilter[]) {
         const list = LOGISTICS_FILTER_STATUSES[f];
         if (list && list.includes(r.logistics_status)) c[f]++;
       }
     }
     return c;
-  }, [rows]);
+  }, [ownedRows]);
 
   const filtered = useMemo(() => {
     const list = LOGISTICS_FILTER_STATUSES[filter];
-    let out = list ? rows.filter((r) => list.includes(r.logistics_status)) : rows;
+    let out = list ? ownedRows.filter((r) => list.includes(r.logistics_status)) : ownedRows;
     out = out.filter((r) => {
       if (r.archived_at) return false;
       if (board === "unloaded") return !!r.unloaded_at && r.status !== "cancelled";
@@ -217,7 +217,7 @@ function LogisticsPage() {
       );
     }
     return out;
-  }, [rows, filter, search, managerMap]);
+  }, [ownedRows, filter, search, managerMap]);
 
   return (
     <div>
