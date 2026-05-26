@@ -159,7 +159,7 @@ function LoginPage() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-white/80 drop-shadow">
           © {new Date().getFullYear()} Внутрішня система.
         </p>
       </div>
