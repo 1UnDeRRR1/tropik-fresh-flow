@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 const TABS = [
   { to: "/admin/branches", label: "Філії" },
-  { to: "/admin/managers", label: "Менеджери" },
+  { to: "/admin/managers", label: "Менеджери (довідник)" },
   { to: "/admin/suppliers", label: "Постачальники" },
   { to: "/admin/products", label: "Товари" },
   { to: "/admin/loading-plan", label: "План" },
