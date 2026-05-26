@@ -628,24 +628,39 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
   useFocusHighlight([data]);
 
+  // For non-admin managers: hide zero-shipment orphan vehicles created by others
+  // (own zero-shipment vehicles still visible so the manager can clean them up).
+  const visible = (data ?? []).filter((v) => {
+    if (isAdmin) return true;
+    const hasShipments = (v.shipments ?? []).length > 0;
+    if (hasShipments) return true;
+    return v.created_by === user?.id;
+  });
+
   return (
-    <SectionCard title={`🚛 Відкриті авто (${data?.length ?? 0})`}>
-      {!data?.length ? (
+    <SectionCard title={`🚛 Відкриті авто (${visible.length})`}>
+      {!visible.length ? (
         <EmptyState title="Відкритих авто немає" />
       ) : (
       <div className="grid gap-2 sm:grid-cols-2">
-        {data.map((v) => {
-          const sups = (v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[];
+        {visible.map((v) => {
+          const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
+          const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
+          // Top-up candidate (other manager's vehicle): hide commercial/supplier info.
+          const redactCommercial = !isAdmin && !isOwnVehicle;
+          const sups = redactCommercial
+            ? []
+            : ((v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[]);
           const pallets = Number(v.total_pallets ?? 0);
           const weight = Number(v.total_weight_kg ?? 0);
           const palletsPct = Math.min(100, (pallets / 26) * 100);
           const weightPct = Math.min(100, (weight / 21500) * 100);
-          // If current user owns one of the shipments in this vehicle → go straight to that shipment's products
-          const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
+          const hasFreeCapacity = pallets < 26 && weight < 21500;
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
             } else {
+              if (!hasFreeCapacity && !isAdmin) return;
               navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
             }
           };
@@ -660,6 +675,8 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
               weightPct={weightPct}
               ownShipment={ownShipment}
               isAdmin={isAdmin}
+              redactCommercial={redactCommercial}
+              hasFreeCapacity={hasFreeCapacity}
               onCardClick={handleCardClick}
               onAddSupplier={() => navigate({ to: "/shipments/new", search: { vehicleId: v.id } })}
               onClose={() => closeVehicle(v.id)}
