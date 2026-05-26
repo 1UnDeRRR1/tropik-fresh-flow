@@ -547,17 +547,6 @@ function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code:
         <div className="absolute right-0 z-30 mt-1 w-36 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              navigate({ to: "/shipments/$id", params: { id: shipmentId } });
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Деталі / службові дії
-          </button>
-          <button
-            type="button"
             onClick={onDelete}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
           >
