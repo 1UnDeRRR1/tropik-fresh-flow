@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, Navigate, Link, useRouter } from "@tanstack/re
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
-import { Logo } from "@/components/Logo";
+import { APP_SPLASH_ASSETS } from "@/lib/branch-assets";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 
@@ -12,28 +12,33 @@ export const Route = createFileRoute("/_authenticated")({
   notFoundComponent: AuthNotFound,
 });
 
+function SplashScreen() {
+  return (
+    <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center overflow-hidden bg-background">
+      <picture>
+        <source media="(max-width: 767px)" type="image/webp" srcSet={APP_SPLASH_ASSETS.mobileWebp} />
+        <source media="(max-width: 767px)" type="image/png" srcSet={APP_SPLASH_ASSETS.mobilePng} />
+        <source media="(min-width: 768px)" type="image/webp" srcSet={APP_SPLASH_ASSETS.desktopWebp} />
+        <source media="(min-width: 768px)" type="image/png" srcSet={APP_SPLASH_ASSETS.desktopPng} />
+        <img
+          src={APP_SPLASH_ASSETS.desktopPng}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="eager"
+          decoding="async"
+          draggable={false}
+        />
+      </picture>
+    </div>
+  );
+}
+
 function AuthenticatedLayout() {
-  const { user, loading, dataLoaded, primaryRole } = useAuth();
+  const { user, loading, dataLoaded } = useAuth();
   // Phase 0 — warm DB-backed alias cache once auth is established.
   useEffect(() => { if (user) initAliasCache(); }, [user]);
-  if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-6">
-        <div className="flex flex-col items-center gap-4">
-          <Logo size={220} className="animate-pulse" />
-        </div>
-      </div>
-    );
-  }
-  if (!user && !dataLoaded) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-6">
-        <div className="flex flex-col items-center gap-4">
-          <Logo size={220} className="animate-pulse" />
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SplashScreen />;
+  if (!user && !dataLoaded) return <SplashScreen />;
   if (!user) return <Navigate to="/login" />;
   // External calendar accounts intentionally disabled — fall through to main shell.
   return (
@@ -42,6 +47,7 @@ function AuthenticatedLayout() {
     </AppShell>
   );
 }
+
 
 function AuthErrorBoundary({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
