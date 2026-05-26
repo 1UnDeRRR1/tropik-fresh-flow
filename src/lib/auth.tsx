@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSystem } from "@/lib/system-log";
+import { rememberLastUserId } from "@/lib/last-user";
 
 export type AppRole =
   | "super_admin"
@@ -148,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userRef.current = nextUser;
     setSession(nextSession);
     setUser(nextUser);
+    if (nextUser?.id) rememberLastUserId(nextUser.id);
   };
 
   const applyProfile = (nextProfile: Profile | null) => {
