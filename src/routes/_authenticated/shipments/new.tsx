@@ -365,6 +365,11 @@ function NewShipment() {
     setInvalid(new Set());
 
     setSubmitting(true);
+    // Track a freshly-created vehicle so we can roll it back if the
+    // subsequent shipment INSERT fails. Without this, a failed creation
+    // leaves an orphan vehicle in the "open vehicles" list with no
+    // shipments inside (looks "underloaded" and unowned).
+    let createdVehicleIdForRollback: string | null = null;
     try {
       let vId = vehicleId;
       let vCode = selectedVehicle?.code ?? "";
@@ -393,6 +398,7 @@ function NewShipment() {
           .single();
         if (vErr) throw vErr;
         vId = (vRow as { id: string }).id;
+        createdVehicleIdForRollback = vId;
       } else {
         if (!selectedVehicle) throw new Error("Виберіть відкрите авто");
         useCountry = selectedVehicle.country;
@@ -424,6 +430,12 @@ function NewShipment() {
         assignedManagerId = currentManagerId ?? null;
       }
       if (!assignedManagerId) {
+        // Roll back the vehicle we just created — otherwise the manager
+        // sees a phantom "open vehicle" with no owner.
+        if (createdVehicleIdForRollback) {
+          await supabase.from("vehicles" as never).delete().eq("id", createdVehicleIdForRollback);
+          createdVehicleIdForRollback = null;
+        }
         toast.error(
           isAdminActor
             ? "Постачальнику не призначено імпорт-менеджера. Призначте менеджера й повторіть."
@@ -458,6 +470,9 @@ function NewShipment() {
         throw new Error(error.message || "Помилка збереження");
       }
 
+      // Shipment committed — vehicle is no longer orphan, cancel rollback.
+      createdVehicleIdForRollback = null;
+
       // refetchType: "all" — force background refetch even on unmounted lists,
       // so the manager's /shipments table is fresh on the next navigation
       // without requiring a manual page refresh.
@@ -471,6 +486,21 @@ function NewShipment() {
         search: search.fromOffer ? { fromOffer: search.fromOffer } : {},
       } as never);
     } catch (err: unknown) {
+      // Roll back orphan vehicle from a failed mode="new" creation.
+      // Best-effort: if delete itself fails (FK from a parallel write, RLS),
+      // we still surface the original error to the user.
+      if (createdVehicleIdForRollback) {
+        try {
+          await supabase
+            .from("vehicles" as never)
+            .delete()
+            .eq("id", createdVehicleIdForRollback);
+        } catch {
+          /* swallow rollback failure */
+        }
+        createdVehicleIdForRollback = null;
+        qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+      }
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
       setSubmitting(false);
