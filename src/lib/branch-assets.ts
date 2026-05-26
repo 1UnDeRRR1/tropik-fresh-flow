@@ -23,12 +23,21 @@ export type PersonalAssets = {
   splashDesktopPng: string;
   splashMobileWebp: string;
   splashMobilePng: string;
+  // Intrinsic dimensions used to reserve layout space (prevents CLS / late
+  // pop-in of the header banner). Mobile and desktop may differ.
+  headerMobileWidth: number;
+  headerMobileHeight: number;
+  headerDesktopWidth: number;
+  headerDesktopHeight: number;
 };
 
 const TERESHCHENKO_USER_ID = "cfaade16-8eb7-40df-95f8-a44c7368b60b";
 const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
 
-function buildAssets(folder: string): PersonalAssets {
+function buildAssets(
+  folder: string,
+  dims: { headerMobile: [number, number]; headerDesktop: [number, number] },
+): PersonalAssets {
   const base = `/personal-assets/${folder}`;
   return {
     headerDesktopWebp: `${base}/header_desktop.webp`,
@@ -39,13 +48,23 @@ function buildAssets(folder: string): PersonalAssets {
     splashDesktopPng: `${base}/splash_desktop.png`,
     splashMobileWebp: `${base}/splash_mobile.webp`,
     splashMobilePng: `${base}/splash_mobile.png`,
+    headerMobileWidth: dims.headerMobile[0],
+    headerMobileHeight: dims.headerMobile[1],
+    headerDesktopWidth: dims.headerDesktop[0],
+    headerDesktopHeight: dims.headerDesktop[1],
   };
 }
 
 // Per-user personal packages. Key = profile.id / auth user.id.
 const USER_ASSETS: Record<string, PersonalAssets> = {
-  [TERESHCHENKO_USER_ID]: buildAssets(TERESHCHENKO_USER_ID),
-  [MALEKHIV_USER_ID]: buildAssets(MALEKHIV_USER_ID),
+  [TERESHCHENKO_USER_ID]: buildAssets(TERESHCHENKO_USER_ID, {
+    headerMobile: [1290, 600],
+    headerDesktop: [2880, 720],
+  }),
+  [MALEKHIV_USER_ID]: buildAssets(MALEKHIV_USER_ID, {
+    headerMobile: [2880, 720],
+    headerDesktop: [2880, 720],
+  }),
 };
 
 // Per-branch packages. Key = branches.id. Empty for now — same structure,
