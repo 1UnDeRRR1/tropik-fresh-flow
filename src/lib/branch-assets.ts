@@ -26,6 +26,7 @@ export type PersonalAssets = {
 };
 
 const TERESHCHENKO_USER_ID = "cfaade16-8eb7-40df-95f8-a44c7368b60b";
+const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
 
 function buildAssets(folder: string): PersonalAssets {
   const base = `/personal-assets/${folder}`;
@@ -44,6 +45,7 @@ function buildAssets(folder: string): PersonalAssets {
 // Per-user personal packages. Key = profile.id / auth user.id.
 const USER_ASSETS: Record<string, PersonalAssets> = {
   [TERESHCHENKO_USER_ID]: buildAssets(TERESHCHENKO_USER_ID),
+  [MALEKHIV_USER_ID]: buildAssets(MALEKHIV_USER_ID),
 };
 
 // Per-branch packages. Key = branches.id. Empty for now — same structure,
