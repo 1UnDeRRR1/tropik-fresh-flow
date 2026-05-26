@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Navigate, Link, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { getPersonalAssets } from "@/lib/branch-assets";
@@ -18,7 +18,14 @@ export const Route = createFileRoute("/_authenticated")({
  * spinner — never the old Tropik logo card.
  */
 function SplashScreen({ userId, branchId }: { userId?: string | null; branchId?: string | null }) {
-  const personal = getPersonalAssets(userId, branchId);
+  // SSR and the very first client render MUST produce identical HTML — render
+  // the neutral spinner unconditionally on both. After hydration we flip to the
+  // personal full-bleed splash if a package is resolved. This prevents the
+  // hydration mismatch (React minified error #418) that previously discarded
+  // the splash subtree and let AppShell flash through during reload.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const personal = mounted ? getPersonalAssets(userId, branchId) : null;
   if (!personal) {
     return (
       <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-background">

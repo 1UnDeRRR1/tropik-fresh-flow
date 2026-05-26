@@ -144,7 +144,7 @@ function BranchDashboard() {
   const [fProduct, setFProduct] = useState<string>("__all__");
   const [fCountry, setFCountry] = useState<string>("__all__");
 
-  const { data: dists } = useQuery({
+  const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
     enabled: !!branchId,
     queryFn: async () => {
@@ -629,7 +629,13 @@ function BranchDashboard() {
         )}
       </div>
 
-      {!filteredRows.length ? (
+      {distsPending || (!!branchId && dists === undefined && !distsError) ? (
+        <SectionCard title="Підтверджений товар">
+          <div className="flex items-center justify-center py-10">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+          </div>
+        </SectionCard>
+      ) : !filteredRows.length ? (
         <EmptyState title={
           filtersActive
             ? "Немає товару за обраними фільтрами"
