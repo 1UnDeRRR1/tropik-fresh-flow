@@ -188,89 +188,82 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
+  const displayName = profile?.display_name ?? profile?.full_name ?? "";
+  const showRedT = profile?.visual_mark === "red_tereshchenko_t" && displayName.length > 0;
+
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-        <div className="relative mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4 pt-safe md:px-6 lg:px-10">
-          <div className="flex items-center gap-3 lg:gap-4">
-            <Link to={dashHref} aria-label="TROPIK" className="flex items-center">
-              <span className="logo-shimmer">
-                <img
-                  src={logoSrc}
-                  alt="TROPIK Ukraine — Fruit, Vegetables, Import, Export"
-                  className="h-14 w-auto max-h-full object-contain md:h-16"
-                  draggable={false}
-                />
-              </span>
-            </Link>
-            {/* Top nav for tablet/desktop */}
-            <nav className="hidden md:flex md:items-center md:gap-1 lg:gap-2">
-              {items.map((it) => {
-                const active = isActive(it.to, it.label);
-                return (
-                  <Link
-                    key={it.to}
-                    to={it.to}
-                    className={cn(
-                      "fruit-tap relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
-                      active
-                        ? "bg-secondary text-brand fruit-active"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-                    )}
-                  >
-                    <span className="relative">
-                      <FruitIcon name={labelToFruit(it.label)} className="h-5 w-5 text-[18px]" />
-                      {it.badge && it.badge > 0 ? (
-                        <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                          {it.badge > 99 ? "99+" : it.badge}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span>{it.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-          {!isBranch && (
-            <div className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2">
-              <div className="pointer-events-auto">
-                <FxRateBadge />
+        {/* Full-bleed header banner — global app asset */}
+        <div className="relative w-full pt-safe">
+          <picture>
+            <source media="(max-width: 767px)" type="image/webp" srcSet={APP_HEADER_ASSETS.mobileWebp} />
+            <source media="(max-width: 767px)" type="image/png" srcSet={APP_HEADER_ASSETS.mobilePng} />
+            <source media="(min-width: 768px)" type="image/webp" srcSet={APP_HEADER_ASSETS.desktopWebp} />
+            <source media="(min-width: 768px)" type="image/png" srcSet={APP_HEADER_ASSETS.desktopPng} />
+            <img
+              src={APP_HEADER_ASSETS.desktopPng}
+              alt=""
+              className="block h-auto max-h-[200px] w-full object-cover md:max-h-[220px]"
+              loading="eager"
+              decoding="async"
+              draggable={false}
+            />
+          </picture>
+          {/* Name overlay (no role title, no bell, no FX) */}
+          {primaryRole && displayName && (
+            <div className="pointer-events-none absolute right-3 top-3 max-w-[55%] rounded-md bg-black/35 px-2 py-1 text-right leading-tight backdrop-blur-sm md:right-6 md:top-4">
+              <div className="text-sm font-semibold text-white drop-shadow md:text-base">
+                {showRedT ? (
+                  <>
+                    <span className="text-red-400">{displayName.charAt(0)}</span>
+                    {displayName.slice(1)}
+                  </>
+                ) : (
+                  displayName
+                )}
               </div>
             </div>
           )}
-          <div className="flex items-center gap-2">
-            {primaryRole && (
-              <div className="text-right leading-tight">
-                <div className="text-sm font-semibold text-foreground">
-                  {(() => {
-                    const name = profile?.display_name ?? profile?.full_name ?? "";
-                    if (profile?.visual_mark === "red_tereshchenko_t" && name.length > 0) {
-                      return (
-                        <>
-                          <span className="text-destructive">{name.charAt(0)}</span>
-                          {name.slice(1)}
-                        </>
-                      );
-                    }
-                    return name;
-                  })()}
-                </div>
-                {profile?.job_title ? (
-                  <div className="text-[11px] text-muted-foreground">{profile.job_title}</div>
-                ) : null}
-              </div>
-            )}
-            <Link
-              to="/notifications"
-              className="relative rounded-full p-2 text-foreground hover:bg-secondary"
-              aria-label="Сповіщення"
-            >
-              <Bell className="h-5 w-5" />
-            </Link>
+        </div>
+        {/* FX badge: thin strip below header, outside the picture, non-branch only */}
+        {!isBranch && (
+          <div className="flex justify-center border-t border-border/60 bg-card/70 px-4 py-1">
+            <FxRateBadge />
           </div>
+        )}
+        {/* Top nav for tablet/desktop */}
+        <div className="mx-auto w-full max-w-[1600px] px-4 md:px-6 lg:px-10">
+          <nav className="hidden md:flex md:items-center md:gap-1 md:py-2 lg:gap-2">
+            {items.map((it) => {
+              const active = isActive(it.to, it.label);
+              return (
+                <Link
+                  key={it.to}
+                  to={it.to}
+                  className={cn(
+                    "fruit-tap relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
+                    active
+                      ? "bg-secondary text-brand fruit-active"
+                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                  )}
+                >
+                  <span className="relative">
+                    <FruitIcon name={labelToFruit(it.label)} className="h-5 w-5 text-[18px]" />
+                    {it.badge && it.badge > 0 ? (
+                      <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
+                        {it.badge > 99 ? "99+" : it.badge}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span>{it.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </header>
+
 
       <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10">
         {children}
