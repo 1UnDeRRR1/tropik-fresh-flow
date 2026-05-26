@@ -17,6 +17,7 @@ import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { useFirstScreenGate } from "@/routes/_authenticated";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
