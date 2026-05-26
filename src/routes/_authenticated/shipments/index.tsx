@@ -903,7 +903,14 @@ function VehicleCard({
         >
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-sm font-bold text-brand leading-tight">{v.code}</div>
+              <div className="flex items-center gap-1.5">
+                <div className="text-sm font-bold text-brand leading-tight">{v.code}</div>
+                {redactCommercial && (
+                  <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+                    довантаж.
+                  </span>
+                )}
+              </div>
               <div className="truncate text-[10px] text-muted-foreground leading-tight">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
             </div>
             <div className="flex shrink-0 gap-1">
@@ -911,6 +918,8 @@ function VehicleCard({
                 size="sm"
                 variant="secondary"
                 className="h-7 px-2 text-[11px]"
+                disabled={redactCommercial && !hasFreeCapacity}
+                title={redactCommercial && !hasFreeCapacity ? "Авто заповнене — довантаження неможливе" : undefined}
                 onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
               >
                 + Постач.
