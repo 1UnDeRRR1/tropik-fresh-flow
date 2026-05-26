@@ -4,6 +4,8 @@ import { Shield, ScrollText, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, StatCard, EmptyState } from "@/components/cards";
+import { useAuth } from "@/lib/auth";
+import { getWorkspaceAssetsForUser } from "@/lib/branch-assets";
 
 export const Route = createFileRoute("/_authenticated/dashboard/super-admin")({
   component: SuperAdminDashboard,
