@@ -2,6 +2,8 @@ import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, usePostLoginTarget } from "@/lib/auth";
+import { getPersonalAssets } from "@/lib/branch-assets";
+import { getLastUserId } from "@/lib/last-user";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
