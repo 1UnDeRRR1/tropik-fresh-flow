@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
+import { Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
 import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
