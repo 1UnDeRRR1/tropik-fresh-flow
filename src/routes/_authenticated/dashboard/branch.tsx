@@ -144,7 +144,7 @@ function BranchDashboard() {
   const [fProduct, setFProduct] = useState<string>("__all__");
   const [fCountry, setFCountry] = useState<string>("__all__");
 
-  const { data: dists } = useQuery({
+  const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
     enabled: !!branchId,
     queryFn: async () => {
