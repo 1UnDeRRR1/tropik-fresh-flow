@@ -93,8 +93,7 @@ export function LoadingPlanDetailDialog({ plan, open, onOpenChange }: Props) {
               return (
                 <li key={`${m.shipment_id}-${idx}`} className="py-2.5">
                   <Link
-                    to="/shipments/$id"
-                    params={{ id: m.shipment_id }}
+                    to="/shipments"
                     onClick={() => onOpenChange(false)}
                     className="flex items-start justify-between gap-2"
                   >
