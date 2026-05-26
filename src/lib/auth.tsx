@@ -148,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userRef.current = nextUser;
     setSession(nextSession);
     setUser(nextUser);
+    if (nextUser?.id) rememberLastUserId(nextUser.id);
   };
 
   const applyProfile = (nextProfile: Profile | null) => {
