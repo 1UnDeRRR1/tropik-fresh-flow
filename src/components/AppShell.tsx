@@ -207,10 +207,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               <source media="(max-width: 767px)" type="image/png" srcSet={personalAssets.headerMobilePng} />
               <source media="(min-width: 768px)" type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
               <source media="(min-width: 768px)" type="image/png" srcSet={personalAssets.headerDesktopPng} />
+              {/*
+                Render the mobile/desktop header asset at its native aspect
+                ratio. No max-height clamp and no object-cover — the asset
+                was prepared for its target viewport and must not be cropped
+                or squashed. The browser picks the correct <source> via the
+                media query, so mobile gets header_mobile and desktop gets
+                header_desktop.
+              */}
               <img
                 src={personalAssets.headerDesktopPng}
                 alt=""
-                className="block h-auto max-h-[112px] w-full object-cover md:max-h-[220px]"
+                className="block h-auto w-full"
                 loading="eager"
                 decoding="async"
                 draggable={false}
