@@ -511,7 +511,6 @@ function LogisticsIndicator({
 
 function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code: string; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
