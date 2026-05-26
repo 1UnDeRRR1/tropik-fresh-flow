@@ -99,10 +99,31 @@ function resolveManagerName(
 }
 
 function LogisticsPage() {
+  const { user, hasRole } = useAuth();
   const [filter, setFilter] = useState<LogisticsFilter>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
+
+  // Manager-only visibility scope: an import_manager (without admin/logistics)
+  // must only see vehicles that belong to him (own import_manager_id on
+  // shipment or its supplier). Admin / super_admin / logistics see everything.
+  const isPrivileged = hasRole(["super_admin", "admin", "logistics"]);
+  const isManagerOnly = !isPrivileged && hasRole("import_manager");
+
+  const { data: myImId = null } = useQuery({
+    queryKey: ["logistics-my-im-id", user?.id ?? null],
+    enabled: !!user?.id && isManagerOnly,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("import_managers")
+        .select("id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data?.id ?? null;
+    },
+  });
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["logistics-board"],
@@ -141,6 +162,16 @@ function LogisticsPage() {
     },
     staleTime: 5 * 60_000,
   });
+
+  // Manager-only ownership filter — applied as early as possible so chужі
+  // машини never appear in the list, counts, search, or summary.
+  const ownedRows = useMemo(() => {
+    if (!isManagerOnly) return rows;
+    if (!myImId) return [];
+    return rows.filter(
+      (r) => r.import_manager_id === myImId || r.supplier?.import_manager_id === myImId,
+    );
+  }, [rows, isManagerOnly, myImId]);
 
   const counts = useMemo(() => {
     const c: Record<LogisticsFilter, number> = {
