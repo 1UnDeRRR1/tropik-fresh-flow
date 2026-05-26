@@ -162,6 +162,13 @@ function BranchDashboard() {
     },
   });
 
+  // Hold the splash overlay until this dashboard's first data query resolves,
+  // so the user never sees the half-loaded shell or a false empty-state.
+  useFirstScreenGate(
+    "branch-dashboard",
+    !!branchId && (distsPending || (dists === undefined && !distsError)),
+  );
+
   // All manager-offer responses for this branch (any decision state).
   // approved_pallets IS NULL → "Чекаю підтвердження";
   // approved_pallets = 0    → "Відмовлено" (only explicit manager rejection);
