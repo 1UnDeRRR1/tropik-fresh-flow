@@ -50,7 +50,13 @@ function AuthenticatedLayout() {
   const { user, profile, loading, dataLoaded } = useAuth();
   // Phase 0 — warm DB-backed alias cache once auth is established.
   useEffect(() => { if (user) initAliasCache(); }, [user]);
-  if (loading) return <SplashScreen userId={user?.id} branchId={profile?.branch_id} />;
+  // Show splash while auth is hydrating OR while a known user's profile/roles
+  // are still loading. This prevents the empty "Поки немає підтвердженого
+  // товару" flash on branch pages during reload, when cached session restores
+  // instantly but profile/branch_id arrive a tick later.
+  if (loading || (user && !dataLoaded)) {
+    return <SplashScreen userId={user?.id} branchId={profile?.branch_id} />;
+  }
   if (!user && !dataLoaded) return <SplashScreen />;
   if (!user) return <Navigate to="/login" />;
   // External calendar accounts intentionally disabled — fall through to main shell.
