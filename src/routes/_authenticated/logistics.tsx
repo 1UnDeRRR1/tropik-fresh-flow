@@ -272,7 +272,7 @@ function LogisticsPage() {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : board === "summary" ? (
-        <SummaryTable rows={rows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
+        <SummaryTable rows={ownedRows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
       ) : filtered.length === 0 ? (
         <EmptyState title="Порожньо" hint="Немає поставок для обраного фільтру." />
       ) : (
