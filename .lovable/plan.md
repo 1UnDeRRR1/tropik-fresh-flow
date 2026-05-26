@@ -1,87 +1,53 @@
+## Цель
+Установить персональный набор картинок только для пользователя **Малехів (Львів)** — `id = 44eddfe6-bd13-43ae-acaf-3afb5941179c`, branch `3bb65cb3-27a1-5f18-839a-340271d711fd`. Никакие другие пользователи этих картинок не видят.
 
-Дисклеймер: НИЧЕГО не меняю в формах таблиц, шапках, scroll, визуальном виде. Правлю только логику, лейблы статусов, кнопки и кеш-инвалидации.
+## Особое условие по шапке
+- **Шапка mobile** = берём `header_desktop.webp/.png` из ZIP (НЕ берём `header_mobile.*` из архива — он намеренно игнорируется).
+- **Шапка desktop** = `header_desktop.webp/.png` из ZIP.
+- **Splash mobile** = `splash_mobile.webp/.png` из ZIP.
+- **Splash desktop** = `splash_desktop.webp/.png` из ZIP.
 
-## 1. Статусы «Скасовано» vs «Відмовлено» (единый показ)
+Никаких изменений в layout/логике header'а — мы просто кладём файл с десктопным контентом под обоими именами (`header_mobile.*` и `header_desktop.*`), и существующий `<picture>` сам подхватит.
 
-Сейчас бейдж показывает «Відмовлено» (`pipeline_status.rejected`) а вторая колонка `STATUS_LABEL.deleted` = «Скасовано» — два разных текста для одного и того же действия.
+## Шаги
 
-Правило:
-- Менеджер «Видалити пропозицію» → везде **«Скасовано»** (deleted)
-- Менеджер «Відмовити» по позиции филиала (approved_pallets = 0) → везде **«Відмовлено»**
+1. Создать папку `public/personal-assets/44eddfe6-bd13-43ae-acaf-3afb5941179c/` и положить туда 8 файлов:
+   - `header_desktop.webp`, `header_desktop.png` ← из ZIP `header_desktop.webp/.png`
+   - `header_mobile.webp`,  `header_mobile.png`  ← **те же самые** desktop-файлы из ZIP (дубликат, по условию пользователя)
+   - `splash_desktop.webp`, `splash_desktop.png` ← из ZIP
+   - `splash_mobile.webp`,  `splash_mobile.png`  ← из ZIP
+   - PSD и `source_*` папки из архива не копируем (исходники, не нужны в проде).
 
-Изменения:
-- `src/lib/pipeline-status.ts`: вернуть `rejected → "Відмовлено"` (оставить), а статус для удалённой оферты → новый лейбл `cancelled → "Скасовано"`.
-- В `branch-offers.tsx` строка 218 `"Пропозиція скасована"` заменить на `STATUS_LABEL[o.status]` + правильный класс. И ещё проверить чтобы pipeline-status badge на той же карточке/в таблице филиала тоже звучал одинаково.
+2. Зарегистрировать пакет в `src/lib/branch-assets.ts`:
+   ```ts
+   const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
+   const USER_ASSETS: Record<string, PersonalAssets> = {
+     [TERESHCHENKO_USER_ID]: buildAssets(TERESHCHENKO_USER_ID),
+     [MALEKHIV_USER_ID]:    buildAssets(MALEKHIV_USER_ID),
+   };
+   ```
+   Маппинг идёт по `profile.id` — резолвер уже работает строго per-user, поэтому другие пользователи этих картинок не получат. Branch-level маппинг не добавляю (по требованию «один пользователь — один набор»).
 
-## 2. Кнопка «Відмовити» по конкретному филиалу (мигает 2, не обновляется UI)
-
-Файл `manager-offers.tsx` 776-799. Сейчас:
-- `Input` с `defaultValue={r.approved_pallets ?? r.requested_pallets}` — без `key`, **компонент не ре-рендерится** при изменении данных → визуально пропадает только после закрытия диалога.
-- Мигание двух кнопок — потому что есть pending-баннер сверху (одна и та же оферта в нем подсвечивается одновременно с кнопкой) и tooltip + button в строке.
-
-Изменения:
-- Добавить `optimisticUpdate` через `qc.setQueryData(["manager-offer-responses", ...], …)` в `updateApproved` чтобы UI обновлялся мгновенно.
-- Поменять `defaultValue` на `value` (controlled через state по `r.id`), либо добавить `key={`${r.id}-${r.approved_pallets}`}` чтобы Input ре-маунтился.
-- В UI: если `approved_pallets === 0` — строку показывать со статусом «Відмовлено» и блокировать (как «excluded»).
-
-## 3. Workflow: убрать промежуточный «Підтвердити»
-
-Менеджер видит: `Взяти в роботу → Закрити`. Кнопка `Підтвердити` (in_work → confirmed) удаляется. «Закрити» делает `closed` = «Підтверджено».
-
-Изменения:
-- `manager-offers.tsx` 702-706: удалить блок `in_work → confirmed`.
-- `STATUS_LABEL.in_work = "В опрацюванні"` (уже есть).
-- На стороне филиала (`branch-offers.tsx` ~218): когда `o.status === "in_work"`, показывать **«В опрацюванні»** вместо текущего лейбла.
-- «Закрити» оставить доступной для `active`, `in_work`, `confirmed`.
-- (Опционально) убрать «Підтвердити» из любых других мест в коде, если найду.
-
-## 4. Тосты «Запит надіслано» накапливаются
-
-`toast.success("Запит надіслано")` не имеет `duration`. По умолчанию sonner показывает ~4 с, но если несколько подряд — стэкаются.
-
-Изменения:
-- В `branch-offers.tsx` 133: `toast.success("Запит надіслано", { id: `req-${offerId}`, duration: 1500 })` — `id` гарантирует, что повторные нажатия по тому же товару не плодят дубли, а 1.5 с — авто-скрытие.
-- В `src/components/ui/sonner.tsx` поставить общий `duration={2000}` дефолтом.
-
-## 5. Кнопки «Підтягнути» / «Створити нову поставку» на закрытой оферте
-
-Сейчас в детальном диалоге оферта (`manager-offers.tsx` 691-736) при `status === "closed"` остаётся только «Прив'язати до поставки». Заменить эту кнопку на две:
-
-- **«Підтягнути»** — открывает выбор существующего активного `shipment` менеджера (где `import_manager_id = user.id` и `status in (draft, in_transit)`) с подходящим товаром/нераспределёнными палетами, и линкует оферту через существующий `LinkShipmentDialog` (он это и делает).
-- **«Створити нову поставку»** — переходит на `/shipments/new` с query-параметром `fromOffer={id}`, и `new.tsx` префиллит данные из оферты (product_name, country, supplier?, ETA, cost). Менеджер дальше редактирует обычно.
-
-Изменения:
-- `manager-offers.tsx`: вместо одной кнопки «Прив'язати» — две.
-- `LinkShipmentDialog` уже фильтрует чужие поставки? — проверю и при необходимости добавлю фильтр `import_manager_id = user.id` (требование «каждому менеджеру предлагается только его товар»).
-- `shipments/new.tsx`: добавить `validateSearch({ fromOffer: z.string().optional() })`, в форме при первом рендере подтянуть оферту и заполнить поля.
-
-## 6. Распределение палет по очереди заявок (FIFO)
-
-Сейчас при привязке оферты к поставке (`apply_manager_offer_link` trigger / `LinkShipmentDialog`) переносятся **все** approved_pallets, даже если в поставке свободно меньше. Должно:
-
-- Сортировать ответы филиалов по `manager_offer_responses.created_at ASC` (первый прислал — первый в машине).
-- Заполнять пока есть свободные палеты в shipment_item.
-- Если у филиала из 8 палет влезло 3 — создать `distribution_item.pallets=3`, оставить `approved_pallets - 3` в `manager_offer_responses` как «не отгружено» (новое поле `linked_pallets numeric default 0`).
-- В UI филиала тогда статус разделяется: `linked_pallets` → «Замовлено» (с № поставки), `approved_pallets - linked_pallets` → «Підтверджено».
-
-Изменения (миграция + код):
-- Миграция: `ALTER TABLE manager_offer_responses ADD COLUMN linked_pallets numeric NOT NULL DEFAULT 0;`
-- Переписать `apply_manager_offer_link` (или функцию, что используется `LinkShipmentDialog`) так, чтобы:
-  1. Брать `freePallets = shipment_item.pallet_count - SUM(distribution_items.pallets)`.
-  2. Идти по responses в порядке `created_at`, отрезать `min(remaining, freePallets)`.
-  3. Заполнить `distribution_items` (`distribution_id` для соответствующего branch).
-  4. Обновлять `linked_pallets += allocated`.
-  5. Если `freePallets == 0` — остановиться; оставшиеся responses **не** считаются «замовлено», оферта остаётся `closed` (а не `linked`) **только** если ничего не привязали; иначе `linked` — но в UI филиала показывать раздельно.
-- В `branch-offers.tsx`: при `linked_pallets > 0 && linked_pallets < approved_pallets` — две строки/два бейджа в карточке.
-
-## Порядок работ и риск
-
-Самое рискованное — пункт 6 (миграция + переписывание триггера + новое поле + UI разделения). Пункты 1-4 правятся быстро и независимо. Пункт 5 средней сложности.
-
-Предлагаю порядок: 1 → 2 → 3 → 4 → 5 → 6. Если в любом пункте всплывет неожиданность — остановлюсь и спрошу, а не переделаю архитектуру.
+3. Никаких изменений в `AppShell.tsx`, `_authenticated.tsx`, `_authenticated/index.tsx`, `login.tsx` — они уже используют `getPersonalAssets(user.id, profile.branch_id)`.
 
 ## Что НЕ трогаю
-- Никаких изменений в `TableScroller`, шапках таблиц, layout главных страниц, `SectionCard`, размеры/паддинги, шрифты, иконки.
-- Никаких массовых рефакторингов файлов.
-</content>
-</invoke>
+- POSITION/RLS/formulas/resolver/offers/shipments/logistics/customs/auth/roles.
+- Картинки и регистрацию Терещенко.
+- Layout/ширину/высоту шапки, шрифты, курс валют, notification bell.
+- `src/integrations/supabase/*`, `routeTree.gen.ts`.
+
+## Проверка после имплементации
+- `ls public/personal-assets/44eddfe6-.../` — должно быть ровно 8 файлов.
+- `header_mobile.webp` и `header_desktop.webp` побайтово одинаковые (sha256 совпадает).
+- Войти под Малехів на mobile viewport — шапка десктопная (широкая, тонкая), splash мобильный.
+- Войти под Терещенко — его картинки не изменились.
+- Войти под любым третьим пользователем — нейтральный fallback, картинок Малехів/Терещенко не видно.
+- Typecheck/build.
+
+## Отчёт, который дам после билда
+1. Использованные файлы по каждому из 4 слотов (mobile/desktop × header/splash) для Малехів.
+2. Подтверждение, что `header_mobile.*` — дубликат `header_desktop.*`.
+3. Подтверждение, что mapping лежит в `src/lib/branch-assets.ts` по `user_id`.
+4. Подтверждение изоляции: другие пользователи этих картинок не получают.
+5. Подтверждение, что бизнес-логика/RLS/формулы/resolver/Терещенко не тронуты.
+6. Typecheck/build result.
