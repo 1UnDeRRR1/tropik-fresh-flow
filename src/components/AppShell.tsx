@@ -1,10 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bell, Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
+import { Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Database, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
 import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
-import logoSrc from "@/assets/tropik-logo.png";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FxRateBadge } from "@/components/FxRateBadge";
+import { APP_HEADER_ASSETS } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, type ReactNode } from "react";
