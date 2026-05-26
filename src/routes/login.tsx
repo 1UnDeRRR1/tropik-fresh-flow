@@ -68,9 +68,25 @@ function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+      <picture>
+        <source media="(max-width: 767px)" type="image/webp" srcSet="/personal-assets/cfaade16-8eb7-40df-95f8-a44c7368b60b/splash_mobile.webp" />
+        <source media="(max-width: 767px)" type="image/png" srcSet="/personal-assets/cfaade16-8eb7-40df-95f8-a44c7368b60b/splash_mobile.png" />
+        <source media="(min-width: 768px)" type="image/webp" srcSet="/personal-assets/cfaade16-8eb7-40df-95f8-a44c7368b60b/splash_desktop.webp" />
+        <source media="(min-width: 768px)" type="image/png" srcSet="/personal-assets/cfaade16-8eb7-40df-95f8-a44c7368b60b/splash_desktop.png" />
+        <img
+          src="/personal-assets/cfaade16-8eb7-40df-95f8-a44c7368b60b/splash_desktop.png"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="eager"
+          decoding="async"
+          draggable={false}
+        />
+      </picture>
+      <div className="absolute inset-0 bg-black/40" />
       <div className="relative w-full max-w-sm">
-        <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+        <div className="rounded-2xl border border-border bg-card/95 p-6 text-card-foreground shadow-xl backdrop-blur">
+
           <h1 className="text-xl font-bold">
             {mode === "signin" ? "Вхід в систему" : "Створити акаунт"}
           </h1>
