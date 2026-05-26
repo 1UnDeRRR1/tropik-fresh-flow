@@ -143,8 +143,8 @@ function LoginPage() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs text-primary-foreground/60">
-          © {new Date().getFullYear()} TROPIK. Внутрішня система.
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Внутрішня система.
         </p>
       </div>
     </div>
