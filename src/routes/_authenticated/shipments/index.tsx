@@ -692,6 +692,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
 function VehicleCard({
   v, sups, pallets, weight, palletsPct, weightPct, ownShipment, isAdmin,
+  redactCommercial, hasFreeCapacity,
   onCardClick, onAddSupplier, onClose, onDeleted,
 }: {
   v: OpenVehicleRow;
@@ -702,6 +703,8 @@ function VehicleCard({
   weightPct: number;
   ownShipment: { id: string; import_manager_id: string | null } | undefined;
   isAdmin: boolean;
+  redactCommercial: boolean;
+  hasFreeCapacity: boolean;
   onCardClick: () => void;
   onAddSupplier: () => void;
   onClose: () => void;
