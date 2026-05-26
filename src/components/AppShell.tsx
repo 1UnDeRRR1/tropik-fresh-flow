@@ -203,10 +203,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           /* Full-bleed personal header banner — only for users with a package */
           <div className="relative w-full pt-safe">
             <picture>
-              <source media="(max-width: 767px)" type="image/webp" srcSet={personalAssets.headerMobileWebp} />
-              <source media="(max-width: 767px)" type="image/png" srcSet={personalAssets.headerMobilePng} />
-              <source media="(min-width: 768px)" type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
-              <source media="(min-width: 768px)" type="image/png" srcSet={personalAssets.headerDesktopPng} />
+              {/*
+                Use the wide desktop asset (2880×720, 4:1) on every viewport.
+                With `w-full h-auto` it scales to a thin strip on mobile
+                (~110px tall at 440px width) — matching the desktop look
+                without cropping. Mobile-specific asset intentionally not
+                used here.
+              */}
+              <source type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
+              <source type="image/png" srcSet={personalAssets.headerDesktopPng} />
               {/*
                 Render the mobile/desktop header asset at its native aspect
                 ratio. No max-height clamp and no object-cover — the asset
