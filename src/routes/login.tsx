@@ -69,14 +69,13 @@ function LoginPage() {
     }
   };
 
-  return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
   // Show the last signed-in user's personal splash as the login backdrop.
   // First visit / cleared storage → neutral background (no Tereshchenko leak).
   const lastUserAssets = getPersonalAssets(getLastUserId());
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+
       {lastUserAssets && (
         <picture>
           <source media="(max-width: 767px)" type="image/webp" srcSet={lastUserAssets.splashMobileWebp} />
