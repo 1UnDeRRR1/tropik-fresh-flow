@@ -585,8 +585,19 @@ function EditDialog({
       }
 
       if (Object.keys(patch).length > 0) {
-        const { error } = await (supabase as any).from("shipments").update(patch).eq("id", row.id);
+        // .select("id") forces PostgREST to return affected rows so we can
+        // detect a "no-op" save caused by RLS silently filtering the UPDATE.
+        // Without this check, error===null + 0 affected rows would fire a
+        // false "Збережено" toast.
+        const { data: updated, error } = await (supabase as any)
+          .from("shipments")
+          .update(patch)
+          .eq("id", row.id)
+          .select("id");
         if (error) throw error;
+        if (!updated || (updated as { id: string }[]).length === 0) {
+          throw new Error("Зміни не збережено: немає прав на оновлення цієї поставки.");
+        }
       }
 
       if (shouldLockFreight) {
