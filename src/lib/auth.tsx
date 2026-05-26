@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logSystem } from "@/lib/system-log";
+import { rememberLastUserId } from "@/lib/last-user";
 
 export type AppRole =
   | "super_admin"
