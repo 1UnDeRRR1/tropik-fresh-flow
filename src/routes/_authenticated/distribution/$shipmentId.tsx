@@ -320,8 +320,8 @@ function DistributionMatrix() {
         title="Розподіл по філіях"
         subtitle={`Поставка ${data.shipment?.code ?? ""}${dirty ? " · є незбережені зміни" : ""}`}
         action={
-          <Link to="/shipments/$id" params={{ id: shipmentId }} className="text-xs text-brand">
-            До поставки
+          <Link to="/shipments" className="text-xs text-brand">
+            До поставок
           </Link>
         }
       />
