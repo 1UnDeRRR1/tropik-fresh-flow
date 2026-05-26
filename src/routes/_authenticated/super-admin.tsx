@@ -7,15 +7,8 @@ export const Route = createFileRoute("/_authenticated/super-admin")({
 });
 
 const TABS = [
-  { to: "/super-admin/users", label: "Користувачі" },
+  { to: "/super-admin/users", label: "Користувачі (доступ/паролі)" },
   { to: "/super-admin/logs", label: "Системні логи" },
-  { to: "/admin/branches", label: "Філії" },
-  { to: "/admin/managers", label: "Менеджери" },
-  { to: "/admin/suppliers", label: "Постачальники" },
-  { to: "/admin/products", label: "Товари" },
-  { to: "/admin/loading-plan", label: "План" },
-  { to: "/admin/countries", label: "Логістика" },
-  { to: "/admin/customs", label: "Митниця" },
 ] as const;
 
 function SuperAdminLayout() {
