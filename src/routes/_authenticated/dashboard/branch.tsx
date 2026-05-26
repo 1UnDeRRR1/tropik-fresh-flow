@@ -17,6 +17,7 @@ import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { useFirstScreenGate } from "@/routes/_authenticated";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -160,6 +161,13 @@ function BranchDashboard() {
       }>;
     },
   });
+
+  // Hold the splash overlay until this dashboard's first data query resolves,
+  // so the user never sees the half-loaded shell or a false empty-state.
+  useFirstScreenGate(
+    "branch-dashboard",
+    !!branchId && (distsPending || (dists === undefined && !distsError)),
+  );
 
   // All manager-offer responses for this branch (any decision state).
   // approved_pallets IS NULL → "Чекаю підтвердження";
