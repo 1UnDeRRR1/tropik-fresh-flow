@@ -4,7 +4,7 @@ import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FxRateBadge } from "@/components/FxRateBadge";
-import { APP_HEADER_ASSETS } from "@/lib/branch-assets";
+import { getPersonalAssets } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, type ReactNode } from "react";
@@ -191,41 +191,66 @@ export function AppShell({ children }: { children: ReactNode }) {
   const displayName = profile?.display_name ?? profile?.full_name ?? "";
   const showRedT = profile?.visual_mark === "red_tereshchenko_t" && displayName.length > 0;
 
+  // Personal asset package, keyed by user_id (then branch_id). Returns null
+  // for users without a package — they get neutral chrome, never another
+  // user's branding.
+  const personalAssets = getPersonalAssets(profile?.id, profile?.branch_id);
+
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-        {/* Full-bleed header banner — global app asset */}
-        <div className="relative w-full pt-safe">
-          <picture>
-            <source media="(max-width: 767px)" type="image/webp" srcSet={APP_HEADER_ASSETS.mobileWebp} />
-            <source media="(max-width: 767px)" type="image/png" srcSet={APP_HEADER_ASSETS.mobilePng} />
-            <source media="(min-width: 768px)" type="image/webp" srcSet={APP_HEADER_ASSETS.desktopWebp} />
-            <source media="(min-width: 768px)" type="image/png" srcSet={APP_HEADER_ASSETS.desktopPng} />
-            <img
-              src={APP_HEADER_ASSETS.desktopPng}
-              alt=""
-              className="block h-auto max-h-[200px] w-full object-cover md:max-h-[220px]"
-              loading="eager"
-              decoding="async"
-              draggable={false}
-            />
-          </picture>
-          {/* Name overlay (no role title, no bell, no FX) */}
-          {primaryRole && displayName && (
-            <div className="pointer-events-none absolute right-3 top-3 max-w-[55%] rounded-md bg-black/35 px-2 py-1 text-right leading-tight backdrop-blur-sm md:right-6 md:top-4">
-              <div className="text-sm font-semibold text-white drop-shadow md:text-base">
+        {personalAssets ? (
+          /* Full-bleed personal header banner — only for users with a package */
+          <div className="relative w-full pt-safe">
+            <picture>
+              <source media="(max-width: 767px)" type="image/webp" srcSet={personalAssets.headerMobileWebp} />
+              <source media="(max-width: 767px)" type="image/png" srcSet={personalAssets.headerMobilePng} />
+              <source media="(min-width: 768px)" type="image/webp" srcSet={personalAssets.headerDesktopWebp} />
+              <source media="(min-width: 768px)" type="image/png" srcSet={personalAssets.headerDesktopPng} />
+              <img
+                src={personalAssets.headerDesktopPng}
+                alt=""
+                className="block h-auto max-h-[112px] w-full object-cover md:max-h-[220px]"
+                loading="eager"
+                decoding="async"
+                draggable={false}
+              />
+            </picture>
+            {primaryRole && displayName && (
+              <div className="pointer-events-none absolute right-3 top-3 max-w-[55%] rounded-md bg-black/35 px-2 py-1 text-right leading-tight backdrop-blur-sm md:right-6 md:top-4">
+                <div className="text-sm font-semibold text-white drop-shadow md:text-base">
+                  {showRedT ? (
+                    <>
+                      <span className="text-red-400">{displayName.charAt(0)}</span>
+                      {displayName.slice(1)}
+                    </>
+                  ) : (
+                    displayName
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Neutral chrome — no personal package installed for this user */
+          <div className="flex items-center justify-between gap-3 px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:px-6">
+            <Link to={dashHref} className="text-sm font-bold tracking-tight text-foreground">
+              Tropik
+            </Link>
+            {primaryRole && displayName && (
+              <div className="truncate text-right text-sm font-semibold text-foreground">
                 {showRedT ? (
                   <>
-                    <span className="text-red-400">{displayName.charAt(0)}</span>
+                    <span className="text-red-500">{displayName.charAt(0)}</span>
                     {displayName.slice(1)}
                   </>
                 ) : (
                   displayName
                 )}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
         {/* FX badge: thin strip below header, outside the picture, non-branch only */}
         {!isBranch && (
           <div className="flex justify-center border-t border-border/60 bg-card/70 px-4 py-1">
