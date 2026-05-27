@@ -40,15 +40,6 @@ const STATUS_SORT_PRIORITY: Record<BranchOfferStatusKind, number> = {
   shipped: 4,
   none: 5,
 };
-  linked: 0,
-  confirmed: 1,
-  in_work: 2,
-  active: 3,
-  closed: 4,
-  expired: 5,
-  draft: 6,
-  deleted: 7,
-};
 
 type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
 
