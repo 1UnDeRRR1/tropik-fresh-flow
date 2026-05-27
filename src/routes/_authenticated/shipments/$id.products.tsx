@@ -3407,6 +3407,12 @@ function PackageCell({
   const options: PackageOption[] = resolved?.options ?? [];
   const fallbackLabel = resolved?.isFallback ? resolved?.fallbackExplanation : null;
 
+  const commitAndClose = useCallback(() => {
+    setOpen(false);
+    setFocused(false);
+    inputRef.current?.blur();
+  }, []);
+
 
   if (readOnly) {
     return (
@@ -3421,6 +3427,7 @@ function PackageCell({
     <Popover open={open && focused} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <input
+          data-mobile-edit-label="Упаковка"
           ref={inputRef}
           type="text"
           value={value}
@@ -3437,7 +3444,15 @@ function PackageCell({
             setOpen(true);
             scrollFocusedIntoView(e.currentTarget);
           }}
-          onKeyDown={blurOnEnter}
+          onKeyDown={(e) => {
+            if ((e.key === "Tab" || e.key === "Enter") && options[0]) {
+              e.preventDefault();
+              onSelect(options[0]);
+              commitAndClose();
+              return;
+            }
+            blurOnEnter(e);
+          }}
           onBlur={() => { setFocused(false); }}
           className={cn(
             "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
@@ -3471,8 +3486,7 @@ function PackageCell({
                   onMouseDown={(e) => {
                     e.preventDefault();
                     onSelect(opt);
-                    setOpen(false);
-                    inputRef.current?.blur();
+                    commitAndClose();
                   }}
                   className={cn(
                     "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
