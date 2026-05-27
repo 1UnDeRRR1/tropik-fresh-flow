@@ -597,6 +597,8 @@ function BranchDashboard() {
                 seen_pallets: pallets,
                 seen_ind: o.indicative_cost_usd,
                 seen_inv: o.invoice_cost_usd,
+                anchor: resolveOfferRow({ offer: { id: o.id, position_id: o.position_id ?? null }, responseId: p.id }),
+                is_real_shipment_code: false, // pending/offer rows never have a real shipments.code
               } as Row;
             });
 
