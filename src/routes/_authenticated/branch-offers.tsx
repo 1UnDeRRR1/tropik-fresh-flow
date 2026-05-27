@@ -444,8 +444,6 @@ function BranchOffersPage() {
             const reqQty = r ? Number(r.requested_pallets) : 0;
             const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
             const cancelledSupply = o.status === "deleted";
-            const explicitlyRejected = !cancelledSupply && apprQty === 0;
-            const palletDelta = apprQty != null ? apprQty - reqQty : 0;
             const linkedQty = r ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0) : 0;
             const pendingQty = apprQty != null ? Math.max(apprQty - linkedQty, 0) : 0;
             const isSplit = o.status === "linked" && linkedQty > 0 && pendingQty > 0;
