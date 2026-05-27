@@ -560,6 +560,7 @@ function NewShipment() {
         <PopoverTrigger asChild>
           <button
             type="button"
+            data-mobile-edit-label="Постачальник"
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
           >
             <span className={cn(!selectedSupplier && "text-muted-foreground")}>
@@ -615,6 +616,7 @@ function NewShipment() {
         <PopoverTrigger asChild>
           <button
             type="button"
+            data-mobile-edit-label="Країна завантаження"
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
           >
             <span className={cn(!country && "text-muted-foreground")}>
@@ -735,6 +737,7 @@ function NewShipment() {
         <PopoverTrigger asChild>
           <button
             type="button"
+            data-mobile-edit-label="Відкрите авто"
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
           >
             <span className={cn(!selectedVehicle && "text-muted-foreground")}>
