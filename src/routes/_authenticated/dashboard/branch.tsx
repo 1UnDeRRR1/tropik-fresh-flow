@@ -694,6 +694,7 @@ function BranchDashboard() {
                     </span>
                   </th>
                   <th className="px-2 py-2 font-medium">Сорт</th>
+                  <th className="px-2 py-2 font-medium">Калібр</th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Менеджер</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
