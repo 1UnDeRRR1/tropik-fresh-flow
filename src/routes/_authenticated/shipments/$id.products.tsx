@@ -3323,13 +3323,19 @@ function PackageCell({
           type="text"
           value={value}
           placeholder="—"
+          enterKeyHint={MOBILE_ENTER_KEY_HINT}
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => {
             onChangeText(e.target.value);
             if (!open) setOpen(true);
           }}
-          onFocus={() => { setFocused(true); setOpen(true); }}
+          onFocus={(e) => {
+            setFocused(true);
+            setOpen(true);
+            scrollFocusedIntoView(e.currentTarget);
+          }}
+          onKeyDown={blurOnEnter}
           onBlur={() => { setFocused(false); }}
           className={cn(
             "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
