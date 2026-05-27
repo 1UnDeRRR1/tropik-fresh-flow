@@ -2811,6 +2811,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             setResolverBusy(true);
             onPatch({ product_name: v });
           }}
+          onCommit={() => { void runResolver(); }}
 
           options={knownProductNames}
           aliases={productAliases}
@@ -2843,6 +2844,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             setResolverBusy(true);
             onPatch({ origin_country: v });
           }}
+          onCommit={() => { void runResolver(); }}
 
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
@@ -3521,6 +3523,11 @@ function VarietyCell({ value, onChange, productName, readOnly }: { value: string
     <VarietyAutocomplete
       value={value}
       onChange={onChange}
+      onCommit={() => {
+        if (typeof document === "undefined") return;
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) active.blur();
+      }}
       varieties={varieties}
       placeholder="—"
       inputClassName={cn(
