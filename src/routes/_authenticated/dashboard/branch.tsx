@@ -678,7 +678,7 @@ function BranchDashboard() {
       }
     };
     return sorted.sort(cmp);
-  }, [rows, search, sortBy]);
+  }, [viewRows, search, sortBy]);
 
 
   const drillRows = useMemo(() => {
