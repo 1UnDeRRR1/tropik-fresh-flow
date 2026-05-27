@@ -197,7 +197,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const personalAssets = getPersonalAssets(profile?.id, profile?.branch_id);
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="relative min-h-dvh bg-background">
+      {/* Global decorative page background — pure presentation, behind everything */}
+      <div aria-hidden className="page-bg-layer" />
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
         {personalAssets ? (
           /* Full-bleed personal header banner — only for users with a package.
