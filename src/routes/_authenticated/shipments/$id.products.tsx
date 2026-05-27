@@ -3431,6 +3431,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
       type="text"
       readOnly={readOnly}
       inputMode="decimal"
+      enterKeyHint={MOBILE_ENTER_KEY_HINT}
       step={step ?? "1"}
       value={text}
       placeholder={focused ? "" : "—"}
@@ -3442,7 +3443,9 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
         if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
+        scrollFocusedIntoView(e.currentTarget);
       }}
+      onKeyDown={blurOnEnter}
       onBlur={() => setFocused(false)}
       onChange={(e) => {
         // Allow digits, comma, dot. Normalize comma → dot for parsing only.
@@ -3490,13 +3493,20 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         type="text"
         readOnly={readOnly}
         inputMode="decimal"
+        enterKeyHint={MOBILE_ENTER_KEY_HINT}
         value={text}
         placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        onFocus={(e) => { if (readOnly) return; setFocused(true); e.currentTarget.select(); }}
+        onFocus={(e) => {
+          if (readOnly) return;
+          setFocused(true);
+          e.currentTarget.select();
+          scrollFocusedIntoView(e.currentTarget);
+        }}
+        onKeyDown={blurOnEnter}
         onBlur={() => setFocused(false)}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^\d.,-]/g, "");
