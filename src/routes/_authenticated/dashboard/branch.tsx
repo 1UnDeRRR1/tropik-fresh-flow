@@ -419,6 +419,21 @@ function BranchDashboard() {
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
     const vMap = new Map((bvps ?? []).map((v) => [`${v.distribution_id}-${v.shipment_item_id}`, v]));
 
+    // Block 0.5/1: offer-id → OfferLike map for materialized row anchor resolution.
+    // Built from BOTH pendingOffers (active responses) and bridgeOffers (closed/linked
+    // offers fetched only by id+position_id). No text matching.
+    const offerById = new Map<string, OfferLike>();
+    for (const p of pendingOffers ?? []) {
+      offerById.set(p.manager_offers.id, {
+        id: p.manager_offers.id,
+        position_id: (p.manager_offers as { position_id?: string | null }).position_id ?? null,
+      });
+    }
+    for (const o of bridgeOffers ?? []) {
+      // bridge offers win when both exist — same FK row, same value.
+      offerById.set(o.id, { id: o.id, position_id: o.position_id ?? null });
+    }
+
     const materialized: Row[] = dists.flatMap((d) =>
       (d.distribution_items ?? [])
         .map((di) => {
