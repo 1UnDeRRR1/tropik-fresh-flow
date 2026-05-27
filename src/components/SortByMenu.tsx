@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowDownUp, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -21,9 +22,10 @@ export function SortByMenu({
   onChange: (v: SortKey) => void;
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
   const keys: SortKey[] = ["date", "name", "status", "last_event"];
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -40,7 +42,10 @@ export function SortByMenu({
           <button
             key={k}
             type="button"
-            onClick={() => onChange(k)}
+            onClick={() => {
+              onChange(k);
+              setOpen(false);
+            }}
             className={cn(
               "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent",
               value === k && "font-semibold",

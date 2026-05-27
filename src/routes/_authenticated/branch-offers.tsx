@@ -20,24 +20,25 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import {
-  STATUS_LABEL,
-  STATUS_CLASS,
   formatRemaining,
   type ManagerOffer,
   type ManagerOfferResponse,
-  type ManagerOfferStatus,
 } from "@/lib/manager-offers";
 import { SortByMenu, type SortKey } from "@/components/SortByMenu";
+import {
+  getBranchOfferStatus,
+  toneClass,
+  isRealShipmentCode,
+  type BranchOfferStatusKind,
+} from "@/lib/branch-offer-status";
 
-const MO_STATUS_PRIORITY: Record<ManagerOfferStatus, number> = {
-  linked: 0,
+const STATUS_SORT_PRIORITY: Record<BranchOfferStatusKind, number> = {
+  waiting: 0,
   confirmed: 1,
-  in_work: 2,
-  active: 3,
-  closed: 4,
-  expired: 5,
-  draft: 6,
-  deleted: 7,
+  rejected: 2,
+  cancelled: 3,
+  shipped: 4,
+  none: 5,
 };
 
 type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
@@ -154,19 +155,28 @@ function BranchOffersPage() {
       .sort((a, b) => a.name.localeCompare(b.name, "uk"));
   }, [baseVisibleOffers, managerNameById]);
 
+  const shipmentById = useMemo(() => {
+    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
+    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
+    return m;
+  }, [shipments]);
+
   const visibleOffers = useMemo(() => {
-    const shipMap: Record<string, { eta: string | null; arrived_at: string | null }> = {};
-    for (const s of shipments ?? []) shipMap[s.id] = { eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
     const arrivalDate = (o: ManagerOffer): string | null => {
-      const ship = o.linked_shipment_id ? shipMap[o.linked_shipment_id] : null;
+      const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
       return ship?.arrived_at || ship?.eta || o.expected_eta || null;
     };
     const eventTs = (o: ManagerOffer): number =>
       new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+    const shipCodeOf = (o: ManagerOffer): string | null =>
+      o.linked_shipment_id ? shipmentById[o.linked_shipment_id]?.code ?? null : null;
+
     const filtered = baseVisibleOffers.filter((o) => {
       if (fProduct && o.product_name !== fProduct) return false;
       if (fCountry && o.origin_country !== fCountry) return false;
       if (fManager && o.created_by !== fManager) return false;
+      // Real shipment code → row has left the active "Пропозиції ЗЕД" workflow.
+      if (isRealShipmentCode(shipCodeOf(o))) return false;
       return true;
     });
     const sorted = [...filtered];
@@ -181,19 +191,18 @@ function BranchOffersPage() {
     } else if (sortBy === "name") {
       sorted.sort((a, b) => (a.product_name ?? "").localeCompare(b.product_name ?? "", "uk"));
     } else if (sortBy === "status") {
-      sorted.sort((a, b) => (MO_STATUS_PRIORITY[a.status] ?? 99) - (MO_STATUS_PRIORITY[b.status] ?? 99));
+      sorted.sort((a, b) => {
+        const sa = getBranchOfferStatus(a, responseByOffer[a.id] ?? null, shipCodeOf(a));
+        const sb = getBranchOfferStatus(b, responseByOffer[b.id] ?? null, shipCodeOf(b));
+        return STATUS_SORT_PRIORITY[sa.kind] - STATUS_SORT_PRIORITY[sb.kind];
+      });
     } else if (sortBy === "last_event") {
       sorted.sort((a, b) => eventTs(b) - eventTs(a));
     }
     return sorted;
-  }, [baseVisibleOffers, shipments, sortBy, fProduct, fCountry, fManager]);
+  }, [baseVisibleOffers, shipmentById, sortBy, fProduct, fCountry, fManager, responseByOffer]);
 
 
-  const shipmentById = useMemo(() => {
-    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
-    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
-    return m;
-  }, [shipments]);
 
   const submit = useMutation({
     mutationFn: async ({ offerId, pallets }: { offerId: string; pallets: number }) => {
@@ -328,47 +337,22 @@ function BranchOffersPage() {
           <TableBody>
             {visibleOffers.map((o) => {
               const r = responseByOffer[o.id];
-              const reqQty = r ? Number(r.requested_pallets) : 0;
-              const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
               const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
               const etaIso = ship?.arrived_at ?? ship?.eta ?? o.expected_eta ?? null;
               const etaStr = etaIso ? new Date(etaIso).toLocaleDateString("uk-UA") : "—";
 
-              // Status color per spec:
-              //   supply deleted → red ("Скасовано")
-              //   manager rejected (approved=0) → red ("Відмовлено")
-              //   manager confirmed (>0) → green
-              //   request sent, no answer yet → yellow
-              //   no request → muted (just shown offered pallets)
-              let tone: "muted" | "yellow" | "green" | "red" = "muted";
-              let qtyLabel: string = o.offered_pallets != null ? `${o.offered_pallets}п` : "—";
-              let statusLabel: string = STATUS_LABEL[o.status];
-              if (o.status === "deleted") {
-                tone = "red";
-                statusLabel = "Скасовано";
-              } else if (r) {
-                if (apprQty === 0) {
-                  tone = "red";
-                  statusLabel = "Відмовлено";
-                  qtyLabel = `${reqQty}п`;
-                } else if (apprQty != null && apprQty > 0) {
-                  tone = "green";
-                  statusLabel = apprQty < reqQty ? `Підтв. ${apprQty}/${reqQty}` : `Підтв. ${apprQty}`;
-                  qtyLabel = `${apprQty}п`;
-                } else {
-                  tone = "yellow";
-                  statusLabel = `Чекаю ${reqQty}`;
-                  qtyLabel = `${reqQty}п`;
-                }
-              }
-              const toneCls =
-                tone === "green"
-                  ? "bg-success/15 text-success"
-                  : tone === "yellow"
-                  ? "bg-warning/15 text-warning"
-                  : tone === "red"
-                  ? "bg-destructive/15 text-destructive"
-                  : "bg-muted text-muted-foreground";
+              // SINGLE source of truth — same helper drives the detail badge.
+              const st = getBranchOfferStatus(o, r ?? null, ship?.code ?? null);
+              const qtyLabel =
+                st.kind === "confirmed" && st.apprQty != null
+                  ? `${st.apprQty}п`
+                  : st.kind === "waiting" || st.kind === "rejected"
+                  ? `${st.reqQty}п`
+                  : o.offered_pallets != null
+                  ? `${o.offered_pallets}п`
+                  : "—";
+              const toneCls = toneClass(st.tone);
+
 
               return (
                 <TableRow
@@ -402,7 +386,7 @@ function BranchOffersPage() {
                   <TableCell className="hidden sm:table-cell tabular-nums">{etaStr}</TableCell>
                   <TableCell>
                     <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", toneCls)}>
-                      {statusLabel}
+                      {st.label}
                     </span>
                   </TableCell>
                 </TableRow>
@@ -423,7 +407,14 @@ function BranchOffersPage() {
         open={!!selectedOfferId}
         onOpenChange={(open) => { if (!open) setSelectedOfferId(null); }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-0">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-0"
+          onOpenAutoFocus={(e) => {
+            // Read-first: do NOT auto-focus the pallet input on mobile,
+            // otherwise iOS pops the keyboard the moment the row is tapped.
+            e.preventDefault();
+          }}
+        >
           <DialogHeader className="sr-only">
             <DialogTitle>Деталі пропозиції</DialogTitle>
           </DialogHeader>
@@ -446,8 +437,6 @@ function BranchOffersPage() {
             const reqQty = r ? Number(r.requested_pallets) : 0;
             const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
             const cancelledSupply = o.status === "deleted";
-            const explicitlyRejected = !cancelledSupply && apprQty === 0;
-            const palletDelta = apprQty != null ? apprQty - reqQty : 0;
             const linkedQty = r ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0) : 0;
             const pendingQty = apprQty != null ? Math.max(apprQty - linkedQty, 0) : 0;
             const isSplit = o.status === "linked" && linkedQty > 0 && pendingQty > 0;
@@ -471,45 +460,41 @@ function BranchOffersPage() {
                   cancelledSupply ? "bg-destructive/5" : undefined,
                 )}
               >
-                {/* Header: product (country) + status */}
+                {/* Header: product (country) + status (single source of truth) */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-base font-bold">{o.product_name}</span>
                   {o.origin_country && (
                     <span className="text-sm text-muted-foreground">({o.origin_country})</span>
                   )}
-                  {cancelledSupply ? (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
-                      Скасовано
-                    </span>
-                  ) : explicitlyRejected ? (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
-                      Відмовлено
-                    </span>
-                  ) : isSplit ? (
+                  {isSplit ? (
                     <>
                       <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
                         Замовлено · {linkedQty}
                       </span>
                       <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                        Підтверджено · {pendingQty}*
+                        Очікує номер · {pendingQty}*
                       </span>
                     </>
-                  ) : (
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                        STATUS_CLASS[o.status],
-                      )}
-                    >
-                      {STATUS_LABEL[o.status]}
-                    </span>
-                  )}
-                  {ship && (
+                  ) : (() => {
+                    const st = getBranchOfferStatus(o, r ?? null, ship?.code ?? null);
+                    return (
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                          toneClass(st.tone),
+                        )}
+                      >
+                        {st.label}
+                      </span>
+                    );
+                  })()}
+                  {ship && isRealShipmentCode(ship.code) && (
                     <span className="text-sm text-success">
                       Поставка <b>{ship.code}</b>
                     </span>
                   )}
                 </div>
+
 
                 {isSplit && (
                   <div className="mt-1 text-xs text-warning">
@@ -634,28 +619,32 @@ function BranchOffersPage() {
                         Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
                       </div>
                       {apprQty != null && (
-                        <div className="text-muted-foreground">
-                          Підтв.:{" "}
-                          <b
-                            className={cn(
-                              "tabular-nums",
-                              palletDelta < 0 && "text-destructive",
-                              palletDelta > 0 && "text-success",
-                              palletDelta === 0 && "text-foreground",
-                            )}
-                          >
-                            {apprQty}
-                            {palletDelta !== 0 && (
-                              <span className="ml-1">
-                                ({palletDelta > 0 ? "+" : ""}
-                                {palletDelta})
-                              </span>
-                            )}
-                          </b>
-                        </div>
+                        <>
+                          <div className="text-muted-foreground">
+                            Підтверджено:{" "}
+                            <b className="text-foreground tabular-nums">
+                              {apprQty === reqQty
+                                ? `${apprQty}`
+                                : apprQty < reqQty
+                                ? `${apprQty} з ${reqQty}`
+                                : `${apprQty}`}
+                            </b>
+                          </div>
+                          {apprQty > 0 && apprQty < reqQty && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {reqQty - apprQty} не підтверджено
+                            </div>
+                          )}
+                          {apprQty > reqQty && (
+                            <div className="text-[11px] text-warning">
+                              Перевірте: підтверджено більше, ніж запит
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
+
                 </div>
               </div>
             );
@@ -682,7 +671,10 @@ function CostLine({
   delta: number;
   linked?: boolean;
 }) {
-  const changed = prev != null && delta !== 0;
+  // Suppress "from same to same" noise: only show the change when the
+  // post-rounding (2-decimal) delta is actually non-zero.
+  const roundedDelta = Math.round(delta * 100) / 100;
+  const changed = prev != null && roundedDelta !== 0;
   const toneCls = tone === "success" ? "text-success" : "text-destructive";
   return (
     <div className={cn("text-sm", toneCls)}>
@@ -696,11 +688,11 @@ function CostLine({
           <span
             className={cn(
               "ml-1 text-xs font-bold",
-              delta < 0 ? "text-success" : "text-destructive",
+              roundedDelta < 0 ? "text-success" : "text-destructive",
             )}
           >
-            ({delta > 0 ? "+" : ""}
-            {delta.toFixed(2)})
+            ({roundedDelta > 0 ? "+" : ""}
+            {roundedDelta.toFixed(2)})
           </span>
         </>
       )}
@@ -708,7 +700,7 @@ function CostLine({
         <div
           className={cn(
             "mt-0.5 rounded-md px-2 py-1 text-xs font-normal",
-            delta > 0
+            roundedDelta > 0
               ? "bg-destructive/10 text-destructive"
               : "bg-success/10 text-success",
           )}
@@ -717,8 +709,8 @@ function CostLine({
           <span className="line-through tabular-nums">${Number(prev).toFixed(2)}</span>{" "}
           → стало <b className="tabular-nums">${curr.toFixed(2)}</b>{" "}
           <b className="tabular-nums">
-            ({delta > 0 ? "+" : ""}
-            {delta.toFixed(2)})
+            ({roundedDelta > 0 ? "+" : ""}
+            {roundedDelta.toFixed(2)})
           </b>
         </div>
       )}
