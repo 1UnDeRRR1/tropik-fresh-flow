@@ -372,3 +372,43 @@ body {
     background-image: url("/page-backgrounds/global/bg_desktop.webp");
   }
 }
+
+/* ============================================================
+   Malekhiv-only transparency test (scoped via body[data-branch-test]
+   on the branch dashboard). Reference plate: inactive segment of
+   "Активні / Розвантажено" (bg-muted/70). Headers are tuned to that
+   level; body cells sit ~10% more transparent so the page background
+   gently shows through. No other branches/routes are affected. */
+body[data-branch-test="malekhiv"] .branch-table-wrap {
+  background-color: color-mix(in oklab, var(--color-card) 55%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
+  background-color: color-mix(in oklab, var(--color-table-head) 70%, transparent) !important;
+}
+body[data-branch-test="malekhiv"] .branch-table-wrap tbody td {
+  background-color: transparent;
+}
+body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky,
+body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
+  background-color: color-mix(in oklab, var(--color-card) 60%, transparent) !important;
+}
+body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
+  background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
+}
+/* Slightly darker text (~10% closer to black) without making it heavier */
+body[data-branch-test="malekhiv"] .branch-table-wrap,
+body[data-branch-test="malekhiv"] .branch-table-wrap td,
+body[data-branch-test="malekhiv"] .branch-table-wrap th {
+  color: oklch(0.12 0.04 265);
+  font-weight: 400;
+}
+body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
+  font-weight: 500;
+}
+/* Bottom navigation: match header-level transparency */
+body[data-branch-test="malekhiv"] nav.fixed.bottom-0 {
+  background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
+}
+
