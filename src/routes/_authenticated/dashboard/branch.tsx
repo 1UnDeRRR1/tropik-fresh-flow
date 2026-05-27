@@ -604,7 +604,7 @@ function BranchDashboard() {
   ];
 
   const controlBaseClass =
-    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none";
+    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground";
   const controlFocusClass =
     "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive data-[active=true]:border-destructive data-[active=true]:ring-1 data-[active=true]:ring-destructive";
 
@@ -667,8 +667,8 @@ function BranchDashboard() {
             <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-medium">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-20 bg-card px-1 py-2 font-medium" style={{ width: 36 }}>Статус</th>
-                  <th className="sticky left-[36px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ maxWidth: 160 }}>Товар</th>
+                  <th className="sticky left-0 z-20 bg-card px-1 py-2 font-medium text-center" style={{ width: 56, minWidth: 56 }}>Статус</th>
+                  <th className="sticky left-[56px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 150, minWidth: 150, maxWidth: 150 }}>Товар</th>
                   <th className="px-2 py-2 font-medium">Країна</th>
                   <th className="px-2 py-2 font-medium">Заход</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
@@ -697,18 +697,18 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-1 py-2 cursor-pointer"
-                        style={{ width: 36 }}
+                        className="sticky left-0 z-10 bg-card px-1 py-2 text-center cursor-pointer"
+                        style={{ width: 56, minWidth: 56 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
                         <StatusIcon status={r.pipeline} size={26} />
                       </td>
                       <td
-                        className="sticky left-[36px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
-                        style={{ maxWidth: 160 }}
+                        className="sticky left-[56px] z-10 bg-card px-2 py-2 cursor-pointer"
+                        style={{ width: 150, minWidth: 150, maxWidth: 150 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <div className="truncate sm:whitespace-normal" title={r.product}>
+                        <div className="truncate" title={r.product}>
                           {r.product}
                         </div>
                         {r.approved_qty_note && (
@@ -763,7 +763,11 @@ function BranchDashboard() {
                         {r.manager_name ?? "—"}
                       </td>
                       <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
-                        {r.pipeline === "rejected" ? <span className="text-muted-foreground">—</span> : r.code}
+                        {r.distribution_id.startsWith("mor-") ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          r.code || <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   );
