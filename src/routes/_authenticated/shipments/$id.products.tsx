@@ -3491,6 +3491,12 @@ function PackageCell({
                     onSelect(opt);
                     commitAndClose();
                   }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelect(opt);
+                    commitAndClose();
+                  }}
                   className={cn(
                     "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
                     active && "bg-accent/60",
