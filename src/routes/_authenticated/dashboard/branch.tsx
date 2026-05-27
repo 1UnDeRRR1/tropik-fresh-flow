@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { toUaCountry } from "@/lib/countries";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
@@ -19,8 +19,11 @@ import { PIPELINE_LABEL } from "@/lib/pipeline-status";
 import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
-import { SearchableSelect } from "@/components/SearchableSelect";
 import { useFirstScreenGate } from "@/routes/_authenticated";
+import { useEffect } from "react";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+type SortKey = "eta" | "product" | "country" | "manager" | "shipment" | "pallets" | "status";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
