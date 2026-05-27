@@ -694,6 +694,7 @@ function BranchDashboard() {
                     </span>
                   </th>
                   <th className="px-2 py-2 font-medium">Сорт</th>
+                  <th className="px-2 py-2 font-medium">Калібр</th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Менеджер</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
@@ -767,6 +768,9 @@ function BranchDashboard() {
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
                         {r.variety ?? <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
+                        {r.caliber ?? <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-2 py-2 text-right">
                         <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
@@ -856,6 +860,7 @@ function BranchDashboard() {
                 <div className="mt-5 rounded-2xl border border-border bg-card/70 divide-y divide-border/70">
                   <DetailRow label="Палет" value={`${r.pallets}п`} />
                   <DetailRow label="Сорт" value={r.variety ?? "—"} />
+                  <DetailRow label="Калібр" value={r.caliber ?? "—"} />
                   <DetailRow
                     label="Собівартість"
                     value={
