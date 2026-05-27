@@ -763,7 +763,7 @@ function BranchDashboard() {
                         {r.manager_name ?? "—"}
                       </td>
                       <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
-                        {r.code}
+                        {r.pipeline === "rejected" ? <span className="text-muted-foreground">—</span> : r.code}
                       </td>
                     </tr>
                   );
