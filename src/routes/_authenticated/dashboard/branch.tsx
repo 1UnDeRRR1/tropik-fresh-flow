@@ -777,7 +777,7 @@ function BranchDashboard() {
               </tbody>
             </table>
           </TableScroller>
-        </SectionCard>
+        </div>
       )}
 
       {/* Detail popup — centered Dialog so it sits in the workspace area
