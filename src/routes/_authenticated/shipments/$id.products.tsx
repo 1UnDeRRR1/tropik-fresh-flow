@@ -1795,11 +1795,11 @@ function ProductsFullscreen() {
   }, []);
 
   useEffect(() => {
-    const onFocusIn = (event: FocusEvent) => {
+    const onFocusIn = (event: Event) => {
       if (!isEditableFieldTarget(event.target)) return;
       setMobileEditingLabel(getMobileEditorLabel(event.target));
     };
-    const onFocusOut = () => {
+    const onFocusOut = (_event: Event) => {
       window.setTimeout(() => {
         if (isEditableFieldTarget(document.activeElement)) {
           setMobileEditingLabel(getMobileEditorLabel(document.activeElement));
