@@ -493,6 +493,14 @@ function BranchDashboard() {
             seen_pallets: b?.seen_pallets ?? null,
             seen_ind: b?.seen_cost_ind ?? null,
             seen_inv: b?.seen_cost_inv ?? null,
+            anchor: resolveMaterializedRow({
+              item: { id: it.id, linked_offer_id: (it as { linked_offer_id?: string | null }).linked_offer_id ?? null },
+              offerById,
+              distributionItemId: d.id,
+              shipmentId: d.shipment_id,
+              supplierId: s?.supplier_id ?? undefined,
+            }),
+            is_real_shipment_code: isRealShipmentCode(s?.code),
           } as Row;
         })
         .filter(Boolean) as Row[],
