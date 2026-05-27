@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 const TOUCH_SLOP = 8;
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 
 /**
  * Free-text input that suggests varieties for the currently selected product.
@@ -70,10 +71,14 @@ export function VarietyAutocomplete({
         value={value}
         disabled={disabled}
         placeholder={placeholder}
+        enterKeyHint={MOBILE_ENTER_KEY_HINT}
         autoComplete="off"
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
+        onFocus={(e) => {
+          setFocused(true);
+          scrollFocusedIntoView(e.currentTarget);
+        }}
         onBlur={() => {
           if (acceptingRef.current) {
             acceptingRef.current = false;
@@ -85,6 +90,12 @@ export function VarietyAutocomplete({
           if ((e.key === "Tab" || e.key === "Enter") && filtered[0]) {
             e.preventDefault();
             accept(filtered[0]);
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            inputRef.current?.blur();
+            return;
           }
           if (e.key === "Escape") inputRef.current?.blur();
         }}
