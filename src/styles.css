@@ -354,21 +354,21 @@ html, body {
   animation: status-pop-once 260ms ease-out 1;
 }
 
-/* Global decorative page background — sits behind <main>, above body bg.
-   Mobile vs desktop image swap via media query. Layer never receives
-   pointer events, so it cannot interfere with scroll or taps. */
-.page-bg-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
+/* Global decorative page background — applied to <body> so it sits behind
+   every screen of the app (login, authenticated, errors). Cards, tables,
+   modals and popovers keep their own opaque tokens, so the image is only
+   visible in the surrounding gutters. The splash overlay renders above
+   this layer with its own background, so personalised splash assets are
+   not replaced. */
+body {
   background-image: url("/page-backgrounds/global/bg_mobile.webp");
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 @media (min-width: 768px) {
-  .page-bg-layer {
+  body {
     background-image: url("/page-backgrounds/global/bg_desktop.webp");
   }
 }
