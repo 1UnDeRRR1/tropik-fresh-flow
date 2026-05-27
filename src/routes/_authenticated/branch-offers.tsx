@@ -169,19 +169,28 @@ function BranchOffersPage() {
       .sort((a, b) => a.name.localeCompare(b.name, "uk"));
   }, [baseVisibleOffers, managerNameById]);
 
+  const shipmentById = useMemo(() => {
+    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
+    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
+    return m;
+  }, [shipments]);
+
   const visibleOffers = useMemo(() => {
-    const shipMap: Record<string, { eta: string | null; arrived_at: string | null }> = {};
-    for (const s of shipments ?? []) shipMap[s.id] = { eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
     const arrivalDate = (o: ManagerOffer): string | null => {
-      const ship = o.linked_shipment_id ? shipMap[o.linked_shipment_id] : null;
+      const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
       return ship?.arrived_at || ship?.eta || o.expected_eta || null;
     };
     const eventTs = (o: ManagerOffer): number =>
       new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
+    const shipCodeOf = (o: ManagerOffer): string | null =>
+      o.linked_shipment_id ? shipmentById[o.linked_shipment_id]?.code ?? null : null;
+
     const filtered = baseVisibleOffers.filter((o) => {
       if (fProduct && o.product_name !== fProduct) return false;
       if (fCountry && o.origin_country !== fCountry) return false;
       if (fManager && o.created_by !== fManager) return false;
+      // Real shipment code → row has left the active "Пропозиції ЗЕД" workflow.
+      if (isRealShipmentCode(shipCodeOf(o))) return false;
       return true;
     });
     const sorted = [...filtered];
@@ -196,19 +205,18 @@ function BranchOffersPage() {
     } else if (sortBy === "name") {
       sorted.sort((a, b) => (a.product_name ?? "").localeCompare(b.product_name ?? "", "uk"));
     } else if (sortBy === "status") {
-      sorted.sort((a, b) => (MO_STATUS_PRIORITY[a.status] ?? 99) - (MO_STATUS_PRIORITY[b.status] ?? 99));
+      sorted.sort((a, b) => {
+        const sa = getBranchOfferStatus(a, responseByOffer[a.id] ?? null, shipCodeOf(a));
+        const sb = getBranchOfferStatus(b, responseByOffer[b.id] ?? null, shipCodeOf(b));
+        return STATUS_SORT_PRIORITY[sa.kind] - STATUS_SORT_PRIORITY[sb.kind];
+      });
     } else if (sortBy === "last_event") {
       sorted.sort((a, b) => eventTs(b) - eventTs(a));
     }
     return sorted;
-  }, [baseVisibleOffers, shipments, sortBy, fProduct, fCountry, fManager]);
+  }, [baseVisibleOffers, shipmentById, sortBy, fProduct, fCountry, fManager, responseByOffer]);
 
 
-  const shipmentById = useMemo(() => {
-    const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
-    for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
-    return m;
-  }, [shipments]);
 
   const submit = useMutation({
     mutationFn: async ({ offerId, pallets }: { offerId: string; pallets: number }) => {
