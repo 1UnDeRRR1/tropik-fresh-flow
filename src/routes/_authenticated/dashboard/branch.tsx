@@ -697,18 +697,18 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-1 py-2 cursor-pointer"
-                        style={{ width: 36 }}
+                        className="sticky left-0 z-10 bg-card px-1 py-2 text-center cursor-pointer"
+                        style={{ width: 56, minWidth: 56 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
                         <StatusIcon status={r.pipeline} size={26} />
                       </td>
                       <td
-                        className="sticky left-[36px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
-                        style={{ maxWidth: 160 }}
+                        className="sticky left-[56px] z-10 bg-card px-2 py-2 cursor-pointer"
+                        style={{ width: 150, minWidth: 150, maxWidth: 150 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <div className="truncate sm:whitespace-normal" title={r.product}>
+                        <div className="truncate" title={r.product}>
                           {r.product}
                         </div>
                         {r.approved_qty_note && (
@@ -763,7 +763,11 @@ function BranchDashboard() {
                         {r.manager_name ?? "—"}
                       </td>
                       <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
-                        {r.pipeline === "rejected" ? <span className="text-muted-foreground">—</span> : r.code}
+                        {r.distribution_id.startsWith("mor-") ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          r.code || <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   );
