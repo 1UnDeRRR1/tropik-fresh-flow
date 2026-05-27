@@ -20,6 +20,26 @@ import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { useFirstScreenGate } from "@/routes/_authenticated";
+import {
+  resolveOfferRow,
+  resolveMaterializedRow,
+  logAnchorCoverage,
+  summarizeAnchors,
+  type RowAnchor,
+  type OfferLike,
+} from "@/lib/branch-row-anchor";
+
+// Block 1: real shipment code gate. A row belongs to "Головна" only when the
+// underlying shipment has a non-empty, non-placeholder `shipments.code`.
+// Otherwise it is shown in "Пропозиції". No text/identity matching — this is
+// a presence check on a single field, not a resolver.
+function isRealShipmentCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  const t = code.trim();
+  if (!t) return false;
+  if (t === "—" || t === "-") return false;
+  return true;
+}
 
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
@@ -63,6 +83,9 @@ type Row = {
   seen_pallets: number | null;
   seen_ind: number | null;
   seen_inv: number | null;
+  // Block 0.5/1: anchor + classification (read-only, derived).
+  anchor: RowAnchor;
+  is_real_shipment_code: boolean;
 };
 
 const fmtEta = (eta: string | null) => {
@@ -140,6 +163,7 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
+  const [view, setView] = useState<"main" | "offers">("main");
   const [sortBy, setSortBy] = useState<SortKey>("eta");
   const [search, setSearch] = useState<string>("");
 
@@ -186,13 +210,13 @@ function BranchDashboard() {
       const { data, error } = await (supabase as any)
         .from("manager_offer_responses")
         .select(`id,offer_id,approved_pallets,requested_pallets,
-          manager_offers!inner(id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
+          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
         .eq("branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; offer_id: string; approved_pallets: number | null; requested_pallets: number;
         manager_offers: {
-          id: string; product_name: string; origin_country: string | null;
+          id: string; position_id: string | null; product_name: string; origin_country: string | null;
           caliber: string | null; variety: string | null; expected_eta: string | null;
           indicative_cost_usd: number | null; invoice_cost_usd: number | null;
           linked_shipment_id: string | null; status: string;
@@ -217,14 +241,38 @@ function BranchDashboard() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items")
-        .select("id,product_name,caliber,origin_country,variety,brand,class")
+        .select("id,product_name,caliber,origin_country,variety,brand,class,linked_offer_id")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; product_name: string; caliber: string | null;
         origin_country: string | null; variety: string | null;
         brand: string | null; class: string | null;
+        linked_offer_id: string | null;
       }>;
+    },
+  });
+
+  // Block 0.5/1 bridge: for materialized rows whose shipment_items.linked_offer_id
+  // points at a manager_offer NOT in pendingOffers (closed/linked/expired offers),
+  // fetch only id + position_id to resolve the row anchor. No text matching.
+  const bridgeOfferIds = useMemo(() => {
+    const fromItems = new Set(
+      (items ?? []).map((i) => i.linked_offer_id).filter(Boolean) as string[],
+    );
+    return Array.from(fromItems);
+  }, [items]);
+
+  const { data: bridgeOffers } = useQuery({
+    queryKey: ["branch-bridge-offers", bridgeOfferIds.join(",")],
+    enabled: bridgeOfferIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("manager_offers")
+        .select("id,position_id")
+        .in("id", bridgeOfferIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; position_id: string | null }>;
     },
   });
 
@@ -372,6 +420,21 @@ function BranchDashboard() {
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
     const vMap = new Map((bvps ?? []).map((v) => [`${v.distribution_id}-${v.shipment_item_id}`, v]));
 
+    // Block 0.5/1: offer-id → OfferLike map for materialized row anchor resolution.
+    // Built from BOTH pendingOffers (active responses) and bridgeOffers (closed/linked
+    // offers fetched only by id+position_id). No text matching.
+    const offerById = new Map<string, OfferLike>();
+    for (const p of pendingOffers ?? []) {
+      offerById.set(p.manager_offers.id, {
+        id: p.manager_offers.id,
+        position_id: (p.manager_offers as { position_id?: string | null }).position_id ?? null,
+      });
+    }
+    for (const o of bridgeOffers ?? []) {
+      // bridge offers win when both exist — same FK row, same value.
+      offerById.set(o.id, { id: o.id, position_id: o.position_id ?? null });
+    }
+
     const materialized: Row[] = dists.flatMap((d) =>
       (d.distribution_items ?? [])
         .map((di) => {
@@ -431,6 +494,14 @@ function BranchDashboard() {
             seen_pallets: b?.seen_pallets ?? null,
             seen_ind: b?.seen_cost_ind ?? null,
             seen_inv: b?.seen_cost_inv ?? null,
+            anchor: resolveMaterializedRow({
+              item: { id: it.id, linked_offer_id: (it as { linked_offer_id?: string | null }).linked_offer_id ?? null },
+              offerById,
+              distributionItemId: d.id,
+              shipmentId: d.shipment_id,
+              supplierId: s?.supplier_id ?? undefined,
+            }),
+            is_real_shipment_code: isRealShipmentCode(s?.code),
           } as Row;
         })
         .filter(Boolean) as Row[],
@@ -527,12 +598,14 @@ function BranchDashboard() {
                 seen_pallets: pallets,
                 seen_ind: o.indicative_cost_usd,
                 seen_inv: o.invoice_cost_usd,
+                anchor: resolveOfferRow({ offer: { id: o.id, position_id: o.position_id ?? null }, responseId: p.id }),
+                is_real_shipment_code: false, // pending/offer rows never have a real shipments.code
               } as Row;
             });
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, suppliers, managers, baselines, bvps, board, pendingOffers]);
+  }, [dists, items, ships, suppliers, managers, baselines, bvps, board, pendingOffers, bridgeOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
@@ -545,10 +618,30 @@ function BranchDashboard() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
+  // Block 1: partition by real shipment code. "Головна" = is_real_shipment_code,
+  // "Пропозиції" = the rest (pending offers + materialized rows without code).
+  const mainRows = useMemo(() => rows.filter((r) => r.is_real_shipment_code), [rows]);
+  const offerRows = useMemo(() => rows.filter((r) => !r.is_real_shipment_code), [rows]);
+
+  // Dev-only coverage log: position_id resolution stats for both partitions.
+  useEffect(() => {
+    if (rows.length === 0) return;
+    logAnchorCoverage("branch:all", rows.map((r) => r.anchor));
+    logAnchorCoverage("branch:main", mainRows.map((r) => r.anchor));
+    logAnchorCoverage("branch:offers", offerRows.map((r) => r.anchor));
+    if (typeof window !== "undefined" && import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.info("[branch-row-anchor] split: main=", mainRows.length, "offers=", offerRows.length, "total=", rows.length);
+    }
+  }, [rows, mainRows, offerRows]);
+
+  const viewRows = view === "main" ? mainRows : offerRows;
+
   const filteredRows = useMemo(() => {
+    const baseRows = viewRows;
     const q = search.trim().toLocaleLowerCase("uk");
     const matched = q
-      ? rows.filter((r) => {
+      ? baseRows.filter((r) => {
           const haystack = [
             r.product,
             r.manager_name,
@@ -563,7 +656,7 @@ function BranchDashboard() {
             .toLocaleLowerCase("uk");
           return haystack.includes(q);
         })
-      : rows;
+      : baseRows;
     const sorted = [...matched];
     const cmp = (a: Row, b: Row): number => {
       switch (sortBy) {
@@ -585,7 +678,7 @@ function BranchDashboard() {
       }
     };
     return sorted.sort(cmp);
-  }, [rows, search, sortBy]);
+  }, [viewRows, search, sortBy]);
 
 
   const drillRows = useMemo(() => {
@@ -634,6 +727,29 @@ function BranchDashboard() {
           Вам ще не призначено філію. Зверніться до адміністратора.
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Розділ">
+        {([
+          { id: "main", label: "Головна", count: mainRows.length },
+          { id: "offers", label: "Пропозиції", count: offerRows.length },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={view === t.id}
+            onClick={() => setView(t.id)}
+            className={cn(
+              "h-10 rounded-lg border px-3 text-sm font-medium leading-none transition-colors",
+              view === t.id
+                ? "border-destructive bg-destructive/10 text-destructive"
+                : "border-input bg-card/80 text-foreground hover:bg-muted/50",
+            )}
+          >
+            {t.label} <span className="ml-1 text-xs tabular-nums opacity-70">{t.count}</span>
+          </button>
+        ))}
+      </div>
 
       <MainBoardToggle value={board} onChange={setBoard} />
 
