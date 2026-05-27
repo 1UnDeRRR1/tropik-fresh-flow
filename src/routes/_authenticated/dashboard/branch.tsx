@@ -20,6 +20,26 @@ import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { useFirstScreenGate } from "@/routes/_authenticated";
+import {
+  resolveOfferRow,
+  resolveMaterializedRow,
+  logAnchorCoverage,
+  summarizeAnchors,
+  type RowAnchor,
+  type OfferLike,
+} from "@/lib/branch-row-anchor";
+
+// Block 1: real shipment code gate. A row belongs to "Головна" only when the
+// underlying shipment has a non-empty, non-placeholder `shipments.code`.
+// Otherwise it is shown in "Пропозиції". No text/identity matching — this is
+// a presence check on a single field, not a resolver.
+function isRealShipmentCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  const t = code.trim();
+  if (!t) return false;
+  if (t === "—" || t === "-") return false;
+  return true;
+}
 
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
