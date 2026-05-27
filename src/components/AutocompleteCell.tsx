@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { resolveProductOption } from "@/lib/product-aliases";
 import { MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
+import { matchesWordStart } from "@/lib/compact-search";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" can match "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -32,10 +33,10 @@ function matchesQuery(option: string, query: string) {
   if (!query) return false;
   const o = option.toLowerCase();
   const q = query.toLowerCase();
-  if (o.startsWith(q)) return true;
-  if (o.startsWith(uaToLat(q))) return true;
-  if (o.startsWith(latToUa(q))) return true;
-  if (uaToLat(o).startsWith(uaToLat(q))) return true;
+  if (matchesWordStart(o, q)) return true;
+  if (matchesWordStart(o, uaToLat(q))) return true;
+  if (matchesWordStart(o, latToUa(q))) return true;
+  if (matchesWordStart(uaToLat(o), uaToLat(q))) return true;
   return false;
 }
 
@@ -95,7 +96,7 @@ export function AutocompleteCell({
       return aliases[l];
     }
     // Unique prefix fallback (e.g. "македон" → "ПІВНІЧНА МАКЕДОНІЯ" only if it's the sole prefix match)
-    const subs = normalizedOptions.filter((o) => o.toLowerCase().startsWith(l));
+    const subs = normalizedOptions.filter((o) => matchesWordStart(o, l));
     if (subs.length === 1) return subs[0];
     return null;
   };
@@ -106,7 +107,7 @@ export function AutocompleteCell({
   // Suggestions: prefix match only, after 2+ characters, max 3 rows.
   const aliasMatchedCanonicals = aliases
     ? Object.entries(aliases)
-        .filter(([k]) => k.startsWith(lower) && lower.length >= 2)
+        .filter(([k]) => matchesWordStart(k, lower) && lower.length >= 2)
         .map(([, v]) => {
           const t = v.toLowerCase();
           return normalizedOptions.find((o) => o.toLowerCase() === t) ?? v;
@@ -209,7 +210,7 @@ export function AutocompleteCell({
       />
       {focused && !readOnly && suggestions.length > 0 && (
         <div
-          className="absolute left-0 top-[calc(100%+2px)] z-50 min-w-[180px] max-w-[85vw] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
+          className="absolute left-0 top-[calc(100%+2px)] z-50 w-full min-w-0 max-w-[min(18rem,85vw)] overflow-hidden rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
           onMouseDown={(e) => e.preventDefault()}
         >
           {suggestions.map((s) => {

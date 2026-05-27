@@ -3466,11 +3466,11 @@ function PackageCell({
       <PopoverContent
         align="start"
         sideOffset={2}
-        className="z-50 w-[280px] max-w-[90vw] overflow-hidden p-0"
+        className="z-50 w-[min(18rem,calc(100vw-1rem))] max-w-[min(18rem,calc(100vw-1rem))] overflow-hidden p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div
-          className="max-h-[260px] overflow-y-auto overscroll-contain"
+          className="max-h-[132px] overflow-y-auto overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {isLoading ? (
@@ -3480,7 +3480,7 @@ function PackageCell({
               Немає стандартів тари — введіть вручну
             </div>
           ) : (
-            options.map((opt, i) => {
+            options.slice(0, 3).map((opt, i) => {
               const active = value && value.trim().toLowerCase() === opt.package_used.toLowerCase();
               return (
                 <button

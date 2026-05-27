@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useCallback, type FormEvent } from "react";
 import { Check, ChevronsUpDown, Truck, Plus, Lock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +24,7 @@ import {
   getCountryCode,
 } from "@/lib/shipment-code";
 import { StaffOnly } from "@/components/StaffOnly";
+import { filterWordStart } from "@/lib/compact-search";
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
@@ -103,6 +104,7 @@ function NewShipment() {
   const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState("");
+  const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
   const [shake, setShake] = useState(false);
   const clearInvalid = (key: string) => setInvalid((prev) => {
@@ -202,20 +204,65 @@ function NewShipment() {
     : "Власник авто";
   const filteredSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    if (q.length < 2) return suppliers ?? [];
-    return (suppliers ?? []).filter((s) => s.name.toLowerCase().startsWith(q)).slice(0, 3);
+    if (q.length < 2) return [];
+    return filterWordStart(suppliers ?? [], (s) => s.name, q, 3);
   }, [suppliers, supplierSearch]);
   const filteredCountries = useMemo(() => {
     const q = countrySearch.trim().toLowerCase();
     const base = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
-    if (q.length < 2) return base;
-    return base.filter((c: string) => c.toLowerCase().startsWith(q)).slice(0, 3);
+    if (q.length < 2) return [];
+    return filterWordStart(base, (c) => c, q, 3);
   }, [countryOptions, countrySearch]);
   const filteredVehicles = useMemo(() => {
     const q = vehicleSearch.trim().toLowerCase();
-    if (q.length < 2) return openVehicles ?? [];
-    return (openVehicles ?? []).filter((v) => v.code.toLowerCase().startsWith(q)).slice(0, 3);
+    if (q.length < 2) return [];
+    return filterWordStart(openVehicles ?? [], (v) => `${v.code} ${v.country}`, q, 3);
   }, [openVehicles, vehicleSearch]);
+
+  const blurAndCloseEditors = useCallback(() => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    setSupplierOpen(false);
+    setCountryOpen(false);
+    setVehicleOpen(false);
+    setMobileEditingLabel(null);
+  }, []);
+
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  }, []);
+
+  useEffect(() => {
+    const labelOf = (target: EventTarget | null) => {
+      const el = target instanceof HTMLElement ? target : null;
+      if (!el) return null;
+      if (el.closest("[data-mobile-edit-label='Постачальник']")) return "Постачальник";
+      if (el.closest("[data-mobile-edit-label='Країна завантаження']")) return "Країна завантаження";
+      if (el.closest("[data-mobile-edit-label='Відкрите авто']")) return "Відкрите авто";
+      if (el.id === "code") return "Номер поставки";
+      if (el.id === "ld") return "Дата завантаження";
+      if (el.id === "eta-new") return "Дата прибуття";
+      return null;
+    };
+    const onFocusIn = (event: Event) => {
+      setMobileEditingLabel(labelOf(event.target));
+    };
+    const onFocusOut = () => {
+      window.setTimeout(() => {
+        setMobileEditingLabel(labelOf(document.activeElement));
+      }, 0);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
   useEffect(() => {
@@ -519,6 +566,7 @@ function NewShipment() {
         <PopoverTrigger asChild>
           <button
             type="button"
+            data-mobile-edit-label="Постачальник"
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
           >
             <span className={cn(!selectedSupplier && "text-muted-foreground")}>
@@ -527,17 +575,11 @@ function NewShipment() {
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command
-            filter={(itemValue, search) => {
-              const q = search.trim().toLowerCase();
-              if (q.length < 2) return 1;
-              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-            }}
-          >
+        <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
+          <Command shouldFilter={false}>
             <CommandInput placeholder="Пошук постачальника…" value={supplierSearch} onValueChange={setSupplierSearch} />
-            <CommandList>
-              <CommandEmpty>Не знайдено</CommandEmpty>
+            <CommandList className="max-h-[132px]">
+              <CommandEmpty>{supplierSearch.trim().length < 2 ? "Введіть 2 літери" : "Не знайдено"}</CommandEmpty>
               <CommandGroup>
                 {filteredSuppliers.map((s) => (
                   <CommandItem
@@ -547,7 +589,9 @@ function NewShipment() {
                     onSelect={() => {
                       setSupplierId(s.id);
                       clearInvalid("supplier");
+                      setSupplierSearch("");
                       setSupplierOpen(false);
+                      blurActiveElement();
                     }}
                   >
                     <Check className={cn("mr-2 h-4 w-4", supplierId === s.id ? "opacity-100" : "opacity-0")} />
@@ -574,6 +618,7 @@ function NewShipment() {
         <PopoverTrigger asChild>
           <button
             type="button"
+            data-mobile-edit-label="Країна завантаження"
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
           >
             <span className={cn(!country && "text-muted-foreground")}>
@@ -582,17 +627,11 @@ function NewShipment() {
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command
-            filter={(itemValue, search) => {
-              const q = search.trim().toLowerCase();
-              if (q.length < 2) return 1;
-              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-            }}
-          >
+        <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
+          <Command shouldFilter={false}>
             <CommandInput placeholder="Пошук країни…" value={countrySearch} onValueChange={setCountrySearch} />
-            <CommandList>
-              <CommandEmpty>Не знайдено</CommandEmpty>
+            <CommandList className="max-h-[132px]">
+              <CommandEmpty>{countrySearch.trim().length < 2 ? "Введіть 2 літери" : "Не знайдено"}</CommandEmpty>
               <CommandGroup>
                 {filteredCountries.map((c: string) => (
                   <CommandItem
@@ -603,7 +642,9 @@ function NewShipment() {
                       setCountryTouched(true);
                       setVehicleId("");
                       clearInvalid("country");
+                      setCountrySearch("");
                       setCountryOpen(false);
+                      blurActiveElement();
                     }}
                   >
                     <Check className={cn("mr-2 h-4 w-4", country === c ? "opacity-100" : "opacity-0")} />
@@ -694,6 +735,7 @@ function NewShipment() {
         <PopoverTrigger asChild>
           <button
             type="button"
+            data-mobile-edit-label="Відкрите авто"
             className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
           >
             <span className={cn(!selectedVehicle && "text-muted-foreground")}>
@@ -702,17 +744,11 @@ function NewShipment() {
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command
-            filter={(itemValue, search) => {
-              const q = search.trim().toLowerCase();
-              if (q.length < 2) return 1;
-              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-            }}
-          >
+        <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
+          <Command shouldFilter={false}>
             <CommandInput placeholder="Пошук авто…" value={vehicleSearch} onValueChange={setVehicleSearch} />
-            <CommandList>
-              <CommandEmpty>Немає відкритих авто</CommandEmpty>
+            <CommandList className="max-h-[132px]">
+              <CommandEmpty>{vehicleSearch.trim().length < 2 ? "Введіть 2 літери" : "Немає відкритих авто"}</CommandEmpty>
               <CommandGroup>
                 {filteredVehicles.map((v) => {
                   const sups = (v.shipments ?? [])
@@ -729,7 +765,9 @@ function NewShipment() {
                         setCountry(v.country);
                         setCountryTouched(true);
                         clearInvalid("vehicle");
+                        setVehicleSearch("");
                         setVehicleOpen(false);
+                        blurActiveElement();
                       }}
                     >
                       <Check className={cn("mr-2 h-4 w-4", vehicleId === v.id ? "opacity-100" : "opacity-0")} />
@@ -752,7 +790,7 @@ function NewShipment() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
       <PageHeader title="Нова поставка" />
 
       <form onSubmit={onSubmit} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
@@ -788,6 +826,30 @@ function NewShipment() {
           {submitting ? "Створення…" : "Створити та перейти до товарів"}
         </Button>
       </form>
+
+      {mobileEditingLabel && (
+        <div
+          className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
+          style={{ bottom: "var(--keyboard-inset, 0px)" }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Редагування
+              </div>
+              <div className="truncate text-sm font-semibold text-foreground">{mobileEditingLabel}</div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={blurAndCloseEditors}
+              className="h-9 shrink-0 bg-brand px-4 text-brand-foreground hover:bg-brand/90"
+            >
+              Готово
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
