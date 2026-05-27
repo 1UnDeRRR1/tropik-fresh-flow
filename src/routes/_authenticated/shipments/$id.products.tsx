@@ -1948,7 +1948,7 @@ function ProductsFullscreen() {
 
       {mobileEditingLabel && currentShipmentEditable && (
         <div
-          className="sticky bottom-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
+          className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
           style={{ bottom: "var(--keyboard-inset, 0px)" }}
         >
           <div className="flex items-center gap-2">
