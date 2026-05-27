@@ -469,45 +469,41 @@ function BranchOffersPage() {
                   cancelledSupply ? "bg-destructive/5" : undefined,
                 )}
               >
-                {/* Header: product (country) + status */}
+                {/* Header: product (country) + status (single source of truth) */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-base font-bold">{o.product_name}</span>
                   {o.origin_country && (
                     <span className="text-sm text-muted-foreground">({o.origin_country})</span>
                   )}
-                  {cancelledSupply ? (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
-                      Скасовано
-                    </span>
-                  ) : explicitlyRejected ? (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
-                      Відмовлено
-                    </span>
-                  ) : isSplit ? (
+                  {isSplit ? (
                     <>
                       <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
                         Замовлено · {linkedQty}
                       </span>
                       <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                        Підтверджено · {pendingQty}*
+                        Очікує номер · {pendingQty}*
                       </span>
                     </>
-                  ) : (
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                        STATUS_CLASS[o.status],
-                      )}
-                    >
-                      {STATUS_LABEL[o.status]}
-                    </span>
-                  )}
-                  {ship && (
+                  ) : (() => {
+                    const st = getBranchOfferStatus(o, r ?? null, ship?.code ?? null);
+                    return (
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                          toneClass(st.tone),
+                        )}
+                      >
+                        {st.label}
+                      </span>
+                    );
+                  })()}
+                  {ship && isRealShipmentCode(ship.code) && (
                     <span className="text-sm text-success">
                       Поставка <b>{ship.code}</b>
                     </span>
                   )}
                 </div>
+
 
                 {isSplit && (
                   <div className="mt-1 text-xs text-warning">
