@@ -400,9 +400,16 @@ body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky,
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
   background-color: var(--color-card) !important;
 }
-body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky.left-\[56px\],
-body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky.left-\[56px\] {
+body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky.left-\[44px\],
+body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky.left-\[44px\] {
   box-shadow: 2px 0 0 0 hsl(var(--border));
+}
+/* Kill iOS horizontal rubber-band inside the table scroller — vertical
+   page scroll is untouched. Applies to the wrapper TableScroller renders. */
+body[data-branch-test="malekhiv"] .branch-table-wrap > div {
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: auto;
+  touch-action: pan-x pan-y;
 }
 /* Slightly darker text (~10% closer to black) without making it heavier */
 body[data-branch-test="malekhiv"] .branch-table-wrap,
