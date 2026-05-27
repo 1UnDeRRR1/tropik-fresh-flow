@@ -374,7 +374,7 @@ function DistributionMatrix() {
         {data.items.map((it) => {
           const t = totals[it.id] ?? { distributed: 0, remaining: 0, total: 0 };
           return (
-            <div key={it.id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+            <div key={it.id} data-item-id={it.id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
               <div className="sticky top-14 z-20 -mx-3 -mt-3 rounded-t-2xl border-b border-border bg-card/95 px-3 pt-3 pb-2 backdrop-blur supports-[backdrop-filter]:bg-card/80">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
