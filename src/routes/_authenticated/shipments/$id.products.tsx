@@ -3358,6 +3358,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
   const [focused, setFocused] = useState(false);
   return (
     <Input
+      data-mobile-edit-label={placeholder && placeholder !== "—" ? placeholder.replace("*", "") : undefined}
       value={value}
       readOnly={readOnly}
       list={list}
@@ -3552,6 +3553,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
   return (
     <Input
       type="text"
+      data-mobile-edit-label="Палети/вага"
       readOnly={readOnly}
       inputMode="decimal"
       enterKeyHint={MOBILE_ENTER_KEY_HINT}
@@ -3614,6 +3616,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
     )}>
       <Input
         type="text"
+        data-mobile-edit-label="Ціна"
         readOnly={readOnly}
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
@@ -3650,6 +3653,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         )}
       />
       <select
+        data-mobile-edit-label="Валюта"
         value={currency}
         disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
