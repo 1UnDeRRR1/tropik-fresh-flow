@@ -58,6 +58,8 @@ function BranchOffersPage() {
   const [fProduct, setFProduct] = useState<string>("");
   const [fCountry, setFCountry] = useState<string>("");
   const [fManager, setFManager] = useState<string>("");
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+
 
 
   const { data: offers, isLoading } = useQuery({
