@@ -273,6 +273,39 @@ function DistributionMatrix() {
 
   useFocusHighlight([data]);
 
+  // P-Fix #5 — scroll/highlight selected shipment_item_id (by id, never by name).
+  // Falls back to default (no selection) when itemId is missing or doesn't match.
+  useEffect(() => {
+    if (!data || !selectedItemId) return;
+    const valid = data.items.some((it) => it.id === selectedItemId);
+    if (!valid) return;
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    const tryFocus = (attempt: number) => {
+      if (cancelled) return;
+      const nodes = document.querySelectorAll<HTMLElement>(
+        `[data-item-id="${CSS.escape(selectedItemId)}"]`,
+      );
+      if (nodes.length === 0) {
+        if (attempt < 20) timeoutId = window.setTimeout(() => tryFocus(attempt + 1), 120);
+        return;
+      }
+      const ring = ["ring-2", "ring-brand", "ring-offset-2", "ring-offset-background", "rounded-xl", "transition-shadow"];
+      const first = nodes[0];
+      first.scrollIntoView({ behavior: "smooth", block: "center" });
+      nodes.forEach((el) => el.classList.add(...ring));
+      timeoutId = window.setTimeout(() => {
+        nodes.forEach((el) => el.classList.remove(...ring));
+      }, 4000);
+    };
+    tryFocus(0);
+    return () => {
+      cancelled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [data, selectedItemId]);
+
+
   if (isLoading || !data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
