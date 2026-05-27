@@ -24,6 +24,7 @@ import {
   getCountryCode,
 } from "@/lib/shipment-code";
 import { StaffOnly } from "@/components/StaffOnly";
+import { filterWordStart } from "@/lib/compact-search";
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
@@ -202,19 +203,19 @@ function NewShipment() {
     : "Власник авто";
   const filteredSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    if (q.length < 2) return suppliers ?? [];
-    return (suppliers ?? []).filter((s) => s.name.toLowerCase().startsWith(q)).slice(0, 3);
+    if (q.length < 2) return [];
+    return filterWordStart(suppliers ?? [], (s) => s.name, q, 3);
   }, [suppliers, supplierSearch]);
   const filteredCountries = useMemo(() => {
     const q = countrySearch.trim().toLowerCase();
     const base = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
-    if (q.length < 2) return base;
-    return base.filter((c: string) => c.toLowerCase().startsWith(q)).slice(0, 3);
+    if (q.length < 2) return [];
+    return filterWordStart(base, (c) => c, q, 3);
   }, [countryOptions, countrySearch]);
   const filteredVehicles = useMemo(() => {
     const q = vehicleSearch.trim().toLowerCase();
-    if (q.length < 2) return openVehicles ?? [];
-    return (openVehicles ?? []).filter((v) => v.code.toLowerCase().startsWith(q)).slice(0, 3);
+    if (q.length < 2) return [];
+    return filterWordStart(openVehicles ?? [], (v) => `${v.code} ${v.country}`, q, 3);
   }, [openVehicles, vehicleSearch]);
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
