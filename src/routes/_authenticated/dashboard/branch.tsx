@@ -603,8 +603,10 @@ function BranchDashboard() {
     { value: "pallets", label: "За палетами" },
   ];
 
+  const controlBaseClass =
+    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none";
   const controlFocusClass =
-    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive";
+    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive data-[active=true]:border-destructive data-[active=true]:ring-1 data-[active=true]:ring-destructive";
 
   return (
     <div
@@ -625,11 +627,7 @@ function BranchDashboard() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
             aria-label="Сортувати за"
-            className={cn(
-              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
-              "data-[active=true]:border-destructive",
-              controlFocusClass,
-            )}
+            className={cn(controlBaseClass, controlFocusClass)}
             data-active={sortBy !== "eta" ? "true" : undefined}
           >
             {sortOptions.map((o) => (
@@ -642,12 +640,9 @@ function BranchDashboard() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук: товар, країна, менеджер, поставка, дата…"
-            className={cn(
-              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
-              search ? "border-destructive" : "",
-              controlFocusClass,
-            )}
+            placeholder="Пошук: товар, країна, менеджер…"
+            className={cn(controlBaseClass, controlFocusClass)}
+            data-active={search ? "true" : undefined}
           />
         </div>
       )}
@@ -672,8 +667,8 @@ function BranchDashboard() {
             <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-medium">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-20 bg-card px-1.5 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ width: 44 }}>Ст.</th>
-                  <th className="sticky left-[44px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ maxWidth: 160 }}>Товар</th>
+                  <th className="sticky left-0 z-20 bg-card px-1 py-2 font-medium" style={{ width: 36 }}>Статус</th>
+                  <th className="sticky left-[36px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ maxWidth: 160 }}>Товар</th>
                   <th className="px-2 py-2 font-medium">Країна</th>
                   <th className="px-2 py-2 font-medium">Заход</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
@@ -702,14 +697,14 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-1.5 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
-                        style={{ width: 44 }}
+                        className="sticky left-0 z-10 bg-card px-1 py-2 cursor-pointer"
+                        style={{ width: 36 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
                         <StatusIcon status={r.pipeline} size={26} />
                       </td>
                       <td
-                        className="sticky left-[44px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        className="sticky left-[36px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
                         style={{ maxWidth: 160 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
@@ -768,7 +763,7 @@ function BranchDashboard() {
                         {r.manager_name ?? "—"}
                       </td>
                       <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
-                        {r.code}
+                        {r.pipeline === "rejected" ? <span className="text-muted-foreground">—</span> : r.code}
                       </td>
                     </tr>
                   );
