@@ -641,16 +641,53 @@ const FocusedColContext = createContext<{ focused: number | null; setFocused: (i
   setFocused: () => {},
 });
 
+const MOBILE_EDITOR_LABELS: Record<string, string> = {
+  "0": "Товар",
+  "1": "Сорт",
+  "2": "Країна",
+  "3": "Калібр",
+  "4": "SKU",
+  "5": "Упаковка",
+  "6": "Палети",
+  "7": "Нетто",
+  "8": "Брутто",
+  "9": "Ціна",
+};
+
+function getMobileEditorLabel(target: EventTarget | null): string | null {
+  const el = target instanceof HTMLElement ? target : null;
+  if (!el) return null;
+  const explicit = el.closest("[data-mobile-edit-label]") as HTMLElement | null;
+  if (explicit?.dataset.mobileEditLabel) return explicit.dataset.mobileEditLabel;
+  const td = el.closest("td[data-col]") as HTMLElement | null;
+  if (!td) return null;
+  return MOBILE_EDITOR_LABELS[td.dataset.col ?? ""] ?? null;
+}
+
+function isEditableFieldTarget(target: EventTarget | null) {
+  const el = target instanceof HTMLElement ? target : null;
+  if (!el) return false;
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+    return false;
+  }
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    return !el.readOnly && !el.disabled;
+  }
+  return !el.disabled;
+}
+
 function ProductsScrollArea({
   itemsCount,
   empty,
   emptyContent,
   children,
+  editingToolbarVisible = false,
 }: {
   itemsCount: number;
   empty: boolean;
   emptyContent: ReactNode;
   children: ReactNode;
+  editingToolbarVisible?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const prevCount = useRef(itemsCount);
@@ -668,7 +705,17 @@ function ProductsScrollArea({
     prevCount.current = itemsCount;
   }, [itemsCount]);
   return (
-    <div ref={ref} className="flex-1 overflow-auto relative">
+    <div
+      ref={ref}
+      data-mobile-scroll-container
+      className="relative flex-1 overflow-auto overscroll-contain"
+      style={{
+        ["--mobile-focus-top-offset" as string]: "46px",
+        ["--mobile-focus-bottom-offset" as string]: editingToolbarVisible ? "92px" : "24px",
+        scrollPaddingTop: "46px",
+        scrollPaddingBottom: editingToolbarVisible ? "92px" : "24px",
+      }}
+    >
       {empty ? emptyContent : children}
     </div>
   );
