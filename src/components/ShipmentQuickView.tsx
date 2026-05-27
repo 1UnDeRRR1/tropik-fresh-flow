@@ -221,7 +221,7 @@ export function ShipmentQuickView({
                       <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
                     )}
 
-                    <Button className="w-full" onClick={goDistribute}>Розподілити</Button>
+                    <Button className="w-full" onClick={() => goDistribute(openItem?.id)}>Розподілити</Button>
                   </div>
                 );
               })()
