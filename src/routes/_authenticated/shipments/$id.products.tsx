@@ -326,7 +326,14 @@ export type RowComponents = {
   customsIndicative: number | null;
   customsInvoice: number | null;
   customsBasis: "exact" | "fallback" | "none" | "manual";
-  matchedRef: { product_name: string; country: string } | null;
+  matchedRef: {
+    product_name: string;
+    country: string;
+    threshold_price_usd: number | null;
+    customs_fee_percent: number | null;
+    euro1_markup_usd: number | null;
+    euro1_percent: number | null;
+  } | null;
 };
 
 // D1-Fix v2.5.3 — single helper returning both final preview value AND component values.
@@ -382,7 +389,14 @@ function computeRowPreview(
     if (ref) {
       const sameCountry =
         normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
-      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.matchedRef = {
+        product_name: ref.product_name,
+        country: ref.country,
+        threshold_price_usd: ref.threshold_price_usd,
+        customs_fee_percent: ref.customs_fee_percent,
+        euro1_markup_usd: ref.euro1_markup_usd,
+        euro1_percent: ref.euro1_percent,
+      };
       components.customsBasis = sameCountry ? "exact" : "fallback";
     } else {
       components.customsBasis = "none";
@@ -392,7 +406,14 @@ function computeRowPreview(
     if (ref) {
       const sameCountry =
         normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
-      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.matchedRef = {
+        product_name: ref.product_name,
+        country: ref.country,
+        threshold_price_usd: ref.threshold_price_usd,
+        customs_fee_percent: ref.customs_fee_percent,
+        euro1_markup_usd: ref.euro1_markup_usd,
+        euro1_percent: ref.euro1_percent,
+      };
       components.customsBasis = sameCountry ? "exact" : "fallback";
     } else {
       components.customsBasis = "none";
@@ -3051,6 +3072,8 @@ function RowBreakdownPanel({ components }: { components: RowComponents }) {
   const fmtPrice = (n: number | null, ccy: string | null) =>
     n == null ? "—" : `${n.toFixed(4)} ${ccy ?? ""}`.trim();
   const fmtRate = (n: number | null) => (n == null ? "—" : n.toFixed(4));
+  const fmtPct = (n: number | null) => (n == null ? "—" : `${n.toFixed(2)}%`);
+  const fmtThr = (n: number | null) => (n == null ? "—" : `$${n.toFixed(2)}/кг`);
   const countryLabel =
     (components.country && (toUaCountry(components.country) || components.country)) || "—";
   const basisLabel =
@@ -3067,18 +3090,76 @@ function RowBreakdownPanel({ components }: { components: RowComponents }) {
       <span className="font-medium text-foreground tabular-nums">{value}</span>
     </div>
   );
+
+  const m = components.matchedRef;
+  const eu = isEuCountry(components.country);
+  const pct = m ? (eu ? m.euro1_percent : m.customs_fee_percent) : null;
+  const pctLabel = eu ? "EUR1 %" : "Мито %";
+  const refCountryLabel = m
+    ? (toUaCountry(m.country) || m.country) + (eu ? " (ЄС)" : "")
+    : "—";
+
+  // Final per-kg cost = unit + transport + customs
+  const finalIndicative =
+    components.unitUsd != null && components.transportPerKg != null && components.customsIndicative != null
+      ? components.unitUsd + components.transportPerKg + components.customsIndicative
+      : null;
+  const finalInvoice =
+    components.unitUsd != null && components.transportPerKg != null && components.customsInvoice != null
+      ? components.unitUsd + components.transportPerKg + components.customsInvoice
+      : null;
+
+  // Mirror of "Запропонувати" invoice formula text (display only — no calc change).
+  const showInvoiceFormula =
+    m != null &&
+    components.unitUsd != null &&
+    m.threshold_price_usd != null &&
+    Number(components.unitUsd) > Number(m.threshold_price_usd) &&
+    pct != null;
+
   return (
-    <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-[11px] sm:grid-cols-2 lg:grid-cols-3">
-      <Row label="Товар" value={`${components.productName || "—"} · ${countryLabel}`} />
-      <Row label="Ціна" value={fmtPrice(components.inputPrice, components.inputCurrency)} />
-      {components.inputCurrency === "EUR" && (
-        <Row label="Курс EUR→USD" value={fmtRate(components.fxRate)} />
+    <div className="space-y-3 text-[11px]">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+        <Row label="Товар" value={`${components.productName || "—"} · ${countryLabel}`} />
+        <Row label="Ціна" value={fmtPrice(components.inputPrice, components.inputCurrency)} />
+        {components.inputCurrency === "EUR" && (
+          <Row label="Курс EUR→USD" value={fmtRate(components.fxRate)} />
+        )}
+        <Row label="Ціна USD/кг" value={fmtMoney(components.unitUsd)} />
+        <Row label="Транспорт USD/кг" value={fmtMoney(components.transportPerKg)} />
+        <Row label="Митниця індикатив USD/кг" value={fmtMoney(components.customsIndicative)} />
+        <Row label="Митниця інвойс USD/кг" value={fmtMoney(components.customsInvoice)} />
+        <Row label="Митна основа" value={basisLabel} />
+      </div>
+
+      {m && (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-1 border-t border-border pt-2 sm:grid-cols-2 lg:grid-cols-3">
+          <Row label="Аналог (товар)" value={m.product_name || "—"} />
+          <Row label="Аналог (країна)" value={refCountryLabel} />
+          <Row label="Поріг ціни" value={fmtThr(m.threshold_price_usd)} />
+          <Row label="Індикативне мито" value={fmtMoney(m.euro1_markup_usd)} />
+          <Row label={pctLabel} value={fmtPct(pct)} />
+        </div>
       )}
-      <Row label="Ціна USD/кг" value={fmtMoney(components.unitUsd)} />
-      <Row label="Транспорт USD/кг" value={fmtMoney(components.transportPerKg)} />
-      <Row label="Митниця індикатив USD/кг" value={fmtMoney(components.customsIndicative)} />
-      <Row label="Митниця інвойс USD/кг" value={fmtMoney(components.customsInvoice)} />
-      <Row label="Митна основа" value={basisLabel} />
+
+      {showInvoiceFormula && pct != null && (
+        <div className="rounded-md border border-border bg-muted/20 p-2 text-muted-foreground">
+          Ціна &gt; порогу → інвойсне мито: unit×1.20×{pct.toFixed(2)}%/100 + unit×0.20 + 0.02 ={" "}
+          <b className="text-foreground">{fmtMoney(components.customsInvoice)}</b>
+        </div>
+      )}
+      {m && components.unitUsd != null && m.threshold_price_usd != null &&
+        Number(components.unitUsd) <= Number(m.threshold_price_usd) && (
+        <div className="rounded-md border border-border bg-muted/20 p-2 text-muted-foreground">
+          Ціна ≤ порогу → мито = індикатив ={" "}
+          <b className="text-foreground">{fmtMoney(components.customsIndicative)}</b>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-x-6 gap-y-1 border-t border-border pt-2 sm:grid-cols-2">
+        <Row label="Індикативна собівартість USD/кг" value={fmtMoney(finalIndicative)} />
+        <Row label="Інвойсна собівартість USD/кг" value={fmtMoney(finalInvoice)} />
+      </div>
     </div>
   );
 }
