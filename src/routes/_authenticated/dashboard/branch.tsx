@@ -696,7 +696,7 @@ function BranchDashboard() {
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                   {/* Cleanup Pack #4+#5: новий порядок колонок + sticky Status + Товар(Країна). */}
                   <th className="sticky left-0 z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
-                  <th className="sticky left-[96px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Товар (Країна)</th>
+                  <th className="sticky left-[64px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Товар (Країна)</th>
                   <th className="px-2 py-2 font-medium">Дата заходу</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
                     Палет
