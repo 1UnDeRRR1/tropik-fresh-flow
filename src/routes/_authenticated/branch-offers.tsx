@@ -698,7 +698,7 @@ function CostLine({
               roundedDelta < 0 ? "text-success" : "text-destructive",
             )}
           >
-            ({delta > 0 ? "+" : ""}
+            ({roundedDelta > 0 ? "+" : ""}
             {roundedDelta.toFixed(2)})
           </span>
         </>
@@ -716,7 +716,7 @@ function CostLine({
           <span className="line-through tabular-nums">${Number(prev).toFixed(2)}</span>{" "}
           → стало <b className="tabular-nums">${curr.toFixed(2)}</b>{" "}
           <b className="tabular-nums">
-            ({delta > 0 ? "+" : ""}
+            ({roundedDelta > 0 ? "+" : ""}
             {roundedDelta.toFixed(2)})
           </b>
         </div>
