@@ -436,6 +436,17 @@ function BranchDashboard() {
         ? []
         : (pendingOffers ?? [])
             .filter((p) => !materialisedOfferIds.has(p.offer_id))
+            // Cleanup Pack #8: "Підтверджений товар" — лише підтверджені/частково
+            // підтверджені/замовлені. Заявки, що ще чекають на підтвердження
+            // менеджером, залишаються тільки у "Пропозиції ЗЕД".
+            .filter((p) => {
+              const o = p.manager_offers;
+              const approved = p.approved_pallets;
+              if (o.status === "deleted") return true; // показуємо як "Скасовано"
+              if (o.linked_shipment_id) return true;   // "Замовлено"
+              if (approved === null) return false;     // ще чекає підтвердження
+              return true;                              // підтверджено / частково / відмова
+            })
             .map((p) => {
               const o = p.manager_offers;
               const approved = p.approved_pallets;
@@ -444,29 +455,23 @@ function BranchDashboard() {
               let codeLabel: string;
               let note: string | null = null;
               if (o.status === "deleted") {
-                // Manager deleted the whole offer — both left badge and supply status must be cancelled.
                 pipeline = "cancelled";
                 codeLabel = "Скасовано";
               } else if (o.linked_shipment_id) {
-                // Once a shipment number is assigned, status is "Замовлено" for everyone.
                 pipeline = "ordered";
                 codeLabel = "Замовлено";
                 if (approved != null && Number(approved) < requested)
                   note = `${approved} з ${requested}п`;
-              } else if (approved === null) {
-                pipeline = "awaiting_confirmation";
-                codeLabel = "Чекаю підтвердження";
               } else if (Number(approved) <= 0) {
                 pipeline = "rejected";
                 codeLabel = "Відмовлено";
               } else if (o.status === "closed") {
-                // Manager closed the offer — final approved quantity for this branch.
                 pipeline = "confirmed";
                 codeLabel = "Підтверджено";
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
               } else {
-                pipeline = "processing";
-                codeLabel = "В опрацюванні";
+                pipeline = "confirmed";
+                codeLabel = Number(approved) < requested ? "Підтверджено частково" : "Підтверджено";
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
               }
               const pallets = Number(approved ?? requested ?? 0);
