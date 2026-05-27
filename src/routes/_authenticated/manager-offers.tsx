@@ -725,66 +725,9 @@ function ManagerOffersPage() {
         }
       />
 
-      {pendingCount > 0 && (
-        <div className="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
-              <Bell className="h-4 w-4" />
-              Нові відгуки від філій ({pendingCount})
-            </div>
-            <Button
-              size="sm"
-              onClick={() => approveAllPending.mutate()}
-              disabled={approveAllPending.isPending || pendingCount === 0}
-            >
-              Підтвердити все
-            </Button>
-          </div>
-          <div className="space-y-1.5">
-            {(showAllPending ? pendingItems : pendingItems.slice(0, 6)).map((p, i) => (
-              <button
-                key={`${p.offerId}-${i}`}
-                type="button"
-                onClick={() => focusOffer(p.offerId, p.offerStatus)}
-                className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition",
-                  p.isPending
-                    ? "bg-amber-100/80 hover:bg-amber-100 dark:bg-amber-500/15 dark:hover:bg-amber-500/20"
-                    : "bg-white hover:bg-white/80 dark:bg-background/40 dark:hover:bg-background/60",
-                )}
-              >
-                <span className="min-w-0 truncate">
-                  <b>{p.branchName}</b>
-                  <span className="text-muted-foreground"> · </span>
-                  {p.productName}
-                  {p.originCountry && (
-                    <span className="text-muted-foreground"> · {p.originCountry}</span>
-                  )}
-                </span>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                    p.isPending
-                      ? "bg-amber-200/80 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {p.requested} пал.
-                </span>
-              </button>
-            ))}
-            {pendingItems.length > 6 && (
-              <button
-                type="button"
-                onClick={() => setShowAllPending((v) => !v)}
-                className="w-full rounded-lg px-1 py-1 text-left text-[11px] font-medium text-amber-900 hover:underline dark:text-amber-200"
-              >
-                {showAllPending ? "Згорнути" : `Показати ще ${pendingItems.length - 6}…`}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Cleanup Pack #2: верхній блок "Нові відгуки від філій" прибрано —
+          заявки тепер обробляються через таблицю (колонка "Очік." підсвічує
+          необроблені, клік по рядку відкриває detail з підтвердженням). */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="active">Активні</TabsTrigger>
