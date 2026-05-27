@@ -660,11 +660,10 @@ function BranchDashboard() {
             <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
-                  <th className="px-2 py-2 font-medium">ETA</th>
-                  <th className="px-2 py-2 font-medium">Поставка</th>
-                  <th className="px-2 py-2 font-medium">Товар</th>
-                  <th className="px-2 py-2 font-medium">Країна походження</th>
+                  {/* Cleanup Pack #4+#5: новий порядок колонок + sticky Status + Товар(Країна). */}
+                  <th className="sticky left-0 z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
+                  <th className="sticky left-[96px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Товар (Країна)</th>
+                  <th className="px-2 py-2 font-medium">Дата заходу</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
                     Палет
                     <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
@@ -673,6 +672,7 @@ function BranchDashboard() {
                   </th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Відп. менеджер</th>
+                  <th className="px-2 py-2 font-medium">Поставка</th>
                 </tr>
               </thead>
               <tbody>
@@ -680,7 +680,6 @@ function BranchDashboard() {
                   const s = statsFor(r);
                   const etaChanged = dateNeq(r.eta, r.seen_eta);
                   const palChanged = numNeq(r.pallets, r.seen_pallets);
-                  // Patch 8B: pill driven by BVP vs baseline.seen_cost_*, not by notifications.
                   const costChanged =
                     !!r.bvp_reason &&
                     (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
@@ -697,6 +696,16 @@ function BranchDashboard() {
                           <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
                         )}
                       </td>
+                      <td className="sticky left-[96px] z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">
+                        <DescriptionPopover row={r}>
+                          <span className="underline-offset-2 hover:underline">
+                            {r.product}
+                            {r.country && (
+                              <span className="text-muted-foreground"> ({toUaCountry(r.country)})</span>
+                            )}
+                          </span>
+                        </DescriptionPopover>
+                      </td>
                       <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
                         {fmtEta(r.eta)}
                         {etaChanged && (
@@ -707,19 +716,6 @@ function BranchDashboard() {
                             onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
                           />
                         )}
-                      </td>
-                      <td className="px-2 py-2 font-mono text-[11px] font-semibold">
-                        <DescriptionPopover row={r}>
-                          <span className="underline-offset-2 hover:underline">{r.code}</span>
-                        </DescriptionPopover>
-                      </td>
-                      <td className="px-2 py-2 font-medium">
-                        <DescriptionPopover row={r}>
-                          <span className="underline-offset-2 hover:underline">{r.product}</span>
-                        </DescriptionPopover>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                        {r.country ? toUaCountry(r.country) : "—"}
                       </td>
                       <td className="px-2 py-2 text-right font-bold tabular-nums">
                         {s.pending > 0 ? (
@@ -752,6 +748,9 @@ function BranchDashboard() {
                       </td>
                       <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
                         {r.manager_name ?? "—"}
+                      </td>
+                      <td className="px-2 py-2 font-mono text-[11px] font-semibold whitespace-nowrap">
+                        {r.code}
                       </td>
                     </tr>
                   );
