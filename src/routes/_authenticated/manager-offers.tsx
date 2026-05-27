@@ -296,6 +296,9 @@ function ManagerOffersPage() {
   const { data: responses } = useQuery({
     queryKey: ["manager-offer-responses", offerIds],
     enabled: offerIds.length > 0,
+    // Auto-refresh: keep counters live (Запр./Очік./Підтв.) without manual reload.
+    refetchInterval: 25_000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("manager_offer_responses")
@@ -797,17 +800,16 @@ function ManagerOffersPage() {
           )}
           {filtered.length > 0 && (
             <TableScroller className="rounded-2xl border border-border bg-card shadow-sm">
-              <table className="w-full min-w-[900px] text-sm">
-                <thead className="text-xs uppercase text-muted-foreground [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead className="text-[11px] uppercase text-muted-foreground [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
                   <tr>
-                    <th className="px-3 py-2 text-left">Товар</th>
-                    <th className="px-3 py-2 text-left">Країна</th>
-                    <th className="px-3 py-2 text-left">Калібр</th>
-                    <th className="px-3 py-2 text-right">Собівартість</th>
-                    <th className="px-3 py-2 text-left">Дата поставки</th>
-                    <th className="px-3 py-2 text-left">Менеджер</th>
-                    <th className="px-3 py-2 text-right">Палети</th>
-                    <th className="px-3 py-2 text-left">Статус</th>
+                    <th className="px-2 py-2 text-left">Товар</th>
+                    <th className="px-1 py-2 text-center w-10">Ст.</th>
+                    <th className="px-2 py-2 text-right w-14">Запр.</th>
+                    <th className="px-2 py-2 text-right w-14">Очік.</th>
+                    <th className="px-2 py-2 text-right w-14">Підтв.</th>
+                    <th className="px-2 py-2 text-right w-20">Собів.</th>
+                    {isAdmin && <th className="px-2 py-2 text-left">Менеджер</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -815,8 +817,17 @@ function ManagerOffersPage() {
                     const inScope = (branchId: string) =>
                       o.target_mode === "all" || o.targetBranchIds.includes(branchId);
                     const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
+                    // Запр. — what manager offered to branches (null/0 → "—")
+                    const offered = o.offered_pallets;
+                    // Очік. — sum of branch requests not yet processed by manager
+                    const totalPending = activeResponses.reduce(
+                      (s, r) =>
+                        s + (r.approved_pallets == null ? Number(r.requested_pallets ?? 0) : 0),
+                      0,
+                    );
+                    // Підтв. — sum of manager-confirmed pallets
                     const totalApproved = activeResponses.reduce(
-                      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+                      (s, r) => s + Number(r.approved_pallets ?? 0),
                       0,
                     );
                     const totalLinked = activeResponses.reduce(
@@ -826,10 +837,28 @@ function ManagerOffersPage() {
                     const pendingLinked = o.status === "linked"
                       ? Math.max(totalApproved - totalLinked, 0)
                       : 0;
-                    const hasPending = o.responses.some((r) => r.approved_pallets == null);
-                    const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
-                    const realEta = ship?.arrived_at ?? ship?.eta ?? null;
-                    const etaShow = realEta ?? o.expected_eta;
+                    const hasPending = totalPending > 0;
+
+                    // Compact status: green Активно / yellow В роботі.
+                    // "Замовлено" is NOT used here — it belongs to the shipments table.
+                    let stColor = "bg-success";
+                    let stTitle = "Активно";
+                    if (
+                      o.status === "in_work" ||
+                      o.status === "confirmed" ||
+                      o.status === "closed" ||
+                      (o.status === "linked" && pendingLinked > 0)
+                    ) {
+                      stColor = "bg-warning";
+                      stTitle = "В роботі";
+                    } else if (o.status === "draft") {
+                      stColor = "bg-muted-foreground";
+                      stTitle = "Чернетка";
+                    } else if (o.status === "expired") {
+                      stColor = "bg-destructive";
+                      stTitle = "Прострочено";
+                    }
+
                     return (
                       <tr
                         key={o.id}
@@ -841,63 +870,61 @@ function ManagerOffersPage() {
                           highlightedId === o.id && "ring-2 ring-amber-400",
                         )}
                       >
-                        <td className="px-3 py-2 font-semibold">
-                          {o.product_name}
-                          {hasPending && (
-                            <span className="ml-2 inline-block h-2 w-2 rounded-full bg-amber-500" />
+                        <td className="px-2 py-2 font-semibold">
+                          <div className="truncate">{o.product_name}</div>
+                          {(o.origin_country || o.caliber) && (
+                            <div className="truncate text-[11px] font-normal text-muted-foreground">
+                              {o.origin_country ?? ""}
+                              {o.origin_country && o.caliber ? " · " : ""}
+                              {o.caliber ?? ""}
+                            </div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">{o.origin_country ?? "—"}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{o.caliber ?? "—"}</td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-1 py-2 text-center">
+                          <span
+                            title={stTitle}
+                            className={cn(
+                              "inline-block h-2.5 w-2.5 rounded-full",
+                              stColor,
+                            )}
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {offered != null && Number(offered) > 0 ? Number(offered) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {totalPending > 0 ? (
+                            <span className="font-semibold text-warning">{totalPending}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          {totalApproved > 0 ? (
+                            <span className="font-semibold text-success">{totalApproved}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums text-[12px]">
                           <span className="text-success">${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</span>
                           <span className="text-muted-foreground"> · </span>
                           <span className="text-destructive">${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</span>
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {etaShow ? new Date(etaShow).toLocaleDateString("uk-UA") : "—"}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {(() => {
-                            const r = getResponsible(o);
-                            return (
-                              <span className={r.pending ? "italic text-warning" : undefined}>
-                                {r.label}
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          {o.offered_pallets != null
-                            ? `${totalApproved}/${o.offered_pallets}`
-                            : totalApproved}
-                          {pendingLinked > 0 && (
-                            <span className="ml-1 text-[10px] font-semibold text-warning">
-                              (+{pendingLinked} очік.)
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          {pendingLinked > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
-                                Замовлено · {totalLinked}
-                              </span>
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                                Підтв. · {pendingLinked}
-                              </span>
-                            </div>
-                          ) : (
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                                STATUS_CLASS[o.status],
-                              )}
-                            >
-                              {STATUS_LABEL[o.status]}
-                            </span>
-                          )}
-                        </td>
+                        {isAdmin && (
+                          <td className="px-2 py-2 text-muted-foreground">
+                            {(() => {
+                              const r = getResponsible(o);
+                              return (
+                                <span className={r.pending ? "italic text-warning" : undefined}>
+                                  {r.label}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
