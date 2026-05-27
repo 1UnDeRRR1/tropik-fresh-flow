@@ -7,8 +7,18 @@ import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
 import {
   STATUS_LABEL,
   STATUS_CLASS,
@@ -48,6 +58,10 @@ function BranchOffersPage() {
   const [fProduct, setFProduct] = useState<string>("");
   const [fCountry, setFCountry] = useState<string>("");
   const [fManager, setFManager] = useState<string>("");
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+
+
+
 
 
   const { data: offers, isLoading } = useQuery({
@@ -206,6 +220,9 @@ function BranchOffersPage() {
     onSuccess: (_, vars) => {
       toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
       qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      // Block 2: auto-close the detail dialog after a successful request,
+      // returning the user to the compact "Пропозиції" table.
+      setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -221,6 +238,7 @@ function BranchOffersPage() {
     onSuccess: () => {
       toast.success("Запит скасовано", { duration: 1500 });
       qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -286,246 +304,365 @@ function BranchOffersPage() {
       {!isLoading && visibleOffers.length === 0 && (
         <EmptyState title="Немає активних пропозицій" />
       )}
-      <div className="space-y-3">
-        {visibleOffers.map((o) => {
-          const r = responseByOffer[o.id];
-          const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
-          const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
+      {/*
+        Block 2 — Branch "Пропозиції" compact table.
+        Primary list = airport-board table; one row per manager offer.
+        Each row carries the existing position_id (manager_offers.position_id),
+        already fetched via select("*"). No new lifecycle anchors, no text
+        matching. Row click opens the existing big offer card in a dialog.
+      */}
+      <div className="rounded-2xl border border-border bg-card p-1 shadow-sm sm:p-2">
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[34%] sm:w-[28%]">Товар</TableHead>
+              <TableHead className="hidden sm:table-cell">Країна</TableHead>
+              <TableHead className="hidden md:table-cell">Сорт / спец.</TableHead>
+              <TableHead className="hidden sm:table-cell">Менеджер</TableHead>
+              <TableHead className="text-right">Палет</TableHead>
+              <TableHead className="hidden md:table-cell text-right">Ціна</TableHead>
+              <TableHead className="hidden sm:table-cell tabular-nums">ETA</TableHead>
+              <TableHead>Статус</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleOffers.map((o) => {
+              const r = responseByOffer[o.id];
+              const reqQty = r ? Number(r.requested_pallets) : 0;
+              const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
+              const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
+              const etaIso = ship?.arrived_at ?? ship?.eta ?? o.expected_eta ?? null;
+              const etaStr = etaIso ? new Date(etaIso).toLocaleDateString("uk-UA") : "—";
 
-          // cost change indicator
-          const indDelta =
-            o.prev_indicative_cost_usd != null
-              ? Number(o.indicative_cost_usd ?? 0) - Number(o.prev_indicative_cost_usd)
-              : 0;
-          const invDelta =
-            o.prev_invoice_cost_usd != null
-              ? Number(o.invoice_cost_usd ?? 0) - Number(o.prev_invoice_cost_usd)
-              : 0;
+              // Status color per spec:
+              //   supply deleted → red ("Скасовано")
+              //   manager rejected (approved=0) → red ("Відмовлено")
+              //   manager confirmed (>0) → green
+              //   request sent, no answer yet → yellow
+              //   no request → muted (just shown offered pallets)
+              let tone: "muted" | "yellow" | "green" | "red" = "muted";
+              let qtyLabel: string = o.offered_pallets != null ? `${o.offered_pallets}п` : "—";
+              let statusLabel: string = STATUS_LABEL[o.status];
+              if (o.status === "deleted") {
+                tone = "red";
+                statusLabel = "Скасовано";
+              } else if (r) {
+                if (apprQty === 0) {
+                  tone = "red";
+                  statusLabel = "Відмовлено";
+                  qtyLabel = `${reqQty}п`;
+                } else if (apprQty != null && apprQty > 0) {
+                  tone = "green";
+                  statusLabel = apprQty < reqQty ? `Підтв. ${apprQty}/${reqQty}` : `Підтв. ${apprQty}`;
+                  qtyLabel = `${apprQty}п`;
+                } else {
+                  tone = "yellow";
+                  statusLabel = `Чекаю ${reqQty}`;
+                  qtyLabel = `${reqQty}п`;
+                }
+              }
+              const toneCls =
+                tone === "green"
+                  ? "bg-success/15 text-success"
+                  : tone === "yellow"
+                  ? "bg-warning/15 text-warning"
+                  : tone === "red"
+                  ? "bg-destructive/15 text-destructive"
+                  : "bg-muted text-muted-foreground";
 
-          // pallets diff
-          const reqQty = r ? Number(r.requested_pallets) : 0;
-          const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
-          const cancelledSupply = o.status === "deleted";
-          const explicitlyRejected = !cancelledSupply && apprQty === 0;
-          const palletDelta = apprQty != null ? apprQty - reqQty : 0;
-          const linkedQty = r ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0) : 0;
-          const pendingQty = apprQty != null ? Math.max(apprQty - linkedQty, 0) : 0;
-          const isSplit = o.status === "linked" && linkedQty > 0 && pendingQty > 0;
-
-          const etaDate = ship?.arrived_at
-            ? { label: "Дата прибуття", value: new Date(ship.arrived_at).toLocaleDateString("uk-UA") }
-            : ship?.eta
-            ? { label: "Очікувана дата", value: new Date(ship.eta).toLocaleDateString("uk-UA") }
-            : o.expected_eta
-            ? { label: "Очікувана дата", value: new Date(o.expected_eta).toLocaleDateString("uk-UA"), plan: true }
-            : null;
-
-          const details = [o.variety, o.caliber, o.packaging, o.specification]
-            .filter(Boolean)
-            .join(" • ");
-
-          return (
-            <div
-              key={o.id}
-              className={cn(
-                "rounded-2xl border bg-card p-4 shadow-sm",
-                o.status === "deleted"
-                  ? "border-destructive/40 bg-destructive/5"
-                  : "border-border",
-              )}
-            >
-              {/* Header: product (country) + status */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-base font-bold">{o.product_name}</span>
-                {o.origin_country && (
-                  <span className="text-sm text-muted-foreground">({o.origin_country})</span>
-                )}
-                {cancelledSupply ? (
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
-                    Скасовано
-                  </span>
-                ) : explicitlyRejected ? (
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
-                    Відмовлено
-                  </span>
-                ) : isSplit ? (
-                  <>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
-                      Замовлено · {linkedQty}
+              return (
+                <TableRow
+                  key={o.id}
+                  onClick={() => setSelectedOfferId(o.id)}
+                  className="cursor-pointer"
+                >
+                  <TableCell className="font-medium">
+                    <div className="truncate" title={o.product_name}>{o.product_name}</div>
+                    <div className="sm:hidden text-[10px] text-muted-foreground truncate">
+                      {[o.origin_country, o.variety, o.caliber].filter(Boolean).join(" · ") || "—"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell text-foreground/80">
+                    {o.origin_country ?? "—"}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-foreground/80 max-w-[180px]">
+                    <div className="truncate">
+                      {[o.variety, o.caliber, o.packaging].filter(Boolean).join(" · ") || "—"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell text-foreground/80">
+                    {managerNameById[o.created_by] ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{qtyLabel}</TableCell>
+                  <TableCell className="hidden md:table-cell text-right tabular-nums">
+                    {o.indicative_cost_usd != null
+                      ? `$${Number(o.indicative_cost_usd).toFixed(2)}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell tabular-nums">{etaStr}</TableCell>
+                  <TableCell>
+                    <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", toneCls)}>
+                      {statusLabel}
                     </span>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
-                      Підтверджено · {pendingQty}*
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/*
+        Detail dialog — reuses the EXISTING big offer card in full
+        (no information removed: caliber, variety, brand, packaging,
+        specification, comments, pallets, price, ETA, actions).
+        Row click opens it; on successful "Запитати" the submit
+        mutation closes it automatically.
+      */}
+      <Dialog
+        open={!!selectedOfferId}
+        onOpenChange={(open) => { if (!open) setSelectedOfferId(null); }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Деталі пропозиції</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const o = visibleOffers.find((x) => x.id === selectedOfferId);
+            if (!o) return null;
+            const r = responseByOffer[o.id];
+            const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
+            const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
+
+            const indDelta =
+              o.prev_indicative_cost_usd != null
+                ? Number(o.indicative_cost_usd ?? 0) - Number(o.prev_indicative_cost_usd)
+                : 0;
+            const invDelta =
+              o.prev_invoice_cost_usd != null
+                ? Number(o.invoice_cost_usd ?? 0) - Number(o.prev_invoice_cost_usd)
+                : 0;
+
+            const reqQty = r ? Number(r.requested_pallets) : 0;
+            const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
+            const cancelledSupply = o.status === "deleted";
+            const explicitlyRejected = !cancelledSupply && apprQty === 0;
+            const palletDelta = apprQty != null ? apprQty - reqQty : 0;
+            const linkedQty = r ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0) : 0;
+            const pendingQty = apprQty != null ? Math.max(apprQty - linkedQty, 0) : 0;
+            const isSplit = o.status === "linked" && linkedQty > 0 && pendingQty > 0;
+
+            const etaDate = ship?.arrived_at
+              ? { label: "Дата прибуття", value: new Date(ship.arrived_at).toLocaleDateString("uk-UA") }
+              : ship?.eta
+              ? { label: "Очікувана дата", value: new Date(ship.eta).toLocaleDateString("uk-UA") }
+              : o.expected_eta
+              ? { label: "Очікувана дата", value: new Date(o.expected_eta).toLocaleDateString("uk-UA"), plan: true }
+              : null;
+
+            const details = [o.variety, o.caliber, o.packaging, o.specification]
+              .filter(Boolean)
+              .join(" • ");
+
+            return (
+              <div
+                className={cn(
+                  "p-4",
+                  cancelledSupply ? "bg-destructive/5" : undefined,
+                )}
+              >
+                {/* Header: product (country) + status */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-base font-bold">{o.product_name}</span>
+                  {o.origin_country && (
+                    <span className="text-sm text-muted-foreground">({o.origin_country})</span>
+                  )}
+                  {cancelledSupply ? (
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
+                      Скасовано
                     </span>
-                  </>
-                ) : (
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                      STATUS_CLASS[o.status],
-                    )}
-                  >
-                    {STATUS_LABEL[o.status]}
-                  </span>
-                )}
-                {ship && (
-                  <span className="text-sm text-success">
-                    Поставка <b>{ship.code}</b>
-                  </span>
-                )}
-              </div>
-
-              {isSplit && (
-                <div className="mt-1 text-xs text-warning">
-                  * {pendingQty}п чекають на номер поставки
-                </div>
-              )}
-
-              {/* Details line */}
-              {details && (
-                <div className="mt-1 text-sm text-muted-foreground">{details}</div>
-              )}
-
-              {/* Costs */}
-              <div className="mt-2 space-y-0.5">
-                <CostLine
-                  label="Собівартість індикативна"
-                  tone="success"
-                  curr={Number(o.indicative_cost_usd ?? 0)}
-                  prev={o.prev_indicative_cost_usd}
-                  delta={indDelta}
-                  linked={o.status === "linked"}
-                />
-                <CostLine
-                  label="Собівартість інвойсна"
-                  tone="destructive"
-                  curr={Number(o.invoice_cost_usd ?? 0)}
-                  prev={o.prev_invoice_cost_usd}
-                  delta={invDelta}
-                  linked={o.status === "linked"}
-                />
-              </div>
-
-              {/* Responsible manager — shown for all statuses when known */}
-              {managerNameById[o.created_by] && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Відповідальний менеджер:{" "}
-                  <b className="text-foreground">{managerNameById[o.created_by]}</b>
-                </div>
-              )}
-
-
-              {/* Expected date */}
-              {etaDate && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {etaDate.label}:{" "}
-                  <b className="text-foreground tabular-nums">{etaDate.value}</b>
-                  {etaDate.plan && (
-                    <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
+                  ) : explicitlyRejected ? (
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-destructive/15 text-destructive">
+                      Відмовлено
+                    </span>
+                  ) : isSplit ? (
+                    <>
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-primary/15 text-primary">
+                        Замовлено · {linkedQty}
+                      </span>
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-warning/15 text-warning">
+                        Підтверджено · {pendingQty}*
+                      </span>
+                    </>
+                  ) : (
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                        STATUS_CLASS[o.status],
+                      )}
+                    >
+                      {STATUS_LABEL[o.status]}
+                    </span>
+                  )}
+                  {ship && (
+                    <span className="text-sm text-success">
+                      Поставка <b>{ship.code}</b>
+                    </span>
                   )}
                 </div>
-              )}
 
-              {/* ETA change notice (after link) */}
-              {o.status === "linked" && (o as OfferWithEtaPrev).prev_expected_eta &&
-                (o as OfferWithEtaPrev).prev_expected_eta !== o.expected_eta && (
-                <div className="mt-1 rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
-                  <b>Дата заходу змінена:</b> було{" "}
-                  <span className="line-through tabular-nums">
-                    {fmtDate((o as OfferWithEtaPrev).prev_expected_eta)}
-                  </span>{" "}
-                  → стало <b className="tabular-nums">{fmtDate(o.expected_eta)}</b>
-                </div>
-              )}
-
-              {/* Available quantity */}
-              {o.offered_pallets != null && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Доступна кількість: <b className="text-foreground tabular-nums">{o.offered_pallets}</b> палет
-                </div>
-              )}
-
-              {o.expires_at && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Залишок: <b className="text-foreground">{formatRemaining(o.expires_at)}</b>
-                </div>
-              )}
-
-              {/* Desired quantity input */}
-              <div className="mt-3 flex flex-wrap items-end gap-2">
-                {!["linked", "closed", "expired"].includes(o.status) ? (
-                  <>
-                    <label className="text-sm">
-                      <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        className="h-9 w-32 font-bold tabular-nums"
-                        value={draft}
-                        onChange={(e) => setDrafts((p) => ({ ...p, [o.id]: e.target.value }))}
-                      />
-                    </label>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const n = Number(draft);
-                        if (!Number.isFinite(n) || n < 0) {
-                          toast.error("Введіть кількість");
-                          return;
-                        }
-                        submit.mutate({ offerId: o.id, pallets: n });
-                      }}
-                    >
-                      {r ? "Оновити" : "Запитати"}
-                    </Button>
-                  </>
-                ) : null}
-
-                {r && o.status === "active" && r.approved_pallets == null && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    disabled={cancelRequest.isPending}
-                    onClick={() => cancelRequest.mutate(r.id)}
-                  >
-                    Скасувати запит
-                  </Button>
+                {isSplit && (
+                  <div className="mt-1 text-xs text-warning">
+                    * {pendingQty}п чекають на номер поставки
+                  </div>
                 )}
 
+                {/* Details line */}
+                {details && (
+                  <div className="mt-1 text-sm text-muted-foreground">{details}</div>
+                )}
 
-                {r && (
-                  <div className="ml-auto text-right text-sm">
-                    <div className="text-muted-foreground">
-                      Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
-                    </div>
-                    {apprQty != null && (
-                      <div className="text-muted-foreground">
-                        Підтв.:{" "}
-                        <b
-                          className={cn(
-                            "tabular-nums",
-                            palletDelta < 0 && "text-destructive",
-                            palletDelta > 0 && "text-success",
-                            palletDelta === 0 && "text-foreground",
-                          )}
-                        >
-                          {apprQty}
-                          {palletDelta !== 0 && (
-                            <span className="ml-1">
-                              ({palletDelta > 0 ? "+" : ""}
-                              {palletDelta})
-                            </span>
-                          )}
-                        </b>
-                      </div>
+                {/* Costs */}
+                <div className="mt-2 space-y-0.5">
+                  <CostLine
+                    label="Собівартість індикативна"
+                    tone="success"
+                    curr={Number(o.indicative_cost_usd ?? 0)}
+                    prev={o.prev_indicative_cost_usd}
+                    delta={indDelta}
+                    linked={o.status === "linked"}
+                  />
+                  <CostLine
+                    label="Собівартість інвойсна"
+                    tone="destructive"
+                    curr={Number(o.invoice_cost_usd ?? 0)}
+                    prev={o.prev_invoice_cost_usd}
+                    delta={invDelta}
+                    linked={o.status === "linked"}
+                  />
+                </div>
+
+                {/* Responsible manager */}
+                {managerNameById[o.created_by] && (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Відповідальний менеджер:{" "}
+                    <b className="text-foreground">{managerNameById[o.created_by]}</b>
+                  </div>
+                )}
+
+                {/* Expected date */}
+                {etaDate && (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {etaDate.label}:{" "}
+                    <b className="text-foreground tabular-nums">{etaDate.value}</b>
+                    {etaDate.plan && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
                     )}
                   </div>
                 )}
+
+                {/* ETA change notice */}
+                {o.status === "linked" && (o as OfferWithEtaPrev).prev_expected_eta &&
+                  (o as OfferWithEtaPrev).prev_expected_eta !== o.expected_eta && (
+                  <div className="mt-1 rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                    <b>Дата заходу змінена:</b> було{" "}
+                    <span className="line-through tabular-nums">
+                      {fmtDate((o as OfferWithEtaPrev).prev_expected_eta)}
+                    </span>{" "}
+                    → стало <b className="tabular-nums">{fmtDate(o.expected_eta)}</b>
+                  </div>
+                )}
+
+                {/* Available quantity */}
+                {o.offered_pallets != null && (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Доступна кількість: <b className="text-foreground tabular-nums">{o.offered_pallets}</b> палет
+                  </div>
+                )}
+
+                {o.expires_at && (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Залишок: <b className="text-foreground">{formatRemaining(o.expires_at)}</b>
+                  </div>
+                )}
+
+                {/* Desired quantity input + actions */}
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  {!["linked", "closed", "expired"].includes(o.status) ? (
+                    <>
+                      <label className="text-sm">
+                        <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 w-32 font-bold tabular-nums"
+                          value={draft}
+                          onChange={(e) => setDrafts((p) => ({ ...p, [o.id]: e.target.value }))}
+                        />
+                      </label>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const n = Number(draft);
+                          if (!Number.isFinite(n) || n < 0) {
+                            toast.error("Введіть кількість");
+                            return;
+                          }
+                          submit.mutate({ offerId: o.id, pallets: n });
+                        }}
+                      >
+                        {r ? "Оновити" : "Запитати"}
+                      </Button>
+                    </>
+                  ) : null}
+
+                  {r && o.status === "active" && r.approved_pallets == null && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      disabled={cancelRequest.isPending}
+                      onClick={() => cancelRequest.mutate(r.id)}
+                    >
+                      Скасувати запит
+                    </Button>
+                  )}
+
+                  {r && (
+                    <div className="ml-auto text-right text-sm">
+                      <div className="text-muted-foreground">
+                        Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
+                      </div>
+                      {apprQty != null && (
+                        <div className="text-muted-foreground">
+                          Підтв.:{" "}
+                          <b
+                            className={cn(
+                              "tabular-nums",
+                              palletDelta < 0 && "text-destructive",
+                              palletDelta > 0 && "text-success",
+                              palletDelta === 0 && "text-foreground",
+                            )}
+                          >
+                            {apprQty}
+                            {palletDelta !== 0 && (
+                              <span className="ml-1">
+                                ({palletDelta > 0 ? "+" : ""}
+                                {palletDelta})
+                              </span>
+                            )}
+                          </b>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
