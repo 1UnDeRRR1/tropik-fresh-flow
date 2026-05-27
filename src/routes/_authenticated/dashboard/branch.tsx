@@ -20,7 +20,7 @@ import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 import { useFirstScreenGate } from "@/routes/_authenticated";
-import { useEffect } from "react";
+
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 type SortKey = "eta" | "product" | "country" | "manager" | "shipment" | "pallets" | "status";
