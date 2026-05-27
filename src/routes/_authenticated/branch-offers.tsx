@@ -421,7 +421,14 @@ function BranchOffersPage() {
         open={!!selectedOfferId}
         onOpenChange={(open) => { if (!open) setSelectedOfferId(null); }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-0">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-0"
+          onOpenAutoFocus={(e) => {
+            // Read-first: do NOT auto-focus the pallet input on mobile,
+            // otherwise iOS pops the keyboard the moment the row is tapped.
+            e.preventDefault();
+          }}
+        >
           <DialogHeader className="sr-only">
             <DialogTitle>Деталі пропозиції</DialogTitle>
           </DialogHeader>
