@@ -2020,13 +2020,18 @@ function TransportBar({
         ref={inputRef}
         type="text"
         inputMode="decimal"
+        enterKeyHint={MOBILE_ENTER_KEY_HINT}
         placeholder="Обов'язково"
         value={val}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        onFocus={(e) => e.currentTarget.select()}
+        onFocus={(e) => {
+          e.currentTarget.select();
+          scrollFocusedIntoView(e.currentTarget);
+        }}
+        onKeyDown={blurOnEnter}
         onBlur={() => {
           // Visual cue only: the field already pulses red while empty.
         }}
