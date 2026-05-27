@@ -678,7 +678,10 @@ function CostLine({
   delta: number;
   linked?: boolean;
 }) {
-  const changed = prev != null && delta !== 0;
+  // Suppress "from same to same" noise: only show the change when the
+  // post-rounding (2-decimal) delta is actually non-zero.
+  const roundedDelta = Math.round(delta * 100) / 100;
+  const changed = prev != null && roundedDelta !== 0;
   const toneCls = tone === "success" ? "text-success" : "text-destructive";
   return (
     <div className={cn("text-sm", toneCls)}>
