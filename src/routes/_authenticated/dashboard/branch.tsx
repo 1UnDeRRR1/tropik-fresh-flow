@@ -12,7 +12,7 @@ import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { PipelineStatusBadge } from "@/components/PipelineStatusBadge";
+
 import { StatusIcon } from "@/components/StatusIcon";
 import { STATUS_TEXT_COLOR } from "@/lib/status-icon-map";
 import { PIPELINE_LABEL } from "@/lib/pipeline-status";
