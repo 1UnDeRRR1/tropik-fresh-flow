@@ -936,6 +936,16 @@ function ProductsFullscreen() {
   const [draftItems, setDraftItems] = useState<DraftRow[]>([]);
   const baselinesRef = useRef<Map<string, DraftRow>>(new Map());
   const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+  // P-Fix #4 — submit lock prevents the user from double-tapping "Готово"
+  // and getting duplicate rows. savingRef is the synchronous guard (state
+  // updates are async, so the ref blocks the second click before React
+  // re-renders the disabled button).
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  // P-Fix #6 — bumping this tick auto-collapses expanded cost/details panels
+  // (e.g. ItemCustomsOverride) when a new row is added, so a stale expanded
+  // block can never overlap freshly added rows.
+  const [collapseExpandedTick, setCollapseExpandedTick] = useState(0);
 
   const hasLocalChanges = (() => {
     if (pendingDeletes.length > 0) return true;
