@@ -1440,6 +1440,15 @@ function ProductsFullscreen() {
       triggerShake(false);
       return;
     }
+    // 1b. Mobile-typo guard: net must not exceed gross.
+    const anyNetGtGross = draftItems.some(
+      (d) => Number(d.net_weight_kg) > 0 && Number(d.gross_weight_kg) > 0 && Number(d.net_weight_kg) > Number(d.gross_weight_kg),
+    );
+    if (anyNetGtGross) {
+      toast.error("Нетто не може бути більше брутто");
+      triggerShake(false);
+      return;
+    }
     // 2. D1-Fix v2.4 — capacity validation (vehicle-wide) BEFORE any DB writes.
     // No pallet_count clamp; only block "Готово".
     const capPallets = effectiveLoadedItems.reduce((s, it) => s + Number(it.pallet_count ?? 0), 0);
@@ -2461,6 +2470,8 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const invalidPallets = palletCountNum <= 0;
   const invalidNet = netNum <= 0;
   const invalidGross = grossNum <= 0;
+  // Mobile-safety: net must not exceed gross (typo guard). Always red, not pulse-gated.
+  const netGtGross = netNum > 0 && grossNum > 0 && netNum > grossNum;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -2733,25 +2744,30 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
-      <td data-col="7" className={cn("relative px-0.5 py-0.5", pulse && invalidNet && "field-invalid")}>
+      <td data-col="7" className={cn("relative px-0.5 py-0.5", (pulse && invalidNet) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(netNum)}
           readOnly={readOnly}
           step="1"
-          invalid={invalidNet}
+          invalid={invalidNet || netGtGross}
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
             onPatch({ net_weight_kg: safe, net_auto: false });
           }}
         />
+        {netGtGross && (
+          <div className="mt-0.5 text-[10px] leading-tight text-destructive">
+            Нетто не може бути більше брутто
+          </div>
+        )}
       </td>
-      <td data-col="8" className={cn("relative px-0.5 py-0.5", pulse && invalidGross && "field-invalid")}>
+      <td data-col="8" className={cn("relative px-0.5 py-0.5", (pulse && invalidGross) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(grossNum)}
           readOnly={readOnly}
           step="1"
-          invalid={invalidGross}
+          invalid={invalidGross || netGtGross}
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
