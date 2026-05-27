@@ -715,13 +715,13 @@ function BranchDashboard() {
                     >
                       <td
                         className="sticky left-0 z-10 bg-card pl-1 pr-0.5 py-2 text-left cursor-pointer"
-                        style={{ width: 44, minWidth: 44, maxWidth: 44 }}
+                        style={{ width: 52, minWidth: 52, maxWidth: 52 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
                         <StatusIcon status={r.pipeline} size={24} />
                       </td>
                       <td
-                        className="sticky left-[44px] z-10 bg-card px-2 py-2 cursor-pointer"
+                        className="sticky left-[52px] z-10 bg-card px-2 py-2 cursor-pointer"
                         style={{ width: 128, minWidth: 128, maxWidth: 128 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
