@@ -1689,6 +1689,10 @@ function ProductsFullscreen() {
     } catch (e) {
       toast.error(translateError(e));
     }
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
   };
 
 
