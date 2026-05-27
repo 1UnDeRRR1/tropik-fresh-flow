@@ -35,6 +35,7 @@ import {
   attachShipmentItemToPosition,
   rollbackBirthPosition,
 } from "@/lib/position-attach";
+import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 // D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
@@ -2019,13 +2020,18 @@ function TransportBar({
         ref={inputRef}
         type="text"
         inputMode="decimal"
+        enterKeyHint={MOBILE_ENTER_KEY_HINT}
         placeholder="Обов'язково"
         value={val}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        onFocus={(e) => e.currentTarget.select()}
+        onFocus={(e) => {
+          e.currentTarget.select();
+          scrollFocusedIntoView(e.currentTarget);
+        }}
+        onKeyDown={blurOnEnter}
         onBlur={() => {
           // Visual cue only: the field already pulses red while empty.
         }}
@@ -3251,6 +3257,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       value={value}
       readOnly={readOnly}
       list={list}
+      enterKeyHint={MOBILE_ENTER_KEY_HINT}
       placeholder={focused ? "" : placeholder}
       autoComplete="off"
       autoCorrect="off"
@@ -3261,7 +3268,9 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
         if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
+        scrollFocusedIntoView(e.currentTarget);
       }}
+      onKeyDown={blurOnEnter}
       onBlur={() => setFocused(false)}
       style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
       className={cn(
@@ -3314,13 +3323,19 @@ function PackageCell({
           type="text"
           value={value}
           placeholder="—"
+          enterKeyHint={MOBILE_ENTER_KEY_HINT}
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => {
             onChangeText(e.target.value);
             if (!open) setOpen(true);
           }}
-          onFocus={() => { setFocused(true); setOpen(true); }}
+          onFocus={(e) => {
+            setFocused(true);
+            setOpen(true);
+            scrollFocusedIntoView(e.currentTarget);
+          }}
+          onKeyDown={blurOnEnter}
           onBlur={() => { setFocused(false); }}
           className={cn(
             "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
@@ -3416,6 +3431,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
       type="text"
       readOnly={readOnly}
       inputMode="decimal"
+      enterKeyHint={MOBILE_ENTER_KEY_HINT}
       step={step ?? "1"}
       value={text}
       placeholder={focused ? "" : "—"}
@@ -3427,7 +3443,9 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
         if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
+        scrollFocusedIntoView(e.currentTarget);
       }}
+      onKeyDown={blurOnEnter}
       onBlur={() => setFocused(false)}
       onChange={(e) => {
         // Allow digits, comma, dot. Normalize comma → dot for parsing only.
@@ -3475,13 +3493,20 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         type="text"
         readOnly={readOnly}
         inputMode="decimal"
+        enterKeyHint={MOBILE_ENTER_KEY_HINT}
         value={text}
         placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        onFocus={(e) => { if (readOnly) return; setFocused(true); e.currentTarget.select(); }}
+        onFocus={(e) => {
+          if (readOnly) return;
+          setFocused(true);
+          e.currentTarget.select();
+          scrollFocusedIntoView(e.currentTarget);
+        }}
+        onKeyDown={blurOnEnter}
         onBlur={() => setFocused(false)}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^\d.,-]/g, "");

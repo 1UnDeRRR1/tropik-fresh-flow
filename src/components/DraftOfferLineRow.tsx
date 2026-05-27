@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { resolvePalletForText } from "@/lib/pallet-resolver";
+import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 
 type ResolverStatus =
   | "matched"
@@ -350,6 +351,13 @@ export function DraftOfferLineRow({
                   value={productQuery}
                   onChange={(e) => setProductQuery(e.target.value)}
                   placeholder="Абрикос"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
               <td className="px-2 py-2">
@@ -357,6 +365,13 @@ export function DraftOfferLineRow({
                   value={countryQuery}
                   onChange={(e) => setCountryQuery(e.target.value)}
                   placeholder="Іспанія"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
               <td className="px-2 py-2">
@@ -364,41 +379,60 @@ export function DraftOfferLineRow({
                   value={packageRaw}
                   onChange={(e) => onPackageChange(e.target.value)}
                   placeholder="—"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
               <td className="px-2 py-2">
                 <Input
                   inputMode="numeric"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
                   className="text-right"
                   value={palletsRaw}
                   onChange={(e) => onPalletsChange(e.target.value)}
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
               <td className="px-2 py-2">
                 <Input
                   inputMode="decimal"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
                   className="text-right"
                   value={netRaw}
                   onChange={(e) => onNetChange(e.target.value)}
                   placeholder="—"
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
               <td className="px-2 py-2">
                 <Input
                   inputMode="decimal"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
                   className="text-right"
                   value={grossRaw}
                   onChange={(e) => onGrossChange(e.target.value)}
                   placeholder="—"
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
               <td className="px-2 py-2">
                 <Input
                   inputMode="decimal"
+                  enterKeyHint={MOBILE_ENTER_KEY_HINT}
                   className="text-right"
                   value={priceRaw}
                   onChange={(e) => onPriceChange(e.target.value)}
                   placeholder="—"
+                  onFocus={(e) => scrollFocusedIntoView(e.currentTarget)}
+                  onKeyDown={blurOnEnter}
                 />
               </td>
 

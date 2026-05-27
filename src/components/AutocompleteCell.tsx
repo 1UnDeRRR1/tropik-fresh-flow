@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { resolveProductOption } from "@/lib/product-aliases";
+import { MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" can match "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -164,6 +165,7 @@ export function AutocompleteCell({
         value={value}
         readOnly={readOnly}
         placeholder={focused ? "" : placeholder}
+        enterKeyHint={MOBILE_ENTER_KEY_HINT}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -173,12 +175,19 @@ export function AutocompleteCell({
           if (readOnly) return;
           setFocused(true);
           e.currentTarget.select();
+          scrollFocusedIntoView(e.currentTarget);
         }}
         onBlur={handleBlur}
         onKeyDown={(e) => {
           if ((e.key === "Tab" || e.key === "Enter") && suggestions[0]) {
             e.preventDefault();
             accept(suggestions[0]);
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            inputRef.current?.blur();
+            return;
           }
           if (e.key === "Escape") {
             inputRef.current?.blur();
