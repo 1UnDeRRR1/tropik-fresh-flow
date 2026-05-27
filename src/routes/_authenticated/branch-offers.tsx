@@ -28,6 +28,21 @@ import {
   type ManagerOfferStatus,
 } from "@/lib/manager-offers";
 import { SortByMenu, type SortKey } from "@/components/SortByMenu";
+import {
+  getBranchOfferStatus,
+  toneClass,
+  isRealShipmentCode,
+  type BranchOfferStatusKind,
+} from "@/lib/branch-offer-status";
+
+const STATUS_SORT_PRIORITY: Record<BranchOfferStatusKind, number> = {
+  waiting: 0,
+  confirmed: 1,
+  rejected: 2,
+  cancelled: 3,
+  shipped: 4,
+  none: 5,
+};
 
 const MO_STATUS_PRIORITY: Record<ManagerOfferStatus, number> = {
   linked: 0,
