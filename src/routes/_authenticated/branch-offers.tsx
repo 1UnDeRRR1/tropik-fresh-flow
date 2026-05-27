@@ -351,47 +351,22 @@ function BranchOffersPage() {
           <TableBody>
             {visibleOffers.map((o) => {
               const r = responseByOffer[o.id];
-              const reqQty = r ? Number(r.requested_pallets) : 0;
-              const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
               const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
               const etaIso = ship?.arrived_at ?? ship?.eta ?? o.expected_eta ?? null;
               const etaStr = etaIso ? new Date(etaIso).toLocaleDateString("uk-UA") : "—";
 
-              // Status color per spec:
-              //   supply deleted → red ("Скасовано")
-              //   manager rejected (approved=0) → red ("Відмовлено")
-              //   manager confirmed (>0) → green
-              //   request sent, no answer yet → yellow
-              //   no request → muted (just shown offered pallets)
-              let tone: "muted" | "yellow" | "green" | "red" = "muted";
-              let qtyLabel: string = o.offered_pallets != null ? `${o.offered_pallets}п` : "—";
-              let statusLabel: string = STATUS_LABEL[o.status];
-              if (o.status === "deleted") {
-                tone = "red";
-                statusLabel = "Скасовано";
-              } else if (r) {
-                if (apprQty === 0) {
-                  tone = "red";
-                  statusLabel = "Відмовлено";
-                  qtyLabel = `${reqQty}п`;
-                } else if (apprQty != null && apprQty > 0) {
-                  tone = "green";
-                  statusLabel = apprQty < reqQty ? `Підтв. ${apprQty}/${reqQty}` : `Підтв. ${apprQty}`;
-                  qtyLabel = `${apprQty}п`;
-                } else {
-                  tone = "yellow";
-                  statusLabel = `Чекаю ${reqQty}`;
-                  qtyLabel = `${reqQty}п`;
-                }
-              }
-              const toneCls =
-                tone === "green"
-                  ? "bg-success/15 text-success"
-                  : tone === "yellow"
-                  ? "bg-warning/15 text-warning"
-                  : tone === "red"
-                  ? "bg-destructive/15 text-destructive"
-                  : "bg-muted text-muted-foreground";
+              // SINGLE source of truth — same helper drives the detail badge.
+              const st = getBranchOfferStatus(o, r ?? null, ship?.code ?? null);
+              const qtyLabel =
+                st.kind === "confirmed" && st.apprQty != null
+                  ? `${st.apprQty}п`
+                  : st.kind === "waiting" || st.kind === "rejected"
+                  ? `${st.reqQty}п`
+                  : o.offered_pallets != null
+                  ? `${o.offered_pallets}п`
+                  : "—";
+              const toneCls = toneClass(st.tone);
+
 
               return (
                 <TableRow
