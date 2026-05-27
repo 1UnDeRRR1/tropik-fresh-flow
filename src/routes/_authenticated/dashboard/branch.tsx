@@ -118,9 +118,29 @@ function DescriptionPopover({ row, children }: { row: Row; children: React.React
           {children}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3 text-xs" align="start" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-2 font-semibold text-sm">{row.product}</div>
-        <dl className="grid grid-cols-[80px_1fr] gap-y-1 text-[11px]">
+      <PopoverContent className="w-72 p-3 text-xs" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 font-semibold text-sm">
+          {row.product}
+          {row.country && (
+            <span className="text-muted-foreground"> · {toUaCountry(row.country)}</span>
+          )}
+        </div>
+        <dl className="grid grid-cols-[110px_1fr] gap-y-1 text-[11px]">
+          {/* Cleanup Pack #7: popup має містити ту саму ключову інформацію, що й рядок. */}
+          <dt className="text-muted-foreground">Дата заходу</dt>
+          <dd className="tabular-nums">{fmtEta(row.eta)}</dd>
+          <dt className="text-muted-foreground">Палет</dt>
+          <dd className="tabular-nums">{row.pallets}п · {row.weight.toLocaleString("uk-UA")} кг</dd>
+          <dt className="text-muted-foreground">Собівартість</dt>
+          <dd className="tabular-nums">
+            {row.indicative != null ? `$${Number(row.indicative).toFixed(2)}` : "—"}
+            {" / "}
+            {row.invoice != null ? `$${Number(row.invoice).toFixed(2)}` : "—"} /кг
+          </dd>
+          <dt className="text-muted-foreground">Відп. менеджер</dt>
+          <dd>{row.manager_name ?? "—"}</dd>
+          <dt className="text-muted-foreground">Поставка</dt>
+          <dd className="font-mono">{row.code}</dd>
           {row.brand && (<><dt className="text-muted-foreground">Бренд</dt><dd>{row.brand}</dd></>)}
           {row.class && (<><dt className="text-muted-foreground">Клас</dt><dd>{row.class}</dd></>)}
           {row.variety && (<><dt className="text-muted-foreground">Сорт</dt><dd>{row.variety}</dd></>)}
@@ -355,6 +375,14 @@ function BranchDashboard() {
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
     const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
+    // Cleanup Pack #6: fallback responsible-manager source — manager_offers.import_manager_id
+    // via distribution_items.reserved_offer_id. Useful when shipment lacks import_manager_id
+    // but the товар came from a manager offer that does have one.
+    const offerMgrMap = new Map<string, string>();
+    for (const p of pendingOffers ?? []) {
+      const mid = p.manager_offers.import_manager_id;
+      if (mid && mgrMap.has(mid)) offerMgrMap.set(p.offer_id, mgrMap.get(mid) as string);
+    }
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
     const vMap = new Map((bvps ?? []).map((v) => [`${v.distribution_id}-${v.shipment_item_id}`, v]));
 
@@ -398,7 +426,10 @@ function BranchDashboard() {
             packaging: null,
             supplier_name: s?.supplier_id ? supMap.get(s.supplier_id) ?? null : null,
             temperature_mode: s?.temperature_mode ?? null,
-            manager_name: s?.import_manager_id ? mgrMap.get(s.import_manager_id) ?? null : null,
+            manager_name:
+              (s?.import_manager_id && mgrMap.get(s.import_manager_id))
+                ? (mgrMap.get(s.import_manager_id) as string)
+                : (di.reserved_offer_id ? offerMgrMap.get(di.reserved_offer_id) ?? null : null),
             pallets: Number(di.pallets ?? 0),
             weight: Number(di.qty ?? 0),
             indicative: displayInd,
@@ -436,6 +467,17 @@ function BranchDashboard() {
         ? []
         : (pendingOffers ?? [])
             .filter((p) => !materialisedOfferIds.has(p.offer_id))
+            // Cleanup Pack #8: "Підтверджений товар" — лише підтверджені/частково
+            // підтверджені/замовлені. Заявки, що ще чекають на підтвердження
+            // менеджером, залишаються тільки у "Пропозиції ЗЕД".
+            .filter((p) => {
+              const o = p.manager_offers;
+              const approved = p.approved_pallets;
+              if (o.status === "deleted") return true; // показуємо як "Скасовано"
+              if (o.linked_shipment_id) return true;   // "Замовлено"
+              if (approved === null) return false;     // ще чекає підтвердження
+              return true;                              // підтверджено / частково / відмова
+            })
             .map((p) => {
               const o = p.manager_offers;
               const approved = p.approved_pallets;
@@ -444,29 +486,23 @@ function BranchDashboard() {
               let codeLabel: string;
               let note: string | null = null;
               if (o.status === "deleted") {
-                // Manager deleted the whole offer — both left badge and supply status must be cancelled.
                 pipeline = "cancelled";
                 codeLabel = "Скасовано";
               } else if (o.linked_shipment_id) {
-                // Once a shipment number is assigned, status is "Замовлено" for everyone.
                 pipeline = "ordered";
                 codeLabel = "Замовлено";
                 if (approved != null && Number(approved) < requested)
                   note = `${approved} з ${requested}п`;
-              } else if (approved === null) {
-                pipeline = "awaiting_confirmation";
-                codeLabel = "Чекаю підтвердження";
               } else if (Number(approved) <= 0) {
                 pipeline = "rejected";
                 codeLabel = "Відмовлено";
               } else if (o.status === "closed") {
-                // Manager closed the offer — final approved quantity for this branch.
                 pipeline = "confirmed";
                 codeLabel = "Підтверджено";
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
               } else {
-                pipeline = "processing";
-                codeLabel = "В опрацюванні";
+                pipeline = "confirmed";
+                codeLabel = Number(approved) < requested ? "Підтверджено частково" : "Підтверджено";
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
               }
               const pallets = Number(approved ?? requested ?? 0);
@@ -655,11 +691,10 @@ function BranchDashboard() {
             <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-bold">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
-                  <th className="px-2 py-2 font-medium">ETA</th>
-                  <th className="px-2 py-2 font-medium">Поставка</th>
-                  <th className="px-2 py-2 font-medium">Товар</th>
-                  <th className="px-2 py-2 font-medium">Країна походження</th>
+                  {/* Cleanup Pack #4+#5: новий порядок колонок + sticky Status + Товар(Країна). */}
+                  <th className="sticky left-0 z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
+                  <th className="sticky left-[96px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Товар (Країна)</th>
+                  <th className="px-2 py-2 font-medium">Дата заходу</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
                     Палет
                     <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
@@ -668,6 +703,7 @@ function BranchDashboard() {
                   </th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Відп. менеджер</th>
+                  <th className="px-2 py-2 font-medium">Поставка</th>
                 </tr>
               </thead>
               <tbody>
@@ -675,7 +711,6 @@ function BranchDashboard() {
                   const s = statsFor(r);
                   const etaChanged = dateNeq(r.eta, r.seen_eta);
                   const palChanged = numNeq(r.pallets, r.seen_pallets);
-                  // Patch 8B: pill driven by BVP vs baseline.seen_cost_*, not by notifications.
                   const costChanged =
                     !!r.bvp_reason &&
                     (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
@@ -692,6 +727,16 @@ function BranchDashboard() {
                           <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
                         )}
                       </td>
+                      <td className="sticky left-[96px] z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">
+                        <DescriptionPopover row={r}>
+                          <span className="underline-offset-2 hover:underline">
+                            {r.product}
+                            {r.country && (
+                              <span className="text-muted-foreground"> ({toUaCountry(r.country)})</span>
+                            )}
+                          </span>
+                        </DescriptionPopover>
+                      </td>
                       <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
                         {fmtEta(r.eta)}
                         {etaChanged && (
@@ -702,19 +747,6 @@ function BranchDashboard() {
                             onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
                           />
                         )}
-                      </td>
-                      <td className="px-2 py-2 font-mono text-[11px] font-semibold">
-                        <DescriptionPopover row={r}>
-                          <span className="underline-offset-2 hover:underline">{r.code}</span>
-                        </DescriptionPopover>
-                      </td>
-                      <td className="px-2 py-2 font-medium">
-                        <DescriptionPopover row={r}>
-                          <span className="underline-offset-2 hover:underline">{r.product}</span>
-                        </DescriptionPopover>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                        {r.country ? toUaCountry(r.country) : "—"}
                       </td>
                       <td className="px-2 py-2 text-right font-bold tabular-nums">
                         {s.pending > 0 ? (
@@ -747,6 +779,9 @@ function BranchDashboard() {
                       </td>
                       <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
                         {r.manager_name ?? "—"}
+                      </td>
+                      <td className="px-2 py-2 font-mono text-[11px] font-semibold whitespace-nowrap">
+                        {r.code}
                       </td>
                     </tr>
                   );
