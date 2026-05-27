@@ -375,6 +375,14 @@ function BranchDashboard() {
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
     const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
+    // Cleanup Pack #6: fallback responsible-manager source — manager_offers.import_manager_id
+    // via distribution_items.reserved_offer_id. Useful when shipment lacks import_manager_id
+    // but the товар came from a manager offer that does have one.
+    const offerMgrMap = new Map<string, string>();
+    for (const p of pendingOffers ?? []) {
+      const mid = p.manager_offers.import_manager_id;
+      if (mid && mgrMap.has(mid)) offerMgrMap.set(p.offer_id, mgrMap.get(mid) as string);
+    }
     const bMap = new Map((baselines ?? []).map((b) => [`${b.distribution_id}-${b.shipment_item_id}`, b]));
     const vMap = new Map((bvps ?? []).map((v) => [`${v.distribution_id}-${v.shipment_item_id}`, v]));
 
