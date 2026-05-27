@@ -528,17 +528,17 @@ function NewShipment() {
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
           <Command
             filter={(itemValue, search) => {
               const q = search.trim().toLowerCase();
-              if (q.length < 2) return 1;
+              if (q.length < 2) return 0;
               return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
             }}
           >
             <CommandInput placeholder="Пошук постачальника…" value={supplierSearch} onValueChange={setSupplierSearch} />
-            <CommandList>
-              <CommandEmpty>Не знайдено</CommandEmpty>
+            <CommandList className="max-h-[132px]">
+              <CommandEmpty>{supplierSearch.trim().length < 2 ? "Введіть 2 літери" : "Не знайдено"}</CommandEmpty>
               <CommandGroup>
                 {filteredSuppliers.map((s) => (
                   <CommandItem
@@ -583,17 +583,17 @@ function NewShipment() {
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
           <Command
             filter={(itemValue, search) => {
               const q = search.trim().toLowerCase();
-              if (q.length < 2) return 1;
+              if (q.length < 2) return 0;
               return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
             }}
           >
             <CommandInput placeholder="Пошук країни…" value={countrySearch} onValueChange={setCountrySearch} />
-            <CommandList>
-              <CommandEmpty>Не знайдено</CommandEmpty>
+            <CommandList className="max-h-[132px]">
+              <CommandEmpty>{countrySearch.trim().length < 2 ? "Введіть 2 літери" : "Не знайдено"}</CommandEmpty>
               <CommandGroup>
                 {filteredCountries.map((c: string) => (
                   <CommandItem
@@ -703,17 +703,17 @@ function NewShipment() {
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
           <Command
             filter={(itemValue, search) => {
               const q = search.trim().toLowerCase();
-              if (q.length < 2) return 1;
+              if (q.length < 2) return 0;
               return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
             }}
           >
             <CommandInput placeholder="Пошук авто…" value={vehicleSearch} onValueChange={setVehicleSearch} />
-            <CommandList>
-              <CommandEmpty>Немає відкритих авто</CommandEmpty>
+            <CommandList className="max-h-[132px]">
+              <CommandEmpty>{vehicleSearch.trim().length < 2 ? "Введіть 2 літери" : "Немає відкритих авто"}</CommandEmpty>
               <CommandGroup>
                 {filteredVehicles.map((v) => {
                   const sups = (v.shipments ?? [])
