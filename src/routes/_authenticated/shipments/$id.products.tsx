@@ -1822,11 +1822,13 @@ function ProductsFullscreen() {
           previewMap={previewMap}
           currentShipmentEditable={currentShipmentEditable}
           pulseFields={pulseFields}
+          collapseExpandedTick={collapseExpandedTick}
           onPatch={patchDraft}
           onRemove={removeDraft}
           onResolverHint={setResolverHint}
           onShowBreakdown={openTopZone}
         />
+
 
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
