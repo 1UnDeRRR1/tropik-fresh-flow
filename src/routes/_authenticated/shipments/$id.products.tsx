@@ -1400,6 +1400,9 @@ function ProductsFullscreen() {
       toast.error("У спільному авто більше немає вільного місця");
       return;
     }
+    // P-Fix #6 — collapse any open cost/details panels so they don't overlap
+    // freshly added rows when the table layout reflows.
+    setCollapseExpandedTick((t) => t + 1);
     setDraftItems((prev) => [...prev, emptyDraftRow()]);
   };
 
