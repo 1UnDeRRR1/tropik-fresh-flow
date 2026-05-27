@@ -593,87 +593,89 @@ function BranchDashboard() {
     [filteredRows],
   );
 
-  return (
-    <div className="space-y-5">
-      <PageHeader title="Філія" subtitle="Підтверджений товар" />
+  const sortOptions: { value: SortKey; label: string }[] = [
+    { value: "eta", label: "За датою заходу" },
+    { value: "status", label: "За статусом / активністю" },
+    { value: "product", label: "За товаром" },
+    { value: "country", label: "За країною" },
+    { value: "manager", label: "За менеджером" },
+    { value: "shipment", label: "За поставкою" },
+    { value: "pallets", label: "За палетами" },
+  ];
 
+  const controlFocusClass =
+    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive";
+
+  return (
+    <div
+      className="space-y-3"
+      data-branch-test={isMalekhiv ? "malekhiv" : undefined}
+    >
       {!branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
           Вам ще не призначено філію. Зверніться до адміністратора.
         </div>
       )}
 
-      <div className="space-y-2">
-        <MainBoardToggle value={board} onChange={setBoard} />
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <div className="font-semibold text-foreground">
-            {board === "active" ? "Активний товар у роботі" : "Розвантажений товар"}
-          </div>
-          <div className="text-muted-foreground">
-            {filteredRows.length} {filteredRows.length === 1 ? "рядок" : filteredRows.length < 5 ? "рядки" : "рядків"}
-            {filtersActive && rows.length !== filteredRows.length && (
-              <span className="ml-1 opacity-70">з {rows.length}</span>
+      <MainBoardToggle value={board} onChange={setBoard} />
+
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortKey)}
+            aria-label="Сортувати за"
+            className={cn(
+              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
+              "data-[active=true]:border-destructive",
+              controlFocusClass,
             )}
-          </div>
+            data-active={sortBy !== "eta" ? "true" : undefined}
+          >
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                Сортувати: {o.label.replace(/^За /, "")}
+              </option>
+            ))}
+          </select>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Пошук: товар, країна, менеджер, поставка, дата…"
+            className={cn(
+              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
+              search ? "border-destructive" : "",
+              controlFocusClass,
+            )}
+          />
         </div>
-        {rows.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Button
-              type="button"
-              variant={filtersActive ? "outline" : "default"}
-              size="sm"
-              className="h-9 text-xs"
-              onClick={resetFilters}
-            >
-              Усі поставки
-            </Button>
-            <SearchableSelect
-              value={fManager}
-              onChange={setFManager}
-              options={managerOptions}
-              placeholder="Менеджер"
-              allLabel="Усі менеджери"
-            />
-            <SearchableSelect
-              value={fProduct}
-              onChange={setFProduct}
-              options={productOptions}
-              placeholder="Товар"
-              allLabel="Усі товари"
-            />
-            <SearchableSelect
-              value={fCountry}
-              onChange={setFCountry}
-              options={countryOptions}
-              placeholder="Країна"
-              allLabel="Усі країни"
-            />
-          </div>
-        )}
-      </div>
+      )}
 
       {distsPending || (!!branchId && dists === undefined && !distsError) ? (
-        <SectionCard title="Підтверджений товар">
-          <div className="flex items-center justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-          </div>
-        </SectionCard>
+        <div className="flex items-center justify-center py-10">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        </div>
       ) : !filteredRows.length ? (
-        <EmptyState title={
-          filtersActive
-            ? "Немає товару за обраними фільтрами"
-            : board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"
-        } />
+        <EmptyState
+          title={
+            search
+              ? "Немає товару за пошуком"
+              : board === "unloaded"
+                ? "У розвантажених поки порожньо"
+                : "Поки немає підтвердженого товару"
+          }
+        />
       ) : (
-        <SectionCard title="Підтверджений товар">
-          <TableScroller className="-mx-2">
-            <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
-              <thead className="[&_th]:bg-table-head [&_th]:font-bold">
+        <div className="branch-table-wrap rounded-2xl border border-border bg-card p-2 shadow-card sm:p-3">
+          <TableScroller className="-mx-1">
+            <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
+              <thead className="[&_th]:bg-table-head [&_th]:font-medium">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {/* Cleanup Pack #4+#5: новий порядок колонок + sticky Status + Товар(Країна). */}
-                  <th className="sticky left-0 z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
-                  <th className="sticky left-[64px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Товар (Країна)</th>
-                  <th className="px-2 py-2 font-medium">Дата заходу</th>
+                  <th className="sticky left-0 z-20 bg-card px-1.5 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ width: 44 }}>Ст.</th>
+                  <th className="sticky left-[44px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ maxWidth: 160 }}>Товар</th>
+                  <th className="px-2 py-2 font-medium">Країна</th>
+                  <th className="px-2 py-2 font-medium">Заход</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
                     Палет
                     <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
@@ -681,7 +683,7 @@ function BranchDashboard() {
                     </span>
                   </th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
-                  <th className="px-2 py-2 font-medium">Відп. менеджер</th>
+                  <th className="px-2 py-2 font-medium">Менеджер</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
                 </tr>
               </thead>
@@ -700,26 +702,29 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        className="sticky left-0 z-10 bg-card px-1.5 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        style={{ width: 44 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <StatusIcon status={r.pipeline} size={28} />
-                        {r.approved_qty_note && (
-                          <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
-                        )}
+                        <StatusIcon status={r.pipeline} size={26} />
                       </td>
                       <td
-                        className="sticky left-[64px] z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        className="sticky left-[44px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        style={{ maxWidth: 160 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <span className="underline-offset-2 hover:underline">
+                        <div className="truncate sm:whitespace-normal" title={r.product}>
                           {r.product}
-                          {r.country && (
-                            <span className="text-muted-foreground"> ({toUaCountry(r.country)})</span>
-                          )}
-                        </span>
+                        </div>
+                        {r.approved_qty_note && (
+                          <div className="truncate text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
+                        )}
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
+                        <span className="sm:hidden">{r.country ? toShortUaCountry(r.country) : "—"}</span>
+                        <span className="hidden sm:inline">{r.country ? toUaCountry(r.country) : "—"}</span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
                         {fmtEta(r.eta)}
                         {etaChanged && (
                           <ChangeBadge
@@ -730,10 +735,10 @@ function BranchDashboard() {
                           />
                         )}
                       </td>
-                      <td className="px-2 py-2 text-right font-bold tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums">
                         {s.pending > 0 ? (
                           <span>
-                            {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
+                            {s.free}п <span className="text-muted-foreground"> / </span>
                             <span className="text-blue-600">{s.pending}п</span>
                           </span>
                         ) : (
@@ -759,15 +764,16 @@ function BranchDashboard() {
                           />
                         )}
                       </td>
-                      <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                      <td className="px-2 py-2 text-foreground/80 whitespace-nowrap">
                         {r.manager_name ?? "—"}
                       </td>
-                      <td className="px-2 py-2 font-mono text-[11px] font-semibold whitespace-nowrap">
+                      <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
                         {r.code}
                       </td>
                     </tr>
                   );
                 })}
+
               </tbody>
             </table>
           </TableScroller>
