@@ -113,49 +113,6 @@ function ChangeBadge({
   );
 }
 
-function DescriptionPopover({ row, children }: { row: Row; children: React.ReactNode }) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button onClick={(e) => e.stopPropagation()} className="text-left">
-          {children}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-3 text-xs" align="start" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-2 font-semibold text-sm">
-          {row.product}
-          {row.country && (
-            <span className="text-muted-foreground"> · {toUaCountry(row.country)}</span>
-          )}
-        </div>
-        <dl className="grid grid-cols-[110px_1fr] gap-y-1 text-[11px]">
-          {/* Cleanup Pack #7: popup має містити ту саму ключову інформацію, що й рядок. */}
-          <dt className="text-muted-foreground">Дата заходу</dt>
-          <dd className="tabular-nums">{fmtEta(row.eta)}</dd>
-          <dt className="text-muted-foreground">Палет</dt>
-          <dd className="tabular-nums">{row.pallets}п · {row.weight.toLocaleString("uk-UA")} кг</dd>
-          <dt className="text-muted-foreground">Собівартість</dt>
-          <dd className="tabular-nums">
-            {row.indicative != null ? `$${Number(row.indicative).toFixed(2)}` : "—"}
-            {" / "}
-            {row.invoice != null ? `$${Number(row.invoice).toFixed(2)}` : "—"} /кг
-          </dd>
-          <dt className="text-muted-foreground">Відп. менеджер</dt>
-          <dd>{row.manager_name ?? "—"}</dd>
-          <dt className="text-muted-foreground">Поставка</dt>
-          <dd className="font-mono">{row.code}</dd>
-          {row.brand && (<><dt className="text-muted-foreground">Бренд</dt><dd>{row.brand}</dd></>)}
-          {row.class && (<><dt className="text-muted-foreground">Клас</dt><dd>{row.class}</dd></>)}
-          {row.variety && (<><dt className="text-muted-foreground">Сорт</dt><dd>{row.variety}</dd></>)}
-          {row.caliber && (<><dt className="text-muted-foreground">Калібр</dt><dd>{row.caliber}</dd></>)}
-          {row.packaging && (<><dt className="text-muted-foreground">Упаковка</dt><dd>{row.packaging}</dd></>)}
-          {row.supplier_name && (<><dt className="text-muted-foreground">Постачальник</dt><dd>{row.supplier_name}</dd></>)}
-          {row.temperature_mode && (<><dt className="text-muted-foreground">Темп. режим</dt><dd>{row.temperature_mode}</dd></>)}
-        </dl>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 function BranchDashboard() {
   const { profile } = useAuth();
