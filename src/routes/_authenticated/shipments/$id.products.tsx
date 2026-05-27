@@ -1440,10 +1440,16 @@ function ProductsFullscreen() {
 
   // D1 §3 — non-atomic client batch: validate → INSERT new → UPDATE dirty → DELETE last.
   const commitDraft = async () => {
+    // P-Fix #4 — synchronous re-entry guard (UI disable alone is too late
+    // because React renders after the second tap has already dispatched).
+    if (savingRef.current) return;
     if (!currentShipmentEditable) {
       toast.error("Ви можете редагувати лише власну поставку");
       return;
     }
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
     // 1. Validate every visible draft row.
     const anyInvalid = draftItems.some((d) => getMissingDraftFields(d, products).length > 0);
     if (anyInvalid) {
