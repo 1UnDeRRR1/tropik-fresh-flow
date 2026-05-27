@@ -471,7 +471,7 @@ function DistributionMatrix() {
               {data.items.map((it) => {
                 const t = totals[it.id] ?? { distributed: 0, remaining: 0, total: 0 };
                 return (
-                  <tr key={it.id} className="border-t border-border">
+                  <tr key={it.id} data-item-id={it.id} className="border-t border-border">
                     <td className="sticky left-0 z-10 bg-background px-2 py-2 font-medium whitespace-nowrap">
                       <div>
                         {it.product_name}
