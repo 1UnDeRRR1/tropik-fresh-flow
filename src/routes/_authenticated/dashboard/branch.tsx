@@ -603,8 +603,10 @@ function BranchDashboard() {
     { value: "pallets", label: "За палетами" },
   ];
 
+  const controlBaseClass =
+    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none";
   const controlFocusClass =
-    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive";
+    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive data-[active=true]:border-destructive data-[active=true]:ring-1 data-[active=true]:ring-destructive";
 
   return (
     <div
@@ -625,11 +627,7 @@ function BranchDashboard() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
             aria-label="Сортувати за"
-            className={cn(
-              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
-              "data-[active=true]:border-destructive",
-              controlFocusClass,
-            )}
+            className={cn(controlBaseClass, controlFocusClass)}
             data-active={sortBy !== "eta" ? "true" : undefined}
           >
             {sortOptions.map((o) => (
@@ -642,12 +640,9 @@ function BranchDashboard() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук: товар, країна, менеджер, поставка, дата…"
-            className={cn(
-              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
-              search ? "border-destructive" : "",
-              controlFocusClass,
-            )}
+            placeholder="Пошук: товар, країна, менеджер…"
+            className={cn(controlBaseClass, controlFocusClass)}
+            data-active={search ? "true" : undefined}
           />
         </div>
       )}
