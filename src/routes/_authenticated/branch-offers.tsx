@@ -400,7 +400,7 @@ function BranchOffersPage() {
                   <TableCell className="hidden sm:table-cell tabular-nums">{etaStr}</TableCell>
                   <TableCell>
                     <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", toneCls)}>
-                      {statusLabel}
+                      {st.label}
                     </span>
                   </TableCell>
                 </TableRow>
