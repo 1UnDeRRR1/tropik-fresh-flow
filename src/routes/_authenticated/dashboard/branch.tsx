@@ -618,7 +618,27 @@ function BranchDashboard() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
+  // Block 1: partition by real shipment code. "Головна" = is_real_shipment_code,
+  // "Пропозиції" = the rest (pending offers + materialized rows without code).
+  const mainRows = useMemo(() => rows.filter((r) => r.is_real_shipment_code), [rows]);
+  const offerRows = useMemo(() => rows.filter((r) => !r.is_real_shipment_code), [rows]);
+
+  // Dev-only coverage log: position_id resolution stats for both partitions.
+  useEffect(() => {
+    if (rows.length === 0) return;
+    logAnchorCoverage("branch:all", rows.map((r) => r.anchor));
+    logAnchorCoverage("branch:main", mainRows.map((r) => r.anchor));
+    logAnchorCoverage("branch:offers", offerRows.map((r) => r.anchor));
+    if (typeof window !== "undefined" && import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.info("[branch-row-anchor] split: main=", mainRows.length, "offers=", offerRows.length, "total=", rows.length);
+    }
+  }, [rows, mainRows, offerRows]);
+
+  const viewRows = view === "main" ? mainRows : offerRows;
+
   const filteredRows = useMemo(() => {
+    const baseRows = viewRows;
     const q = search.trim().toLocaleLowerCase("uk");
     const matched = q
       ? rows.filter((r) => {
