@@ -124,9 +124,16 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
-  const [fManager, setFManager] = useState<string>("__all__");
-  const [fProduct, setFProduct] = useState<string>("__all__");
-  const [fCountry, setFCountry] = useState<string>("__all__");
+  const [sortBy, setSortBy] = useState<SortKey>("eta");
+  const [search, setSearch] = useState<string>("");
+
+  const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
+  // Scope the transparency test to <body> so the bottom nav can pick it up too.
+  useEffect(() => {
+    if (!isMalekhiv) return;
+    document.body.setAttribute("data-branch-test", "malekhiv");
+    return () => { document.body.removeAttribute("data-branch-test"); };
+  }, [isMalekhiv]);
 
   const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
