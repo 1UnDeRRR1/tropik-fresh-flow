@@ -326,7 +326,14 @@ export type RowComponents = {
   customsIndicative: number | null;
   customsInvoice: number | null;
   customsBasis: "exact" | "fallback" | "none" | "manual";
-  matchedRef: { product_name: string; country: string } | null;
+  matchedRef: {
+    product_name: string;
+    country: string;
+    threshold_price_usd: number | null;
+    customs_fee_percent: number | null;
+    euro1_markup_usd: number | null;
+    euro1_percent: number | null;
+  } | null;
 };
 
 // D1-Fix v2.5.3 — single helper returning both final preview value AND component values.
