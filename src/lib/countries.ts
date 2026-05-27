@@ -32,3 +32,57 @@ export function toUaCountry(value?: string | null): string {
 
 /** Alias for clarity at call sites that store/normalize values. */
 export const normalizeCountry = toUaCountry;
+
+/**
+ * Compact UA country form for narrow mobile cells.
+ * Falls back to the full UA name when no short form is known.
+ * Display-only — never used as a key.
+ */
+const SHORT_UA: Record<string, string> = {
+  "південна африка": "ПАР",
+  "південно-африканська республіка": "ПАР",
+  "італія": "Іт",
+  "туреччина": "Тур",
+  "греція": "Гр",
+  "польща": "Пол",
+  "іспанія": "Ісп",
+  "португалія": "Порт",
+  "нідерланди": "Нід",
+  "німеччина": "Нім",
+  "франція": "Фр",
+  "єгипет": "Єг",
+  "марокко": "Мар",
+  "ізраїль": "Ізр",
+  "молдова": "Молд",
+  "грузія": "Груз",
+  "вірменія": "Вір",
+  "азербайджан": "Аз",
+  "сербія": "Сер",
+  "хорватія": "Хорв",
+  "румунія": "Рум",
+  "болгарія": "Болг",
+  "угорщина": "Уг",
+  "чехія": "Чех",
+  "словаччина": "Слов",
+  "україна": "Укр",
+  "еквадор": "Екв",
+  "колумбія": "Кол",
+  "перу": "Пер",
+  "коста-ріка": "К-Р",
+  "домініканська республіка": "Дом",
+  "бразилія": "Браз",
+  "аргентина": "Арг",
+  "чилі": "Чилі",
+  "індія": "Інд",
+  "китай": "Кит",
+  "в'єтнам": "В'єт",
+  "таїланд": "Тай",
+  "філіппіни": "Філ",
+};
+export function toShortUaCountry(value?: string | null): string {
+  const full = toUaCountry(value);
+  if (!full) return "";
+  const key = full.toLocaleLowerCase("uk");
+  return SHORT_UA[key] ?? full;
+}
+

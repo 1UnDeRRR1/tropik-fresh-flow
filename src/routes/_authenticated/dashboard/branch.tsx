@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { PageHeader } from "@/components/AppShell";
-import { SectionCard, EmptyState } from "@/components/cards";
-import { toUaCountry } from "@/lib/countries";
+import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/cards";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { OfferDialog } from "@/components/OfferDialog";
@@ -19,8 +19,11 @@ import { PIPELINE_LABEL } from "@/lib/pipeline-status";
 import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
-import { SearchableSelect } from "@/components/SearchableSelect";
 import { useFirstScreenGate } from "@/routes/_authenticated";
+
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+type SortKey = "eta" | "product" | "country" | "manager" | "shipment" | "pallets" | "status";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -121,9 +124,16 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
-  const [fManager, setFManager] = useState<string>("__all__");
-  const [fProduct, setFProduct] = useState<string>("__all__");
-  const [fCountry, setFCountry] = useState<string>("__all__");
+  const [sortBy, setSortBy] = useState<SortKey>("eta");
+  const [search, setSearch] = useState<string>("");
+
+  const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
+  // Scope the transparency test to <body> so the bottom nav can pick it up too.
+  useEffect(() => {
+    if (!isMalekhiv) return;
+    document.body.setAttribute("data-branch-test", "malekhiv");
+    return () => { document.body.removeAttribute("data-branch-test"); };
+  }, [isMalekhiv]);
 
   const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
@@ -519,39 +529,48 @@ function BranchDashboard() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
-  const managerOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => r.manager_name && set.add(r.manager_name));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
-  }, [rows]);
-  const productOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => r.product && set.add(r.product));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
-  }, [rows]);
-  const countryOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => r.country && set.add(r.country));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: toUaCountry(v) }));
-  }, [rows]);
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase("uk");
+    const matched = q
+      ? rows.filter((r) => {
+          const haystack = [
+            r.product,
+            r.manager_name,
+            r.country ? toUaCountry(r.country) : null,
+            r.country,
+            r.code,
+            r.eta ? new Date(r.eta).toLocaleDateString("uk-UA") : null,
+            r.eta,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLocaleLowerCase("uk");
+          return haystack.includes(q);
+        })
+      : rows;
+    const sorted = [...matched];
+    const cmp = (a: Row, b: Row): number => {
+      switch (sortBy) {
+        case "product":
+          return a.product.localeCompare(b.product, "uk");
+        case "country":
+          return toUaCountry(a.country ?? "").localeCompare(toUaCountry(b.country ?? ""), "uk");
+        case "manager":
+          return (a.manager_name ?? "").localeCompare(b.manager_name ?? "", "uk");
+        case "shipment":
+          return a.code.localeCompare(b.code, "uk");
+        case "pallets":
+          return b.pallets - a.pallets;
+        case "status":
+          return a.pipeline.localeCompare(b.pipeline);
+        case "eta":
+        default:
+          return (a.eta ?? "").localeCompare(b.eta ?? "");
+      }
+    };
+    return sorted.sort(cmp);
+  }, [rows, search, sortBy]);
 
-  const filteredRows = useMemo(
-    () =>
-      rows.filter((r) => {
-        if (fManager !== "__all__" && r.manager_name !== fManager) return false;
-        if (fProduct !== "__all__" && r.product !== fProduct) return false;
-        if (fCountry !== "__all__" && r.country !== fCountry) return false;
-        return true;
-      }),
-    [rows, fManager, fProduct, fCountry],
-  );
-
-  const filtersActive = fManager !== "__all__" || fProduct !== "__all__" || fCountry !== "__all__";
-  const resetFilters = () => {
-    setFManager("__all__");
-    setFProduct("__all__");
-    setFCountry("__all__");
-  };
 
   const drillRows = useMemo(() => {
     if (!drill) return [];
@@ -574,87 +593,89 @@ function BranchDashboard() {
     [filteredRows],
   );
 
-  return (
-    <div className="space-y-5">
-      <PageHeader title="Філія" subtitle="Підтверджений товар" />
+  const sortOptions: { value: SortKey; label: string }[] = [
+    { value: "eta", label: "За датою заходу" },
+    { value: "status", label: "За статусом / активністю" },
+    { value: "product", label: "За товаром" },
+    { value: "country", label: "За країною" },
+    { value: "manager", label: "За менеджером" },
+    { value: "shipment", label: "За поставкою" },
+    { value: "pallets", label: "За палетами" },
+  ];
 
+  const controlFocusClass =
+    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive";
+
+  return (
+    <div
+      className="space-y-3"
+      data-branch-test={isMalekhiv ? "malekhiv" : undefined}
+    >
       {!branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
           Вам ще не призначено філію. Зверніться до адміністратора.
         </div>
       )}
 
-      <div className="space-y-2">
-        <MainBoardToggle value={board} onChange={setBoard} />
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <div className="font-semibold text-foreground">
-            {board === "active" ? "Активний товар у роботі" : "Розвантажений товар"}
-          </div>
-          <div className="text-muted-foreground">
-            {filteredRows.length} {filteredRows.length === 1 ? "рядок" : filteredRows.length < 5 ? "рядки" : "рядків"}
-            {filtersActive && rows.length !== filteredRows.length && (
-              <span className="ml-1 opacity-70">з {rows.length}</span>
+      <MainBoardToggle value={board} onChange={setBoard} />
+
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortKey)}
+            aria-label="Сортувати за"
+            className={cn(
+              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
+              "data-[active=true]:border-destructive",
+              controlFocusClass,
             )}
-          </div>
+            data-active={sortBy !== "eta" ? "true" : undefined}
+          >
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                Сортувати: {o.label.replace(/^За /, "")}
+              </option>
+            ))}
+          </select>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Пошук: товар, країна, менеджер, поставка, дата…"
+            className={cn(
+              "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm",
+              search ? "border-destructive" : "",
+              controlFocusClass,
+            )}
+          />
         </div>
-        {rows.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Button
-              type="button"
-              variant={filtersActive ? "outline" : "default"}
-              size="sm"
-              className="h-9 text-xs"
-              onClick={resetFilters}
-            >
-              Усі поставки
-            </Button>
-            <SearchableSelect
-              value={fManager}
-              onChange={setFManager}
-              options={managerOptions}
-              placeholder="Менеджер"
-              allLabel="Усі менеджери"
-            />
-            <SearchableSelect
-              value={fProduct}
-              onChange={setFProduct}
-              options={productOptions}
-              placeholder="Товар"
-              allLabel="Усі товари"
-            />
-            <SearchableSelect
-              value={fCountry}
-              onChange={setFCountry}
-              options={countryOptions}
-              placeholder="Країна"
-              allLabel="Усі країни"
-            />
-          </div>
-        )}
-      </div>
+      )}
 
       {distsPending || (!!branchId && dists === undefined && !distsError) ? (
-        <SectionCard title="Підтверджений товар">
-          <div className="flex items-center justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-          </div>
-        </SectionCard>
+        <div className="flex items-center justify-center py-10">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        </div>
       ) : !filteredRows.length ? (
-        <EmptyState title={
-          filtersActive
-            ? "Немає товару за обраними фільтрами"
-            : board === "unloaded" ? "У розвантажених поки порожньо" : "Поки немає підтвердженого товару"
-        } />
+        <EmptyState
+          title={
+            search
+              ? "Немає товару за пошуком"
+              : board === "unloaded"
+                ? "У розвантажених поки порожньо"
+                : "Поки немає підтвердженого товару"
+          }
+        />
       ) : (
-        <SectionCard title="Підтверджений товар">
-          <TableScroller className="-mx-2">
-            <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
-              <thead className="[&_th]:bg-table-head [&_th]:font-bold">
+        <div className="branch-table-wrap rounded-2xl border border-border bg-card p-2 shadow-card sm:p-3">
+          <TableScroller className="-mx-1">
+            <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
+              <thead className="[&_th]:bg-table-head [&_th]:font-medium">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {/* Cleanup Pack #4+#5: новий порядок колонок + sticky Status + Товар(Країна). */}
-                  <th className="sticky left-0 z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Статус</th>
-                  <th className="sticky left-[64px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">Товар (Країна)</th>
-                  <th className="px-2 py-2 font-medium">Дата заходу</th>
+                  <th className="sticky left-0 z-20 bg-card px-1.5 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ width: 44 }}>Ст.</th>
+                  <th className="sticky left-[44px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ maxWidth: 160 }}>Товар</th>
+                  <th className="px-2 py-2 font-medium">Країна</th>
+                  <th className="px-2 py-2 font-medium">Заход</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
                     Палет
                     <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
@@ -662,7 +683,7 @@ function BranchDashboard() {
                     </span>
                   </th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
-                  <th className="px-2 py-2 font-medium">Відп. менеджер</th>
+                  <th className="px-2 py-2 font-medium">Менеджер</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
                 </tr>
               </thead>
@@ -681,26 +702,29 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        className="sticky left-0 z-10 bg-card px-1.5 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        style={{ width: 44 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <StatusIcon status={r.pipeline} size={28} />
-                        {r.approved_qty_note && (
-                          <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
-                        )}
+                        <StatusIcon status={r.pipeline} size={26} />
                       </td>
                       <td
-                        className="sticky left-[64px] z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        className="sticky left-[44px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        style={{ maxWidth: 160 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <span className="underline-offset-2 hover:underline">
+                        <div className="truncate sm:whitespace-normal" title={r.product}>
                           {r.product}
-                          {r.country && (
-                            <span className="text-muted-foreground"> ({toUaCountry(r.country)})</span>
-                          )}
-                        </span>
+                        </div>
+                        {r.approved_qty_note && (
+                          <div className="truncate text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
+                        )}
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
+                        <span className="sm:hidden">{r.country ? toShortUaCountry(r.country) : "—"}</span>
+                        <span className="hidden sm:inline">{r.country ? toUaCountry(r.country) : "—"}</span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
                         {fmtEta(r.eta)}
                         {etaChanged && (
                           <ChangeBadge
@@ -711,10 +735,10 @@ function BranchDashboard() {
                           />
                         )}
                       </td>
-                      <td className="px-2 py-2 text-right font-bold tabular-nums">
+                      <td className="px-2 py-2 text-right tabular-nums">
                         {s.pending > 0 ? (
                           <span>
-                            {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
+                            {s.free}п <span className="text-muted-foreground"> / </span>
                             <span className="text-blue-600">{s.pending}п</span>
                           </span>
                         ) : (
@@ -740,19 +764,20 @@ function BranchDashboard() {
                           />
                         )}
                       </td>
-                      <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                      <td className="px-2 py-2 text-foreground/80 whitespace-nowrap">
                         {r.manager_name ?? "—"}
                       </td>
-                      <td className="px-2 py-2 font-mono text-[11px] font-semibold whitespace-nowrap">
+                      <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
                         {r.code}
                       </td>
                     </tr>
                   );
                 })}
+
               </tbody>
             </table>
           </TableScroller>
-        </SectionCard>
+        </div>
       )}
 
       {/* Detail popup — centered Dialog so it sits in the workspace area

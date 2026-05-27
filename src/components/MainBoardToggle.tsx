@@ -41,10 +41,10 @@ export function MainBoardToggle({
             aria-pressed={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-semibold transition touch-manipulation select-none",
+              "flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 font-medium transition touch-manipulation select-none",
               active
-                ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-                : "text-muted-foreground hover:text-foreground",
+                ? "bg-card/60 text-foreground border border-destructive shadow-sm"
+                : "border border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             <span
