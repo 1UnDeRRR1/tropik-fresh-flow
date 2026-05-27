@@ -721,24 +721,27 @@ function BranchDashboard() {
                   return (
                     <tr
                       key={r.key}
-                      onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
-                      className="cursor-pointer border-b border-border hover:bg-muted/40 active:bg-muted/60"
+                      className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
-                      <td className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
-                        <PipelineStatusBadge status={r.pipeline} variant="animated" size="sm" />
+                      <td
+                        className="sticky left-0 z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
+                      >
+                        <StatusIcon status={r.pipeline} size={28} />
                         {r.approved_qty_note && (
                           <div className="mt-0.5 text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
                         )}
                       </td>
-                      <td className="sticky left-[96px] z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]">
-                        <DescriptionPopover row={r}>
-                          <span className="underline-offset-2 hover:underline">
-                            {r.product}
-                            {r.country && (
-                              <span className="text-muted-foreground"> ({toUaCountry(r.country)})</span>
-                            )}
-                          </span>
-                        </DescriptionPopover>
+                      <td
+                        className="sticky left-[64px] z-10 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
+                      >
+                        <span className="underline-offset-2 hover:underline">
+                          {r.product}
+                          {r.country && (
+                            <span className="text-muted-foreground"> ({toUaCountry(r.country)})</span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
                         {fmtEta(r.eta)}
