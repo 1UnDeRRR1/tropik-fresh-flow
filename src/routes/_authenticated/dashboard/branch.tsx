@@ -65,8 +65,13 @@ type Row = {
   seen_inv: number | null;
 };
 
-const fmtEta = (eta: string | null) =>
-  eta ? new Date(eta).toLocaleDateString("uk-UA", { day: "2-digit", month: "long" }) : "—";
+const fmtEta = (eta: string | null) => {
+  if (!eta) return "—";
+  const d = new Date(eta);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}.${mm}`;
+};
 
 const numNeq = (a: number | null | undefined, b: number | null | undefined) =>
   Number(a ?? 0).toFixed(2) !== Number(b ?? 0).toFixed(2);
