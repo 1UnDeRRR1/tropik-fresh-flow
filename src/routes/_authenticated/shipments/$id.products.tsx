@@ -2367,7 +2367,7 @@ const EMPTY_COMPONENTS: RowComponents = {
   matchedRef: null,
 };
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove, onResolverHint, onShowBreakdown }: {
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, collapseExpandedTick, onPatch, onRemove, onResolverHint, onShowBreakdown }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
@@ -2376,6 +2376,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   previewMap: Map<string, PreviewEntry>;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
+  collapseExpandedTick: number;
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
   onRemove: (localId: string) => void;
   onResolverHint: (localId: string, info: ResolverHintInfo | null) => void;
