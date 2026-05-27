@@ -5,14 +5,15 @@ const TOUCH_SLOP = 8;
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
+import { matchesWordStart } from "@/lib/compact-search";
 
 /**
  * Free-text input that suggests varieties for the currently selected product.
  *
- * Behavior (Phase 2 fix):
- * - On focus with empty input → shows ALL varieties for the selected product.
- * - On input → substring (case-insensitive) match against the variety list.
- * - List is scrollable (max height ~240px), shows up to 50 rows.
+ * Behavior (mobile compact fix):
+ * - Suggestions only by word-start.
+ * - Maximum 3 rows.
+ * - Compact dropdown anchored to the current input.
  * - Variety remains optional — empty value is allowed.
  */
 export function VarietyAutocomplete({
@@ -41,19 +42,17 @@ export function VarietyAutocomplete({
   const trimmed = value.trim();
   const q = trimmed.toLowerCase();
 
-  // Substring match. When input is empty AND focused → show everything.
+  // Word-start match only. Empty input must not open a long list on mobile.
   const filtered = (() => {
     if (!varieties.length) return [];
-    if (!q) return varieties.slice(0, 50);
+    if (!q || q.length < 2) return [];
     const starts: string[] = [];
-    const contains: string[] = [];
     for (const v of varieties) {
       const lv = v.toLowerCase();
       if (lv === q) continue; // already exact match — no need to suggest
-      if (lv.startsWith(q)) starts.push(v);
-      else if (lv.includes(q)) contains.push(v);
+      if (matchesWordStart(lv, q)) starts.push(v);
     }
-    return [...starts, ...contains].slice(0, 50);
+    return starts.slice(0, 3);
   })();
 
   const showDropdown = focused && filtered.length > 0;
@@ -107,7 +106,7 @@ export function VarietyAutocomplete({
       />
       {showDropdown && (
         <div
-          className="absolute left-0 top-[calc(100%+2px)] z-50 max-h-[240px] min-w-[200px] max-w-[85vw] overflow-y-auto overscroll-contain rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
+          className="absolute left-0 top-[calc(100%+2px)] z-50 w-full min-w-0 max-w-[min(18rem,85vw)] overflow-y-auto overscroll-contain rounded-md border border-border bg-popover/95 shadow-xl backdrop-blur"
           onMouseDown={(e) => e.preventDefault()}
           style={{ WebkitOverflowScrolling: "touch" }}
         >
