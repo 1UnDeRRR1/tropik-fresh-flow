@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useCallback, type FormEvent } from "react";
 import { Check, ChevronsUpDown, Truck, Plus, Lock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -104,6 +104,7 @@ function NewShipment() {
   const countryOptions = useCountryOptions();
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState("");
+  const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
   const [shake, setShake] = useState(false);
   const clearInvalid = (key: string) => setInvalid((prev) => {
@@ -217,6 +218,45 @@ function NewShipment() {
     if (q.length < 2) return [];
     return filterWordStart(openVehicles ?? [], (v) => `${v.code} ${v.country}`, q, 3);
   }, [openVehicles, vehicleSearch]);
+
+  const blurAndCloseEditors = useCallback(() => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    setSupplierOpen(false);
+    setCountryOpen(false);
+    setVehicleOpen(false);
+    setMobileEditingLabel(null);
+  }, []);
+
+  useEffect(() => {
+    const labelOf = (target: EventTarget | null) => {
+      const el = target instanceof HTMLElement ? target : null;
+      if (!el) return null;
+      if (el.closest("[data-mobile-edit-label='Постачальник']")) return "Постачальник";
+      if (el.closest("[data-mobile-edit-label='Країна завантаження']")) return "Країна завантаження";
+      if (el.closest("[data-mobile-edit-label='Відкрите авто']")) return "Відкрите авто";
+      if (el.id === "code") return "Номер поставки";
+      if (el.id === "ld") return "Дата завантаження";
+      if (el.id === "eta-new") return "Дата прибуття";
+      return null;
+    };
+    const onFocusIn = (event: Event) => {
+      setMobileEditingLabel(labelOf(event.target));
+    };
+    const onFocusOut = () => {
+      window.setTimeout(() => {
+        setMobileEditingLabel(labelOf(document.activeElement));
+      }, 0);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
 
   // When supplier picked: auto-fill country if user hasn't touched it (and we're creating new vehicle)
   useEffect(() => {
