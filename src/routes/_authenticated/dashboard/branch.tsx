@@ -728,6 +728,29 @@ function BranchDashboard() {
         </div>
       )}
 
+      <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Розділ">
+        {([
+          { id: "main", label: "Головна", count: mainRows.length },
+          { id: "offers", label: "Пропозиції", count: offerRows.length },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={view === t.id}
+            onClick={() => setView(t.id)}
+            className={cn(
+              "h-10 rounded-lg border px-3 text-sm font-medium leading-none transition-colors",
+              view === t.id
+                ? "border-destructive bg-destructive/10 text-destructive"
+                : "border-input bg-card/80 text-foreground hover:bg-muted/50",
+            )}
+          >
+            {t.label} <span className="ml-1 text-xs tabular-nums opacity-70">{t.count}</span>
+          </button>
+        ))}
+      </div>
+
       <MainBoardToggle value={board} onChange={setBoard} />
 
       {rows.length > 0 && (
