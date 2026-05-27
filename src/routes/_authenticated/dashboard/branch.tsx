@@ -641,7 +641,7 @@ function BranchDashboard() {
     const baseRows = viewRows;
     const q = search.trim().toLocaleLowerCase("uk");
     const matched = q
-      ? rows.filter((r) => {
+      ? baseRows.filter((r) => {
           const haystack = [
             r.product,
             r.manager_name,
@@ -656,7 +656,7 @@ function BranchDashboard() {
             .toLocaleLowerCase("uk");
           return haystack.includes(q);
         })
-      : rows;
+      : baseRows;
     const sorted = [...matched];
     const cmp = (a: Row, b: Row): number => {
       switch (sortBy) {
