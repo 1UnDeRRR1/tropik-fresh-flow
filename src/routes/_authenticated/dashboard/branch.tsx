@@ -83,6 +83,9 @@ type Row = {
   seen_pallets: number | null;
   seen_ind: number | null;
   seen_inv: number | null;
+  // Block 0.5/1: anchor + classification (read-only, derived).
+  anchor: RowAnchor;
+  is_real_shipment_code: boolean;
 };
 
 const fmtEta = (eta: string | null) => {
