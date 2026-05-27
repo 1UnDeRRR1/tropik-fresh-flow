@@ -1,0 +1,1 @@
+DELETE FROM public.vehicles WHERE id = 'e2c44cc4-83fb-4ccf-aae8-160f712a399a' AND status = 'open' AND created_by = 'f475e275-458e-4af8-96ea-7e06991cbeb2' AND NOT EXISTS (SELECT 1 FROM public.shipments s WHERE s.vehicle_id = vehicles.id);

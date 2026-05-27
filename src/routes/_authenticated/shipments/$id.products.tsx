@@ -1559,7 +1559,9 @@ function ProductsFullscreen() {
           originCountry: d.origin_country,
           sourceContext: "shipment_item_manual",
           sourceRowKey: `${id}:${d.localId}`,
-          clientRowId: d.localId,
+          // Strip "tmp_" prefix — p_client_row_id is a uuid column in DB.
+          // Frontend localId is `tmp_<uuid>`; pass the raw uuid only.
+          clientRowId: d.localId.replace(/^tmp_/, ""),
           caliber: d.caliber || null,
           packaging: d.package_used || null,
           responsibleManagerId: sh?.import_manager_id ?? null,
