@@ -35,6 +35,7 @@ import {
   attachShipmentItemToPosition,
   rollbackBirthPosition,
 } from "@/lib/position-attach";
+import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 // D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
