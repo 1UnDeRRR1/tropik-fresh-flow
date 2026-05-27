@@ -714,15 +714,15 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-1 py-2 text-center cursor-pointer"
-                        style={{ width: 56, minWidth: 56 }}
+                        className="sticky left-0 z-10 bg-card pl-1 pr-0.5 py-2 text-left cursor-pointer"
+                        style={{ width: 44, minWidth: 44, maxWidth: 44 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
-                        <StatusIcon status={r.pipeline} size={26} />
+                        <StatusIcon status={r.pipeline} size={24} />
                       </td>
                       <td
-                        className="sticky left-[56px] z-10 bg-card px-2 py-2 cursor-pointer"
-                        style={{ width: 150, minWidth: 150, maxWidth: 150 }}
+                        className="sticky left-[44px] z-10 bg-card px-2 py-2 cursor-pointer"
+                        style={{ width: 128, minWidth: 128, maxWidth: 128 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
                         <div className="truncate" title={r.product}>
@@ -736,7 +736,7 @@ function BranchDashboard() {
                         <span className="sm:hidden">{r.country ? toShortUaCountry(r.country) : "—"}</span>
                         <span className="hidden sm:inline">{r.country ? toUaCountry(r.country) : "—"}</span>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80 tabular-nums">
                         {fmtEta(r.eta)}
                         {etaChanged && (
                           <ChangeBadge
@@ -764,6 +764,9 @@ function BranchDashboard() {
                             onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
                           />
                         )}
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
+                        {r.variety ?? <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-2 py-2 text-right">
                         <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
