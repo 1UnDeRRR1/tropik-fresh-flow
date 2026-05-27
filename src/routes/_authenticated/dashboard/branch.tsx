@@ -604,7 +604,7 @@ function BranchDashboard() {
   ];
 
   const controlBaseClass =
-    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none";
+    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground";
   const controlFocusClass =
     "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive data-[active=true]:border-destructive data-[active=true]:ring-1 data-[active=true]:ring-destructive";
 
