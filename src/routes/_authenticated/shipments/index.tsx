@@ -715,8 +715,10 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           const sups = redactCommercial
             ? []
             : ((v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[]);
-          const pallets = Number(v.total_pallets ?? 0);
-          const weight = Number(v.total_weight_kg ?? 0);
+          // P-Fix — gross-based aggregation from items, see aggregateVehicleFromItems().
+          const _agg = aggregateVehicleFromItems(v);
+          const pallets = _agg.pallets;
+          const weight = _agg.gross;
           const palletsPct = Math.min(100, (pallets / CAP_PALLETS) * 100);
           const weightPct = Math.min(100, (weight / CAP_GROSS_KG) * 100);
           const { available: topUpAvailable } = computeTopUp(pallets, weight);
