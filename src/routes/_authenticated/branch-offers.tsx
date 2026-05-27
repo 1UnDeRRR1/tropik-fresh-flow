@@ -218,6 +218,9 @@ function BranchOffersPage() {
     onSuccess: (_, vars) => {
       toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
       qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      // Block 2: auto-close the detail dialog after a successful request,
+      // returning the user to the compact "Пропозиції" table.
+      setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
