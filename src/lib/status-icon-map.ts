@@ -21,7 +21,8 @@ export type StatusIconKey =
   | "status_06"
   | "status_07"
   | "status_08"
-  | "status_refused";
+  | "status_refused"
+  | "status_cancelled";
 
 const MAP: Partial<Record<PipelineStatus, StatusIconKey>> = {
   awaiting_confirmation: "status_01",
@@ -36,9 +37,9 @@ const MAP: Partial<Record<PipelineStatus, StatusIconKey>> = {
   left_customs: "status_06",
   at_warehouse: "status_08",
   unloaded: "status_08",
-  // New dedicated visual asset for refused/declined branch item state.
-  // Replaces the textual "Відмовлено" badge in the mobile table.
+  // Dedicated visual assets for refused/cancelled (icon-only in table).
   rejected: "status_refused",
+  cancelled: "status_cancelled",
 };
 
 export function statusIconFor(status: PipelineStatus): StatusIconKey | null {
@@ -46,9 +47,9 @@ export function statusIconFor(status: PipelineStatus): StatusIconKey | null {
 }
 
 export function statusIconSrc(key: StatusIconKey): string {
-  // The new refused icon ships as PNG at 96/256/512 sizes; everything else
-  // continues to use the existing SVG package.
+  // PNG packages for refused/cancelled; everything else uses the SVG set.
   if (key === "status_refused") return `/status-icons/png/status_refused_96.png`;
+  if (key === "status_cancelled") return `/status-icons/png/status_cancelled_96.png`;
   return `/status-icons/svg/${key}.svg`;
 }
 
