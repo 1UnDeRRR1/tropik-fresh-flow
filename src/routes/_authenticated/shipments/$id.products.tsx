@@ -2461,6 +2461,8 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const invalidPallets = palletCountNum <= 0;
   const invalidNet = netNum <= 0;
   const invalidGross = grossNum <= 0;
+  // Mobile-safety: net must not exceed gross (typo guard). Always red, not pulse-gated.
+  const netGtGross = netNum > 0 && grossNum > 0 && netNum > grossNum;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
   const [confirmOpen, setConfirmOpen] = useState(false);
