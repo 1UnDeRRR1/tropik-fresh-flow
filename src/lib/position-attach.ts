@@ -267,12 +267,23 @@ export async function createPositionForShipmentItem(
   if (!countryId) return { ok: false, stage: "resolve_country", reason: "country_not_resolved" };
 
   try {
+    // Defensive guard: p_client_row_id is a uuid in DB. Drop anything that
+    // is not a real uuid (e.g. stale "tmp_..." frontend keys) so the RPC
+    // doesn't fail with `invalid input syntax for type uuid`.
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rawClientRowId = input.clientRowId ?? input.sourceRowKey;
+    const safeClientRowId =
+      typeof rawClientRowId === "string" && UUID_RE.test(rawClientRowId)
+        ? rawClientRowId
+        : undefined;
+
     const res = await supabase.rpc("rpc_position_create_draft", {
       p_product_id: productId,
       p_product_origin_country_id: countryId,
       p_source_context: input.sourceContext,
       p_source_row_key: input.sourceRowKey,
-      p_client_row_id: input.clientRowId ?? input.sourceRowKey,
+      p_client_row_id: safeClientRowId,
       p_caliber: input.caliber ?? undefined,
       p_package_used: input.packaging ?? undefined,
       p_responsible_manager_id: input.responsibleManagerId ?? undefined,
