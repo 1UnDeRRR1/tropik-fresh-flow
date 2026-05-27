@@ -237,14 +237,38 @@ function BranchDashboard() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items")
-        .select("id,product_name,caliber,origin_country,variety,brand,class")
+        .select("id,product_name,caliber,origin_country,variety,brand,class,linked_offer_id")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; product_name: string; caliber: string | null;
         origin_country: string | null; variety: string | null;
         brand: string | null; class: string | null;
+        linked_offer_id: string | null;
       }>;
+    },
+  });
+
+  // Block 0.5/1 bridge: for materialized rows whose shipment_items.linked_offer_id
+  // points at a manager_offer NOT in pendingOffers (closed/linked/expired offers),
+  // fetch only id + position_id to resolve the row anchor. No text matching.
+  const bridgeOfferIds = useMemo(() => {
+    const fromItems = new Set(
+      (items ?? []).map((i) => i.linked_offer_id).filter(Boolean) as string[],
+    );
+    return Array.from(fromItems);
+  }, [items]);
+
+  const { data: bridgeOffers } = useQuery({
+    queryKey: ["branch-bridge-offers", bridgeOfferIds.join(",")],
+    enabled: bridgeOfferIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("manager_offers")
+        .select("id,position_id")
+        .in("id", bridgeOfferIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; position_id: string | null }>;
     },
   });
 
