@@ -80,10 +80,14 @@ export function ShipmentQuickView({
     }
   }
 
-  const goDistribute = () => {
+  const goDistribute = (itemId?: string) => {
     setOpen(false);
     setOpenItem(null);
-    navigate({ to: "/distribution/$shipmentId", params: { shipmentId } });
+    navigate({
+      to: "/distribution/$shipmentId",
+      params: { shipmentId },
+      search: itemId ? { itemId } : {},
+    });
   };
 
   const goEdit = () => {
