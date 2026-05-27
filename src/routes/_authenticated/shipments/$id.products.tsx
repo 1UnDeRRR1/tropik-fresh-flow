@@ -1780,11 +1780,41 @@ function ProductsFullscreen() {
 
   const fallbackOpenRef = useRef<(open: boolean) => void>(() => {});
   const [selectedFallbackId, setSelectedFallbackId] = useState<string | null>(null);
+  const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const fallbackSelection: FallbackSelection = {
     selectedId: selectedFallbackId,
     setSelectedId: setSelectedFallbackId,
     openRef: fallbackOpenRef,
   };
+
+  const blurActiveEditor = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+    setMobileEditingLabel(null);
+  }, []);
+
+  useEffect(() => {
+    const onFocusIn = (event: FocusEvent) => {
+      if (!isEditableFieldTarget(event.target)) return;
+      setMobileEditingLabel(getMobileEditorLabel(event.target));
+    };
+    const onFocusOut = () => {
+      window.setTimeout(() => {
+        if (isEditableFieldTarget(document.activeElement)) {
+          setMobileEditingLabel(getMobileEditorLabel(document.activeElement));
+          return;
+        }
+        setMobileEditingLabel(null);
+      }, 0);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
 
   // D1-Fix v2.5.4 — recognition hints captured from per-row resolver runs.
   // commitDraft consumes the ref; stale or missing entries trigger a
@@ -1873,6 +1903,7 @@ function ProductsFullscreen() {
       <ProductsScrollArea
         itemsCount={draftItems.length}
         empty={draftItems.length === 0}
+        editingToolbarVisible={!!mobileEditingLabel}
         emptyContent={
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -1914,6 +1945,30 @@ function ProductsFullscreen() {
 
 
       </ProductsScrollArea>
+
+      {mobileEditingLabel && currentShipmentEditable && (
+        <div
+          className="sticky bottom-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
+          style={{ bottom: "var(--keyboard-inset, 0px)" }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Редагування
+              </div>
+              <div className="truncate text-sm font-semibold text-foreground">{mobileEditingLabel}</div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={blurActiveEditor}
+              className="h-9 shrink-0 bg-brand px-4 text-brand-foreground hover:bg-brand/90"
+            >
+              Готово
+            </Button>
+          </div>
+        </div>
+      )}
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <button
