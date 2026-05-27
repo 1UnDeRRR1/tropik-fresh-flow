@@ -697,7 +697,8 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
     if (isOwnVehicle) return true;
     if (!hasShipments) return false;
-    const { available } = computeTopUp(Number(v.total_pallets ?? 0), Number(v.total_weight_kg ?? 0));
+    const agg = aggregateVehicleFromItems(v);
+    const { available } = computeTopUp(agg.pallets, agg.gross);
     return available;
   });
 
