@@ -628,28 +628,32 @@ function BranchOffersPage() {
                         Запит: <b className="text-foreground tabular-nums">{reqQty}</b>
                       </div>
                       {apprQty != null && (
-                        <div className="text-muted-foreground">
-                          Підтв.:{" "}
-                          <b
-                            className={cn(
-                              "tabular-nums",
-                              palletDelta < 0 && "text-destructive",
-                              palletDelta > 0 && "text-success",
-                              palletDelta === 0 && "text-foreground",
-                            )}
-                          >
-                            {apprQty}
-                            {palletDelta !== 0 && (
-                              <span className="ml-1">
-                                ({palletDelta > 0 ? "+" : ""}
-                                {palletDelta})
-                              </span>
-                            )}
-                          </b>
-                        </div>
+                        <>
+                          <div className="text-muted-foreground">
+                            Підтверджено:{" "}
+                            <b className="text-foreground tabular-nums">
+                              {apprQty === reqQty
+                                ? `${apprQty}`
+                                : apprQty < reqQty
+                                ? `${apprQty} з ${reqQty}`
+                                : `${apprQty}`}
+                            </b>
+                          </div>
+                          {apprQty > 0 && apprQty < reqQty && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {reqQty - apprQty} не підтверджено
+                            </div>
+                          )}
+                          {apprQty > reqQty && (
+                            <div className="text-[11px] text-warning">
+                              Перевірте: підтверджено більше, ніж запит
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
+
                 </div>
               </div>
             );
