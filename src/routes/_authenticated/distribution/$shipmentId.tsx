@@ -47,6 +47,7 @@ type Grid = Record<string, Record<string, number>>;
 
 function DistributionMatrix() {
   const { shipmentId } = Route.useParams();
+  const { itemId: selectedItemId } = Route.useSearch();
   const router = useRouter();
   const qc = useQueryClient();
   const [grid, setGrid] = useState<Grid>({});
@@ -272,6 +273,39 @@ function DistributionMatrix() {
 
   useFocusHighlight([data]);
 
+  // P-Fix #5 — scroll/highlight selected shipment_item_id (by id, never by name).
+  // Falls back to default (no selection) when itemId is missing or doesn't match.
+  useEffect(() => {
+    if (!data || !selectedItemId) return;
+    const valid = data.items.some((it) => it.id === selectedItemId);
+    if (!valid) return;
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    const tryFocus = (attempt: number) => {
+      if (cancelled) return;
+      const nodes = document.querySelectorAll<HTMLElement>(
+        `[data-item-id="${CSS.escape(selectedItemId)}"]`,
+      );
+      if (nodes.length === 0) {
+        if (attempt < 20) timeoutId = window.setTimeout(() => tryFocus(attempt + 1), 120);
+        return;
+      }
+      const ring = ["ring-2", "ring-brand", "ring-offset-2", "ring-offset-background", "rounded-xl", "transition-shadow"];
+      const first = nodes[0];
+      first.scrollIntoView({ behavior: "smooth", block: "center" });
+      nodes.forEach((el) => el.classList.add(...ring));
+      timeoutId = window.setTimeout(() => {
+        nodes.forEach((el) => el.classList.remove(...ring));
+      }, 4000);
+    };
+    tryFocus(0);
+    return () => {
+      cancelled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [data, selectedItemId]);
+
+
   if (isLoading || !data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -340,7 +374,7 @@ function DistributionMatrix() {
         {data.items.map((it) => {
           const t = totals[it.id] ?? { distributed: 0, remaining: 0, total: 0 };
           return (
-            <div key={it.id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+            <div key={it.id} data-item-id={it.id} className="rounded-2xl border border-border bg-card p-3 shadow-sm">
               <div className="sticky top-14 z-20 -mx-3 -mt-3 rounded-t-2xl border-b border-border bg-card/95 px-3 pt-3 pb-2 backdrop-blur supports-[backdrop-filter]:bg-card/80">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -437,7 +471,7 @@ function DistributionMatrix() {
               {data.items.map((it) => {
                 const t = totals[it.id] ?? { distributed: 0, remaining: 0, total: 0 };
                 return (
-                  <tr key={it.id} className="border-t border-border">
+                  <tr key={it.id} data-item-id={it.id} className="border-t border-border">
                     <td className="sticky left-0 z-10 bg-background px-2 py-2 font-medium whitespace-nowrap">
                       <div>
                         {it.product_name}

@@ -1822,11 +1822,13 @@ function ProductsFullscreen() {
           previewMap={previewMap}
           currentShipmentEditable={currentShipmentEditable}
           pulseFields={pulseFields}
+          collapseExpandedTick={collapseExpandedTick}
           onPatch={patchDraft}
           onRemove={removeDraft}
           onResolverHint={setResolverHint}
           onShowBreakdown={openTopZone}
         />
+
 
         {currentShipmentEditable && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
@@ -2365,7 +2367,7 @@ const EMPTY_COMPONENTS: RowComponents = {
   matchedRef: null,
 };
 
-function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, onPatch, onRemove, onResolverHint, onShowBreakdown }: {
+function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContext, previewMap, currentShipmentEditable, pulseFields, collapseExpandedTick, onPatch, onRemove, onResolverHint, onShowBreakdown }: {
   drafts: DraftRow[];
   dbItemById: Map<string, ItemRow>;
   shipmentId: string;
@@ -2374,6 +2376,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   previewMap: Map<string, PreviewEntry>;
   currentShipmentEditable: boolean;
   pulseFields: boolean;
+  collapseExpandedTick: number;
   onPatch: (localId: string, patch: Partial<DraftRow>) => void;
   onRemove: (localId: string) => void;
   onResolverHint: (localId: string, info: ResolverHintInfo | null) => void;
@@ -2438,12 +2441,14 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 preview={preview}
                 readOnly={!currentShipmentEditable}
                 pulse={pulseFields}
+                collapseExpandedTick={collapseExpandedTick}
                 onShowBreakdown={() => onShowBreakdown(d.localId)}
                 onPatch={(patch) => onPatch(d.localId, patch)}
                 onRemove={() => onRemove(d.localId)}
                 onResolverHint={(info) => onResolverHint(d.localId, info)}
 
               />
+
 
             );
           })}
@@ -2459,7 +2464,7 @@ const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
 const MIN_AUTOCLOSE_WEIGHT_KG = 21000;
 
-function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, onShowBreakdown, onPatch, onRemove, onResolverHint }: {
+function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, otherKg, preview, readOnly, pulse = false, collapseExpandedTick, onShowBreakdown, onPatch, onRemove, onResolverHint }: {
   draft: DraftRow;
   dbItem: ItemRow | null;
   shipmentId: string;
@@ -2469,6 +2474,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   preview: PreviewEntry;
   readOnly: boolean;
   pulse?: boolean;
+  collapseExpandedTick: number;
   onShowBreakdown: () => void;
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
@@ -2643,6 +2649,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   useEffect(() => {
     if (confirmedOverrideDuty != null) setOverrideOpen(false);
   }, [confirmedOverrideDuty]);
+  // P-Fix #6 — when parent bumps the collapse tick (e.g. "Додати товар"),
+  // close any expanded cost/customs/details panel so it doesn't overlap
+  // freshly added rows or the sticky header.
+  const firstCollapseTickRef = useRef(collapseExpandedTick);
+  useEffect(() => {
+    if (collapseExpandedTick === firstCollapseTickRef.current) return;
+    firstCollapseTickRef.current = collapseExpandedTick;
+    setOverrideOpen(false);
+  }, [collapseExpandedTick]);
 
   const { setFocused } = useContext(FocusedColContext);
 
