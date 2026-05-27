@@ -8,6 +8,7 @@ import { getPersonalAssets } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, type ReactNode } from "react";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 interface NavItem {
   to: string;
@@ -17,6 +18,7 @@ interface NavItem {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  useKeyboardInset();
   const { profile, primaryRole, hasRole } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const dashHref = defaultRoutePerRole(primaryRole);
