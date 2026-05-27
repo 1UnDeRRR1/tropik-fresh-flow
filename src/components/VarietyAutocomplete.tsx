@@ -23,6 +23,7 @@ export function VarietyAutocomplete({
   className,
   inputClassName,
   disabled,
+  onCommit,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -31,6 +32,7 @@ export function VarietyAutocomplete({
   className?: string;
   inputClassName?: string;
   disabled?: boolean;
+  onCommit?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const acceptingRef = useRef(false);
@@ -61,6 +63,7 @@ export function VarietyAutocomplete({
     setTimeout(() => {
       inputRef.current?.blur();
       setFocused(false);
+      onCommit?.();
     }, 0);
   };
 
@@ -95,6 +98,7 @@ export function VarietyAutocomplete({
           if (e.key === "Enter") {
             e.preventDefault();
             inputRef.current?.blur();
+            onCommit?.();
             return;
           }
           if (e.key === "Escape") inputRef.current?.blur();

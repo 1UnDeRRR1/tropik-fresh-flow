@@ -52,6 +52,7 @@ export function AutocompleteCell({
   className,
   required = true,
   readOnly = false,
+  onCommit,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -63,6 +64,7 @@ export function AutocompleteCell({
   className?: string;
   required?: boolean;
   readOnly?: boolean;
+  onCommit?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const acceptingRef = useRef(false);
@@ -131,6 +133,7 @@ export function AutocompleteCell({
     setTimeout(() => {
       inputRef.current?.blur();
       setFocused(false);
+      onCommit?.();
     }, 0);
   };
 
@@ -146,6 +149,7 @@ export function AutocompleteCell({
       onChange(c);
       setInvalid(false);
       setFocused(false);
+      onCommit?.();
       return;
     }
     if (required && trimmed && !c) {
@@ -156,6 +160,7 @@ export function AutocompleteCell({
     }
     setInvalid(false);
     setFocused(false);
+    onCommit?.();
   };
 
   return (

@@ -641,16 +641,53 @@ const FocusedColContext = createContext<{ focused: number | null; setFocused: (i
   setFocused: () => {},
 });
 
+const MOBILE_EDITOR_LABELS: Record<string, string> = {
+  "0": "Товар",
+  "1": "Сорт",
+  "2": "Країна",
+  "3": "Калібр",
+  "4": "SKU",
+  "5": "Упаковка",
+  "6": "Палети",
+  "7": "Нетто",
+  "8": "Брутто",
+  "9": "Ціна",
+};
+
+function getMobileEditorLabel(target: EventTarget | null): string | null {
+  const el = target instanceof HTMLElement ? target : null;
+  if (!el) return null;
+  const explicit = el.closest("[data-mobile-edit-label]") as HTMLElement | null;
+  if (explicit?.dataset.mobileEditLabel) return explicit.dataset.mobileEditLabel;
+  const td = el.closest("td[data-col]") as HTMLElement | null;
+  if (!td) return null;
+  return MOBILE_EDITOR_LABELS[td.dataset.col ?? ""] ?? null;
+}
+
+function isEditableFieldTarget(target: EventTarget | null) {
+  const el = target instanceof HTMLElement ? target : null;
+  if (!el) return false;
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+    return false;
+  }
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    return !el.readOnly && !el.disabled;
+  }
+  return !el.disabled;
+}
+
 function ProductsScrollArea({
   itemsCount,
   empty,
   emptyContent,
   children,
+  editingToolbarVisible = false,
 }: {
   itemsCount: number;
   empty: boolean;
   emptyContent: ReactNode;
   children: ReactNode;
+  editingToolbarVisible?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const prevCount = useRef(itemsCount);
@@ -668,7 +705,17 @@ function ProductsScrollArea({
     prevCount.current = itemsCount;
   }, [itemsCount]);
   return (
-    <div ref={ref} className="flex-1 overflow-auto relative">
+    <div
+      ref={ref}
+      data-mobile-scroll-container
+      className="relative flex-1 overflow-auto overscroll-contain"
+      style={{
+        ["--mobile-focus-top-offset" as string]: "46px",
+        ["--mobile-focus-bottom-offset" as string]: editingToolbarVisible ? "92px" : "24px",
+        scrollPaddingTop: "46px",
+        scrollPaddingBottom: editingToolbarVisible ? "92px" : "24px",
+      }}
+    >
       {empty ? emptyContent : children}
     </div>
   );
@@ -1733,11 +1780,41 @@ function ProductsFullscreen() {
 
   const fallbackOpenRef = useRef<(open: boolean) => void>(() => {});
   const [selectedFallbackId, setSelectedFallbackId] = useState<string | null>(null);
+  const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const fallbackSelection: FallbackSelection = {
     selectedId: selectedFallbackId,
     setSelectedId: setSelectedFallbackId,
     openRef: fallbackOpenRef,
   };
+
+  const blurActiveEditor = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+    setMobileEditingLabel(null);
+  }, []);
+
+  useEffect(() => {
+    const onFocusIn = (event: Event) => {
+      if (!isEditableFieldTarget(event.target)) return;
+      setMobileEditingLabel(getMobileEditorLabel(event.target));
+    };
+    const onFocusOut = (_event: Event) => {
+      window.setTimeout(() => {
+        if (isEditableFieldTarget(document.activeElement)) {
+          setMobileEditingLabel(getMobileEditorLabel(document.activeElement));
+          return;
+        }
+        setMobileEditingLabel(null);
+      }, 0);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
 
   // D1-Fix v2.5.4 — recognition hints captured from per-row resolver runs.
   // commitDraft consumes the ref; stale or missing entries trigger a
@@ -1826,6 +1903,7 @@ function ProductsFullscreen() {
       <ProductsScrollArea
         itemsCount={draftItems.length}
         empty={draftItems.length === 0}
+        editingToolbarVisible={!!mobileEditingLabel}
         emptyContent={
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-muted-foreground">Позицій ще немає</p>
@@ -1867,6 +1945,30 @@ function ProductsFullscreen() {
 
 
       </ProductsScrollArea>
+
+      {mobileEditingLabel && currentShipmentEditable && (
+        <div
+          className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
+          style={{ bottom: "var(--keyboard-inset, 0px)" }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Редагування
+              </div>
+              <div className="truncate text-sm font-semibold text-foreground">{mobileEditingLabel}</div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={blurActiveEditor}
+              className="h-9 shrink-0 bg-brand px-4 text-brand-foreground hover:bg-brand/90"
+            >
+              Готово
+            </Button>
+          </div>
+        </div>
+      )}
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <button
@@ -2709,6 +2811,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             setResolverBusy(true);
             onPatch({ product_name: v });
           }}
+          onCommit={() => { void runResolver(); }}
 
           options={knownProductNames}
           aliases={productAliases}
@@ -2741,6 +2844,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             setResolverBusy(true);
             onPatch({ origin_country: v });
           }}
+          onCommit={() => { void runResolver(); }}
 
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
@@ -3254,6 +3358,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
   const [focused, setFocused] = useState(false);
   return (
     <Input
+      data-mobile-edit-label={placeholder && placeholder !== "—" ? placeholder.replace("*", "") : undefined}
       value={value}
       readOnly={readOnly}
       list={list}
@@ -3305,6 +3410,12 @@ function PackageCell({
   const options: PackageOption[] = resolved?.options ?? [];
   const fallbackLabel = resolved?.isFallback ? resolved?.fallbackExplanation : null;
 
+  const commitAndClose = useCallback(() => {
+    setOpen(false);
+    setFocused(false);
+    inputRef.current?.blur();
+  }, []);
+
 
   if (readOnly) {
     return (
@@ -3319,6 +3430,7 @@ function PackageCell({
     <Popover open={open && focused} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <input
+          data-mobile-edit-label="Упаковка"
           ref={inputRef}
           type="text"
           value={value}
@@ -3335,7 +3447,15 @@ function PackageCell({
             setOpen(true);
             scrollFocusedIntoView(e.currentTarget);
           }}
-          onKeyDown={blurOnEnter}
+          onKeyDown={(e) => {
+            if ((e.key === "Tab" || e.key === "Enter") && options[0]) {
+              e.preventDefault();
+              onSelect(options[0]);
+              commitAndClose();
+              return;
+            }
+            blurOnEnter(e);
+          }}
           onBlur={() => { setFocused(false); }}
           className={cn(
             "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
@@ -3369,8 +3489,13 @@ function PackageCell({
                   onMouseDown={(e) => {
                     e.preventDefault();
                     onSelect(opt);
-                    setOpen(false);
-                    inputRef.current?.blur();
+                    commitAndClose();
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelect(opt);
+                    commitAndClose();
                   }}
                   className={cn(
                     "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
@@ -3405,6 +3530,11 @@ function VarietyCell({ value, onChange, productName, readOnly }: { value: string
     <VarietyAutocomplete
       value={value}
       onChange={onChange}
+      onCommit={() => {
+        if (typeof document === "undefined") return;
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) active.blur();
+      }}
       varieties={varieties}
       placeholder="—"
       inputClassName={cn(
@@ -3429,6 +3559,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
   return (
     <Input
       type="text"
+      data-mobile-edit-label="Палети/вага"
       readOnly={readOnly}
       inputMode="decimal"
       enterKeyHint={MOBILE_ENTER_KEY_HINT}
@@ -3491,6 +3622,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
     )}>
       <Input
         type="text"
+        data-mobile-edit-label="Ціна"
         readOnly={readOnly}
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
@@ -3527,6 +3659,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         )}
       />
       <select
+        data-mobile-edit-label="Валюта"
         value={currency}
         disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
