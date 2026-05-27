@@ -1847,8 +1847,10 @@ function ProductsFullscreen() {
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <button
           type="button"
-          className="block w-full"
+          disabled={isSaving}
+          className="block w-full disabled:opacity-60"
           onClick={(e) => {
+            if (isSaving) { e.preventDefault(); return; }
             if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
               e.preventDefault();
               triggerShake(transportMissing);
@@ -1860,6 +1862,7 @@ function ProductsFullscreen() {
         >
           <Button
             asChild={false}
+            disabled={isSaving}
             className={cn(
               "w-full",
               (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
@@ -1867,17 +1870,19 @@ function ProductsFullscreen() {
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
-            {transportMissing
-              ? canSaveForLater
-                ? "Зберегти зараз, перевезення додасте пізніше"
-                : "Вкажіть вартість перевезення"
-              : incompleteCount > 0
-                ? `Заповніть обов'язкові поля (${incompleteCount})`
-                : redUnconfirmedCount > 0
-                  ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
-                  : canSaveForLater
-                    ? "Зберегти та вийти"
-                    : "Готово"}
+            {isSaving
+              ? "Збереження…"
+              : transportMissing
+                ? canSaveForLater
+                  ? "Зберегти зараз, перевезення додасте пізніше"
+                  : "Вкажіть вартість перевезення"
+                : incompleteCount > 0
+                  ? `Заповніть обов'язкові поля (${incompleteCount})`
+                  : redUnconfirmedCount > 0
+                    ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
+                    : canSaveForLater
+                      ? "Зберегти та вийти"
+                      : "Готово"}
           </Button>
         </button>
       </footer>
