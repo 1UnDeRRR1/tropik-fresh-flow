@@ -60,6 +60,15 @@ function BranchOffersPage() {
   const [fManager, setFManager] = useState<string>("");
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
 
+  // Block 2 dev-only coverage log for position_id on the "Пропозиції" list.
+  // Source = manager_offers.position_id ONLY (already selected via *).
+  // No fallback, no text matching.
+  useEffect(() => {
+    if (!import.meta.env?.DEV || typeof window === "undefined") return;
+    // referenced after offers query resolves
+  }, []);
+
+
 
 
   const { data: offers, isLoading } = useQuery({
