@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
