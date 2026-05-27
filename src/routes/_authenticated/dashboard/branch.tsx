@@ -529,39 +529,48 @@ function BranchDashboard() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
-  const managerOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => r.manager_name && set.add(r.manager_name));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
-  }, [rows]);
-  const productOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => r.product && set.add(r.product));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
-  }, [rows]);
-  const countryOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach((r) => r.country && set.add(r.country));
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: toUaCountry(v) }));
-  }, [rows]);
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase("uk");
+    const matched = q
+      ? rows.filter((r) => {
+          const haystack = [
+            r.product,
+            r.manager_name,
+            r.country ? toUaCountry(r.country) : null,
+            r.country,
+            r.code,
+            r.eta ? new Date(r.eta).toLocaleDateString("uk-UA") : null,
+            r.eta,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLocaleLowerCase("uk");
+          return haystack.includes(q);
+        })
+      : rows;
+    const sorted = [...matched];
+    const cmp = (a: Row, b: Row): number => {
+      switch (sortBy) {
+        case "product":
+          return a.product.localeCompare(b.product, "uk");
+        case "country":
+          return toUaCountry(a.country ?? "").localeCompare(toUaCountry(b.country ?? ""), "uk");
+        case "manager":
+          return (a.manager_name ?? "").localeCompare(b.manager_name ?? "", "uk");
+        case "shipment":
+          return a.code.localeCompare(b.code, "uk");
+        case "pallets":
+          return b.pallets - a.pallets;
+        case "status":
+          return a.pipeline.localeCompare(b.pipeline);
+        case "eta":
+        default:
+          return (a.eta ?? "").localeCompare(b.eta ?? "");
+      }
+    };
+    return sorted.sort(cmp);
+  }, [rows, search, sortBy]);
 
-  const filteredRows = useMemo(
-    () =>
-      rows.filter((r) => {
-        if (fManager !== "__all__" && r.manager_name !== fManager) return false;
-        if (fProduct !== "__all__" && r.product !== fProduct) return false;
-        if (fCountry !== "__all__" && r.country !== fCountry) return false;
-        return true;
-      }),
-    [rows, fManager, fProduct, fCountry],
-  );
-
-  const filtersActive = fManager !== "__all__" || fProduct !== "__all__" || fCountry !== "__all__";
-  const resetFilters = () => {
-    setFManager("__all__");
-    setFProduct("__all__");
-    setFCountry("__all__");
-  };
 
   const drillRows = useMemo(() => {
     if (!drill) return [];
