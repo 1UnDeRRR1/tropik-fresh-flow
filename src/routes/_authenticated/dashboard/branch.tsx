@@ -163,6 +163,7 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [board, setBoard] = useState<BoardView>("active");
+  const [view, setView] = useState<"main" | "offers">("main");
   const [sortBy, setSortBy] = useState<SortKey>("eta");
   const [search, setSearch] = useState<string>("");
 
