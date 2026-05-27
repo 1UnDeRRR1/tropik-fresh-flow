@@ -699,7 +699,7 @@ function CostLine({
             )}
           >
             ({delta > 0 ? "+" : ""}
-            {delta.toFixed(2)})
+            {roundedDelta.toFixed(2)})
           </span>
         </>
       )}
@@ -717,7 +717,7 @@ function CostLine({
           → стало <b className="tabular-nums">${curr.toFixed(2)}</b>{" "}
           <b className="tabular-nums">
             ({delta > 0 ? "+" : ""}
-            {delta.toFixed(2)})
+            {roundedDelta.toFixed(2)})
           </b>
         </div>
       )}
