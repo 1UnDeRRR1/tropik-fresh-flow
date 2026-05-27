@@ -628,13 +628,36 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
   useFocusHighlight([data]);
 
-  // For non-admin managers: hide zero-shipment orphan vehicles created by others
-  // (own zero-shipment vehicles still visible so the manager can clean them up).
+  // Capacity constants (kept in sync with products editor MAX_PALLETS / MAX_WEIGHT_KG).
+  const CAP_PALLETS = 26;
+  const CAP_GROSS_KG = 21500;
+  const MIN_FREE_GROSS_KG = 500;
+
+  // Top-up availability rule for OTHER managers (own vehicles always visible / clickable).
+  // Closed for top-up if any: freePallets<=0, freeGross<500, or freeGross<avgLoadedPalletGross.
+  const computeTopUp = (pallets: number, weight: number) => {
+    const freePallets = Math.max(0, CAP_PALLETS - pallets);
+    const freeGross = Math.max(0, CAP_GROSS_KG - weight);
+    const avgPalletGross = pallets > 0 ? weight / pallets : null;
+    const available =
+      freePallets > 0 &&
+      freeGross >= MIN_FREE_GROSS_KG &&
+      (avgPalletGross == null || freeGross >= avgPalletGross);
+    return { freePallets, freeGross, avgPalletGross, available };
+  };
+
+  // For non-admin managers:
+  //  - hide zero-shipment orphans created by others (own zero-shipment still shown for cleanup);
+  //  - hide other managers' vehicles with no usable free capacity for top-up.
   const visible = (data ?? []).filter((v) => {
     if (isAdmin) return true;
     const hasShipments = (v.shipments ?? []).length > 0;
-    if (hasShipments) return true;
-    return v.created_by === user?.id;
+    const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
+    const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
+    if (isOwnVehicle) return true;
+    if (!hasShipments) return false;
+    const { available } = computeTopUp(Number(v.total_pallets ?? 0), Number(v.total_weight_kg ?? 0));
+    return available;
   });
 
   return (
@@ -646,16 +669,17 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
         {visible.map((v) => {
           const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
           const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
-          // Top-up candidate (other manager's vehicle): hide commercial/supplier info.
           const redactCommercial = !isAdmin && !isOwnVehicle;
           const sups = redactCommercial
             ? []
             : ((v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[]);
           const pallets = Number(v.total_pallets ?? 0);
           const weight = Number(v.total_weight_kg ?? 0);
-          const palletsPct = Math.min(100, (pallets / 26) * 100);
-          const weightPct = Math.min(100, (weight / 21500) * 100);
-          const hasFreeCapacity = pallets < 26 && weight < 21500;
+          const palletsPct = Math.min(100, (pallets / CAP_PALLETS) * 100);
+          const weightPct = Math.min(100, (weight / CAP_GROSS_KG) * 100);
+          const { available: topUpAvailable } = computeTopUp(pallets, weight);
+          // Own vehicle: owner can always add. Other manager's: only if top-up rule passes.
+          const hasFreeCapacity = isOwnVehicle ? pallets < CAP_PALLETS && weight < CAP_GROSS_KG : topUpAvailable;
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
