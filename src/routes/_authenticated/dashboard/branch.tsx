@@ -680,11 +680,11 @@ function BranchDashboard() {
       ) : (
         <div className="branch-table-wrap rounded-2xl border border-border bg-card p-2 shadow-card sm:p-3">
           <TableScroller className="-mx-1">
-            <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
+            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-medium">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-20 bg-card px-1 py-2 font-medium text-center" style={{ width: 56, minWidth: 56 }}>Статус</th>
-                  <th className="sticky left-[56px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 150, minWidth: 150, maxWidth: 150 }}>Товар</th>
+                  <th className="sticky left-0 z-20 bg-card pl-1 pr-0.5 py-2 font-medium text-left" style={{ width: 44, minWidth: 44, maxWidth: 44 }}>Статус</th>
+                  <th className="sticky left-[44px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 128, minWidth: 128, maxWidth: 128 }}>Товар</th>
                   <th className="px-2 py-2 font-medium">Країна</th>
                   <th className="px-2 py-2 font-medium">Заход</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
@@ -693,6 +693,7 @@ function BranchDashboard() {
                       {totalConfirmedPallets}п
                     </span>
                   </th>
+                  <th className="px-2 py-2 font-medium">Сорт</th>
                   <th className="px-2 py-2 text-right font-medium">Собівартість</th>
                   <th className="px-2 py-2 font-medium">Менеджер</th>
                   <th className="px-2 py-2 font-medium">Поставка</th>
