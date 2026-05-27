@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated")({
 // Minimum visible splash duration (ms). Splash will not disappear before this
 // elapses even if data loads instantly. Prevents the "flash-and-gone" effect
 // where the user still perceives a white/half-loaded screen.
-const MIN_SPLASH_MS = 0;
+const MIN_SPLASH_MS = 5000;
 
 // ----- First-screen readiness gate ---------------------------------------
 // Routes that own a first-screen data query (e.g. branch dashboard) call
