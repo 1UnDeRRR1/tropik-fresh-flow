@@ -2649,6 +2649,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   useEffect(() => {
     if (confirmedOverrideDuty != null) setOverrideOpen(false);
   }, [confirmedOverrideDuty]);
+  // P-Fix #6 — when parent bumps the collapse tick (e.g. "Додати товар"),
+  // close any expanded cost/customs/details panel so it doesn't overlap
+  // freshly added rows or the sticky header.
+  const firstCollapseTickRef = useRef(collapseExpandedTick);
+  useEffect(() => {
+    if (collapseExpandedTick === firstCollapseTickRef.current) return;
+    firstCollapseTickRef.current = collapseExpandedTick;
+    setOverrideOpen(false);
+  }, [collapseExpandedTick]);
 
   const { setFocused } = useContext(FocusedColContext);
 
