@@ -3257,6 +3257,7 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
       value={value}
       readOnly={readOnly}
       list={list}
+      enterKeyHint={MOBILE_ENTER_KEY_HINT}
       placeholder={focused ? "" : placeholder}
       autoComplete="off"
       autoCorrect="off"
@@ -3267,7 +3268,9 @@ function CellInput({ value, onChange, placeholder, className, list, expandedMinW
         if (readOnly) return;
         setFocused(true);
         e.currentTarget.select();
+        scrollFocusedIntoView(e.currentTarget);
       }}
+      onKeyDown={blurOnEnter}
       onBlur={() => setFocused(false)}
       style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
       className={cn(
