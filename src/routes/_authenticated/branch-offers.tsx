@@ -695,7 +695,7 @@ function CostLine({
           <span
             className={cn(
               "ml-1 text-xs font-bold",
-              delta < 0 ? "text-success" : "text-destructive",
+              roundedDelta < 0 ? "text-success" : "text-destructive",
             )}
           >
             ({delta > 0 ? "+" : ""}
@@ -707,7 +707,7 @@ function CostLine({
         <div
           className={cn(
             "mt-0.5 rounded-md px-2 py-1 text-xs font-normal",
-            delta > 0
+            roundedDelta > 0
               ? "bg-destructive/10 text-destructive"
               : "bg-success/10 text-success",
           )}
