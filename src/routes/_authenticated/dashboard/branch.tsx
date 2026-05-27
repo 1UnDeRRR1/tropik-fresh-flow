@@ -427,8 +427,9 @@ function BranchDashboard() {
             supplier_name: s?.supplier_id ? supMap.get(s.supplier_id) ?? null : null,
             temperature_mode: s?.temperature_mode ?? null,
             manager_name:
-              (s?.import_manager_id ? mgrMap.get(s.import_manager_id) ?? null : null) ??
-              (di.reserved_offer_id ? offerMgrMap.get(di.reserved_offer_id) ?? null : null),
+              (s?.import_manager_id && mgrMap.get(s.import_manager_id))
+                ? (mgrMap.get(s.import_manager_id) as string)
+                : (di.reserved_offer_id ? offerMgrMap.get(di.reserved_offer_id) ?? null : null),
             pallets: Number(di.pallets ?? 0),
             weight: Number(di.qty ?? 0),
             indicative: displayInd,
