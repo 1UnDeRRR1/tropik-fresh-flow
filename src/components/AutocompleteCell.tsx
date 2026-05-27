@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { resolveProductOption } from "@/lib/product-aliases";
-import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
+import { MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" can match "HELLENIC".
 const UA_LAT: Record<string, string> = {
