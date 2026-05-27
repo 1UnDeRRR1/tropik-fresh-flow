@@ -342,3 +342,33 @@ html, body {
   overflow-x: hidden;
 }
 
+
+/* Status icon micro-animation: subtle one-time pop on mount/tap.
+   Used by <StatusIcon/>. Non-infinite, motion-safe. */
+@keyframes status-pop-once {
+  0%   { transform: scale(0.92); }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.animate-status-pop-once {
+  animation: status-pop-once 260ms ease-out 1;
+}
+
+/* Global decorative page background — sits behind <main>, above body bg.
+   Mobile vs desktop image swap via media query. Layer never receives
+   pointer events, so it cannot interfere with scroll or taps. */
+.page-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/page-backgrounds/global/bg_mobile.webp");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+@media (min-width: 768px) {
+  .page-bg-layer {
+    background-image: url("/page-backgrounds/global/bg_desktop.webp");
+  }
+}
