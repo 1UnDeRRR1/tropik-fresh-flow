@@ -230,6 +230,12 @@ function NewShipment() {
     setMobileEditingLabel(null);
   }, []);
 
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  }, []);
+
   useEffect(() => {
     const labelOf = (target: EventTarget | null) => {
       const el = target instanceof HTMLElement ? target : null;
@@ -570,13 +576,7 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
-          <Command
-            filter={(itemValue, search) => {
-              const q = search.trim().toLowerCase();
-              if (q.length < 2) return 0;
-              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-            }}
-          >
+          <Command shouldFilter={false}>
             <CommandInput placeholder="Пошук постачальника…" value={supplierSearch} onValueChange={setSupplierSearch} />
             <CommandList className="max-h-[132px]">
               <CommandEmpty>{supplierSearch.trim().length < 2 ? "Введіть 2 літери" : "Не знайдено"}</CommandEmpty>
@@ -589,7 +589,9 @@ function NewShipment() {
                     onSelect={() => {
                       setSupplierId(s.id);
                       clearInvalid("supplier");
+                      setSupplierSearch("");
                       setSupplierOpen(false);
+                      blurActiveElement();
                     }}
                   >
                     <Check className={cn("mr-2 h-4 w-4", supplierId === s.id ? "opacity-100" : "opacity-0")} />
@@ -626,13 +628,7 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
-          <Command
-            filter={(itemValue, search) => {
-              const q = search.trim().toLowerCase();
-              if (q.length < 2) return 0;
-              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-            }}
-          >
+          <Command shouldFilter={false}>
             <CommandInput placeholder="Пошук країни…" value={countrySearch} onValueChange={setCountrySearch} />
             <CommandList className="max-h-[132px]">
               <CommandEmpty>{countrySearch.trim().length < 2 ? "Введіть 2 літери" : "Не знайдено"}</CommandEmpty>
@@ -646,7 +642,9 @@ function NewShipment() {
                       setCountryTouched(true);
                       setVehicleId("");
                       clearInvalid("country");
+                      setCountrySearch("");
                       setCountryOpen(false);
+                      blurActiveElement();
                     }}
                   >
                     <Check className={cn("mr-2 h-4 w-4", country === c ? "opacity-100" : "opacity-0")} />
@@ -747,13 +745,7 @@ function NewShipment() {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[min(var(--radix-popover-trigger-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0" align="start">
-          <Command
-            filter={(itemValue, search) => {
-              const q = search.trim().toLowerCase();
-              if (q.length < 2) return 0;
-              return itemValue.toLowerCase().startsWith(q) ? 1 : 0;
-            }}
-          >
+          <Command shouldFilter={false}>
             <CommandInput placeholder="Пошук авто…" value={vehicleSearch} onValueChange={setVehicleSearch} />
             <CommandList className="max-h-[132px]">
               <CommandEmpty>{vehicleSearch.trim().length < 2 ? "Введіть 2 літери" : "Немає відкритих авто"}</CommandEmpty>
@@ -773,7 +765,9 @@ function NewShipment() {
                         setCountry(v.country);
                         setCountryTouched(true);
                         clearInvalid("vehicle");
+                        setVehicleSearch("");
                         setVehicleOpen(false);
+                        blurActiveElement();
                       }}
                     >
                       <Check className={cn("mr-2 h-4 w-4", vehicleId === v.id ? "opacity-100" : "opacity-0")} />
