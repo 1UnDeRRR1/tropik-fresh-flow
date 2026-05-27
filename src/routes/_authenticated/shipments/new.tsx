@@ -796,7 +796,7 @@ function NewShipment() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
       <PageHeader title="Нова поставка" />
 
       <form onSubmit={onSubmit} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
@@ -832,6 +832,30 @@ function NewShipment() {
           {submitting ? "Створення…" : "Створити та перейти до товарів"}
         </Button>
       </form>
+
+      {mobileEditingLabel && (
+        <div
+          className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
+          style={{ bottom: "var(--keyboard-inset, 0px)" }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Редагування
+              </div>
+              <div className="truncate text-sm font-semibold text-foreground">{mobileEditingLabel}</div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={blurAndCloseEditors}
+              className="h-9 shrink-0 bg-brand px-4 text-brand-foreground hover:bg-brand/90"
+            >
+              Готово
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
