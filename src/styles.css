@@ -400,8 +400,8 @@ body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky,
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
   background-color: var(--color-card) !important;
 }
-body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky.left-\[44px\],
-body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky.left-\[44px\] {
+body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky.left-\[52px\],
+body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky.left-\[52px\] {
   box-shadow: 2px 0 0 0 hsl(var(--border));
 }
 /* Kill iOS horizontal rubber-band inside the table scroller — vertical
