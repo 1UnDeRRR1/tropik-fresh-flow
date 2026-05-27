@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -115,6 +115,17 @@ function ChangeBadge({
     </Popover>
   );
 }
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-foreground text-right">{value}</span>
+    </div>
+  );
+}
+
+
 
 
 function BranchDashboard() {
@@ -779,128 +790,138 @@ function BranchDashboard() {
         </div>
       )}
 
-      {/* Detail popup — centered Dialog so it sits in the workspace area
-          (well below the sticky header / personal banner) rather than being
-          pinned to the very top of the viewport. */}
+      {/* Product detail card — clean mobile detail view, not a label/value dump.
+          Top: status icon + label (centered). Bottom: pallet counter + "Запропонувати"
+          as a balanced counterweight. Middle: product as primary, then ordered
+          spec list matching the table column order. */}
       <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
-        <DialogContent className="top-[calc(env(safe-area-inset-top)+88px)] translate-y-0 sm:top-1/2 sm:-translate-y-1/2 max-h-[80vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-4 sm:p-6">
-          <DialogHeader className="text-left">
-            <DialogTitle className="pr-8 text-base sm:text-lg">
-              {drill?.product}
-              {drill?.country && (
-                <span className="text-muted-foreground font-normal"> · {toUaCountry(drill.country)}</span>
-              )}
-            </DialogTitle>
+        <DialogContent className="top-[calc(env(safe-area-inset-top)+88px)] translate-y-0 sm:top-1/2 sm:-translate-y-1/2 max-h-[85vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-md p-5 sm:p-6">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{drill?.product}</DialogTitle>
           </DialogHeader>
 
-          {/* Status header — icon + textual label in status colour */}
-          {drillRows[0] && (
-            <div className="mt-2 flex items-center gap-3">
-              <StatusIcon status={drillRows[0].pipeline} size={42} />
-              <div
-                className="text-base font-semibold leading-tight"
-                style={{ color: STATUS_TEXT_COLOR[drillRows[0].pipeline] }}
-              >
-                {PIPELINE_LABEL[drillRows[0].pipeline]}
-              </div>
-            </div>
-          )}
-
-          {/* Full specification of the row (existing fields only) */}
-          {drillRows[0] && (
-            <dl className="mt-4 grid grid-cols-[120px_1fr] gap-y-1.5 text-xs">
-              <dt className="text-muted-foreground">Товар</dt>
-              <dd className="font-medium">{drillRows[0].product}</dd>
-              {drillRows[0].country && (
-                <>
-                  <dt className="text-muted-foreground">Країна</dt>
-                  <dd>{toUaCountry(drillRows[0].country)}</dd>
-                </>
-              )}
-              <dt className="text-muted-foreground">Відп. менеджер</dt>
-              <dd className="font-medium">{drillRows[0].manager_name ?? "—"}</dd>
-              <dt className="text-muted-foreground">Поставка</dt>
-              <dd className="font-mono">{drillRows[0].code}</dd>
-              <dt className="text-muted-foreground">Дата заходу / ETA</dt>
-              <dd className="tabular-nums">{fmtEta(drillRows[0].eta)}</dd>
-              <dt className="text-muted-foreground">Палет</dt>
-              <dd className="tabular-nums">{drillTotalP}п</dd>
-              <dt className="text-muted-foreground">Вага (нетто)</dt>
-              <dd className="tabular-nums">{drillTotalW.toLocaleString("uk-UA")} кг</dd>
-              <dt className="text-muted-foreground">Собівартість</dt>
-              <dd className="tabular-nums">
-                {drillRows[0].indicative != null ? `$${Number(drillRows[0].indicative).toFixed(2)}` : "—"}
-                {" / "}
-                {drillRows[0].invoice != null ? `$${Number(drillRows[0].invoice).toFixed(2)}` : "—"} /кг
-              </dd>
-              {drillRows[0].caliber && (<><dt className="text-muted-foreground">Калібр</dt><dd>{drillRows[0].caliber}</dd></>)}
-              {drillRows[0].variety && (<><dt className="text-muted-foreground">Сорт</dt><dd>{drillRows[0].variety}</dd></>)}
-              {drillRows[0].brand && (<><dt className="text-muted-foreground">Бренд</dt><dd>{drillRows[0].brand}</dd></>)}
-              {drillRows[0].class && (<><dt className="text-muted-foreground">Клас</dt><dd>{drillRows[0].class}</dd></>)}
-              {drillRows[0].packaging && (<><dt className="text-muted-foreground">Упаковка</dt><dd>{drillRows[0].packaging}</dd></>)}
-              {drillRows[0].supplier_name && (<><dt className="text-muted-foreground">Постачальник</dt><dd>{drillRows[0].supplier_name}</dd></>)}
-              {drillRows[0].temperature_mode && (<><dt className="text-muted-foreground">Темп. режим</dt><dd>{drillRows[0].temperature_mode}</dd></>)}
-            </dl>
-          )}
-
-          {/* Per-ETA breakdown + transfer button (kept from previous Sheet) */}
-          <div className="mt-4 space-y-3">
-            {drillGrouped.map(([eta, list]) => {
-              const p = list.reduce((s, r) => s + r.pallets, 0);
-              const w = list.reduce((s, r) => s + r.weight, 0);
-              return (
-                <div key={eta || "no-date"}>
-                  <div className="mb-1 flex items-baseline justify-between">
-                    <div className="text-xs font-semibold">{fmtEta(eta || null)}</div>
-                    <div className="text-[11px] text-muted-foreground tabular-nums">
-                      {p}п · {w.toLocaleString("uk-UA")} кг
+          {drillRows[0] && (() => {
+            const r = drillRows[0];
+            const s = statsFor(r);
+            // Counter state per spec:
+            //   pending > 0 → red "free/pending" (offer awaiting answer)
+            //   else accepted > 0 → green "free/accepted" (confirmed to other branch)
+            //   else → plain black total pallets
+            const counterMode =
+              s.pending > 0 ? "pending" : s.accepted > 0 ? "accepted" : "idle";
+            const etaDate = r.eta ? new Date(r.eta) : null;
+            const etaDay = etaDate
+              ? etaDate.toLocaleDateString("uk-UA", { day: "2-digit" })
+              : "—";
+            const etaMonth = etaDate
+              ? etaDate.toLocaleDateString("uk-UA", { month: "short" }).replace(".", "")
+              : "";
+            return (
+              <>
+                {/* Top centerpiece: status icon + label */}
+                <div className="flex flex-col items-center gap-2 pt-1">
+                  <div className="flex items-center gap-3">
+                    <StatusIcon status={r.pipeline} size={40} />
+                    <div
+                      className="text-xl font-semibold leading-none"
+                      style={{ color: STATUS_TEXT_COLOR[r.pipeline] }}
+                    >
+                      {PIPELINE_LABEL[r.pipeline]}
                     </div>
                   </div>
-                  <ul className="divide-y divide-border rounded-xl border border-border">
-                    {list.map((r) => {
-                      const s = statsFor(r);
-                      return (
-                        <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                          <div className="min-w-0 flex-1">
-                            <div className="font-mono text-[11px] font-semibold">{r.code}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {r.caliber ? `Калібр ${r.caliber}` : ""}
-                            </div>
-                          </div>
-                          <div className="text-right tabular-nums">
-                            <div className="font-bold">
-                              {s.pending > 0 ? (
-                                <>
-                                  {s.free}п <span className="text-muted-foreground font-normal">/</span>{" "}
-                                  <span className="text-blue-600">{s.pending}п</span>
-                                </>
-                              ) : (
-                                <>{s.free}п</>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground">
-                              всього {r.pallets}п · {r.weight.toLocaleString("uk-UA")} кг
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            className="h-8 px-2 text-xs"
-                            disabled={s.free <= 0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOfferRow({ ...r, pallets: s.free });
-                            }}
-                          >
-                            Запропонувати
-                          </Button>
-                        </li>
-                      );
-                    })}
-                  </ul>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Primary subject: product (big) + country */}
+                <div className="mt-5 text-center">
+                  <div className="text-2xl font-bold leading-tight tracking-tight text-foreground">
+                    {r.product}
+                  </div>
+                  {r.country && (
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {toUaCountry(r.country)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Ordered spec — same business order as the table */}
+                <div className="mt-5 rounded-2xl border border-border bg-card/70 divide-y divide-border/70">
+                  <DetailRow label="Палет" value={`${r.pallets}п`} />
+                  <DetailRow label="Сорт" value={r.variety ?? "—"} />
+                  <DetailRow
+                    label="Собівартість"
+                    value={
+                      r.indicative != null || r.invoice != null ? (
+                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="sm" />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )
+                    }
+                  />
+                  <DetailRow
+                    label="Поставка"
+                    value={
+                      r.distribution_id.startsWith("mor-") ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className="font-mono text-xs font-semibold">{r.code}</span>
+                      )
+                    }
+                  />
+                  {/* ETA as a small visual "tear-off" calendar */}
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Дата приходу
+                    </span>
+                    <div className="inline-flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+                      <div className="w-full bg-destructive py-[2px] text-center text-[8px] font-bold uppercase tracking-wider text-destructive-foreground">
+                        {etaMonth || "—"}
+                      </div>
+                      <div className="flex-1 w-full flex items-center justify-center text-base font-bold leading-none tabular-nums text-foreground">
+                        {etaDay}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom counterweight: counter + Запропонувати */}
+                <div className="mt-6 flex items-center justify-between gap-4">
+                  <div className="flex flex-col items-start">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Палет
+                    </span>
+                    <span className="text-2xl font-bold leading-none tabular-nums">
+                      {counterMode === "pending" ? (
+                        <>
+                          <span className="text-foreground">{s.free}</span>
+                          <span className="text-muted-foreground font-normal">/</span>
+                          <span className="text-destructive">{s.pending}</span>
+                        </>
+                      ) : counterMode === "accepted" ? (
+                        <>
+                          <span className="text-foreground">{s.free}</span>
+                          <span className="text-muted-foreground font-normal">/</span>
+                          <span className="text-success">{s.accepted}</span>
+                        </>
+                      ) : (
+                        <span className="text-foreground">{r.pallets}</span>
+                      )}
+                    </span>
+                  </div>
+                  <Button
+                    size="lg"
+                    className="h-12 flex-1 max-w-[60%] text-sm font-semibold"
+                    disabled={s.free <= 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOfferRow({ ...r, pallets: s.free });
+                    }}
+                  >
+                    Запропонувати
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
