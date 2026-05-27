@@ -74,7 +74,7 @@ function LoginPage() {
   const lastUserAssets = getPersonalAssets(getLastUserId());
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-10 text-foreground">
 
       {lastUserAssets && (
         <picture>
