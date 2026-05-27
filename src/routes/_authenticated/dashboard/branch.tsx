@@ -697,14 +697,14 @@ function BranchDashboard() {
                       className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
                     >
                       <td
-                        className="sticky left-0 z-10 bg-card px-1.5 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
-                        style={{ width: 44 }}
+                        className="sticky left-0 z-10 bg-card px-1 py-2 cursor-pointer"
+                        style={{ width: 36 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
                         <StatusIcon status={r.pipeline} size={26} />
                       </td>
                       <td
-                        className="sticky left-[44px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
+                        className="sticky left-[36px] z-10 bg-card px-2 py-2 shadow-[1px_0_0_0_hsl(var(--border))] cursor-pointer"
                         style={{ maxWidth: 160 }}
                         onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
                       >
