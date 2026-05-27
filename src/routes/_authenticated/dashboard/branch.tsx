@@ -769,6 +769,9 @@ function BranchDashboard() {
                       <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
                         {r.variety ?? <span className="text-muted-foreground">—</span>}
                       </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
+                        {r.caliber ?? <span className="text-muted-foreground">—</span>}
+                      </td>
                       <td className="px-2 py-2 text-right">
                         <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
                         {costChanged && (
