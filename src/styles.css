@@ -390,12 +390,14 @@ body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
 body[data-branch-test="malekhiv"] .branch-table-wrap tbody td {
   background-color: transparent;
 }
+/* Sticky left columns (Status + Product) must be a fully opaque mask so
+   horizontally scrolled cells slide UNDER them without bleed-through.
+   Use the page-card token at 100%, plus a small right-edge shadow to
+   visually separate the sticky zone from scrollable content. */
 body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky,
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
-  background-color: color-mix(in oklab, var(--color-card) 60%, transparent) !important;
-}
-body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
-  background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
+  background-color: var(--color-card) !important;
+  box-shadow: 2px 0 0 0 hsl(var(--border));
 }
 /* Slightly darker text (~10% closer to black) without making it heavier */
 body[data-branch-test="malekhiv"] .branch-table-wrap,
