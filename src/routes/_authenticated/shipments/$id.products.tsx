@@ -2735,25 +2735,30 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
-      <td data-col="7" className={cn("relative px-0.5 py-0.5", pulse && invalidNet && "field-invalid")}>
+      <td data-col="7" className={cn("relative px-0.5 py-0.5", (pulse && invalidNet) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(netNum)}
           readOnly={readOnly}
           step="1"
-          invalid={invalidNet}
+          invalid={invalidNet || netGtGross}
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
             onPatch({ net_weight_kg: safe, net_auto: false });
           }}
         />
+        {netGtGross && (
+          <div className="mt-0.5 text-[10px] leading-tight text-destructive">
+            Нетто не може бути більше брутто
+          </div>
+        )}
       </td>
-      <td data-col="8" className={cn("relative px-0.5 py-0.5", pulse && invalidGross && "field-invalid")}>
+      <td data-col="8" className={cn("relative px-0.5 py-0.5", (pulse && invalidGross) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(grossNum)}
           readOnly={readOnly}
           step="1"
-          invalid={invalidGross}
+          invalid={invalidGross || netGtGross}
           onChange={(v) => {
             if (readOnly) return;
             const safe = Math.max(0, v);
