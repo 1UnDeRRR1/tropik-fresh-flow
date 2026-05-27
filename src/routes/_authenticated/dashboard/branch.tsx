@@ -215,7 +215,7 @@ function BranchDashboard() {
       return (data ?? []) as Array<{
         id: string; offer_id: string; approved_pallets: number | null; requested_pallets: number;
         manager_offers: {
-          id: string; product_name: string; origin_country: string | null;
+          id: string; position_id: string | null; product_name: string; origin_country: string | null;
           caliber: string | null; variety: string | null; expected_eta: string | null;
           indicative_cost_usd: number | null; invoice_cost_usd: number | null;
           linked_shipment_id: string | null; status: string;
