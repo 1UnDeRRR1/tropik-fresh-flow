@@ -236,6 +236,7 @@ function BranchOffersPage() {
     onSuccess: () => {
       toast.success("Запит скасовано", { duration: 1500 });
       qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
