@@ -80,10 +80,14 @@ export function ShipmentQuickView({
     }
   }
 
-  const goDistribute = () => {
+  const goDistribute = (itemId?: string) => {
     setOpen(false);
     setOpenItem(null);
-    navigate({ to: "/distribution/$shipmentId", params: { shipmentId } });
+    navigate({
+      to: "/distribution/$shipmentId",
+      params: { shipmentId },
+      search: itemId ? { itemId } : {},
+    });
   };
 
   const goEdit = () => {
@@ -108,7 +112,7 @@ export function ShipmentQuickView({
           {!isLoading && data?.items.length ? (
             <div className="flex gap-2 -mt-1">
               <Button variant="outline" size="sm" className="flex-1" onClick={goEdit}>Редагувати</Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={goDistribute}>Розподілити</Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => goDistribute()}>Розподілити</Button>
             </div>
           ) : null}
 
@@ -217,7 +221,7 @@ export function ShipmentQuickView({
                       <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
                     )}
 
-                    <Button className="w-full" onClick={goDistribute}>Розподілити</Button>
+                    <Button className="w-full" onClick={() => goDistribute(openItem?.id)}>Розподілити</Button>
                   </div>
                 );
               })()

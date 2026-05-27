@@ -25,6 +25,9 @@ import { useFocusHighlight } from "@/lib/use-focus-highlight";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/distribution/$shipmentId")({
+  validateSearch: (search: Record<string, unknown>): { itemId?: string } => ({
+    itemId: typeof search.itemId === "string" ? search.itemId : undefined,
+  }),
   component: () => <StaffOnly><DistributionMatrix /></StaffOnly>,
 });
 

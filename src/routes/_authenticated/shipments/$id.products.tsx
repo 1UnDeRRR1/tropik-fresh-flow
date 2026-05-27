@@ -607,6 +607,7 @@ function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient
   qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["open-vehicles-list"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["vehicles-list"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["vehicles-open"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["distribution-list"] });
@@ -935,6 +936,16 @@ function ProductsFullscreen() {
   const [draftItems, setDraftItems] = useState<DraftRow[]>([]);
   const baselinesRef = useRef<Map<string, DraftRow>>(new Map());
   const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
+  // P-Fix #4 — submit lock prevents the user from double-tapping "Готово"
+  // and getting duplicate rows. savingRef is the synchronous guard (state
+  // updates are async, so the ref blocks the second click before React
+  // re-renders the disabled button).
+  const savingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  // P-Fix #6 — bumping this tick auto-collapses expanded cost/details panels
+  // (e.g. ItemCustomsOverride) when a new row is added, so a stale expanded
+  // block can never overlap freshly added rows.
+  const [collapseExpandedTick, setCollapseExpandedTick] = useState(0);
 
   const hasLocalChanges = (() => {
     if (pendingDeletes.length > 0) return true;
@@ -1389,6 +1400,9 @@ function ProductsFullscreen() {
       toast.error("У спільному авто більше немає вільного місця");
       return;
     }
+    // P-Fix #6 — collapse any open cost/details panels so they don't overlap
+    // freshly added rows when the table layout reflows.
+    setCollapseExpandedTick((t) => t + 1);
     setDraftItems((prev) => [...prev, emptyDraftRow()]);
   };
 
@@ -1429,10 +1443,16 @@ function ProductsFullscreen() {
 
   // D1 §3 — non-atomic client batch: validate → INSERT new → UPDATE dirty → DELETE last.
   const commitDraft = async () => {
+    // P-Fix #4 — synchronous re-entry guard (UI disable alone is too late
+    // because React renders after the second tap has already dispatched).
+    if (savingRef.current) return;
     if (!currentShipmentEditable) {
       toast.error("Ви можете редагувати лише власну поставку");
       return;
     }
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
     // 1. Validate every visible draft row.
     const anyInvalid = draftItems.some((d) => getMissingDraftFields(d, products).length > 0);
     if (anyInvalid) {
@@ -1672,6 +1692,10 @@ function ProductsFullscreen() {
     } catch (e) {
       toast.error(translateError(e));
     }
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
   };
 
 
@@ -1823,8 +1847,10 @@ function ProductsFullscreen() {
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
         <button
           type="button"
-          className="block w-full"
+          disabled={isSaving}
+          className="block w-full disabled:opacity-60"
           onClick={(e) => {
+            if (isSaving) { e.preventDefault(); return; }
             if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
               e.preventDefault();
               triggerShake(transportMissing);
@@ -1836,6 +1862,7 @@ function ProductsFullscreen() {
         >
           <Button
             asChild={false}
+            disabled={isSaving}
             className={cn(
               "w-full",
               (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
@@ -1843,17 +1870,19 @@ function ProductsFullscreen() {
                 : "bg-brand text-brand-foreground hover:bg-brand/90",
             )}
           >
-            {transportMissing
-              ? canSaveForLater
-                ? "Зберегти зараз, перевезення додасте пізніше"
-                : "Вкажіть вартість перевезення"
-              : incompleteCount > 0
-                ? `Заповніть обов'язкові поля (${incompleteCount})`
-                : redUnconfirmedCount > 0
-                  ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
-                  : canSaveForLater
-                    ? "Зберегти та вийти"
-                    : "Готово"}
+            {isSaving
+              ? "Збереження…"
+              : transportMissing
+                ? canSaveForLater
+                  ? "Зберегти зараз, перевезення додасте пізніше"
+                  : "Вкажіть вартість перевезення"
+                : incompleteCount > 0
+                  ? `Заповніть обов'язкові поля (${incompleteCount})`
+                  : redUnconfirmedCount > 0
+                    ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
+                    : canSaveForLater
+                      ? "Зберегти та вийти"
+                      : "Готово"}
           </Button>
         </button>
       </footer>

@@ -566,8 +566,49 @@ type OpenVehicleRow = {
   total_pallets: number;
   total_weight_kg: number;
   created_by: string | null;
-  shipments: { id: string; import_manager_id: string | null; created_by?: string | null; suppliers: { name: string | null } | null }[] | null;
+  shipments: {
+    id: string;
+    import_manager_id: string | null;
+    created_by?: string | null;
+    suppliers: { name: string | null } | null;
+    shipment_items?: Array<{
+      pallet_count: number | null;
+      pallet_weight: number | null;
+      net_weight_kg: number | null;
+      gross_weight_kg: number | null;
+    }> | null;
+  }[] | null;
 };
+
+// P-Fix — derive vehicle pallets/gross from shipment_items so the open-vehicles
+// card reflects the same gross-based numbers the products editor uses. The DB
+// column vehicles.total_weight_kg is updated by recompute_vehicle_totals_for()
+// as SUM(pallet_count * pallet_weight) (legacy net-ish) and otherwise mis-renders
+// e.g. 19000/21500 + залиш 2500 for a 19п/20710кг gross load.
+function aggregateVehicleFromItems(v: OpenVehicleRow): { pallets: number; gross: number } {
+  let pallets = 0;
+  let gross = 0;
+  let sawAny = false;
+  for (const s of v.shipments ?? []) {
+    for (const it of s.shipment_items ?? []) {
+      sawAny = true;
+      const pc = Number(it.pallet_count ?? 0);
+      pallets += pc;
+      const g = Number(it.gross_weight_kg ?? 0);
+      if (g > 0) {
+        gross += g;
+      } else {
+        const net = Number(it.net_weight_kg ?? 0);
+        const pw = Number(it.pallet_weight ?? 0);
+        gross += net > 0 ? net : pc * pw;
+      }
+    }
+  }
+  if (!sawAny) {
+    return { pallets: Number(v.total_pallets ?? 0), gross: Number(v.total_weight_kg ?? 0) };
+  }
+  return { pallets, gross };
+}
 
 function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | null }) {
   const { user, hasRole } = useAuth();
@@ -578,7 +619,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,import_manager_id,created_by,suppliers(name))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,import_manager_id,created_by,suppliers(name),shipment_items(pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
@@ -656,7 +697,8 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
     if (isOwnVehicle) return true;
     if (!hasShipments) return false;
-    const { available } = computeTopUp(Number(v.total_pallets ?? 0), Number(v.total_weight_kg ?? 0));
+    const agg = aggregateVehicleFromItems(v);
+    const { available } = computeTopUp(agg.pallets, agg.gross);
     return available;
   });
 
@@ -673,8 +715,10 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           const sups = redactCommercial
             ? []
             : ((v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[]);
-          const pallets = Number(v.total_pallets ?? 0);
-          const weight = Number(v.total_weight_kg ?? 0);
+          // P-Fix — gross-based aggregation from items, see aggregateVehicleFromItems().
+          const _agg = aggregateVehicleFromItems(v);
+          const pallets = _agg.pallets;
+          const weight = _agg.gross;
           const palletsPct = Math.min(100, (pallets / CAP_PALLETS) * 100);
           const weightPct = Math.min(100, (weight / CAP_GROSS_KG) * 100);
           const { available: topUpAvailable } = computeTopUp(pallets, weight);
