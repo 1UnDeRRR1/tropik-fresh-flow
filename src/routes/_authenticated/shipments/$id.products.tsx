@@ -607,6 +607,7 @@ function invalidateVehicleAndShipmentCaches(qc: ReturnType<typeof useQueryClient
   qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+  qc.invalidateQueries({ queryKey: ["open-vehicles-list"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["vehicles-list"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["vehicles-open"], refetchType: "all" });
   qc.invalidateQueries({ queryKey: ["distribution-list"] });
