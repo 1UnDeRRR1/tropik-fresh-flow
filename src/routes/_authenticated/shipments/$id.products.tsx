@@ -389,7 +389,14 @@ function computeRowPreview(
     if (ref) {
       const sameCountry =
         normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
-      components.matchedRef = { product_name: ref.product_name, country: ref.country };
+      components.matchedRef = {
+        product_name: ref.product_name,
+        country: ref.country,
+        threshold_price_usd: ref.threshold_price_usd,
+        customs_fee_percent: ref.customs_fee_percent,
+        euro1_markup_usd: ref.euro1_markup_usd,
+        euro1_percent: ref.euro1_percent,
+      };
       components.customsBasis = sameCountry ? "exact" : "fallback";
     } else {
       components.customsBasis = "none";
