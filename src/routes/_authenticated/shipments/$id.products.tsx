@@ -2441,12 +2441,14 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
                 preview={preview}
                 readOnly={!currentShipmentEditable}
                 pulse={pulseFields}
+                collapseExpandedTick={collapseExpandedTick}
                 onShowBreakdown={() => onShowBreakdown(d.localId)}
                 onPatch={(patch) => onPatch(d.localId, patch)}
                 onRemove={() => onRemove(d.localId)}
                 onResolverHint={(info) => onResolverHint(d.localId, info)}
 
               />
+
 
             );
           })}
