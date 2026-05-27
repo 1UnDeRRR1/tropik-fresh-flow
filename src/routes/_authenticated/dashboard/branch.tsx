@@ -667,8 +667,8 @@ function BranchDashboard() {
             <table className="w-full min-w-[820px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-medium">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="sticky left-0 z-20 bg-card px-1 py-2 font-medium" style={{ width: 36 }}>Статус</th>
-                  <th className="sticky left-[36px] z-20 bg-card px-2 py-2 font-medium shadow-[1px_0_0_0_hsl(var(--border))]" style={{ maxWidth: 160 }}>Товар</th>
+                  <th className="sticky left-0 z-20 bg-card px-1 py-2 font-medium text-center" style={{ width: 56, minWidth: 56 }}>Статус</th>
+                  <th className="sticky left-[56px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 150, minWidth: 150, maxWidth: 150 }}>Товар</th>
                   <th className="px-2 py-2 font-medium">Країна</th>
                   <th className="px-2 py-2 font-medium">Заход</th>
                   <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
