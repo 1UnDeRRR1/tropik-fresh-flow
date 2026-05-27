@@ -798,33 +798,80 @@ function BranchDashboard() {
         </SectionCard>
       )}
 
-      <Sheet open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
-        <SheetContent side="top" className="mt-[env(safe-area-inset-top)] max-h-[85vh] overflow-y-auto rounded-b-2xl">
-          <SheetHeader className="text-left">
-            <SheetTitle className="pr-8">
-              <span>
-                {drill?.product}
-                {drill?.country && (<span className="text-muted-foreground"> · {toUaCountry(drill.country)}</span>)}
-              </span>
-            </SheetTitle>
-          </SheetHeader>
+      {/* Detail popup — centered Dialog so it sits in the workspace area
+          (well below the sticky header / personal banner) rather than being
+          pinned to the very top of the viewport. */}
+      <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
+        <DialogContent className="top-[calc(env(safe-area-inset-top)+88px)] translate-y-0 sm:top-1/2 sm:-translate-y-1/2 max-h-[80vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-lg p-4 sm:p-6">
+          <DialogHeader className="text-left">
+            <DialogTitle className="pr-8 text-base sm:text-lg">
+              {drill?.product}
+              {drill?.country && (
+                <span className="text-muted-foreground font-normal"> · {toUaCountry(drill.country)}</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
 
-          <div className="mt-3 rounded-xl border border-border bg-background/40 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Всього призначено філії</div>
-            <div className="text-xl font-bold tabular-nums">
-              {drillTotalP}п · {drillTotalW.toLocaleString("uk-UA")} кг
+          {/* Status header — icon + textual label in status colour */}
+          {drillRows[0] && (
+            <div className="mt-2 flex items-center gap-3">
+              <StatusIcon status={drillRows[0].pipeline} size={42} />
+              <div
+                className="text-base font-semibold leading-tight"
+                style={{ color: STATUS_TEXT_COLOR[drillRows[0].pipeline] }}
+              >
+                {PIPELINE_LABEL[drillRows[0].pipeline]}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="mt-4 space-y-4">
+          {/* Full specification of the row (existing fields only) */}
+          {drillRows[0] && (
+            <dl className="mt-4 grid grid-cols-[120px_1fr] gap-y-1.5 text-xs">
+              <dt className="text-muted-foreground">Товар</dt>
+              <dd className="font-medium">{drillRows[0].product}</dd>
+              {drillRows[0].country && (
+                <>
+                  <dt className="text-muted-foreground">Країна</dt>
+                  <dd>{toUaCountry(drillRows[0].country)}</dd>
+                </>
+              )}
+              <dt className="text-muted-foreground">Відп. менеджер</dt>
+              <dd className="font-medium">{drillRows[0].manager_name ?? "—"}</dd>
+              <dt className="text-muted-foreground">Поставка</dt>
+              <dd className="font-mono">{drillRows[0].code}</dd>
+              <dt className="text-muted-foreground">Дата заходу / ETA</dt>
+              <dd className="tabular-nums">{fmtEta(drillRows[0].eta)}</dd>
+              <dt className="text-muted-foreground">Палет</dt>
+              <dd className="tabular-nums">{drillTotalP}п</dd>
+              <dt className="text-muted-foreground">Вага (нетто)</dt>
+              <dd className="tabular-nums">{drillTotalW.toLocaleString("uk-UA")} кг</dd>
+              <dt className="text-muted-foreground">Собівартість</dt>
+              <dd className="tabular-nums">
+                {drillRows[0].indicative != null ? `$${Number(drillRows[0].indicative).toFixed(2)}` : "—"}
+                {" / "}
+                {drillRows[0].invoice != null ? `$${Number(drillRows[0].invoice).toFixed(2)}` : "—"} /кг
+              </dd>
+              {drillRows[0].caliber && (<><dt className="text-muted-foreground">Калібр</dt><dd>{drillRows[0].caliber}</dd></>)}
+              {drillRows[0].variety && (<><dt className="text-muted-foreground">Сорт</dt><dd>{drillRows[0].variety}</dd></>)}
+              {drillRows[0].brand && (<><dt className="text-muted-foreground">Бренд</dt><dd>{drillRows[0].brand}</dd></>)}
+              {drillRows[0].class && (<><dt className="text-muted-foreground">Клас</dt><dd>{drillRows[0].class}</dd></>)}
+              {drillRows[0].packaging && (<><dt className="text-muted-foreground">Упаковка</dt><dd>{drillRows[0].packaging}</dd></>)}
+              {drillRows[0].supplier_name && (<><dt className="text-muted-foreground">Постачальник</dt><dd>{drillRows[0].supplier_name}</dd></>)}
+              {drillRows[0].temperature_mode && (<><dt className="text-muted-foreground">Темп. режим</dt><dd>{drillRows[0].temperature_mode}</dd></>)}
+            </dl>
+          )}
+
+          {/* Per-ETA breakdown + transfer button (kept from previous Sheet) */}
+          <div className="mt-4 space-y-3">
             {drillGrouped.map(([eta, list]) => {
               const p = list.reduce((s, r) => s + r.pallets, 0);
               const w = list.reduce((s, r) => s + r.weight, 0);
               return (
                 <div key={eta || "no-date"}>
                   <div className="mb-1 flex items-baseline justify-between">
-                    <div className="text-sm font-semibold">{fmtEta(eta || null)}</div>
-                    <div className="text-xs text-muted-foreground tabular-nums">
+                    <div className="text-xs font-semibold">{fmtEta(eta || null)}</div>
+                    <div className="text-[11px] text-muted-foreground tabular-nums">
                       {p}п · {w.toLocaleString("uk-UA")} кг
                     </div>
                   </div>
@@ -832,7 +879,7 @@ function BranchDashboard() {
                     {list.map((r) => {
                       const s = statsFor(r);
                       return (
-                        <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                        <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
                           <div className="min-w-0 flex-1">
                             <div className="font-mono text-[11px] font-semibold">{r.code}</div>
                             <div className="text-[11px] text-muted-foreground">
@@ -873,8 +920,8 @@ function BranchDashboard() {
               );
             })}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <OfferDialog
         open={!!offerRow}
