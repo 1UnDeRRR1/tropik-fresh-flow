@@ -1440,6 +1440,15 @@ function ProductsFullscreen() {
       triggerShake(false);
       return;
     }
+    // 1b. Mobile-typo guard: net must not exceed gross.
+    const anyNetGtGross = draftItems.some(
+      (d) => Number(d.net_weight_kg) > 0 && Number(d.gross_weight_kg) > 0 && Number(d.net_weight_kg) > Number(d.gross_weight_kg),
+    );
+    if (anyNetGtGross) {
+      toast.error("Нетто не може бути більше брутто");
+      triggerShake(false);
+      return;
+    }
     // 2. D1-Fix v2.4 — capacity validation (vehicle-wide) BEFORE any DB writes.
     // No pallet_count clamp; only block "Готово".
     const capPallets = effectiveLoadedItems.reduce((s, it) => s + Number(it.pallet_count ?? 0), 0);
