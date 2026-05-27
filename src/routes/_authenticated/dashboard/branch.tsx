@@ -860,6 +860,7 @@ function BranchDashboard() {
                 <div className="mt-5 rounded-2xl border border-border bg-card/70 divide-y divide-border/70">
                   <DetailRow label="Палет" value={`${r.pallets}п`} />
                   <DetailRow label="Сорт" value={r.variety ?? "—"} />
+                  <DetailRow label="Калібр" value={r.caliber ?? "—"} />
                   <DetailRow
                     label="Собівартість"
                     value={
