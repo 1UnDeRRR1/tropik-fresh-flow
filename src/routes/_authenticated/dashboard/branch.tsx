@@ -682,7 +682,7 @@ function BranchDashboard() {
           <TableScroller className="-mx-1">
             <table className="w-full min-w-[760px] border-separate border-spacing-0 text-xs">
               <thead className="[&_th]:bg-table-head [&_th]:font-medium">
-                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground [&>th:first-child]:normal-case [&>th:first-child]:tracking-normal [&>th:first-child]:text-[11px]">
                   <th className="sticky left-0 z-20 bg-card pl-1 pr-0.5 py-2 font-medium text-left normal-case tracking-normal whitespace-nowrap" style={{ width: 52, minWidth: 52, maxWidth: 52 }}>Статус</th>
                   <th className="sticky left-[52px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 128, minWidth: 128, maxWidth: 128 }}>Товар</th>
                   <th className="px-2 py-2 font-medium">Країна</th>
