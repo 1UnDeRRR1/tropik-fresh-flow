@@ -296,6 +296,9 @@ function ManagerOffersPage() {
   const { data: responses } = useQuery({
     queryKey: ["manager-offer-responses", offerIds],
     enabled: offerIds.length > 0,
+    // Auto-refresh: keep counters live (Запр./Очік./Підтв.) without manual reload.
+    refetchInterval: 25_000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("manager_offer_responses")
