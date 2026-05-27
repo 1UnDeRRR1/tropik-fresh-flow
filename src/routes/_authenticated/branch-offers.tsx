@@ -20,12 +20,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import {
-  STATUS_LABEL,
-  STATUS_CLASS,
   formatRemaining,
   type ManagerOffer,
   type ManagerOfferResponse,
-  type ManagerOfferStatus,
 } from "@/lib/manager-offers";
 import { SortByMenu, type SortKey } from "@/components/SortByMenu";
 import {
@@ -43,8 +40,6 @@ const STATUS_SORT_PRIORITY: Record<BranchOfferStatusKind, number> = {
   shipped: 4,
   none: 5,
 };
-
-const MO_STATUS_PRIORITY: Record<ManagerOfferStatus, number> = {
   linked: 0,
   confirmed: 1,
   in_work: 2,
