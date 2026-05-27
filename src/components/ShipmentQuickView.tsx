@@ -112,7 +112,7 @@ export function ShipmentQuickView({
           {!isLoading && data?.items.length ? (
             <div className="flex gap-2 -mt-1">
               <Button variant="outline" size="sm" className="flex-1" onClick={goEdit}>Редагувати</Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={goDistribute}>Розподілити</Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => goDistribute()}>Розподілити</Button>
             </div>
           ) : null}
 
