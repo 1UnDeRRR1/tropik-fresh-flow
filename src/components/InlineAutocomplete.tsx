@@ -51,7 +51,7 @@ export function InlineAutocomplete<T>({
   minSearchLength?: number;
   selectTextOnFocus?: boolean;
   renderItem?: (item: T, meta: { active: boolean; mode: SuggestionMode }) => React.ReactNode;
-  inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "disabled" | "readOnly" | "placeholder">;
+  inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "disabled" | "readOnly" | "placeholder"> & Record<`data-${string}`, string | undefined>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const acceptingRef = useRef(false);
