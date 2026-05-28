@@ -253,6 +253,38 @@ function NewShipment() {
   }, []);
 
   useEffect(() => {
+    setSupplierInput(selectedSupplier?.name ?? "");
+  }, [selectedSupplier?.id, selectedSupplier?.name]);
+
+  useEffect(() => {
+    setCountryInput(country);
+  }, [country]);
+
+  useEffect(() => {
+    setVehicleInput(selectedVehicle ? `${selectedVehicle.code} · ${selectedVehicle.country}` : "");
+  }, [selectedVehicle?.id, selectedVehicle?.code, selectedVehicle?.country]);
+
+  const resolveSupplierFromInput = useCallback((raw: string) => {
+    const q = raw.trim().toLowerCase();
+    if (!q) return null;
+    const direct = supplierItems.find((item) => item.name.trim().toLowerCase() === q);
+    if (direct) return direct;
+    const alias = supplierItems.find((item) => (item.alias ?? "").trim().toLowerCase() === q);
+    if (alias) return alias;
+    const prefix = supplierItems.filter((item) => item.searchStrings.some((candidate) => matchesWordStart(candidate, q)));
+    return prefix.length === 1 ? prefix[0] : null;
+  }, [supplierItems]);
+
+  const resolveVehicleFromInput = useCallback((raw: string) => {
+    const q = raw.trim().toLowerCase();
+    if (!q) return null;
+    const direct = vehicleItems.find((item) => item.label.toLowerCase() === q || item.code.toLowerCase() === q);
+    if (direct) return direct;
+    const prefix = vehicleItems.filter((item) => item.searchStrings.some((candidate) => matchesWordStart(candidate, q)));
+    return prefix.length === 1 ? prefix[0] : null;
+  }, [vehicleItems]);
+
+  useEffect(() => {
     const labelOf = (target: EventTarget | null) => {
       const el = target instanceof HTMLElement ? target : null;
       if (!el) return null;
