@@ -1,40 +1,49 @@
 // Per-user / per-branch personal asset registry.
 // Pure presentation — does NOT touch POSITION/RLS/formulas/resolver/reference.
 //
-// Convention: every personal package ships the same 8 files under
-//   /public/personal-assets/{key}/
-//     header_desktop.webp + .png
-//     header_mobile.webp  + .png
-//     splash_desktop.webp + .png
-//     splash_mobile.webp  + .png
+// Convention: personal packages live under /public/personal-assets/{key}/
+// where `key` is a stable id (user_id for personal packages, branch_id for
+// branch packages). No matching by surname, folder name, email or full_name.
 //
-// `key` is a stable id — user_id for personal packages, branch_id for branch
-// packages. No matching by surname, folder name, email or full_name.
+// A package may ship any subset of:
+//   - header_desktop.webp + .png, header_mobile.webp + .png  (chrome header)
+//   - splash_desktop.webp + .png, splash_mobile.webp + .png  (boot splash)
+//   - profile_bg_desktop.webp + .png, profile_bg_mobile.webp + .png
+//     (decorative background for the Профіль tab)
 //
-// If a user / branch has no personal package, getPersonalAssets() returns null
-// and the UI must fall back to neutral chrome (no Tereshchenko leakage).
+// All fields below are optional — callers MUST null-check before rendering and
+// fall back to neutral chrome when a slot is absent (no cross-user leakage).
 
 export type PersonalAssets = {
-  headerDesktopWebp: string;
-  headerDesktopPng: string;
-  headerMobileWebp: string;
-  headerMobilePng: string;
-  splashDesktopWebp: string;
-  splashDesktopPng: string;
-  splashMobileWebp: string;
-  splashMobilePng: string;
-  // Intrinsic dimensions used to reserve layout space (prevents CLS / late
-  // pop-in of the header banner). Mobile and desktop may differ.
-  headerMobileWidth: number;
-  headerMobileHeight: number;
-  headerDesktopWidth: number;
-  headerDesktopHeight: number;
+  // Header banner (sticky app chrome). Optional — when absent, AppShell
+  // renders neutral chrome instead of another user's header.
+  headerDesktopWebp?: string;
+  headerDesktopPng?: string;
+  headerMobileWebp?: string;
+  headerMobilePng?: string;
+  headerMobileWidth?: number;
+  headerMobileHeight?: number;
+  headerDesktopWidth?: number;
+  headerDesktopHeight?: number;
+  // Splash / loading overlay shown right after auth resolution.
+  splashDesktopWebp?: string;
+  splashDesktopPng?: string;
+  splashMobileWebp?: string;
+  splashMobilePng?: string;
+  // Decorative art-block background for the Профіль page. Sits below content
+  // (z-index 0), no-repeat, pinned to the bottom, contain-sized so nothing
+  // is cropped or stretched.
+  profileBgDesktopWebp?: string;
+  profileBgDesktopPng?: string;
+  profileBgMobileWebp?: string;
+  profileBgMobilePng?: string;
 };
 
 const TERESHCHENKO_USER_ID = "cfaade16-8eb7-40df-95f8-a44c7368b60b";
 const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
+const LUKACH_USER_ID = "f475e275-458e-4af8-96ea-7e06991cbeb2";
 
-function buildAssets(
+function buildFullPackage(
   folder: string,
   dims: { headerMobile: [number, number]; headerDesktop: [number, number] },
 ): PersonalAssets {
@@ -57,18 +66,31 @@ function buildAssets(
 
 // Per-user personal packages. Key = profile.id / auth user.id.
 const USER_ASSETS: Record<string, PersonalAssets> = {
-  [TERESHCHENKO_USER_ID]: buildAssets(TERESHCHENKO_USER_ID, {
+  [TERESHCHENKO_USER_ID]: buildFullPackage(TERESHCHENKO_USER_ID, {
     headerMobile: [1290, 600],
     headerDesktop: [2880, 720],
   }),
-  [MALEKHIV_USER_ID]: buildAssets(MALEKHIV_USER_ID, {
+  [MALEKHIV_USER_ID]: buildFullPackage(MALEKHIV_USER_ID, {
     headerMobile: [2880, 720],
     headerDesktop: [2880, 720],
   }),
+  // Лукач: splash + profile background only (no custom header — neutral chrome).
+  [LUKACH_USER_ID]: (() => {
+    const base = `/personal-assets/${LUKACH_USER_ID}`;
+    return {
+      splashMobileWebp: `${base}/splash_mobile.webp`,
+      splashMobilePng: `${base}/splash_mobile.png`,
+      splashDesktopWebp: `${base}/splash_desktop.webp`,
+      splashDesktopPng: `${base}/splash_desktop.png`,
+      profileBgMobileWebp: `${base}/profile_bg_mobile.webp`,
+      profileBgMobilePng: `${base}/profile_bg_mobile.png`,
+      profileBgDesktopWebp: `${base}/profile_bg_desktop.webp`,
+      profileBgDesktopPng: `${base}/profile_bg_desktop.png`,
+    };
+  })(),
 };
 
-// Per-branch packages. Key = branches.id. Empty for now — same structure,
-// drop a folder under /personal-assets/{branch_id}/ and add an entry here.
+// Per-branch packages. Key = branches.id.
 const BRANCH_ASSETS: Record<string, PersonalAssets> = {};
 
 /**
