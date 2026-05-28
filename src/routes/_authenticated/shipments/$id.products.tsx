@@ -2625,11 +2625,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const knownProductNames = products.map((product) => product.name);
   // D1: draft is the source of truth — no internal form state, no autosave.
   const form = draft;
-  // formRef tracks latest draft so runResolver (scheduled via setTimeout in
-  // InlineAutocomplete.accept) always reads the canonical value just written
-  // by onSelect, not the stale alias captured in the previous render.
+  // formRef always points at latest draft (assigned in render body so the
+  // resolver — which can be invoked via setTimeout or via a same-tick blur
+  // before React has re-rendered the parent — always reads the canonical
+  // value just written by AutocompleteCell.onSelect/handleBlur.
   const formRef = useRef(form);
-  useEffect(() => { formRef.current = form; }, [form]);
+  formRef.current = form;
   const touchedRef = useRef({ product: false, country: false });
   const set = <K extends keyof DraftRow>(k: K, v: DraftRow[K]) => {
     if (readOnly) return;
