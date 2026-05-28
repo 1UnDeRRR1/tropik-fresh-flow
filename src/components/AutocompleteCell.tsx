@@ -4,29 +4,7 @@ import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { cn } from "@/lib/utils";
 import { resolveProductOption } from "@/lib/product-aliases";
 import { matchesWordStart } from "@/lib/compact-search";
-
-// Basic Ukrainian -> Latin transliteration so typing "Хі" can match "HELLENIC".
-const UA_LAT: Record<string, string> = {
-  а: "a", б: "b", в: "v", г: "h", ґ: "g", д: "d", е: "e", є: "ie",
-  ж: "zh", з: "z", и: "y", і: "i", ї: "i", й: "i", к: "k", л: "l",
-  м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u",
-  ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "shch", ь: "",
-  ю: "iu", я: "ia", "'": "",
-};
-function uaToLat(s: string) {
-  return s.toLowerCase().split("").map((ch) => UA_LAT[ch] ?? ch).join("");
-}
-
-// Basic Latin -> Ukrainian (rough) to support typing English for UA options.
-const LAT_UA: Record<string, string> = {
-  a: "а", b: "б", c: "к", d: "д", e: "е", f: "ф", g: "г", h: "х",
-  i: "і", j: "й", k: "к", l: "л", m: "м", n: "н", o: "о", p: "п",
-  q: "к", r: "р", s: "с", t: "т", u: "у", v: "в", w: "в", x: "кс",
-  y: "и", z: "з",
-};
-function latToUa(s: string) {
-  return s.toLowerCase().split("").map((ch) => LAT_UA[ch] ?? ch).join("");
-}
+import { buildAutocompleteItems } from "@/lib/autocomplete-suggest";
 
 export function AutocompleteCell({
   value,
@@ -82,20 +60,10 @@ export function AutocompleteCell({
     return null;
   };
 
-  const optionItems = normalizedOptions.map((option) => ({
-    key: option,
-    label: option,
-    searchStrings: Array.from(new Set([
-      option,
-      uaToLat(option),
-      latToUa(option),
-      ...(aliases
-        ? Object.entries(aliases)
-            .filter(([, canonicalOption]) => canonicalOption.toLowerCase() === option.toLowerCase())
-            .flatMap(([alias]) => [alias, uaToLat(alias), latToUa(alias)])
-        : []),
-    ])).filter(Boolean),
-  }));
+  const optionItems = useMemo(
+    () => buildAutocompleteItems(normalizedOptions, aliases),
+    [normalizedOptions, aliases],
+  );
 
   useEffect(() => {
     if (invalid) setInvalid(false);
