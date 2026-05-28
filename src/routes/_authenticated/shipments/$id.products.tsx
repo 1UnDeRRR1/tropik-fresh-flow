@@ -2765,11 +2765,25 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
 
 
 
+  // Re-run the resolver whenever the canonical product/country changes
+  // (e.g. after AutocompleteCell normalises an alias on blur or select).
+  // This is the authoritative trigger — onCommit-based calls can race with
+  // the same-tick onChange→setState→re-render, leaving the resolver with the
+  // raw alias and producing "Країну не розпізнано". Effect runs after commit,
+  // so formRef and the closure here see the canonical value.
+  useEffect(() => {
+    if (readOnly) return;
+    if (!touchedRef.current.product && !touchedRef.current.country) return;
+    if (!form.product_name.trim() || !form.origin_country.trim()) return;
+    const id = window.setTimeout(() => { void runResolver(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [form.product_name, form.origin_country, readOnly, runResolver]);
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     void runResolver();
   };
+
 
   // D1: remove is local-only. DB DELETE happens last in commitDraft.
   const remove = () => {
