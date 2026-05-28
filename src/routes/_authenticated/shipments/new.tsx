@@ -342,7 +342,7 @@ function NewShipment() {
     queryFn: async () => {
       const { data: offer, error } = await supabase
         .from("manager_offers")
-        .select("origin_country,linked_shipment_id,import_manager_id,position_id")
+        .select("linked_shipment_id,import_manager_id,position_id")
         .eq("id", search.fromOffer!)
         .maybeSingle();
       if (error) throw error;
@@ -361,7 +361,10 @@ function NewShipment() {
 
       return {
         supplierId: linkedShipment?.supplier_id ?? null,
-        country: linkedShipment?.country ?? offer.origin_country ?? null,
+        // Country separation: shipment/loading country may ONLY come from a
+        // linked shipment. NEVER fall back to offer.origin_country — that is
+        // product origin only and must not leak into shipment/vehicle/supplier.
+        country: linkedShipment?.country ?? null,
         offerManagerId: offer.import_manager_id ?? null,
         // Phase 2 audit: surface offer.position_id even though products page
         // re-fetches it. NULL signals legacy offer (no anchor) → products
@@ -379,35 +382,12 @@ function NewShipment() {
 
   useEffect(() => {
     if (supplierId || !fromOfferPrefill || !suppliers?.length) return;
-
-    const directSupplier = fromOfferPrefill.supplierId
-      ? suppliers.find((supplier) => supplier.id === fromOfferPrefill.supplierId)
-      : null;
-    if (directSupplier) {
-      setSupplierId(directSupplier.id);
-      return;
-    }
-
-    const targetCountry = normalizeCountry(fromOfferPrefill.country ?? "");
-    if (!targetCountry) return;
-
-    const scopedManagerId = fromOfferPrefill.offerManagerId ?? currentManagerId ?? null;
-    // Try scoped pool first (manager's own suppliers); if empty fall back to all.
-    const scopedPool = scopedManagerId
-      ? suppliers.filter((supplier) => supplier.import_manager_id === scopedManagerId)
-      : [];
-    const pools: typeof suppliers[] = scopedPool.length ? [scopedPool, suppliers] : [suppliers];
-    for (const pool of pools) {
-      const countryMatches = pool.filter(
-        (supplier) => normalizeCountry(supplier.country ?? "") === targetCountry,
-      );
-      if (countryMatches.length > 0) {
-        // Pick first match — even if multiple, manager can change after.
-        setSupplierId(countryMatches[0].id);
-        return;
-      }
-    }
-  }, [fromOfferPrefill, suppliers, supplierId, currentManagerId]);
+    // Supplier prefill only from a directly linked shipment's supplier_id.
+    // NEVER infer supplier via origin_country or any country fallback.
+    if (!fromOfferPrefill.supplierId) return;
+    const directSupplier = suppliers.find((s) => s.id === fromOfferPrefill.supplierId);
+    if (directSupplier) setSupplierId(directSupplier.id);
+  }, [fromOfferPrefill, suppliers, supplierId]);
 
 
   // Preview next per-country vehicle sequence
