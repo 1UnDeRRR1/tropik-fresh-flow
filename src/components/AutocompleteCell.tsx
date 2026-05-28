@@ -28,17 +28,6 @@ function latToUa(s: string) {
   return s.toLowerCase().split("").map((ch) => LAT_UA[ch] ?? ch).join("");
 }
 
-function matchesQuery(option: string, query: string) {
-  if (!query) return false;
-  const o = option.toLowerCase();
-  const q = query.toLowerCase();
-  if (matchesWordStart(o, q)) return true;
-  if (matchesWordStart(o, uaToLat(q))) return true;
-  if (matchesWordStart(o, latToUa(q))) return true;
-  if (matchesWordStart(uaToLat(o), uaToLat(q))) return true;
-  return false;
-}
-
 export function AutocompleteCell({
   value,
   onChange,
