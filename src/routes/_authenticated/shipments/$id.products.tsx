@@ -2990,7 +2990,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="sticky right-0 z-30 w-12 min-w-[3rem] bg-card px-1 py-0.5 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.22)]">
+      <td className="sticky right-0 z-[60] w-12 min-w-[3rem] bg-card px-1 py-0.5 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.22)]">
         <div className="flex justify-center">
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <button
