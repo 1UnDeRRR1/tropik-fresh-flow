@@ -19,14 +19,15 @@ function Settings() {
   return (
     <div className="relative space-y-4">
       {hasProfileBg && personal && (
-        // Decorative art-block: pinned to the bottom of the safe area, behind
-        // all content (z-0). pointer-events-none keeps the exit button and
-        // bottom nav fully clickable. Uses <picture> for mobile/desktop swap
-        // and object-contain so the image is never stretched or cropped.
+        // Full-page background for the Профіль route. Covers the entire
+        // viewport behind all content (z-0); pointer-events-none keeps the
+        // exit button and bottom nav clickable. object-cover fills the area
+        // without distorting the image (may crop edges, never stretches).
+        // bg-background under the <img> hides any underlying app chrome so
+        // there is no visible seam on the sides.
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-x-0 bottom-0 z-0 flex justify-center"
-          style={{ height: "70vh" }}
+          className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background"
         >
           <picture>
             <source
@@ -52,7 +53,7 @@ function Settings() {
             <img
               src={personal.profileBgDesktopPng ?? personal.profileBgMobilePng}
               alt=""
-              className="h-full w-auto max-w-full object-contain object-bottom opacity-90"
+              className="h-full w-full object-cover object-center"
               loading="lazy"
               decoding="async"
               draggable={false}
