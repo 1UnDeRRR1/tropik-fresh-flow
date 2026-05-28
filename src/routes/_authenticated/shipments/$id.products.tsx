@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import { AutocompleteCell } from "@/components/AutocompleteCell";
+import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
 import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
@@ -3403,18 +3404,18 @@ function PackageCell({
   onSelect: (opt: PackageOption) => void;
   onChangeText: (text: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const { data: resolved, isLoading } = usePalletResolver(productName, countryName);
   const options: PackageOption[] = resolved?.options ?? [];
   const fallbackLabel = resolved?.isFallback ? resolved?.fallbackExplanation : null;
-
-  const commitAndClose = useCallback(() => {
-    setOpen(false);
-    setFocused(false);
-    inputRef.current?.blur();
-  }, []);
+  const items = useMemo(
+    () => options.map((opt, i) => ({
+      ...opt,
+      key: `${opt.package_used}|${opt.pallet_net_kg ?? ""}|${opt.pallet_gross_kg ?? ""}|${i}`,
+      label: opt.package_used,
+      searchStrings: [opt.package_used, opt.pallet_size ?? ""].filter(Boolean),
+    })),
+    [options],
+  );
 
 
   if (readOnly) {
@@ -3423,102 +3424,40 @@ function PackageCell({
     );
   }
 
-  // Manual input is ALWAYS available. The popover offers DB-standard suggestions
-  // when they exist — selecting one fills net/gross. If there are no standards,
-  // typing still works and the value is preserved.
   return (
-    <Popover open={open && focused} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <input
-          data-mobile-edit-label="Упаковка"
-          ref={inputRef}
-          type="text"
-          value={value}
-          placeholder="—"
-          enterKeyHint={MOBILE_ENTER_KEY_HINT}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => {
-            onChangeText(e.target.value);
-            if (!open) setOpen(true);
-          }}
-          onFocus={(e) => {
-            setFocused(true);
-            setOpen(true);
-            scrollFocusedIntoView(e.currentTarget);
-          }}
-          onKeyDown={(e) => {
-            if ((e.key === "Tab" || e.key === "Enter") && options[0]) {
-              e.preventDefault();
-              onSelect(options[0]);
-              commitAndClose();
-              return;
-            }
-            blurOnEnter(e);
-          }}
-          onBlur={() => { setFocused(false); }}
-          className={cn(
-            "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
-            !value && "text-muted-foreground",
-          )}
-        />
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={2}
-        className="z-50 w-[min(18rem,calc(100vw-1rem))] max-w-[min(18rem,calc(100vw-1rem))] overflow-hidden p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <div
-          className="max-h-[132px] overflow-y-auto overscroll-contain"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          {isLoading ? (
-            <div className="px-3 py-2 text-[12px] text-muted-foreground">Завантаження…</div>
-          ) : options.length === 0 ? (
-            <div className="px-3 py-2 text-[12px] text-muted-foreground">
-              Немає стандартів тари — введіть вручну
-            </div>
-          ) : (
-            options.slice(0, 3).map((opt, i) => {
-              const active = value && value.trim().toLowerCase() === opt.package_used.toLowerCase();
-              return (
-                <button
-                  key={`${opt.package_used}|${opt.pallet_net_kg ?? ""}|${opt.pallet_gross_kg ?? ""}|${i}`}
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onSelect(opt);
-                    commitAndClose();
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onSelect(opt);
-                    commitAndClose();
-                  }}
-                  className={cn(
-                    "block w-full px-3 py-2 text-left text-[12px] hover:bg-accent hover:text-accent-foreground",
-                    active && "bg-accent/60",
-                  )}
-                >
-                  <div className="font-medium truncate">{opt.package_used}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    net {opt.pallet_net_kg ?? "—"} / gross {opt.pallet_gross_kg ?? "—"} кг
-                    {opt.pallet_size ? ` · ${opt.pallet_size}` : ""}
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-        {fallbackLabel ? (
-          <div className="border-t px-3 py-1.5 text-[11px] text-amber-700 bg-amber-50">
-            {fallbackLabel}
+    <InlineAutocomplete
+      value={value}
+      onValueChange={onChangeText}
+      items={items}
+      getKey={(item) => item.key}
+      getLabel={(item) => item.label}
+      getSearchStrings={(item) => item.searchStrings}
+      onSelect={(item) => onSelect(item)}
+      onCommit={() => {
+        if (typeof document === "undefined") return;
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) active.blur();
+      }}
+      placeholder="—"
+      browseLimit={Math.min(5, items.length || 5)}
+      searchLimit={3}
+      minSearchLength={2}
+      className="w-full"
+      inputClassName={cn(
+        "h-8 w-full truncate rounded-md border border-transparent bg-transparent px-1.5 text-left text-[12px] outline-none transition-colors hover:border-input focus:border-input focus:bg-background",
+        !value && "text-muted-foreground",
+      )}
+      inputProps={{ "data-mobile-edit-label": "Упаковка" }}
+      renderItem={(item) => (
+        <div>
+          <div className="font-medium truncate">{item.package_used}</div>
+          <div className="text-[11px] text-muted-foreground">
+            net {item.pallet_net_kg ?? "—"} / gross {item.pallet_gross_kg ?? "—"} кг
+            {item.pallet_size ? ` · ${item.pallet_size}` : ""}
           </div>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+        </div>
+      )}
+    />
   );
 }
 
