@@ -202,7 +202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
       <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-        {personalAssets ? (
+        {personalAssets?.headerDesktopWebp ? (
           /* Full-bleed personal header banner — only for users with a package.
              width/height attributes on each <source> + <img> let the browser
              reserve the correct aspect-ratio box before the image decodes,
