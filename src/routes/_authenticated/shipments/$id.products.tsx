@@ -2625,6 +2625,12 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const knownProductNames = products.map((product) => product.name);
   // D1: draft is the source of truth — no internal form state, no autosave.
   const form = draft;
+  // formRef always points at latest draft (assigned in render body so the
+  // resolver — which can be invoked via setTimeout or via a same-tick blur
+  // before React has re-rendered the parent — always reads the canonical
+  // value just written by AutocompleteCell.onSelect/handleBlur.
+  const formRef = useRef(form);
+  formRef.current = form;
   const touchedRef = useRef({ product: false, country: false });
   const set = <K extends keyof DraftRow>(k: K, v: DraftRow[K]) => {
     if (readOnly) return;
@@ -2659,12 +2665,14 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const runResolver = useCallback(async () => {
     if (readOnly) return;
     if (!touchedRef.current.product && !touchedRef.current.country) return;
-    const product = form.product_name.trim();
-    const country = form.origin_country.trim();
+    // Always read the latest canonical values written by AutocompleteCell.
+    const latest = formRef.current;
+    const product = latest.product_name.trim();
+    const country = latest.origin_country.trim();
     if (!product || !country) return;
     const productKey = resolverKeyOf(product);
     const countryKey = resolverKeyOf(country);
-    const packageKey = resolverKeyOf(form.package_used);
+    const packageKey = resolverKeyOf(latest.package_used);
     const reportHint = (status: ResolverHintStatus | null) => {
       if (status == null) {
         setHint(null);
@@ -2721,21 +2729,22 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       const pal = await resolvePalletForText(product, country);
       if (seq !== resolverSeqRef.current) return;
 
+      const cur = formRef.current;
       if (pal.matchType !== "no_match" && pal.selected) {
         const pNet = pal.selected.pallet_net_kg;
         const pGross = pal.selected.pallet_gross_kg;
         const pkg = pal.selected.package_used;
         reportHint("matched");
-        const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
+        const pc = (Number(cur.pallet_count) || 0) > 0 ? Number(cur.pallet_count) : 1;
         onPatch({
           pallet_count: pc,
-          package_used: pkg ?? form.package_used,
+          package_used: pkg ?? cur.package_used,
           resolver_net_per_pallet_kg: pNet,
           resolver_gross_per_pallet_kg: pGross,
           net_auto: true,
           gross_auto: true,
-          net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
-          gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
+          net_weight_kg: pNet != null ? pNet * pc : cur.net_weight_kg,
+          gross_weight_kg: pGross != null ? pGross * pc : cur.gross_weight_kg,
         });
       } else {
         reportHint("pallet_no_match");
@@ -2752,14 +2761,29 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     } finally {
       if (seq === resolverSeqRef.current) setResolverBusy(false);
     }
-  }, [readOnly, form.product_name, form.origin_country, form.package_used, form.pallet_count, form.net_weight_kg, form.gross_weight_kg, onPatch, onResolverHint]);
+  }, [readOnly, onPatch, onResolverHint]);
 
 
+
+  // Re-run the resolver whenever the canonical product/country changes
+  // (e.g. after AutocompleteCell normalises an alias on blur or select).
+  // This is the authoritative trigger — onCommit-based calls can race with
+  // the same-tick onChange→setState→re-render, leaving the resolver with the
+  // raw alias and producing "Країну не розпізнано". Effect runs after commit,
+  // so formRef and the closure here see the canonical value.
+  useEffect(() => {
+    if (readOnly) return;
+    if (!touchedRef.current.product && !touchedRef.current.country) return;
+    if (!form.product_name.trim() || !form.origin_country.trim()) return;
+    const id = window.setTimeout(() => { void runResolver(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [form.product_name, form.origin_country, readOnly, runResolver]);
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     void runResolver();
   };
+
 
   // D1: remove is local-only. DB DELETE happens last in commitDraft.
   const remove = () => {
@@ -2966,7 +2990,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           onCurrencyChange={(c) => set("price_currency", c)}
         />
       </td>
-      <td className="sticky right-0 z-30 w-12 min-w-[3rem] bg-card px-1 py-0.5 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.22)]">
+      <td className="sticky right-0 z-[60] w-12 min-w-[3rem] bg-card px-1 py-0.5 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.22)]">
         <div className="flex justify-center">
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <button
@@ -3445,6 +3469,7 @@ function PackageCell({
         if (active instanceof HTMLElement) active.blur();
       }}
       placeholder="—"
+      expandedMinWidth={280}
       browseLimit={Math.min(5, items.length || 5)}
       searchLimit={3}
       minSearchLength={2}
