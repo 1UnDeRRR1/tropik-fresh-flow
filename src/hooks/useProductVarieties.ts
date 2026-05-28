@@ -48,19 +48,36 @@ function stripPackagingQualifier(name: string): string {
   return name.replace(/\s*\((?:ваг|кош|фас|пучок|зелень|корінь|стебло)\)\s*$/i, "").trim();
 }
 
+/**
+ * Generic grade/caliber tokens that historically leaked into the variety
+ * dictionary (e.g. "A", "B", "C", "AA", "1", "Extra"). They are never useful
+ * as a сорт suggestion — strip them at the display layer (no DB change).
+ */
+function isGenericGradeToken(v: string): boolean {
+  const t = v.trim();
+  if (!t) return true;
+  // 1–2 char tokens made of letters/digits only (A, B, C, AA, A1, 1, 2…)
+  if (t.length <= 2 && /^[A-Za-z0-9]+$/.test(t)) return true;
+  // Common grade words
+  if (/^(extra|premium|grade|class|клас|сорт)$/i.test(t)) return true;
+  return false;
+}
+
 export function useVarietiesFor(productName: string | null | undefined): string[] {
   const { data } = useAllProductVarieties();
   return useMemo(() => {
     if (!productName || !data) return [];
+    const pick = (arr: string[] | undefined) =>
+      (arr ?? []).filter((v) => !isGenericGradeToken(v));
     // 1) Exact match on the selected product name.
-    const exact = data[normalizeProductKey(productName)];
-    if (exact && exact.length) return exact;
+    const exact = pick(data[normalizeProductKey(productName)]);
+    if (exact.length) return exact;
     // 2) Fallback: strip trailing packaging qualifier and look up the base
     //    product (e.g. "Полуниця (ваг)" → "Полуниця").
     const base = stripPackagingQualifier(productName);
     if (base && base !== productName) {
-      const baseHit = data[normalizeProductKey(base)];
-      if (baseHit && baseHit.length) return baseHit;
+      const baseHit = pick(data[normalizeProductKey(base)]);
+      if (baseHit.length) return baseHit;
     }
     return [];
   }, [productName, data]);
