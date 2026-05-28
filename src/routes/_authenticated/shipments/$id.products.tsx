@@ -1853,7 +1853,7 @@ function ProductsFullscreen() {
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
     <div
-      className={cn("fixed inset-x-0 top-0 z-[100] flex flex-col bg-background", shake && "animate-shake")}
+      className={cn("fixed inset-x-0 top-0 z-[100] flex flex-col overflow-x-hidden overscroll-contain bg-background", shake && "animate-shake")}
       style={{ bottom: "var(--keyboard-inset, 0px)" }}
     >
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
@@ -2764,20 +2764,10 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   }, [readOnly, onPatch, onResolverHint]);
 
 
-
-  // Re-run the resolver whenever the canonical product/country changes
-  // (e.g. after AutocompleteCell normalises an alias on blur or select).
-  // This is the authoritative trigger — onCommit-based calls can race with
-  // the same-tick onChange→setState→re-render, leaving the resolver with the
-  // raw alias and producing "Країну не розпізнано". Effect runs after commit,
-  // so formRef and the closure here see the canonical value.
-  useEffect(() => {
-    if (readOnly) return;
-    if (!touchedRef.current.product && !touchedRef.current.country) return;
-    if (!form.product_name.trim() || !form.origin_country.trim()) return;
-    const id = window.setTimeout(() => { void runResolver(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [form.product_name, form.origin_country, readOnly, runResolver]);
+  // Resolver is invoked only via commit/select/blur of the autocomplete cells
+  // (onCommit on AutocompleteCell + handleResolverBlur on the <td>). Running
+  // it on every keystroke caused per-char RPCs, hint banner flicker and the
+  // mobile "shaking" symptom.
 
   const handleResolverBlur = (e: FocusEvent<HTMLElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
@@ -2839,7 +2829,6 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             touchedRef.current.product = true;
             setHint(null);
             onResolverHint(null);
-            setResolverBusy(true);
             onPatch({ product_name: v });
           }}
           onCommit={() => { void runResolver(); }}
@@ -2872,7 +2861,6 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
             touchedRef.current.country = true;
             setHint(null);
             onResolverHint(null);
-            setResolverBusy(true);
             onPatch({ origin_country: v });
           }}
           onCommit={() => { void runResolver(); }}
@@ -3470,7 +3458,7 @@ function PackageCell({
       }}
       placeholder="—"
       expandedMinWidth={200}
-      browseLimit={Math.min(5, items.length || 5)}
+      browseLimit={50}
       searchLimit={3}
       minSearchLength={2}
       className="w-full"
