@@ -116,9 +116,11 @@ function ValidatedAutocomplete({
   placeholder?: string;
   required?: boolean;
 }) {
-  const [focused, setFocused] = useState(false);
+  // Unified with shipments товарні позиції via AutocompleteCell — same
+  // word-start matching, alias ranking, transliteration, and resolve-on-blur.
+  // Visual wrapper preserves the full-size Input + "Значення відсутнє в базі"
+  // error text used by the Нова пропозиція dialog.
   const trimmed = value.trim();
-  const lower = trimmed.toLowerCase();
   const normalizedOptions = useMemo(
     () => Array.from(new Set(options.map((o) => o.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
     [options],
@@ -130,78 +132,24 @@ function ValidatedAutocomplete({
   const isInvalid = trimmed.length > 0 && !canonical;
   const showRequired = required && trimmed.length === 0;
 
-  const suggestions = useMemo(() => {
-    if (trimmed.length < 2) return [];
-    if (canonical && canonical.toLowerCase() === lower) return [];
-    const direct = normalizedOptions.filter((o) => matchesQuery(o, trimmed));
-    const viaAlias = aliases
-      ? Object.entries(aliases)
-          .filter(([k]) => k.startsWith(lower))
-          .map(([, target]) => {
-            const t = target.toLowerCase();
-            return normalizedOptions.find((o) => o.toLowerCase() === t) ?? target;
-          })
-      : [];
-    return Array.from(new Set([...direct, ...viaAlias])).slice(0, 3);
-  }, [trimmed, lower, canonical, normalizedOptions, aliases]);
-
   return (
-    <div className="relative">
-      <Input
+    <div className="space-y-1">
+      <AutocompleteCell
         value={value}
+        onChange={onChange}
+        options={normalizedOptions}
+        aliases={aliases}
         placeholder={placeholder}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          const c = resolveOption(trimmed, normalizedOptions, aliases);
-          if (c && c !== trimmed) onChange(c);
-          setTimeout(() => setFocused(false), 150);
-        }}
-        onKeyDown={(e) => {
-          if ((e.key === "Enter" || e.key === "Tab") && suggestions[0]) {
-            e.preventDefault();
-            onChange(suggestions[0]);
-            (e.currentTarget as HTMLInputElement).blur();
-          }
-        }}
+        required={!!required}
+        expandedMinWidth={240}
         className={cn(
+          "h-10 border border-input bg-background px-3 text-sm",
           (isInvalid || showRequired) &&
-            "border-destructive bg-destructive/10 focus-visible:ring-destructive",
+            "border-destructive bg-destructive/10 focus:border-destructive",
         )}
       />
-      {focused && suggestions.length > 0 && (
-        <div
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-64 overflow-auto rounded-md border border-border bg-popover shadow-xl"
-          onMouseDown={(e) => e.preventDefault()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          {suggestions.map((s) => {
-            const select = () => {
-              onChange(s);
-              setFocused(false);
-            };
-            return (
-              <button
-                key={s}
-                type="button"
-                style={{ touchAction: "manipulation" }}
-                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); select(); }}
-                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); select(); }}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); select(); }}
-                className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
-              >
-                {s}
-              </button>
-            );
-          })}
-        </div>
-      )}
       {isInvalid && (
-        <div className="mt-1 text-xs text-destructive">Значення відсутнє в базі</div>
+        <div className="text-xs text-destructive">Значення відсутнє в базі</div>
       )}
     </div>
   );
