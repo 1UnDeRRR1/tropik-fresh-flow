@@ -1,19 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, useCallback, type FormEvent } from "react";
-import { Check, ChevronsUpDown, Truck, Plus, Lock, AlertTriangle } from "lucide-react";
+import { Truck, Plus, Lock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { COUNTRIES as FALLBACK_COUNTRIES, COUNTRY_DAYS, calcArrivalDate, toDateInputValue } from "@/lib/arrival";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import {
   getSupplierAlias,
@@ -24,7 +24,8 @@ import {
   getCountryCode,
 } from "@/lib/shipment-code";
 import { StaffOnly } from "@/components/StaffOnly";
-import { filterWordStart } from "@/lib/compact-search";
+import { matchesWordStart } from "@/lib/compact-search";
+import { resolveCountry } from "@/lib/country-search";
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
