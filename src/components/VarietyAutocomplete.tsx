@@ -23,6 +23,7 @@ export function VarietyAutocomplete({
   inputClassName,
   disabled,
   onCommit,
+  expandedMinWidth,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -32,6 +33,7 @@ export function VarietyAutocomplete({
   inputClassName?: string;
   disabled?: boolean;
   onCommit?: () => void;
+  expandedMinWidth?: number;
 }) {
   const items = useMemo(
     () => Array.from(new Set(varieties.map((item) => item.trim()).filter(Boolean))).map((item) => ({
@@ -56,6 +58,7 @@ export function VarietyAutocomplete({
       className={cn("w-full", className)}
       inputClassName={inputClassName}
       disabled={disabled}
+      expandedMinWidth={expandedMinWidth}
       browseLimit={5}
       searchLimit={3}
       minSearchLength={2}
@@ -63,3 +66,4 @@ export function VarietyAutocomplete({
     />
   );
 }
+

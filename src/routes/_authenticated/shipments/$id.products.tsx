@@ -3487,6 +3487,7 @@ function VarietyCell({ value, onChange, productName, readOnly }: { value: string
         readOnly && "cursor-default",
       )}
       disabled={readOnly}
+      expandedMinWidth={200}
     />
   );
 }

@@ -102,8 +102,14 @@ export function InlineAutocomplete<T>({
     ? getKey(items.find((item) => getLabel(item).trim().toLowerCase() === value.trim().toLowerCase()) as T)
     : null;
 
+  const expanded = focused && !readOnly && !!expandedMinWidth;
+
   return (
     <div className={cn("relative", className)}>
+      {/* Spacer preserves the cell's normal height while the real input
+          is taken out of flow during focus, so the table layout never
+          permanently grows. */}
+      {expanded && <div aria-hidden className="invisible h-8" />}
       <Input
         {...inputProps}
         ref={inputRef}
@@ -157,15 +163,24 @@ export function InlineAutocomplete<T>({
         className={inputClassName}
         style={{
           ...(inputProps?.style ?? {}),
-          ...(focused && expandedMinWidth ? { minWidth: expandedMinWidth } : {}),
+          ...(expanded
+            ? {
+                position: "absolute",
+                left: 0,
+                top: 0,
+                zIndex: 40,
+                minWidth: expandedMinWidth,
+                maxWidth: "92vw",
+                background: "hsl(var(--background))",
+              }
+            : {}),
         }}
       />
 
-
-
       {focused && !readOnly && visibleItems.length > 0 && (
         <div
-          className="absolute left-0 top-[calc(100%+2px)] z-50 w-full min-w-0 max-w-[min(22rem,92vw)] overflow-hidden rounded-md border border-border bg-popover shadow-xl"
+          className="absolute left-0 top-[calc(100%+2px)] z-50 w-full overflow-hidden rounded-md border border-border bg-popover shadow-xl"
+          style={expanded ? { minWidth: expandedMinWidth, maxWidth: "92vw" } : { maxWidth: "min(22rem, 92vw)" }}
           onMouseDown={(e) => e.preventDefault()}
         >
           <div
