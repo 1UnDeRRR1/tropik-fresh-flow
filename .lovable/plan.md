@@ -1,53 +1,104 @@
-## Цель
-Установить персональный набор картинок только для пользователя **Малехів (Львів)** — `id = 44eddfe6-bd13-43ae-acaf-3afb5941179c`, branch `3bb65cb3-27a1-5f18-839a-340271d711fd`. Никакие другие пользователи этих картинок не видят.
 
-## Особое условие по шапке
-- **Шапка mobile** = берём `header_desktop.webp/.png` из ZIP (НЕ берём `header_mobile.*` из архива — он намеренно игнорируется).
-- **Шапка desktop** = `header_desktop.webp/.png` из ZIP.
-- **Splash mobile** = `splash_mobile.webp/.png` из ZIP.
-- **Splash desktop** = `splash_desktop.webp/.png` из ZIP.
+# Fix: origin_country leak in shipment creation from offer
 
-Никаких изменений в layout/логике header'а — мы просто кладём файл с десктопным контентом под обоими именами (`header_mobile.*` и `header_desktop.*`), и существующий `<picture>` сам подхватит.
+## Scope (single file, local fix)
 
-## Шаги
+Only file changed:
+- `src/routes/_authenticated/shipments/new.tsx`
 
-1. Создать папку `public/personal-assets/44eddfe6-bd13-43ae-acaf-3afb5941179c/` и положить туда 8 файлов:
-   - `header_desktop.webp`, `header_desktop.png` ← из ZIP `header_desktop.webp/.png`
-   - `header_mobile.webp`,  `header_mobile.png`  ← **те же самые** desktop-файлы из ZIP (дубликат, по условию пользователя)
-   - `splash_desktop.webp`, `splash_desktop.png` ← из ZIP
-   - `splash_mobile.webp`,  `splash_mobile.png`  ← из ZIP
-   - PSD и `source_*` папки из архива не копируем (исходники, не нужны в проде).
+No helper file is needed. The bug is fully contained in two adjacent blocks of this route (the `fromOfferPrefill` query and the supplier auto-pick effect). Extracting a helper would expand scope and touch shared code, which is explicitly out of scope.
 
-2. Зарегистрировать пакет в `src/lib/branch-assets.ts`:
+## Root cause
+
+In `src/routes/_authenticated/shipments/new.tsx`:
+
+1. Line ~364 — prefill returns:
    ```ts
-   const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
-   const USER_ASSETS: Record<string, PersonalAssets> = {
-     [TERESHCHENKO_USER_ID]: buildAssets(TERESHCHENKO_USER_ID),
-     [MALEKHIV_USER_ID]:    buildAssets(MALEKHIV_USER_ID),
+   country: linkedShipment?.country ?? offer.origin_country ?? null
+   ```
+   This makes product `origin_country` fall through as the shipment/loading country whenever there is no linked shipment.
+
+2. Lines ~380–410 — when there is no linked-shipment supplier, the effect uses `fromOfferPrefill.country` (which, per #1, may actually be `origin_country`) as `targetCountry` and filters `suppliers` by `supplier.country === targetCountry`, auto-selecting the first match.
+
+3. Lines ~373–378 — the country-prefill effect then writes that same `fromOfferPrefill.country` into the shipment `country` state, which downstream feeds the shipment code's country segment and the vehicle code (`previewCc = getCountryCode(country)`).
+
+Net effect with Mango / Peru: `origin_country = "Peru"` propagates into shipment country, vehicle/shipment code country segment, and supplier filter — violating the country-separation rule.
+
+## Exact logic to remove
+
+In `src/routes/_authenticated/shipments/new.tsx`:
+
+1. In the `fromOfferPrefill` queryFn return object, remove the `?? offer.origin_country` fallback:
+   ```ts
+   // remove:
+   country: linkedShipment?.country ?? offer.origin_country ?? null,
+   ```
+
+2. Drop `origin_country` from the offer `.select(...)` on line ~345 (no other consumer of `fromOfferPrefill` reads it).
+
+3. In the supplier auto-pick effect (lines ~380–410), remove the entire country-based fallback branch:
+   - `const targetCountry = normalizeCountry(fromOfferPrefill.country ?? "");`
+   - the `scopedManagerId` / `scopedPool` / `pools` block
+   - the `for (const pool of pools) { ... countryMatches ... setSupplierId(countryMatches[0].id) ... }` loop
+
+## Exact new logic to add
+
+1. New prefill shape (no origin fallback):
+   ```ts
+   return {
+     supplierId: linkedShipment?.supplier_id ?? null,
+     country: linkedShipment?.country ?? null,           // only from linked shipment
+     offerManagerId: offer.import_manager_id ?? null,
+     offerPositionId: (offer as { position_id?: string | null }).position_id ?? null,
    };
    ```
-   Маппинг идёт по `profile.id` — резолвер уже работает строго per-user, поэтому другие пользователи этих картинок не получат. Branch-level маппинг не добавляю (по требованию «один пользователь — один набор»).
 
-3. Никаких изменений в `AppShell.tsx`, `_authenticated.tsx`, `_authenticated/index.tsx`, `login.tsx` — они уже используют `getPersonalAssets(user.id, profile.branch_id)`.
+2. Supplier auto-pick effect, reduced to direct linked-shipment supplier only:
+   ```ts
+   useEffect(() => {
+     if (supplierId || !fromOfferPrefill || !suppliers?.length) return;
+     if (!fromOfferPrefill.supplierId) return;           // no linked shipment → no auto-pick
+     const directSupplier = suppliers.find(s => s.id === fromOfferPrefill.supplierId);
+     if (directSupplier) setSupplierId(directSupplier.id);
+   }, [fromOfferPrefill, suppliers, supplierId]);
+   ```
+   (Drop `currentManagerId` from the deps list since it is no longer used here.)
 
-## Что НЕ трогаю
-- POSITION/RLS/formulas/resolver/offers/shipments/logistics/customs/auth/roles.
-- Картинки и регистрацию Терещенко.
-- Layout/ширину/высоту шапки, шрифты, курс валют, notification bell.
-- `src/integrations/supabase/*`, `routeTree.gen.ts`.
+3. Country prefill effect (lines ~373–378) stays as-is in structure — but because `fromOfferPrefill.country` is now `null` unless a linked shipment exists, it naturally no longer prefills from `origin_country`. No code change required there beyond verifying behavior.
 
-## Проверка после имплементации
-- `ls public/personal-assets/44eddfe6-.../` — должно быть ровно 8 файлов.
-- `header_mobile.webp` и `header_desktop.webp` побайтово одинаковые (sha256 совпадает).
-- Войти под Малехів на mobile viewport — шапка десктопная (широкая, тонкая), splash мобильный.
-- Войти под Терещенко — его картинки не изменились.
-- Войти под любым третьим пользователем — нейтральный fallback, картинок Малехів/Терещенко не видно.
-- Typecheck/build.
+4. Re: business rule #3 ("direct `supplier_id` on offer"): confirmed via `\d manager_offers` that `manager_offers` has no `supplier_id` column today. The only direct supplier source is `linked_shipment.supplier_id`, which is preserved. No new column, no new query — explicitly out of scope.
 
-## Отчёт, который дам после билда
-1. Использованные файлы по каждому из 4 слотов (mobile/desktop × header/splash) для Малехів.
-2. Подтверждение, что `header_mobile.*` — дубликат `header_desktop.*`.
-3. Подтверждение, что mapping лежит в `src/lib/branch-assets.ts` по `user_id`.
-4. Подтверждение изоляции: другие пользователи этих картинок не получают.
-5. Подтверждение, что бизнес-логика/RLS/формулы/resolver/Терещенко не тронуты.
-6. Typecheck/build result.
+## Result vs. regression scenario
+
+Mango / `origin_country = Peru`, no linked shipment:
+- `fromOfferPrefill.country` → `null` → shipment `country` stays empty → manager picks it manually.
+- Supplier auto-pick early-returns (no `supplierId` from linked shipment) → supplier list is not filtered by Peru, nothing auto-selected.
+- `previewCc` / shipment code country segment is driven solely by the manually selected `country`.
+- Peru remains only as product origin on the offer record.
+
+With a linked shipment:
+- Country comes only from `linkedShipment.country`.
+- Supplier comes only from `linkedShipment.supplier_id`.
+
+## Out of scope — explicit confirmation
+
+No changes to:
+- DB / schema / migrations / RLS / triggers / RPCs / enums / indexes
+- routes, route tree, navigation, tabs, buttons
+- UI layout of `shipments/new.tsx` (only the two effect/query bodies above)
+- product-entry screen, manager-offers screens, branch screens, loading plan, distribution
+- shared components (AppShell, InlineAutocomplete, AutocompleteCell, etc.)
+- `manager_offer_allocation_parts` and related RPCs
+- any other file in `src/`
+
+## Manual smoke test
+
+1. Open an offer with `origin_country = Peru` and no `linked_shipment_id`. Click "Create shipment from offer".
+   - Expect: shipment country field is empty; vehicle/shipment code preview has no country segment; supplier field is empty; supplier dropdown shows the full allowed list (not filtered to Peru).
+2. Manually select loading country = Turkey, then pick a Turkish supplier.
+   - Expect: shipment code country segment reflects Turkey, not Peru.
+3. Open an offer whose `linked_shipment_id` points to a shipment with `country = Turkey`, `supplier_id = X`.
+   - Expect: country prefills to Turkey; supplier prefills to X; no Peru anywhere.
+4. Open an offer with `linked_shipment_id` set but the shipment has `country = null` and `supplier_id = null`.
+   - Expect: country empty, supplier empty, no fallback to `origin_country`.
+5. Sanity: existing "create shipment" flow (not from offer) is unchanged — country and supplier behave as before.
