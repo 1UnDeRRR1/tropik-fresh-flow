@@ -105,7 +105,11 @@ export function InlineAutocomplete<T>({
   const expanded = focused && !readOnly && !!expandedMinWidth;
 
   return (
-    <div className={cn("relative", className)}>
+    <div
+      className={cn("relative", className)}
+      style={expanded ? { zIndex: 50 } : undefined}
+    >
+
       {/* Spacer preserves the cell's normal height while the real input
           is taken out of flow during focus, so the table layout never
           permanently grows. */}
@@ -171,11 +175,16 @@ export function InlineAutocomplete<T>({
                 zIndex: 40,
                 minWidth: expandedMinWidth,
                 maxWidth: "92vw",
-                background: "hsl(var(--background))",
+                // --background is oklch in this project; wrapping it in hsl()
+                // produced an invalid color → transparent. Use the token
+                // directly so the active cell is fully opaque over neighbours.
+                background: "var(--background)",
+                boxShadow: "0 6px 18px -6px rgba(0,0,0,0.25)",
               }
             : {}),
         }}
       />
+
 
       {focused && !readOnly && visibleItems.length > 0 && (
         <div
