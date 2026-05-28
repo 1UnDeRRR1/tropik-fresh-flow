@@ -4,7 +4,6 @@ import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { cn } from "@/lib/utils";
 import { resolveProductOption } from "@/lib/product-aliases";
 import { matchesWordStart } from "@/lib/compact-search";
-import { buildAutocompleteItems } from "@/lib/autocomplete-suggest";
 
 export function AutocompleteCell({
   value,
