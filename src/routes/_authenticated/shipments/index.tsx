@@ -205,43 +205,44 @@ function ShipmentsList() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Поставки"
-        action={
-          <Link to="/shipments/new">
-            <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Нова поставка
-            </Button>
-          </Link>
-        }
-      />
+      <PageHeader title="Поставки" />
+
+      {/* Line 1: shipments/vehicles toggle on the left, "Нова поставка"
+          aligned to the right edge on the same row. */}
+      <div className="flex items-center justify-between gap-2">
+        {isStaff ? (
+          <div className="inline-flex rounded-full border border-border bg-card p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setTab("shipments")}
+              className={cn(
+                "rounded-full px-3 py-1.5 font-semibold transition",
+                tab === "shipments" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Поставки
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("vehicles")}
+              className={cn(
+                "rounded-full px-3 py-1.5 font-semibold transition",
+                tab === "vehicles" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Відкриті авто
+            </button>
+          </div>
+        ) : <div />}
+        <Link to="/shipments/new">
+          <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
+            <Plus className="mr-1 h-4 w-4" /> Нова поставка
+          </Button>
+        </Link>
+      </div>
 
       <MainBoardToggle value={board} onChange={setBoard} />
 
-      {isStaff && (
-        <div className="inline-flex rounded-full border border-border bg-card p-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setTab("shipments")}
-            className={cn(
-              "rounded-full px-3 py-1.5 font-semibold transition",
-              tab === "shipments" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Поставки
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("vehicles")}
-            className={cn(
-              "rounded-full px-3 py-1.5 font-semibold transition",
-              tab === "vehicles" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Відкриті авто
-          </button>
-        </div>
-      )}
 
       {tab === "vehicles" && isStaff ? (
         <OpenVehiclesBlock currentManagerId={currentManagerId} />
