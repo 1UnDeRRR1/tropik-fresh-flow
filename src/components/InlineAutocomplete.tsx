@@ -29,6 +29,7 @@ export function InlineAutocomplete<T>({
   searchLimit = 3,
   minSearchLength = 2,
   selectTextOnFocus = true,
+  expandedMinWidth,
   renderItem,
   inputProps,
 }: {
@@ -50,6 +51,7 @@ export function InlineAutocomplete<T>({
   searchLimit?: number;
   minSearchLength?: number;
   selectTextOnFocus?: boolean;
+  expandedMinWidth?: number;
   renderItem?: (item: T, meta: { active: boolean; mode: SuggestionMode }) => React.ReactNode;
   inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "disabled" | "readOnly" | "placeholder"> & Record<`data-${string}`, string | undefined>;
 }) {
@@ -66,15 +68,24 @@ export function InlineAutocomplete<T>({
     if (!typedSinceFocus) return items.slice(0, browseLimit);
     if (query.length < minSearchLength) return [] as T[];
 
-    return items
-      .filter((item) => {
-        const strings = [getLabel(item), ...(getSearchStrings?.(item) ?? [])]
-          .map((str) => str.trim())
-          .filter(Boolean);
-        if (strings.some((str) => str.toLowerCase() === query)) return false;
-        return strings.some((str) => matchesWordStart(str, query));
-      })
-      .slice(0, searchLimit);
+    const matches = items.filter((item) => {
+      const strings = [getLabel(item), ...(getSearchStrings?.(item) ?? [])]
+        .map((str) => str.trim())
+        .filter(Boolean);
+      if (strings.some((str) => str.toLowerCase() === query)) return false;
+      return strings.some((str) => matchesWordStart(str, query));
+    });
+
+    // Rank: items whose canonical label starts with the query first,
+    // then items that only match via aliases / search strings. Stable
+    // within each bucket so the caller's alphabetical order is preserved.
+    const direct: T[] = [];
+    const aliasOnly: T[] = [];
+    for (const item of matches) {
+      if (getLabel(item).trim().toLowerCase().startsWith(query)) direct.push(item);
+      else aliasOnly.push(item);
+    }
+    return [...direct, ...aliasOnly].slice(0, searchLimit);
   }, [browseLimit, focused, getLabel, getSearchStrings, items, minSearchLength, query, readOnly, searchLimit, typedSinceFocus]);
 
   const accept = (item: T) => {
