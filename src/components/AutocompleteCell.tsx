@@ -96,11 +96,16 @@ export function AutocompleteCell({
   const optionItems = normalizedOptions.map((option) => ({
     key: option,
     label: option,
-    searchStrings: [option, ...(aliases
-      ? Object.entries(aliases)
-          .filter(([, canonicalOption]) => canonicalOption.toLowerCase() === option.toLowerCase())
-          .map(([alias]) => alias)
-      : [])].filter((candidate) => matchesQuery(candidate, trimmed) || !trimmed),
+    searchStrings: Array.from(new Set([
+      option,
+      uaToLat(option),
+      latToUa(option),
+      ...(aliases
+        ? Object.entries(aliases)
+            .filter(([, canonicalOption]) => canonicalOption.toLowerCase() === option.toLowerCase())
+            .flatMap(([alias]) => [alias, uaToLat(alias), latToUa(alias)])
+        : []),
+    ])).filter(Boolean),
   }));
 
   useEffect(() => {
