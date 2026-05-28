@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
@@ -1847,11 +1848,12 @@ function ProductsFullscreen() {
   }, []);
 
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
     <div
-      className={cn("fixed left-0 right-0 top-0 z-50 flex flex-col bg-background", shake && "animate-shake")}
+      className={cn("fixed inset-x-0 top-0 z-[100] flex flex-col bg-background", shake && "animate-shake")}
       style={{ bottom: "var(--keyboard-inset, 0px)" }}
     >
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
@@ -2019,7 +2021,8 @@ function ProductsFullscreen() {
 
     </div>
     </FallbackSelectionContext.Provider>
-   </CustomsRefContext.Provider>
+   </CustomsRefContext.Provider>,
+   document.body,
   );
 }
 
