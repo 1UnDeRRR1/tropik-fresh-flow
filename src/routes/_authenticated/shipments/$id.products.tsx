@@ -709,7 +709,7 @@ function ProductsScrollArea({
     <div
       ref={ref}
       data-mobile-scroll-container
-      className="relative flex-1 overflow-auto overscroll-contain"
+      className="relative min-h-0 flex-1 overflow-auto overscroll-contain"
       style={{
         ["--mobile-focus-top-offset" as string]: "46px",
         ["--mobile-focus-bottom-offset" as string]: editingToolbarVisible ? "92px" : "24px",
@@ -1850,7 +1850,10 @@ function ProductsFullscreen() {
   return (
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
-    <div className={cn("fixed inset-0 z-50 flex flex-col bg-background", shake && "animate-shake")}>
+    <div
+      className={cn("fixed left-0 right-0 top-0 z-50 flex flex-col bg-background", shake && "animate-shake")}
+      style={{ bottom: "var(--keyboard-inset, 0px)" }}
+    >
       <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
         <button
           type="button"
