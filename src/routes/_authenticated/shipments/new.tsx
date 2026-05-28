@@ -98,13 +98,11 @@ function NewShipment() {
   const [etaOverride, setEtaOverride] = useState<string>("");
   const [etaTouched, setEtaTouched] = useState(false);
 
-  const [supplierOpen, setSupplierOpen] = useState(false);
-  const [countryOpen, setCountryOpen] = useState(false);
-  const [supplierSearch, setSupplierSearch] = useState("");
-  const [countrySearch, setCountrySearch] = useState("");
+  const [supplierInput, setSupplierInput] = useState("");
+  const [countryInput, setCountryInput] = useState("");
   const countryOptions = useCountryOptions();
-  const [vehicleOpen, setVehicleOpen] = useState(false);
-  const [vehicleSearch, setVehicleSearch] = useState("");
+  const countryAliases = useCountryAliases();
+  const [vehicleInput, setVehicleInput] = useState("");
   const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
   const [shake, setShake] = useState(false);
@@ -203,31 +201,48 @@ function NewShipment() {
   const selectedVehicleOwnerName = selectedVehicle?.created_by
     ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
     : "Власник авто";
-  const filteredSuppliers = useMemo(() => {
-    const q = supplierSearch.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return filterWordStart(suppliers ?? [], (s) => s.name, q, 3);
-  }, [suppliers, supplierSearch]);
-  const filteredCountries = useMemo(() => {
-    const q = countrySearch.trim().toLowerCase();
-    const base = countryOptions.length ? countryOptions : FALLBACK_COUNTRIES;
-    if (q.length < 2) return [];
-    return filterWordStart(base, (c) => c, q, 3);
-  }, [countryOptions, countrySearch]);
-  const filteredVehicles = useMemo(() => {
-    const q = vehicleSearch.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return filterWordStart(openVehicles ?? [], (v) => `${v.code} ${v.country}`, q, 3);
-  }, [openVehicles, vehicleSearch]);
+  const countryChoices = useMemo(
+    () => Array.from(new Set((countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).filter(Boolean))),
+    [countryOptions],
+  );
+  const supplierItems = useMemo(
+    () => (suppliers ?? []).map((supplier) => ({
+      ...supplier,
+      label: supplier.name,
+      searchStrings: [supplier.name, supplier.alias ?? "", toUaCountry(supplier.country ?? "")].filter(Boolean),
+    })),
+    [suppliers],
+  );
+  const countryItems = useMemo(
+    () => countryChoices.map((item) => ({
+      label: item,
+      searchStrings: [
+        item,
+        ...Object.entries(countryAliases)
+          .filter(([, canonical]) => canonical.toLowerCase() === item.toLowerCase())
+          .map(([alias]) => alias),
+      ].filter(Boolean),
+    })),
+    [countryAliases, countryChoices],
+  );
+  const vehicleItems = useMemo(
+    () => (openVehicles ?? []).map((vehicle) => {
+      const suppliersText = (vehicle.shipments ?? []).map((shipment) => shipment.suppliers?.name ?? "").filter(Boolean).join(", ");
+      return {
+        ...vehicle,
+        label: `${vehicle.code} · ${vehicle.country}`,
+        suppliersText,
+        searchStrings: [vehicle.code, vehicle.country, suppliersText].filter(Boolean),
+      };
+    }),
+    [openVehicles],
+  );
 
   const blurAndCloseEditors = useCallback(() => {
     if (typeof document !== "undefined") {
       const active = document.activeElement;
       if (active instanceof HTMLElement) active.blur();
     }
-    setSupplierOpen(false);
-    setCountryOpen(false);
-    setVehicleOpen(false);
     setMobileEditingLabel(null);
   }, []);
 
