@@ -2066,8 +2066,10 @@ function OfferItemEditor({
             value={form.product_name}
             onChange={(v) => update({ product_name: v })}
             options={productOptions}
+            aliases={productAliases}
             placeholder="Почніть вводити назву товару"
             required
+
           />
         )}
       </label>
