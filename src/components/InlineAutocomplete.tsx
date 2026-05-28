@@ -155,7 +155,10 @@ export function InlineAutocomplete<T>({
           inputProps?.onKeyDown?.(e);
         }}
         className={inputClassName}
-      />
+        style={{
+          ...(inputProps?.style ?? {}),
+          ...(focused && expandedMinWidth ? { minWidth: expandedMinWidth } : {}),
+        }}
 
       {focused && !readOnly && visibleItems.length > 0 && (
         <div
