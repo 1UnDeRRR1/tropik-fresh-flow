@@ -709,7 +709,7 @@ function ProductsScrollArea({
     <div
       ref={ref}
       data-mobile-scroll-container
-      className="relative flex-1 overflow-auto overscroll-contain"
+      className="relative min-h-0 flex-1 overflow-auto overscroll-contain"
       style={{
         ["--mobile-focus-top-offset" as string]: "46px",
         ["--mobile-focus-bottom-offset" as string]: editingToolbarVisible ? "92px" : "24px",
