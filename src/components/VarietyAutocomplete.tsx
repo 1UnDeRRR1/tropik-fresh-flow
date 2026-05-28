@@ -59,7 +59,7 @@ export function VarietyAutocomplete({
       inputClassName={inputClassName}
       disabled={disabled}
       expandedMinWidth={expandedMinWidth}
-      browseLimit={5}
+      browseLimit={50}
       searchLimit={3}
       minSearchLength={2}
       renderItem={(item) => <span className="block truncate">{item.label}</span>}
