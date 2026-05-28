@@ -2664,12 +2664,14 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const runResolver = useCallback(async () => {
     if (readOnly) return;
     if (!touchedRef.current.product && !touchedRef.current.country) return;
-    const product = form.product_name.trim();
-    const country = form.origin_country.trim();
+    // Always read the latest canonical values written by AutocompleteCell.
+    const latest = formRef.current;
+    const product = latest.product_name.trim();
+    const country = latest.origin_country.trim();
     if (!product || !country) return;
     const productKey = resolverKeyOf(product);
     const countryKey = resolverKeyOf(country);
-    const packageKey = resolverKeyOf(form.package_used);
+    const packageKey = resolverKeyOf(latest.package_used);
     const reportHint = (status: ResolverHintStatus | null) => {
       if (status == null) {
         setHint(null);
@@ -2726,21 +2728,22 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       const pal = await resolvePalletForText(product, country);
       if (seq !== resolverSeqRef.current) return;
 
+      const cur = formRef.current;
       if (pal.matchType !== "no_match" && pal.selected) {
         const pNet = pal.selected.pallet_net_kg;
         const pGross = pal.selected.pallet_gross_kg;
         const pkg = pal.selected.package_used;
         reportHint("matched");
-        const pc = (Number(form.pallet_count) || 0) > 0 ? Number(form.pallet_count) : 1;
+        const pc = (Number(cur.pallet_count) || 0) > 0 ? Number(cur.pallet_count) : 1;
         onPatch({
           pallet_count: pc,
-          package_used: pkg ?? form.package_used,
+          package_used: pkg ?? cur.package_used,
           resolver_net_per_pallet_kg: pNet,
           resolver_gross_per_pallet_kg: pGross,
           net_auto: true,
           gross_auto: true,
-          net_weight_kg: pNet != null ? pNet * pc : form.net_weight_kg,
-          gross_weight_kg: pGross != null ? pGross * pc : form.gross_weight_kg,
+          net_weight_kg: pNet != null ? pNet * pc : cur.net_weight_kg,
+          gross_weight_kg: pGross != null ? pGross * pc : cur.gross_weight_kg,
         });
       } else {
         reportHint("pallet_no_match");
@@ -2757,7 +2760,8 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
     } finally {
       if (seq === resolverSeqRef.current) setResolverBusy(false);
     }
-  }, [readOnly, form.product_name, form.origin_country, form.package_used, form.pallet_count, form.net_weight_kg, form.gross_weight_kg, onPatch, onResolverHint]);
+  }, [readOnly, onPatch, onResolverHint]);
+
 
 
 
