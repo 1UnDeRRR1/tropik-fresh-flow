@@ -1,8 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
-import { useAuth, ROLE_LABEL_UK } from "@/lib/auth";
-import { PageHeader } from "@/components/AppShell";
-import { SectionCard } from "@/components/cards";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { getPersonalAssets } from "@/lib/branch-assets";
 
@@ -11,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 function Settings() {
-  const { user, profile, roles, signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const personal = getPersonalAssets(profile?.id, profile?.branch_id);
   const hasProfileBg = !!personal?.profileBgMobileWebp || !!personal?.profileBgDesktopWebp;
@@ -61,18 +59,10 @@ function Settings() {
           </picture>
         </div>
       )}
-      <div className="relative z-10 space-y-4">
-        <PageHeader title="Профіль" />
-        <SectionCard title="Обліковий запис">
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between"><dt className="text-muted-foreground">Імʼя</dt><dd>{profile?.full_name ?? "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-muted-foreground">Email</dt><dd>{user?.email}</dd></div>
-            <div className="flex justify-between"><dt className="text-muted-foreground">Ролі</dt><dd>{roles.map((r) => ROLE_LABEL_UK[r]).join(", ") || "—"}</dd></div>
-          </dl>
-        </SectionCard>
+      <div className="relative z-10 space-y-4 pt-16">
         <Button
           variant="outline"
-          className="relative z-10 w-full bg-background/90 backdrop-blur"
+          className="relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
           onClick={async () => {
             await signOut();
             navigate({ to: "/login" });
