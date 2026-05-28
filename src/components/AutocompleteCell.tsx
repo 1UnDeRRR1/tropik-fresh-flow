@@ -39,9 +39,6 @@ function matchesQuery(option: string, query: string) {
   return false;
 }
 
-const FOCUS_STYLE =
-  "border-brand bg-background ring-2 ring-brand/40";
-
 export function AutocompleteCell({
   value,
   onChange,
@@ -69,7 +66,6 @@ export function AutocompleteCell({
   const [invalid, setInvalid] = useState(false);
 
   const trimmed = value.trim();
-  const lower = trimmed.toLowerCase();
   const normalizedOptions = useMemo(
     () => Array.from(new Set(options.map((option) => option.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
     [options],
@@ -97,9 +93,6 @@ export function AutocompleteCell({
     return null;
   };
 
-  const canonical = resolveCanonical(trimmed);
-  const isExactMatch = !trimmed || !!canonical;
-
   const optionItems = normalizedOptions.map((option) => ({
     key: option,
     label: option,
@@ -107,7 +100,7 @@ export function AutocompleteCell({
       ? Object.entries(aliases)
           .filter(([, canonicalOption]) => canonicalOption.toLowerCase() === option.toLowerCase())
           .map(([alias]) => alias)
-      : [])],
+      : [])].filter((candidate) => matchesQuery(candidate, trimmed) || !trimmed),
   }));
 
   useEffect(() => {
@@ -162,10 +155,7 @@ export function AutocompleteCell({
       renderItem={(item) => (
         <span className="block truncate">{item.label}</span>
       )}
-      inputProps={{
-        value={value}
-        style={focused && expandedMinWidth ? { minWidth: expandedMinWidth } : undefined}
-      }}
+      inputProps={expandedMinWidth ? { style: { minWidth: expandedMinWidth } } : undefined}
     />
   );
 }
