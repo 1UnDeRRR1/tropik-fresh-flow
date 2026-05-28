@@ -3445,6 +3445,7 @@ function PackageCell({
         if (active instanceof HTMLElement) active.blur();
       }}
       placeholder="—"
+      expandedMinWidth={280}
       browseLimit={Math.min(5, items.length || 5)}
       searchLimit={3}
       minSearchLength={2}
