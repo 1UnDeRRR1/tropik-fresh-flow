@@ -2021,7 +2021,8 @@ function ProductsFullscreen() {
 
     </div>
     </FallbackSelectionContext.Provider>
-   </CustomsRefContext.Provider>
+   </CustomsRefContext.Provider>,
+   document.body,
   );
 }
 
