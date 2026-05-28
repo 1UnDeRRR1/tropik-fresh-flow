@@ -159,6 +159,9 @@ export function InlineAutocomplete<T>({
           ...(inputProps?.style ?? {}),
           ...(focused && expandedMinWidth ? { minWidth: expandedMinWidth } : {}),
         }}
+      />
+
+
 
       {focused && !readOnly && visibleItems.length > 0 && (
         <div
