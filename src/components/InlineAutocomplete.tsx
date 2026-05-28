@@ -65,12 +65,9 @@ export function InlineAutocomplete<T>({
 
   const visibleItems = useMemo(() => {
     if (!focused || readOnly) return [] as T[];
-    // Browse mode: render the FULL list so the dropdown is a proper
-    // scrollable window. The container caps visible height via max-h +
-    // overflow-y-auto + overscroll-contain, so the outer page never moves.
-    // Previous slice(0, browseLimit) was the regression that broke variety
-    // scroll — only 5 rows were rendered so touch fell through to the page.
-    if (!typedSinceFocus) return items;
+    // Browse mode: cap to browseLimit so the dropdown stays compact and
+    // touch events never fall through to the underlying page.
+    if (!typedSinceFocus) return items.slice(0, browseLimit);
     if (query.length < minSearchLength) return [] as T[];
 
     const matches = items.filter((item) => {
@@ -91,9 +88,7 @@ export function InlineAutocomplete<T>({
       else aliasOnly.push(item);
     }
     return [...direct, ...aliasOnly].slice(0, searchLimit);
-  }, [focused, getLabel, getSearchStrings, items, minSearchLength, query, readOnly, searchLimit, typedSinceFocus]);
-  // browseLimit kept in API for compatibility; intentionally unused now.
-  void browseLimit;
+  }, [browseLimit, focused, getLabel, getSearchStrings, items, minSearchLength, query, readOnly, searchLimit, typedSinceFocus]);
 
   const accept = (item: T) => {
     onSelect(item);

@@ -4,7 +4,6 @@ import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { cn } from "@/lib/utils";
 import { resolveProductOption } from "@/lib/product-aliases";
 import { matchesWordStart } from "@/lib/compact-search";
-import { buildAutocompleteItems } from "@/lib/autocomplete-suggest";
 
 export function AutocompleteCell({
   value,
@@ -61,7 +60,20 @@ export function AutocompleteCell({
   };
 
   const optionItems = useMemo(
-    () => buildAutocompleteItems(normalizedOptions, aliases),
+    () =>
+      normalizedOptions.map((option) => {
+        const lower = option.toLowerCase();
+        const aliasStrings = aliases
+          ? Object.entries(aliases)
+              .filter(([, target]) => target.toLowerCase() === lower)
+              .map(([alias]) => alias)
+          : [];
+        return {
+          key: option,
+          label: option,
+          searchStrings: Array.from(new Set([option, ...aliasStrings])).filter(Boolean),
+        };
+      }),
     [normalizedOptions, aliases],
   );
 
