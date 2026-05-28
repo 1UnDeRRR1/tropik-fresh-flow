@@ -149,7 +149,7 @@ export function AutocompleteCell({
       renderItem={(item) => (
         <span className="block truncate">{item.label}</span>
       )}
-      inputProps={expandedMinWidth ? { style: { minWidth: expandedMinWidth } } : undefined}
+      expandedMinWidth={expandedMinWidth}
     />
   );
 }
