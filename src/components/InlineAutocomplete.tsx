@@ -185,15 +185,6 @@ export function InlineAutocomplete<T>({
         }}
       />
 
-      {/* While expanded, capture pointer events under the floating input so
-          taps on the visually-covered neighbour cell don't focus that
-          neighbour and switch the dropdown's data source mid-edit. */}
-      {expanded && (
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-0 z-[39]"
-        />
-      )}
 
       {focused && !readOnly && visibleItems.length > 0 && (
         <div
