@@ -1889,6 +1889,7 @@ function OfferItemEditor({
   const identityLocked = !!existingOffer && existingOffer.status === "active";
 
   const update = (patch: Partial<FormState>) => onFormChange({ ...form, ...patch });
+  const productAliases = useProductAliases();
 
 
   const productCanonical = resolveOption(form.product_name, productOptions);
