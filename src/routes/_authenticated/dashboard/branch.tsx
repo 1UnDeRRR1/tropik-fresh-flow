@@ -210,7 +210,7 @@ function BranchDashboard() {
       const { data, error } = await (supabase as any)
         .from("manager_offer_responses")
         .select(`id,offer_id,approved_pallets,requested_pallets,
-          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
+          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight,created_by)`)
         .eq("branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
@@ -221,6 +221,7 @@ function BranchDashboard() {
           indicative_cost_usd: number | null; invoice_cost_usd: number | null;
           linked_shipment_id: string | null; status: string;
           import_manager_id: string | null; pallet_weight: number | null;
+          created_by: string | null;
         };
       }>;
     },
