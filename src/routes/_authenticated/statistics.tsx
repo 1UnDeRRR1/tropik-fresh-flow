@@ -551,41 +551,60 @@ export function StatisticsPage() {
         )}
       </SectionCard>
 
-      {/* MANAGERS — reconciliation breakdown */}
-      <SectionCard title="По менеджерах">
-        {byManager.length === 0 ? (
-          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
-        ) : (
-          <ul className="divide-y divide-border">
-            {byManager.map((g) => (
-              <li key={g.key} className="flex items-center justify-between gap-2 py-2">
-                <span className="truncate text-sm">{g.label}</span>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
-              </li>
-            ))}
-            <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
-              <span className="text-sm">Разом</span>
-              <span className="text-sm tabular-nums">{totals.pallets}п</span>
-            </li>
-          </ul>
-        )}
-      </SectionCard>
-
-      {/* SUPPLIERS — aggregation */}
-      <SectionCard title="Постачальники — порівняння">
-        {bySupplier.length === 0 ? (
-          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
-        ) : (
-          <div className="space-y-3">
-            {bySupplier.map(g => (
-              <div key={g.id} className="rounded-xl border border-border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-semibold">{g.name}</div>
-                  <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
+      {/* COMPARISON — managers / suppliers / products */}
+      <SectionCard title="Порівняння">
+        <div className="mb-3 flex flex-wrap gap-2">
+          {([
+            ["managers", "Менеджери"],
+            ["suppliers", "Постачальники"],
+            ["products", "Товари"],
+          ] as const).map(([k, lbl]) => (
+            <Button
+              key={k}
+              size="sm"
+              variant={compareMode === k ? "default" : "outline"}
+              onClick={() => setCompareMode(k)}
+            >
+              {lbl}
+            </Button>
+          ))}
+        </div>
+        {compareMode === "suppliers" ? (
+          bySupplier.length === 0 ? (
+            <EmptyState title="Немає даних" hint="За обраними фільтрами" />
+          ) : (
+            <div className="space-y-3">
+              {bySupplier.map((g) => (
+                <div key={g.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{g.name}</div>
+                    <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        ) : (
+          (() => {
+            const list = compareMode === "managers" ? byManager : byProduct;
+            if (list.length === 0) {
+              return <EmptyState title="Немає даних" hint="За обраними фільтрами" />;
+            }
+            return (
+              <ul className="divide-y divide-border">
+                {list.map((g) => (
+                  <li key={g.key} className="flex items-center justify-between gap-2 py-2">
+                    <span className="truncate text-sm">{g.label}</span>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
+                  <span className="text-sm">Разом</span>
+                  <span className="text-sm tabular-nums">{totals.pallets}п</span>
+                </li>
+              </ul>
+            );
+          })()
         )}
       </SectionCard>
     </div>
