@@ -74,6 +74,19 @@ function buildFullPackage(
   };
 }
 
+const OWNER_BANNER_ASSETS: OwnerBannerAssets = {
+  calendar: `${OWNER_BANNER_BASE}/banner-calendar-oranges.png`,
+  analytics: `${OWNER_BANNER_BASE}/banner-analytics-lemons.png`,
+  statistics: `${OWNER_BANNER_BASE}/banner-statistics-grapes.jpeg`,
+  settings: `${OWNER_BANNER_BASE}/banner-settings-apples.png`,
+  splashMobile: `${OWNER_BANNER_BASE}/splash-bananas-mobile.webp`,
+  splashDesktop: `${OWNER_BANNER_BASE}/splash-bananas-mobile.png`,
+};
+
+export function getOwnerBannerAssets(): OwnerBannerAssets {
+  return OWNER_BANNER_ASSETS;
+}
+
 // Per-user personal packages. Key = profile.id / auth user.id.
 const USER_ASSETS: Record<string, PersonalAssets> = {
   [TERESHCHENKO_USER_ID]: buildFullPackage(TERESHCHENKO_USER_ID, {
@@ -84,12 +97,14 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     headerMobile: [2880, 720],
     headerDesktop: [2880, 720],
   }),
-  // Лукач: owner/director art package.
+  // Лукач: splash + profile background only (no custom header — neutral chrome).
   [LUKACH_USER_ID]: (() => {
     const base = `/personal-assets/${LUKACH_USER_ID}`;
     return {
-      splashMobilePng: OWNER_BANNER_ASSETS.splashMobile,
-      splashDesktopPng: OWNER_BANNER_ASSETS.splashDesktop,
+      splashMobileWebp: `${base}/splash_mobile.webp`,
+      splashMobilePng: `${base}/splash_mobile.png`,
+      splashDesktopWebp: `${base}/splash_desktop.webp`,
+      splashDesktopPng: `${base}/splash_desktop.png`,
       profileBgMobileWebp: `${base}/profile_bg_mobile.webp`,
       profileBgMobilePng: `${base}/profile_bg_mobile.png`,
       profileBgDesktopWebp: `${base}/profile_bg_desktop.webp`,
@@ -100,19 +115,6 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
 
 // Per-branch packages. Key = branches.id.
 const BRANCH_ASSETS: Record<string, PersonalAssets> = {};
-
-const OWNER_BANNER_ASSETS: OwnerBannerAssets = {
-  calendar: `${OWNER_BANNER_BASE}/banner-calendar-oranges.png`,
-  analytics: `${OWNER_BANNER_BASE}/banner-analytics-lemons.png`,
-  statistics: `${OWNER_BANNER_BASE}/banner-statistics-grapes.jpeg`,
-  settings: `${OWNER_BANNER_BASE}/banner-settings-apples.png`,
-  splashMobile: `${OWNER_BANNER_BASE}/splash-bananas-mobile.png`,
-  splashDesktop: `${OWNER_BANNER_BASE}/splash-bananas-mobile.png`,
-};
-
-export function getOwnerBannerAssets(): OwnerBannerAssets {
-  return OWNER_BANNER_ASSETS;
-}
 
 /**
  * Resolve the personal asset package for the current user.
