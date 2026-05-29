@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/")({
               <img
                 src={splashDesktopPng ?? splashMobilePng}
                 alt=""
-                className="h-full w-full object-cover object-center"
+                className="h-full w-full object-cover object-top"
                 loading="eager"
                 decoding="async"
                 draggable={false}
