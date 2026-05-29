@@ -1039,69 +1039,77 @@ function ManagerOffersPage() {
                     </Button>
                   )}
                   {o.status === "closed" && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={cn(
-                          hasLinkable
-                            ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                            : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
-                        )}
-                        onClick={() => {
-                          if (hasLinkable) {
-                            setLinkOffer(o);
-                          } else {
-                            toast.message("Немає підходящої поставки", {
-                              description: "Створіть нову поставку — товар не знайдено в наявних незаповнених поставках.",
-                            });
-                          }
-                        }}
-                        title={
-                          hasLinkable
-                            ? "Є відповідна поставка з нерозподіленим товаром"
-                            : "Немає поставки з таким товаром, країною та калібром"
-                        }
-                      >
-                        <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
-                      </Button>
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
-                        <Button size="sm">
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
-                        </Button>
-                      </Link>
-                    </>
-                  )}
-                  {(o.status === "confirmed" || o.status === "in_work") && (
-                    hasLinkable ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                        onClick={() => setLinkOffer(o)}
-                      >
-                        <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
-                      </Button>
-                    ) : (
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
+                    canLoad ? (
+                      <>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
-                          title="Немає підходящої поставки — створіть нову"
+                          className={cn(
+                            hasLinkable
+                              ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                              : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
+                          )}
+                          onClick={() => {
+                            if (hasLinkable) {
+                              setLinkOffer(o);
+                            } else {
+                              toast.message("Немає підходящої поставки", {
+                                description: "Створіть нову поставку — товар не знайдено в наявних незаповнених поставках.",
+                              });
+                            }
+                          }}
+                          title={
+                            hasLinkable
+                              ? "Є відповідна поставка з нерозподіленим товаром"
+                              : "Немає поставки з таким товаром, країною та калібром"
+                          }
                         >
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
+                          <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
                         </Button>
-                      </Link>
-                    )
+                        <Link
+                          to="/shipments/new"
+                          search={{ fromOffer: o.id } as never}
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          <Button size="sm">
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
+                          </Button>
+                        </Link>
+                      </>
+                    ) : blockReason ? (
+                      <div className="text-xs text-warning">{blockReason}</div>
+                    ) : null
+                  )}
+                  {(o.status === "confirmed" || o.status === "in_work") && (
+                    canLoad ? (
+                      hasLinkable ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                          onClick={() => setLinkOffer(o)}
+                        >
+                          <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
+                        </Button>
+                      ) : (
+                        <Link
+                          to="/shipments/new"
+                          search={{ fromOffer: o.id } as never}
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
+                            title="Немає підходящої поставки — створіть нову"
+                          >
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
+                          </Button>
+                        </Link>
+                      )
+                    ) : blockReason ? (
+                      <div className="text-xs text-warning">{blockReason}</div>
+                    ) : null
                   )}
                   {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button size="sm" variant="outline" onClick={() => setEditing(o)}>
