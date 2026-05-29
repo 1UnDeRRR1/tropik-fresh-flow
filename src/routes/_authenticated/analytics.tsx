@@ -9,11 +9,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CostPair } from "@/components/CostPair";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { countPositions, countPositionsFromGroups, formatPositions } from "@/lib/positions";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
 });
+
+const ALL = "__all";
+const NO_COUNTRY = "__no_country__";
+const NO_COUNTRY_LABEL = "— Без країни";
 
 type ItemRow = {
   id: string;
@@ -147,7 +152,71 @@ export function Analytics() {
     return out;
   }, [data, today]);
 
-  // Level 1: grouped by product+country
+  const [productFilter, setProductFilter] = useState<string>(ALL);
+  const [countryFilter, setCountryFilter] = useState<string>(ALL);
+  const [managerFilter, setManagerFilter] = useState<string>(ALL);
+  const [branchFilter, setBranchFilter] = useState<string>(ALL);
+
+  // Filter options derived from activeFlat
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of activeFlat) {
+      const n = f.item.product_name.trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
+  }, [activeFlat]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasMissing = false;
+    for (const f of activeFlat) {
+      const c = (f.item.origin_country ?? "").trim();
+      if (c) set.add(c);
+      else hasMissing = true;
+    }
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
+    if (hasMissing) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    return arr;
+  }, [activeFlat]);
+
+  const managerOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const f of activeFlat) {
+      const id = f.shipment.import_manager_id;
+      if (id) ids.add(id);
+    }
+    return Array.from(ids)
+      .map((id) => ({ value: id, label: mgrMap.get(id) ?? "—" }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [activeFlat, mgrMap]);
+
+  const branchOptions = useMemo(
+    () =>
+      (data?.branches ?? [])
+        .map((b) => ({ value: b.id, label: b.name }))
+        .sort((a, b) => a.label.localeCompare(b.label, "uk")),
+    [data],
+  );
+
+  // AND filter
+  const filteredFlat = useMemo<Flat[]>(() => {
+    return activeFlat.filter((f) => {
+      if (productFilter !== ALL && f.item.product_name.trim() !== productFilter) return false;
+      if (countryFilter !== ALL) {
+        const c = (f.item.origin_country ?? "").trim();
+        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+      }
+      if (managerFilter !== ALL && f.shipment.import_manager_id !== managerFilter) return false;
+      if (branchFilter !== ALL) {
+        const inner = distByItem.get(f.item.id);
+        if (!inner || (inner.get(branchFilter) ?? 0) <= 0) return false;
+      }
+      return true;
+    });
+  }, [activeFlat, productFilter, countryFilter, managerFilter, branchFilter, distByItem]);
+
+  // Level 1: grouped by product+country (using product origin only)
   type Group = {
     key: string;
     product: string;
@@ -160,8 +229,8 @@ export function Analytics() {
   const groups = useMemo<Group[]>(() => {
     const m = new Map<string, Group>();
     const shipSets = new Map<string, Set<string>>();
-    for (const f of activeFlat) {
-      const country = (f.item.origin_country || f.shipment.country || "").trim();
+    for (const f of filteredFlat) {
+      const country = (f.item.origin_country ?? "").trim();
       const product = f.item.product_name.trim();
       const key = `${product}__${country}`;
       const g =
@@ -178,170 +247,65 @@ export function Analytics() {
     return Array.from(m.values()).sort(
       (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
     );
-  }, [activeFlat]);
+  }, [filteredFlat]);
 
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [openItem, setOpenItem] = useState<Flat | null>(null);
-  const [view, setView] = useState<"product" | "manager" | "supplier">("product");
-  const [search, setSearch] = useState("");
-  const searchLower = search.trim().toLowerCase();
-
-  // Grouping by manager / supplier (admins only)
-  type ProdSub = {
-    product: string;
-    country: string;
-    pallets: number;
-    positions: number;
-    shipments: number;
-    flats: Flat[];
-  };
-  type OwnerGroup = {
-    key: string;
-    name: string;
-    pallets: number;
-    positions: number;
-    basePositions: number;
-    shipments: number;
-    products: ProdSub[];
-  };
-  const ownerGroups = useMemo<OwnerGroup[]>(() => {
-    if (view === "product") return [];
-    const map = new Map<string, OwnerGroup>();
-    const ownerShipSets = new Map<string, Set<string>>();
-    const prodShipSets = new Map<string, Set<string>>();
-    for (const f of activeFlat) {
-      const ownerId =
-        view === "manager" ? f.shipment.import_manager_id ?? "" : f.shipment.supplier_id ?? "";
-      const ownerName =
-        view === "manager"
-          ? mgrMap.get(ownerId) ?? "— Без менеджера"
-          : supMap.get(ownerId) ?? "— Без постачальника";
-      const key = ownerId || `__none_${view}`;
-      const og =
-        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, basePositions: 0, shipments: 0, products: [] };
-      const product = f.item.product_name.trim();
-      const country = (f.item.origin_country || f.shipment.country || "").trim();
-      const pallets = Number(f.item.pallet_count ?? 0);
-      let pg = og.products.find((p) => p.product === product && p.country === country);
-      if (!pg) {
-        pg = { product, country, pallets: 0, positions: 0, shipments: 0, flats: [] };
-        og.products.push(pg);
-      }
-      pg.pallets += pallets;
-      pg.positions += 1;
-      pg.flats.push(f);
-      og.pallets += pallets;
-      og.positions += 1;
-      map.set(key, og);
-      const oset = ownerShipSets.get(key) ?? new Set<string>();
-      oset.add(f.shipment.id);
-      ownerShipSets.set(key, oset);
-      const pkey = `${key}__${product}__${country}`;
-      const pset = prodShipSets.get(pkey) ?? new Set<string>();
-      pset.add(f.shipment.id);
-      prodShipSets.set(pkey, pset);
-    }
-    const arr = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "uk"));
-    for (const g of arr) {
-      g.shipments = ownerShipSets.get(g.key)?.size ?? 0;
-      g.products.sort(
-        (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
-      );
-      g.basePositions = countPositionsFromGroups(g.products, (p) => p.product).base;
-      for (const p of g.products) {
-        p.shipments = prodShipSets.get(`${g.key}__${p.product}__${p.country}`)?.size ?? 0;
-      }
-    }
-    return arr;
-  }, [activeFlat, view, mgrMap, supMap]);
-
-  const [openOwner, setOpenOwner] = useState<OwnerGroup | null>(null);
 
   const totalPallets = useMemo(
-    () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
-    [activeFlat],
+    () => filteredFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
+    [filteredFlat],
   );
-  // total = unique product+country combinations (matches the grouped rows shown below);
-  // base  = unique products ignoring country.
   const positionsCount = useMemo(
     () => countPositionsFromGroups(groups, (g) => g.product),
     [groups],
   );
   const totalShipments = useMemo(() => {
     const s = new Set<string>();
-    for (const f of activeFlat) s.add(f.shipment.id);
+    for (const f of filteredFlat) s.add(f.shipment.id);
     return s.size;
-  }, [activeFlat]);
+  }, [filteredFlat]);
 
   return (
     <div className="space-y-4">
       <PageHeader title="Аналітика" subtitle="Усі активні товари в системі" />
 
       {isStaffAll && (
-        <div className="flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-lg bg-muted p-1 text-xs font-medium">
-            {(
-              [
-                { v: "product", label: "Товар" },
-                { v: "manager", label: "Менеджер" },
-                { v: "supplier", label: "Постачальник" },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.v}
-                type="button"
-                onClick={() => setView(t.v)}
-                className={`rounded-md px-3 py-1.5 transition-colors ${
-                  view === t.v ? "bg-background text-foreground shadow" : "text-muted-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+              <SearchableSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+              <SearchableSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Менеджер</label>
+              <SearchableSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Філія</label>
+              <SearchableSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} />
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
+          <div className="text-right text-xs text-muted-foreground">
             <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
             <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
             <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
-          </span>
+          </div>
         </div>
       )}
 
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder={
-          view === "manager"
-            ? "Пошук менеджера…"
-            : view === "supplier"
-              ? "Пошук постачальника…"
-              : "Пошук товару або країни…"
-        }
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-      />
-
-      {view === "product" && (() => {
-        const filtered = searchLower
-          ? groups.filter(
-              (g) =>
-                g.product.toLowerCase().includes(searchLower) ||
-                g.country.toLowerCase().includes(searchLower),
-            )
-          : groups;
-        return (
       <SectionCard title="Товар · країна · палети">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
-        ) : !filtered.length ? (
-          <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} hint={searchLower ? undefined : "Товари зникають з аналітики наступного дня після прибуття."} />
+        ) : !groups.length ? (
+          <EmptyState title="Немає активних товарів" hint="Товари зникають з аналітики наступного дня після прибуття." />
         ) : (
           <ul className="divide-y divide-border">
-            {filtered.map((g) => (
+            {groups.map((g) => (
               <li key={g.key}>
                 <button
                   type="button"
@@ -367,97 +331,7 @@ export function Analytics() {
           </ul>
         )}
       </SectionCard>
-        );
-      })()}
 
-      {view !== "product" && (() => {
-        const filtered = searchLower
-          ? ownerGroups.filter((og) => og.name.toLowerCase().includes(searchLower))
-          : ownerGroups;
-        return (
-        <SectionCard title={view === "manager" ? "Менеджер · палети" : "Постачальник · палети"}>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Завантаження…</p>
-          ) : !filtered.length ? (
-            <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} />
-          ) : (
-            <ul className="divide-y divide-border">
-              {filtered.map((og) => (
-                <li key={og.key}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenOwner(og)}
-                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
-                  >
-                    <div className="min-w-0 flex-1 text-sm">
-                      <div className="font-medium">{og.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {og.shipments} пост. · {formatPositions({ base: og.basePositions, total: og.positions })} поз.
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-sm font-bold tabular-nums text-brand">{og.pallets}п</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-        );
-      })()}
-
-      {/* Owner detail dialog */}
-      <Dialog open={!!openOwner} onOpenChange={(o) => !o && setOpenOwner(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base">
-              {openOwner?.name}
-              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openOwner?.shipments} пост. · {openOwner ? formatPositions({ base: openOwner.basePositions, total: openOwner.positions }) : "0 / 0"} поз. · {openOwner?.pallets}п
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          {openOwner ? (
-            <ul className="divide-y divide-border">
-              {openOwner.products.map((p) => (
-                <li key={`${p.product}__${p.country}`}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenGroup({
-                        key: `${p.product}__${p.country}`,
-                        product: p.product,
-                        country: p.country,
-                        pallets: p.pallets,
-                        positions: p.positions,
-                        shipments: p.shipments,
-                        flats: p.flats,
-                      })
-                    }
-                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
-                  >
-                    <div className="min-w-0 flex-1 text-sm">
-                      <div>
-                        <span className="font-medium">{p.product}</span>
-                        {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {p.shipments} пост. · {formatPositions({ base: 1, total: p.positions })} поз.
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-sm font-bold tabular-nums text-brand">{p.pallets}п</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       {/* Level 2: positions of selected product+country */}
       <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
@@ -499,7 +373,7 @@ export function Analytics() {
                           <span className="font-mono text-foreground">{sh.code}</span>
                           {it.caliber ? <span>·{it.caliber}</span> : null}
                           <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
-                          <span>{(it.origin_country || sh.country) ?? "—"}</span>
+                          <span>{it.origin_country ?? "—"}</span>
                           <span>{Math.round(weight)} кг</span>
                           <span className="text-success">розпод. {distributed}п</span>
                           <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
@@ -530,7 +404,7 @@ export function Analytics() {
               {openItem?.item.product_name}
               {openItem?.item.caliber ? <span className="text-muted-foreground"> ·{openItem.item.caliber}</span> : null}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openItem?.shipment.code} · {(openItem?.item.origin_country || openItem?.shipment.country) ?? ""}
+                {openItem?.shipment.code} · {openItem?.item.origin_country ?? ""}
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -586,7 +460,6 @@ export function Analytics() {
                         if (!sid) return;
                         setOpenItem(null);
                         setOpenGroup(null);
-                        setOpenOwner(null);
                         navigate({ to: "/distribution/$shipmentId", params: { shipmentId: sid } });
                       }}
                     >

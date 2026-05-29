@@ -9,10 +9,15 @@ import { useAuth } from "@/lib/auth";
 import { StaffOnly } from "@/components/StaffOnly";
 import { CostPair } from "@/components/CostPair";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
 });
+
+const ALL = "__all";
+const NO_COUNTRY = "__no_country__";
+const NO_COUNTRY_LABEL = "— Без країни";
 
 type ShipmentItem = {
   id: string;
@@ -64,7 +69,8 @@ function surname(full: string) {
 export function CalendarPage() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
-  const [productFilter, setProductFilter] = useState<string>("__all");
+  const [productFilter, setProductFilter] = useState<string>(ALL);
+  const [countryFilter, setCountryFilter] = useState<string>(ALL);
   const [openItem, setOpenItem] = useState<{ sh: ShipmentRow; it: ShipmentItem } | null>(null);
 
   const today = new Date();
@@ -138,28 +144,44 @@ export function CalendarPage() {
     return out;
   }, [data, fromISO]);
 
-  // Active products list (only those with at least 1 pallet active)
+  // Product options: distinct product names (origin country handled separately)
   const productOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of allEntries) {
-      const country = e.it.origin_country || e.sh.country || "";
-      set.add(`${e.it.product_name.trim()}__${country}`);
+      const name = e.it.product_name.trim();
+      if (name) set.add(name);
     }
     return Array.from(set)
-      .map((k) => {
-        const [name, country] = k.split("__");
-        return { key: k, name, country };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+      .sort((a, b) => a.localeCompare(b, "uk"))
+      .map((name) => ({ value: name, label: name }));
+  }, [allEntries]);
+
+  // Country options: distinct product origin only (NEVER fallback to shipment.country)
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasMissing = false;
+    for (const e of allEntries) {
+      const c = (e.it.origin_country ?? "").trim();
+      if (c) set.add(c);
+      else hasMissing = true;
+    }
+    const arr = Array.from(set)
+      .sort((a, b) => a.localeCompare(b, "uk"))
+      .map((c) => ({ value: c, label: c }));
+    if (hasMissing) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    return arr;
   }, [allEntries]);
 
   const filtered = useMemo(() => {
-    if (productFilter === "__all") return allEntries;
     return allEntries.filter((e) => {
-      const country = e.it.origin_country || e.sh.country || "";
-      return `${e.it.product_name.trim()}__${country}` === productFilter;
+      if (productFilter !== ALL && e.it.product_name.trim() !== productFilter) return false;
+      if (countryFilter !== ALL) {
+        const c = (e.it.origin_country ?? "").trim();
+        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+      }
+      return true;
     });
-  }, [allEntries, productFilter]);
+  }, [allEntries, productFilter, countryFilter]);
 
   // Group by arrival date (only non-empty)
   const grouped = useMemo(() => {
@@ -179,26 +201,45 @@ export function CalendarPage() {
       });
   }, [filtered]);
 
-  const isProductView = productFilter !== "__all";
+  const hasAnyFilter = productFilter !== ALL || countryFilter !== ALL;
+  const totalFilteredPallets = useMemo(
+    () => filtered.reduce((s, e) => s + Number(e.it.pallet_count ?? 0), 0),
+    [filtered],
+  );
 
   return (
     <div className="space-y-4">
       <PageHeader title="Календар" subtitle="Активні поставки за датами прибуття" />
 
       <div className="rounded-xl border border-border bg-card p-3">
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
-        <select
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="__all">Всі активні товари</option>
-          {productOptions.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.name}{p.country ? ` • ${p.country}` : ""}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+            <SearchableSelect
+              value={productFilter}
+              onChange={setProductFilter}
+              options={productOptions}
+              allLabel="Всі товари"
+              allValue={ALL}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+            <SearchableSelect
+              value={countryFilter}
+              onChange={setCountryFilter}
+              options={countryOptions}
+              allLabel="Всі країни"
+              allValue={ALL}
+            />
+          </div>
+          <span
+            className="shrink-0 self-stretch flex items-center rounded-md bg-brand/10 px-2 text-sm font-bold tabular-nums text-brand"
+            title="Палет за поточним фільтром"
+          >
+            {totalFilteredPallets}п
+          </span>
+        </div>
       </div>
 
       {isLoading ? (
@@ -214,7 +255,7 @@ export function CalendarPage() {
                 key={d.iso}
                 title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
                 action={
-                  isProductView ? (
+                  hasAnyFilter ? (
                     <span className="text-sm font-bold tabular-nums text-brand">{totalPallets}п</span>
                   ) : null
                 }
@@ -235,8 +276,8 @@ export function CalendarPage() {
                           </div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
                             <span className="font-medium text-foreground">{e.it.product_name}</span>
-                            {(e.it.origin_country || e.sh.country) ? (
-                              <span> · {e.it.origin_country || e.sh.country}</span>
+                            {e.it.origin_country ? (
+                              <span> · {e.it.origin_country}</span>
                             ) : null}
                             <span> · <span className="font-bold tabular-nums text-brand">{Number(e.it.pallet_count ?? 0)}п</span></span>
                             {isStaffAll && mgrName ? (
@@ -262,7 +303,7 @@ export function CalendarPage() {
               {openItem?.it.product_name}
               {openItem?.it.caliber ? <span className="text-muted-foreground"> ·{openItem.it.caliber}</span> : null}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openItem?.sh.code} · {(openItem?.it.origin_country || openItem?.sh.country) ?? ""}
+                {openItem?.sh.code} · {openItem?.it.origin_country ?? ""}
                 {openItem ? (() => {
                   const mn = mgrMap.get(openItem.sh.import_manager_id ?? "");
                   return mn ? <> · {surname(mn)}</> : null;
