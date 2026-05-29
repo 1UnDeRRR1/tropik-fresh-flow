@@ -212,19 +212,34 @@ export function CalendarPage() {
       <PageHeader title="Календар" subtitle="Активні поставки за датами прибуття" />
 
       <div className="rounded-xl border border-border bg-card p-3">
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
-        <select
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="__all">Всі активні товари</option>
-          {productOptions.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.name}{p.country ? ` • ${p.country}` : ""}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+            <SearchableSelect
+              value={productFilter}
+              onChange={setProductFilter}
+              options={productOptions}
+              allLabel="Всі товари"
+              allValue={ALL}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+            <SearchableSelect
+              value={countryFilter}
+              onChange={setCountryFilter}
+              options={countryOptions}
+              allLabel="Всі країни"
+              allValue={ALL}
+            />
+          </div>
+          <span
+            className="shrink-0 self-stretch flex items-center rounded-md bg-brand/10 px-2 text-sm font-bold tabular-nums text-brand"
+            title="Палет за поточним фільтром"
+          >
+            {totalFilteredPallets}п
+          </span>
+        </div>
       </div>
 
       {isLoading ? (
@@ -240,7 +255,7 @@ export function CalendarPage() {
                 key={d.iso}
                 title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
                 action={
-                  isProductView ? (
+                  hasAnyFilter ? (
                     <span className="text-sm font-bold tabular-nums text-brand">{totalPallets}п</span>
                   ) : null
                 }
