@@ -1572,6 +1572,12 @@ function OfferEditor({
       if (!isAdmin && !currentManagerId) {
         throw new Error("Не вдалось визначити імпорт-менеджера для пропозиції");
       }
+      if (isAdmin && !selectedManagerId) {
+        throw new Error("Оберіть відповідального менеджера перед публікацією");
+      }
+      if (!responsibleManagerId) {
+        throw new Error("Пропозиція не може бути створена без відповідального менеджера");
+      }
       try {
         for (const it of items) {
           const payload = it.payload!;
