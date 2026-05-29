@@ -21,12 +21,13 @@ function Settings() {
       {isOwner && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#f3ead8]"
+          className="pointer-events-none fixed inset-x-0 top-0 z-0 overflow-hidden bg-[#f3ead8]"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}
         >
           <img
             src={ownerSettingsBg}
             alt=""
-            className="h-full w-full object-cover object-top"
+            className="h-full w-full object-contain object-bottom"
             loading="eager"
             decoding="async"
             draggable={false}
