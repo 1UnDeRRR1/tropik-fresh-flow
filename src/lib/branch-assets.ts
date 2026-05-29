@@ -39,6 +39,15 @@ export type PersonalAssets = {
   profileBgMobilePng?: string;
 };
 
+export type OwnerBannerAssets = {
+  calendar: string;
+  analytics: string;
+  statistics: string;
+  settings: string;
+  splashMobile: string;
+  splashDesktop: string;
+};
+
 const TERESHCHENKO_USER_ID = "cfaade16-8eb7-40df-95f8-a44c7368b60b";
 const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
 const LUKACH_USER_ID = "f475e275-458e-4af8-96ea-7e06991cbeb2";
