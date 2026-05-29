@@ -448,30 +448,30 @@ export function StatisticsPage() {
           <thead>
             <tr className="border-b">
               <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Дата</th>
-              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Поставка</th>
               <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Товар</th>
               <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Країна</th>
-              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Постачальник</th>
-              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Менеджер</th>
               <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Палет</th>
               {showPrice && <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Закупка</th>}
               {showCost && <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success">Індикатив</th>}
               {showCost && <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive">Інвойс</th>}
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Менеджер</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Постачальник</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Поставка</th>
             </tr>
           </thead>
           <tbody>
             {data.map(r => (
               <tr key={r.item.id} className="border-b transition-colors hover:bg-muted/50">
                 <td className="whitespace-nowrap p-1.5 align-middle">{fmtDate(r.date)}</td>
-                <td className="whitespace-nowrap p-1.5 align-middle text-xs text-muted-foreground">{shipmentLabel(r.shipment)}</td>
-                <td className="whitespace-nowrap p-1.5 align-middle">{r.productCanonical}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle font-semibold">{r.productCanonical}</td>
                 <td className="whitespace-nowrap p-1.5 align-middle">{r.country}</td>
-                <td className="whitespace-nowrap p-1.5 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
-                <td className="whitespace-nowrap p-1.5 align-middle">{managerLabelFor(r.managerKey)}</td>
-                <td className="p-1.5 text-right align-middle tabular-nums">{fmtNum(r.item.pallet_count, 0)}</td>
+                <td className="p-1.5 text-right align-middle font-semibold tabular-nums">{fmtNum(r.item.pallet_count, 0)}</td>
                 {showPrice && <td className="p-1.5 text-right align-middle tabular-nums">{fmtNum(r.item.unit_price)}</td>}
                 {showCost && <td className="p-1.5 text-right align-middle font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</td>}
                 {showCost && <td className="p-1.5 text-right align-middle font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</td>}
+                <td className="whitespace-nowrap p-1.5 align-middle">{managerLabelFor(r.managerKey)}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle text-xs text-muted-foreground">{shipmentLabel(r.shipment)}</td>
               </tr>
             ))}
           </tbody>
@@ -494,27 +494,17 @@ export function StatisticsPage() {
           const net = Number(it.net_weight_kg ?? 0);
           const currency = it.price_currency ?? "";
           return (
-            <li key={`${sh.id}-${it.id}`} className="flex flex-col gap-1 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold">
-                  {dateBasis === "loading" ? "Завант." : "ETA"} {fmtDate(f.date)}
+            <li key={`${sh.id}-${it.id}`} className="flex flex-col gap-1.5 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <span className="truncate text-lg font-bold leading-tight">
+                  {f.productCanonical} · {f.country}
                 </span>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base text-muted-foreground">
-                <span className="font-mono text-foreground">{shipmentLabel(sh)}</span>
-                <span className="truncate">{f.productCanonical}</span>
-                <span>·</span>
-                <span>{f.country}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base text-muted-foreground">
-                <span>{supplierMap[sh.supplier_id ?? ""] ?? "—"}</span>
-                {net > 0 ? <span>{Math.round(net)} кг</span> : null}
+                <span className="shrink-0 text-lg font-bold tabular-nums text-brand">{pallets}п</span>
               </div>
               {(showPrice || showCost) && (
-                <div className="flex flex-wrap items-center gap-x-2 text-base">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-base">
                   {showPrice && (
-                    <span className="text-muted-foreground">
+                    <span className="font-semibold">
                       закуп. {fmtNum(it.unit_price)} {currency}
                     </span>
                   )}
@@ -529,8 +519,19 @@ export function StatisticsPage() {
                   )}
                 </div>
               )}
-              <div className="text-base text-muted-foreground">
-                Менеджер: {managerLabelFor(f.managerKey)}
+              <div className="text-base">
+                <span className="text-muted-foreground">Менеджер: </span>
+                {managerLabelFor(f.managerKey)}
+              </div>
+              <div className="text-base">
+                <span className="text-muted-foreground">Постачальник: </span>
+                {supplierMap[sh.supplier_id ?? ""] ?? "—"}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                <span>{dateBasis === "loading" ? "Завант." : "ETA"} {fmtDate(f.date)}</span>
+                <span>·</span>
+                <span className="font-mono">{shipmentLabel(sh)}</span>
+                {net > 0 ? <><span>·</span><span>{Math.round(net)} кг</span></> : null}
               </div>
             </li>
           );
