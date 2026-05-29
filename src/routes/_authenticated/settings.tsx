@@ -64,7 +64,11 @@ function Settings() {
       <div className="relative z-10 space-y-4 pt-16">
         <Button
           variant="outline"
-          className="relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
+          className={
+            isOwner
+              ? "relative z-10 w-full bg-transparent border-red-500/70 text-red-700 hover:bg-red-500/10"
+              : "relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
+          }
           onClick={async () => {
             await signOut();
             navigate({ to: "/login" });
@@ -72,6 +76,18 @@ function Settings() {
         >
           <LogOut className="mr-2 h-4 w-4" /> Вийти
         </Button>
+        {isOwner && (
+          <div className="pointer-events-none mt-6 flex justify-center px-4">
+            <img
+              src={ownerSettingsBg}
+              alt=""
+              className="w-full max-w-md rounded-lg object-contain opacity-95"
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
