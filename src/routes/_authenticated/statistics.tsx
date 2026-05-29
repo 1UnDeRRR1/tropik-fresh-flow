@@ -143,10 +143,26 @@ export function StatisticsPage() {
   const suppliers = data?.suppliers ?? [];
   const managers = data?.managers ?? [];
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
+
+  // Manager label map keyed by BOTH import_managers.id and import_managers.user_id,
+  // because shipments may store either form in import_manager_id depending on
+  // how the row was created. This is read-only — no data mutation.
+  const managerLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mgr of managers) {
+      if (mgr.user_id) m.set(mgr.user_id, mgr.full_name);
+      m.set(mgr.id, mgr.full_name);
+    }
+    return m;
+  }, [managers]);
   const managerMap = useMemo(
     () => Object.fromEntries(managers.map((m) => [m.user_id ?? m.id, m.full_name])),
     [managers],
   );
+
+  const NO_MANAGER = "__no_manager__";
+  const NO_MANAGER_LABEL = "— Без менеджера";
+  const UNKNOWN_MANAGER_LABEL = "— Менеджер не знайдений";
 
   const countryAliasMap = useCountryAliases();
   const productAliasMap = useProductAliases();
@@ -163,6 +179,7 @@ export function StatisticsPage() {
     date: string;
     country: string; // product origin only (or "— Без країни"); canonicalized via aliases
     productCanonical: string; // canonical product name via existing alias helper
+    managerKey: string; // shipment.import_manager_id ?? NO_MANAGER
   };
 
   // Period-only flat — used for filter options AND aggregates.
@@ -182,57 +199,77 @@ export function StatisticsPage() {
           date: dateStr,
           country: resolveCountry(it.origin_country),
           productCanonical: canonicalizeProductName(it.product_name) || it.product_name.trim(),
+          managerKey: sh.import_manager_id ?? NO_MANAGER,
         });
       }
     }
     return out;
   }, [shipments, fromISOStr, toISOStr, countryAliasMap]);
 
-  // Filter options derived from period (so they react)
+  // Leave-one-out: each filter's options reflect the dataset narrowed by all
+  // OTHER active filters (AND). Current selection is always preserved.
+  const passesExcept = (
+    f: Flat,
+    excl: "product" | "country" | "supplier" | "manager" | null,
+  ) => {
+    if (excl !== "product" && productF !== ALL && f.productCanonical !== productF) return false;
+    if (excl !== "country" && countryF !== ALL && f.country !== countryF) return false;
+    if (excl !== "supplier" && supplierF !== ALL && (f.shipment.supplier_id ?? "") !== supplierF) return false;
+    if (excl !== "manager" && managerF !== ALL && f.managerKey !== managerF) return false;
+    return true;
+  };
+
   const productOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const f of flatPeriod) set.add(f.productCanonical);
-    return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
-  }, [flatPeriod]);
+    for (const f of flatPeriod) if (passesExcept(f, "product")) set.add(f.productCanonical);
+    if (productF !== ALL) set.add(productF);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [flatPeriod, countryF, supplierF, managerF, productF]);
 
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const f of flatPeriod) {
-      if (productF === ALL || f.productCanonical === productF) set.add(f.country);
-    }
-    return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
-  }, [flatPeriod, productF]);
+    for (const f of flatPeriod) if (passesExcept(f, "country")) set.add(f.country);
+    if (countryF !== ALL) set.add(countryF);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [flatPeriod, productF, supplierF, managerF, countryF]);
 
   const supplierOptions = useMemo(() => {
     const ids = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF !== ALL && f.productCanonical !== productF) continue;
-      if (countryF !== ALL && f.country !== countryF) continue;
+      if (!passesExcept(f, "supplier")) continue;
       if (f.shipment.supplier_id) ids.add(f.shipment.supplier_id);
     }
+    if (supplierF !== ALL) ids.add(supplierF);
     return suppliers.filter(s => ids.has(s.id));
-  }, [flatPeriod, productF, countryF, suppliers]);
+  }, [flatPeriod, productF, countryF, managerF, supplierF, suppliers]);
 
+  // Manager options: derived from distinct shipment.import_manager_id values
+  // present in the filtered dataset (leave-one-out). Includes a synthetic
+  // "— Без менеджера" bucket when null-manager rows exist and an
+  // "— Менеджер не знайдений" label when the id has no row in import_managers.
   const managerOptions = useMemo(() => {
-    const ids = new Set<string>();
+    const keys = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF !== ALL && f.productCanonical !== productF) continue;
-      if (countryF !== ALL && f.country !== countryF) continue;
-      if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) continue;
-      if (f.shipment.import_manager_id) ids.add(f.shipment.import_manager_id);
+      if (!passesExcept(f, "manager")) continue;
+      keys.add(f.managerKey);
     }
-    return managers.filter((m) => ids.has(m.user_id ?? "") || ids.has(m.id));
-  }, [flatPeriod, productF, countryF, supplierF, managers]);
+    if (managerF !== ALL) keys.add(managerF);
+    return Array.from(keys)
+      .map((k) => ({
+        value: k,
+        label:
+          k === NO_MANAGER
+            ? NO_MANAGER_LABEL
+            : managerLabel.get(k) ?? UNKNOWN_MANAGER_LABEL,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [flatPeriod, productF, countryF, supplierF, managerF, managerLabel]);
 
   // Final filtered rows — exclude zero-pallet items from numeric aggregation
   const rows = useMemo<Flat[]>(() => {
     return flatPeriod.filter(f => {
       if (!f.item.pallet_count || Number(f.item.pallet_count) <= 0) return false;
-      if (productF !== ALL && f.productCanonical !== productF) return false;
-      if (countryF !== ALL && f.country !== countryF) return false;
-      if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) return false;
-      if (managerF !== ALL && f.shipment.import_manager_id !== managerF) return false;
-      return true;
+      return passesExcept(f, null);
     }).sort((a,b) => a.date.localeCompare(b.date));
   }, [flatPeriod, productF, countryF, supplierF, managerF]);
 
