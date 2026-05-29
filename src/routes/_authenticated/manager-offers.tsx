@@ -996,15 +996,19 @@ function ManagerOffersPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
-                        >
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                            <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
-                          </Button>
-                        </Link>
+                        {canLoad ? (
+                          <Link
+                            to="/shipments/new"
+                            search={{ fromOffer: o.id } as never}
+                            onClick={() => setDetailOfferId(null)}
+                          >
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                              <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                            </Button>
+                          </Link>
+                        ) : blockReason ? (
+                          <div className="text-xs text-warning">{blockReason}</div>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="ghost"
