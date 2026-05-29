@@ -94,6 +94,7 @@ export function StatisticsPage() {
   const [countryF, setCountryF] = useState<string>(ALL);
   const [supplierF, setSupplierF] = useState<string>(ALL);
   const [managerF, setManagerF] = useState<string>(ALL);
+  const [compareMode, setCompareMode] = useState<"managers" | "suppliers" | "products">("managers");
 
   const [from, to] = useMemo<[Date, Date]>(() => {
     if (mode === "month") {
@@ -362,6 +363,17 @@ export function StatisticsPage() {
       .map(([key, pallets]) => ({ key, label: managerLabelFor(key), pallets }))
       .sort((a, b) => b.pallets - a.pallets);
   }, [rows, managerLabel]);
+
+  // Per-product breakdown for the comparison card.
+  const byProduct = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      m.set(r.productCanonical, (m.get(r.productCanonical) ?? 0) + Number(r.item.pallet_count ?? 0));
+    }
+    return Array.from(m.entries())
+      .map(([key, pallets]) => ({ key, label: key, pallets }))
+      .sort((a, b) => b.pallets - a.pallets);
+  }, [rows]);
 
   const activeChips: string[] = [];
   if (productF !== ALL) activeChips.push(`Товар: ${productF}`);
