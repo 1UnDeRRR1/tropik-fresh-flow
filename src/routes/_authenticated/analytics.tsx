@@ -373,7 +373,7 @@ export function Analytics() {
                           <span className="font-mono text-foreground">{sh.code}</span>
                           {it.caliber ? <span>·{it.caliber}</span> : null}
                           <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
-                          <span>{(it.origin_country || sh.country) ?? "—"}</span>
+                          <span>{it.origin_country ?? "—"}</span>
                           <span>{Math.round(weight)} кг</span>
                           <span className="text-success">розпод. {distributed}п</span>
                           <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
