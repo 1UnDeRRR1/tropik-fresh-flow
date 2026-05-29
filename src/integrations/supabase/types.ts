@@ -3033,6 +3033,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      _trim_allocation_parts_to_capacity: {
+        Args: {
+          p_cap: number
+          p_only_offer_id?: string
+          p_shipment_item_id: string
+        }
+        Returns: string[]
+      }
       active_shipments_overview: {
         Args: never
         Returns: {
