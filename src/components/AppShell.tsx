@@ -386,9 +386,24 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
 
-      <main className={cn("relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10", isOwner ? "pt-3" : "pt-4")}>
+      <main
+        className={cn(
+          "relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10",
+          isOwner ? "pt-3" : "pt-4",
+        )}
+        style={
+          isOwner && ownerMobileBanner
+            ? {
+                // Fixed owner mobile header = banner (safe-area + 9rem) + FX badge row (~2rem).
+                // Desktop overrides via md: padding utilities below.
+                paddingTop: "calc(env(safe-area-inset-top) + 9rem + 2.25rem)",
+              }
+            : undefined
+        }
+      >
         {children}
       </main>
+
 
       {/* Bottom nav: mobile only */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe md:hidden">
