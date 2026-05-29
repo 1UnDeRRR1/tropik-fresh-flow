@@ -23,12 +23,12 @@ function Settings() {
           aria-hidden="true"
           className="pointer-events-none fixed inset-x-0 z-0 overflow-hidden md:hidden"
           style={{
-            top: "calc(env(safe-area-inset-top) + 15.5rem)",
+            top: "calc(env(safe-area-inset-top) + 15rem)",
             bottom: "calc(env(safe-area-inset-bottom) + 5rem)",
             backgroundImage: `url(${ownerSettingsBg})`,
-            backgroundPosition: "center top",
+            backgroundPosition: "center 58%",
             backgroundRepeat: "no-repeat",
-            backgroundSize: "100% auto",
+            backgroundSize: "cover",
           }}
         />
       )}
