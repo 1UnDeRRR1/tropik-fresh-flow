@@ -636,7 +636,10 @@ function BranchDashboard() {
                 packaging: null,
                 supplier_name: null,
                 temperature_mode: null,
-                manager_name: o.import_manager_id ? mgrMap.get(o.import_manager_id) ?? null : null,
+                manager_name:
+                  (o.import_manager_id && mgrMap.get(o.import_manager_id))
+                  ?? (o.created_by && offerCreatorNameMap.get(o.created_by))
+                  ?? null,
                 pallets,
                 weight,
                 indicative: o.indicative_cost_usd,
