@@ -336,7 +336,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
 
-      <main className={cn("relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10", showOwnerBanner ? "pt-3" : "pt-4")}>
+      <main className={cn("relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10", isOwner ? "pt-3" : "pt-4")}>
         {children}
       </main>
 
