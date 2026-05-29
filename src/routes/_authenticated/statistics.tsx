@@ -143,10 +143,22 @@ export function StatisticsPage() {
   const suppliers = data?.suppliers ?? [];
   const managers = data?.managers ?? [];
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
-  const managerMap = useMemo(
-    () => Object.fromEntries(managers.map((m) => [m.user_id ?? m.id, m.full_name])),
-    [managers],
-  );
+
+  // Manager label map keyed by BOTH import_managers.id and import_managers.user_id,
+  // because shipments may store either form in import_manager_id depending on
+  // how the row was created. This is read-only — no data mutation.
+  const managerLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const mgr of managers) {
+      if (mgr.user_id) m.set(mgr.user_id, mgr.full_name);
+      m.set(mgr.id, mgr.full_name);
+    }
+    return m;
+  }, [managers]);
+
+  const NO_MANAGER = "__no_manager__";
+  const NO_MANAGER_LABEL = "— Без менеджера";
+  const UNKNOWN_MANAGER_LABEL = "— Менеджер не знайдений";
 
   const countryAliasMap = useCountryAliases();
   const productAliasMap = useProductAliases();
@@ -163,6 +175,7 @@ export function StatisticsPage() {
     date: string;
     country: string; // product origin only (or "— Без країни"); canonicalized via aliases
     productCanonical: string; // canonical product name via existing alias helper
+    managerKey: string; // shipment.import_manager_id ?? NO_MANAGER
   };
 
   // Period-only flat — used for filter options AND aggregates.
@@ -182,57 +195,77 @@ export function StatisticsPage() {
           date: dateStr,
           country: resolveCountry(it.origin_country),
           productCanonical: canonicalizeProductName(it.product_name) || it.product_name.trim(),
+          managerKey: sh.import_manager_id ?? NO_MANAGER,
         });
       }
     }
     return out;
   }, [shipments, fromISOStr, toISOStr, countryAliasMap]);
 
-  // Filter options derived from period (so they react)
+  // Leave-one-out: each filter's options reflect the dataset narrowed by all
+  // OTHER active filters (AND). Current selection is always preserved.
+  const passesExcept = (
+    f: Flat,
+    excl: "product" | "country" | "supplier" | "manager" | null,
+  ) => {
+    if (excl !== "product" && productF !== ALL && f.productCanonical !== productF) return false;
+    if (excl !== "country" && countryF !== ALL && f.country !== countryF) return false;
+    if (excl !== "supplier" && supplierF !== ALL && (f.shipment.supplier_id ?? "") !== supplierF) return false;
+    if (excl !== "manager" && managerF !== ALL && f.managerKey !== managerF) return false;
+    return true;
+  };
+
   const productOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const f of flatPeriod) set.add(f.productCanonical);
-    return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
-  }, [flatPeriod]);
+    for (const f of flatPeriod) if (passesExcept(f, "product")) set.add(f.productCanonical);
+    if (productF !== ALL) set.add(productF);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [flatPeriod, countryF, supplierF, managerF, productF]);
 
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const f of flatPeriod) {
-      if (productF === ALL || f.productCanonical === productF) set.add(f.country);
-    }
-    return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
-  }, [flatPeriod, productF]);
+    for (const f of flatPeriod) if (passesExcept(f, "country")) set.add(f.country);
+    if (countryF !== ALL) set.add(countryF);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [flatPeriod, productF, supplierF, managerF, countryF]);
 
   const supplierOptions = useMemo(() => {
     const ids = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF !== ALL && f.productCanonical !== productF) continue;
-      if (countryF !== ALL && f.country !== countryF) continue;
+      if (!passesExcept(f, "supplier")) continue;
       if (f.shipment.supplier_id) ids.add(f.shipment.supplier_id);
     }
+    if (supplierF !== ALL) ids.add(supplierF);
     return suppliers.filter(s => ids.has(s.id));
-  }, [flatPeriod, productF, countryF, suppliers]);
+  }, [flatPeriod, productF, countryF, managerF, supplierF, suppliers]);
 
+  // Manager options: derived from distinct shipment.import_manager_id values
+  // present in the filtered dataset (leave-one-out). Includes a synthetic
+  // "— Без менеджера" bucket when null-manager rows exist and an
+  // "— Менеджер не знайдений" label when the id has no row in import_managers.
   const managerOptions = useMemo(() => {
-    const ids = new Set<string>();
+    const keys = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF !== ALL && f.productCanonical !== productF) continue;
-      if (countryF !== ALL && f.country !== countryF) continue;
-      if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) continue;
-      if (f.shipment.import_manager_id) ids.add(f.shipment.import_manager_id);
+      if (!passesExcept(f, "manager")) continue;
+      keys.add(f.managerKey);
     }
-    return managers.filter((m) => ids.has(m.user_id ?? "") || ids.has(m.id));
-  }, [flatPeriod, productF, countryF, supplierF, managers]);
+    if (managerF !== ALL) keys.add(managerF);
+    return Array.from(keys)
+      .map((k) => ({
+        value: k,
+        label:
+          k === NO_MANAGER
+            ? NO_MANAGER_LABEL
+            : managerLabel.get(k) ?? UNKNOWN_MANAGER_LABEL,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [flatPeriod, productF, countryF, supplierF, managerF, managerLabel]);
 
   // Final filtered rows — exclude zero-pallet items from numeric aggregation
   const rows = useMemo<Flat[]>(() => {
     return flatPeriod.filter(f => {
       if (!f.item.pallet_count || Number(f.item.pallet_count) <= 0) return false;
-      if (productF !== ALL && f.productCanonical !== productF) return false;
-      if (countryF !== ALL && f.country !== countryF) return false;
-      if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) return false;
-      if (managerF !== ALL && f.shipment.import_manager_id !== managerF) return false;
-      return true;
+      return passesExcept(f, null);
     }).sort((a,b) => a.date.localeCompare(b.date));
   }, [flatPeriod, productF, countryF, supplierF, managerF]);
 
@@ -316,11 +349,25 @@ export function StatisticsPage() {
 
   const resetAll = () => { setProductF(ALL); setCountryF(ALL); setSupplierF(ALL); setManagerF(ALL); };
 
+  const managerLabelFor = (key: string) =>
+    key === NO_MANAGER ? NO_MANAGER_LABEL : managerLabel.get(key) ?? UNKNOWN_MANAGER_LABEL;
+
+  // Per-manager breakdown so totals reconcile with the overall 'Палет' value.
+  const byManager = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      m.set(r.managerKey, (m.get(r.managerKey) ?? 0) + Number(r.item.pallet_count ?? 0));
+    }
+    return Array.from(m.entries())
+      .map(([key, pallets]) => ({ key, label: managerLabelFor(key), pallets }))
+      .sort((a, b) => b.pallets - a.pallets);
+  }, [rows, managerLabel]);
+
   const activeChips: string[] = [];
   if (productF !== ALL) activeChips.push(`Товар: ${productF}`);
   if (countryF !== ALL) activeChips.push(`Країна: ${countryF}`);
   if (supplierF !== ALL) activeChips.push(`Постачальник: ${supplierMap[supplierF] ?? "—"}`);
-  if (managerF !== ALL) activeChips.push(`Менеджер: ${managerMap[managerF] ?? "—"}`);
+  if (managerF !== ALL) activeChips.push(`Менеджер: ${managerLabelFor(managerF)}`);
 
   if (loading) return null;
   if (!canView) return <Navigate to="/" />;
@@ -381,7 +428,7 @@ export function StatisticsPage() {
             <label className="text-xs text-muted-foreground">Товар</label>
             <CompactFilterSelect
               value={productF}
-              onChange={(v) => { setProductF(v); setCountryF(ALL); }}
+              onChange={setProductF}
               options={productOptions.map((p) => ({ value: p, label: p }))}
               aliases={productAliasMap}
             />
@@ -408,7 +455,7 @@ export function StatisticsPage() {
             <CompactFilterSelect
               value={managerF}
               onChange={setManagerF}
-              options={managerOptions.map((m) => ({ value: m.user_id ?? m.id, label: m.full_name }))}
+              options={managerOptions}
             />
           </div>
         </div>
@@ -447,38 +494,66 @@ export function StatisticsPage() {
         ) : rows.length === 0 ? (
           <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
         ) : (
-          <div className="-mx-4 px-4">
-            <table className="w-full caption-bottom border-collapse text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Дата</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Товар</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Країна</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Постачальник</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Менеджер</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Палет</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Закупка</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-success shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Індикатив</th>
-                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-destructive shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Інвойс</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.item.id} className="border-b transition-colors hover:bg-muted/50">
-                    <td className="whitespace-nowrap p-2 align-middle">{fmtDate(r.date)}</td>
-                    <td className="whitespace-nowrap p-2 align-middle">{r.productCanonical}</td>
-                    <td className="whitespace-nowrap p-2 align-middle">{r.country}</td>
-                    <td className="whitespace-nowrap p-2 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
-                    <td className="whitespace-nowrap p-2 align-middle">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</td>
-                    <td className="p-2 text-right align-middle">{fmtNum(r.item.pallet_count, 0)}</td>
-                    <td className="p-2 text-right align-middle">{fmtNum(r.item.unit_price)}</td>
-                    <td className="p-2 text-right align-middle font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</td>
-                    <td className="p-2 text-right align-middle font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</td>
+          <div className="relative">
+            <div className="overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[840px] caption-bottom border-collapse text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Дата</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Товар</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Країна</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Постачальник</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Менеджер</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Палет</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Закупка</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Індикатив</th>
+                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Інвойс</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.item.id} className="border-b transition-colors hover:bg-muted/50">
+                      <td className="whitespace-nowrap p-1.5 align-middle">{fmtDate(r.date)}</td>
+                      <td className="whitespace-nowrap p-1.5 align-middle">{r.productCanonical}</td>
+                      <td className="whitespace-nowrap p-1.5 align-middle">{r.country}</td>
+                      <td className="whitespace-nowrap p-1.5 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
+                      <td className="whitespace-nowrap p-1.5 align-middle">{managerLabelFor(r.managerKey)}</td>
+                      <td className="p-1.5 text-right align-middle">{fmtNum(r.item.pallet_count, 0)}</td>
+                      <td className="p-1.5 text-right align-middle">{fmtNum(r.item.unit_price)}</td>
+                      <td className="p-1.5 text-right align-middle font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</td>
+                      <td className="p-1.5 text-right align-middle font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t bg-muted/40 font-semibold">
+                    <td className="p-1.5 align-middle" colSpan={5}>Разом</td>
+                    <td className="p-1.5 text-right align-middle tabular-nums">{totals.pallets}</td>
+                    <td className="p-1.5" colSpan={3}></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card to-transparent sm:hidden" />
           </div>
+        )}
+      </SectionCard>
+
+      {/* MANAGERS — reconciliation breakdown */}
+      <SectionCard title="По менеджерах">
+        {byManager.length === 0 ? (
+          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
+        ) : (
+          <ul className="divide-y divide-border">
+            {byManager.map((g) => (
+              <li key={g.key} className="flex items-center justify-between gap-2 py-2">
+                <span className="truncate text-sm">{g.label}</span>
+                <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
+              <span className="text-sm">Разом</span>
+              <span className="text-sm tabular-nums">{totals.pallets}п</span>
+            </li>
+          </ul>
         )}
       </SectionCard>
 

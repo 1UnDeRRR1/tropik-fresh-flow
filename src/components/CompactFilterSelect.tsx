@@ -75,6 +75,7 @@ export function CompactFilterSelect({
       <PopoverTrigger asChild>
         <button
           type="button"
+          data-compact-filter-trigger="true"
           className={cn(
             "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring",
             className,
@@ -95,6 +96,27 @@ export function CompactFilterSelect({
         className="w-[--radix-popover-trigger-width] p-0"
         align="start"
         sideOffset={4}
+        collisionPadding={8}
+        onOpenAutoFocus={(e) => {
+          // Don't autofocus the search input — prevents the mobile keyboard
+          // from opening unless the user explicitly taps the search field.
+          e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          // If the outside pointerdown lands on another compact filter
+          // trigger, swallow it so the first tap only closes the current
+          // dropdown; the next separate tap may open another filter.
+          const target = e.target as HTMLElement | null;
+          if (target?.closest?.("[data-compact-filter-trigger]")) {
+            e.preventDefault();
+          }
+        }}
+        onInteractOutside={(e) => {
+          const target = e.target as HTMLElement | null;
+          if (target?.closest?.("[data-compact-filter-trigger]")) {
+            e.preventDefault();
+          }
+        }}
       >
         <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -104,7 +126,6 @@ export function CompactFilterSelect({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Пошук…"
             className="h-7 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            autoFocus
           />
           {search ? (
             <button
