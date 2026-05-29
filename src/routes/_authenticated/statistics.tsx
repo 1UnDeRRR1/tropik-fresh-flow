@@ -691,7 +691,7 @@ export function StatisticsPage() {
         {isLoading ? (
           <EmptyState title="Завантаження…" />
         ) : rows.length === 0 ? (
-          <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
+          <EmptyState title="Немає закупок" hint={flatPeriod.length === 0 ? emptyHint : "За обраними фільтрами"} />
         ) : (
           <>
             {renderPurchaseTable(previewRows)}
