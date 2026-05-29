@@ -10,10 +10,11 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 function Settings() {
-  const { profile, signOut } = useAuth();
+  const { profile, primaryRole, signOut } = useAuth();
   const navigate = useNavigate();
+  const isOwner = primaryRole === "owner";
   const personal = getPersonalAssets(profile?.id, profile?.branch_id);
-  const hasProfileBg = !!personal?.profileBgMobileWebp || !!personal?.profileBgDesktopWebp;
+  const hasProfileBg = !isOwner && (!!personal?.profileBgMobileWebp || !!personal?.profileBgDesktopWebp);
 
   return (
     <div className="relative space-y-4">
