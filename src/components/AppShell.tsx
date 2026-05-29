@@ -223,7 +223,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <header
+        className={cn(
+          "z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70",
+          // Owner mobile: hard-pin to viewport top so the status-bar safe area
+          // is always covered by the banner. Desktop falls back to sticky so
+          // the wider nav layout behaves as before.
+          isOwner && ownerMobileBanner
+            ? "fixed inset-x-0 top-0 md:sticky md:top-0"
+            : "sticky top-0",
+        )}
+      >
+
         {personalAssets?.headerDesktopWebp ? (
           /* Full-bleed personal header banner — only for users with a package.
              width/height attributes on each <source> + <img> let the browser
@@ -375,9 +386,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
 
-      <main className={cn("relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10", isOwner ? "pt-3" : "pt-4")}>
+      <main
+        className={cn(
+          "relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10",
+          // Owner mobile uses a fixed header (banner + safe-area + FX badge row),
+          // so we push content down by that height. Desktop reverts to normal padding.
+          isOwner && ownerMobileBanner
+            ? "pt-[calc(env(safe-area-inset-top)+9rem+2.25rem)] md:pt-3"
+            : isOwner
+              ? "pt-3"
+              : "pt-4",
+        )}
+      >
         {children}
       </main>
+
+
 
       {/* Bottom nav: mobile only */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe md:hidden">
