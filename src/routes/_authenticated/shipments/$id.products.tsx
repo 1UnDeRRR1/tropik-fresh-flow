@@ -2641,7 +2641,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const netGtGross = netNum > 0 && grossNum > 0 && netNum > grossNum;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  
 
   // Resolver — onBlur of Товар/Країна, gated by touchedRef.
   type ResolverHint =
