@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { getPersonalAssets } from "@/lib/branch-assets";
+import ownerSettingsBg from "@/assets/owner-settings-bg.png";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
