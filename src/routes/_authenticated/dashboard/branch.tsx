@@ -349,6 +349,20 @@ function BranchDashboard() {
     },
   });
 
+  // Branch-safe shipment manager names via shipments_branch view (RLS-friendly for branch users).
+  const { data: shipMgrs } = useQuery({
+    queryKey: ["branch-ship-managers", shipmentIds.join(",")],
+    enabled: shipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipments_branch")
+        .select("id,import_manager_id,import_manager_name")
+        .in("id", shipmentIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; import_manager_id: string | null; import_manager_name: string | null }>;
+    },
+  });
+
   const { data: baselines } = useQuery({
     queryKey: ["branch-baselines", branchId],
     enabled: !!branchId,
