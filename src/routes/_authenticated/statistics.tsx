@@ -116,7 +116,9 @@ export function StatisticsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["statistics-12m"],
+    enabled: !loading && canView,
     queryFn: async () => {
+
       const cutoff = toISO(minDate);
       const [shRes, supRes, mgrRes] = await Promise.all([
         supabase
