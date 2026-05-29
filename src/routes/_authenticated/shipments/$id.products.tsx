@@ -1706,6 +1706,45 @@ function ProductsFullscreen() {
         return;
       }
 
+      // Stage 3B pre-flight: detect existing rows whose pallet_count is shrinking,
+      // then find linked offer allocation rows that must be rebalanced after UPDATE.
+      const shrinkItemIds: string[] = [];
+      for (const d of draftItems) {
+        if (d.dbId === null) continue;
+        const base = baselinesRef.current.get(d.dbId);
+        if (!base) continue;
+        const oldP = Number(base.pallet_count ?? 0);
+        const newP = Number(d.pallet_count ?? 0);
+        if (newP < oldP) shrinkItemIds.push(d.dbId);
+      }
+      const shrinkPairs: { offer_id: string; shipment_item_id: string }[] = [];
+      if (shrinkItemIds.length > 0) {
+        const { data: linkedRows, error: linkedErr } = await supabase
+          .from("manager_offer_allocation_parts")
+          .select("offer_id, shipment_item_id")
+          .in("shipment_item_id", shrinkItemIds)
+          .eq("status", "ordered");
+        if (linkedErr) {
+          toast.error(
+            `Не вдалося перевірити прив'язки пропозицій: ${translateError(linkedErr)}`,
+          );
+          return;
+        }
+        const seen = new Set<string>();
+        for (const row of (linkedRows ?? []) as Array<{
+          offer_id: string;
+          shipment_item_id: string;
+        }>) {
+          const key = `${row.offer_id}:${row.shipment_item_id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          shrinkPairs.push({
+            offer_id: row.offer_id,
+            shipment_item_id: row.shipment_item_id,
+          });
+        }
+      }
+
       // 4. UPDATE dirty existing rows (dbId !== null).
       for (const d of draftItems) {
         if (d.dbId === null) continue;
@@ -1719,6 +1758,30 @@ function ProductsFullscreen() {
           toast.error(translateError(upErr));
           return;
         }
+      }
+
+      // 4b. Stage 3B rebalance: reconcile offer allocation rows with new pallet_count.
+      //     Halfway-stop on failure — do not run DELETE, do not show success.
+      let rebalanceFailed = false;
+      for (const { offer_id, shipment_item_id } of shrinkPairs) {
+        const { error: rbErr } = await supabase.rpc(
+          "rebalance_offer_allocation_for_item" as never,
+          { p_offer_id: offer_id, p_shipment_item_id: shipment_item_id } as never,
+        );
+        if (rbErr) {
+          rebalanceFailed = true;
+          toast.error(
+            `Не вдалося оновити залишок пропозиції (${offer_id.slice(0, 8)}…): ${translateError(rbErr)}. Видалення відкладено — натисніть "Готово" ще раз.`,
+          );
+        }
+      }
+      if (rebalanceFailed) {
+        qc.invalidateQueries({ queryKey: ["manager-offers"] });
+        qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+        qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
+        qc.invalidateQueries({ queryKey: ["shipment", id] });
+        invalidateVehicleAndShipmentCaches(qc);
+        return;
       }
 
       // 5. DELETE pendingDeletes LAST.
@@ -1740,6 +1803,8 @@ function ProductsFullscreen() {
       await syncVehicleStateForShipment(id);
       // D1-Fix v2.4 — invalidate then FORCE-refetch ["shipment", id] before navigate.
       // Details page reads final_cost_* from this key; "type: all" reaches the unmounted route.
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
       qc.invalidateQueries({ queryKey: ["shipment", id] });
       qc.invalidateQueries({ queryKey: ["shipments"] });
