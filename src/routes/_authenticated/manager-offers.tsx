@@ -329,69 +329,45 @@ function ManagerOffersPage() {
     return m;
   }, [creators]);
 
-  // Position-anchor responsible-manager resolution. For offers with a
-  // position_id, the "Менеджер" displayed = operational_positions.owner_user_id.
-  // Falls back to created_by ONLY for legacy rows where position_id IS NULL.
-  const positionIdsForOffers = useMemo(
-    () => Array.from(new Set((offers ?? []).map((o) => (o as ManagerOffer & { position_id?: string | null }).position_id).filter((v): v is string => !!v))),
+  // Responsible-manager resolution: read directly from
+  // manager_offers.import_manager_id and resolve the name via
+  // import_managers.full_name. created_by is only shown as "Створив".
+  const managerIdsForOffers = useMemo(
+    () => Array.from(new Set((offers ?? []).map((o) => o.import_manager_id).filter((v): v is string => !!v))),
     [offers],
   );
 
-  const { data: positionOwners } = useQuery({
-    queryKey: ["manager-offer-position-owners", positionIdsForOffers],
-    enabled: positionIdsForOffers.length > 0,
+  const { data: offerManagers } = useQuery({
+    queryKey: ["manager-offer-import-managers", managerIdsForOffers],
+    enabled: managerIdsForOffers.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("operational_positions")
-        .select("position_id,owner_user_id")
-        .in("position_id", positionIdsForOffers);
-      if (error) throw error;
-      return (data ?? []) as { position_id: string; owner_user_id: string | null }[];
-    },
-  });
-
-  const ownerUserIdByPosition = useMemo(() => {
-    const m: Record<string, string | null> = {};
-    for (const p of positionOwners ?? []) m[p.position_id] = p.owner_user_id;
-    return m;
-  }, [positionOwners]);
-
-  const ownerProfileIds = useMemo(
-    () => Array.from(new Set(Object.values(ownerUserIdByPosition).filter((v): v is string => !!v))),
-    [ownerUserIdByPosition],
-  );
-
-  const { data: ownerProfiles } = useQuery({
-    queryKey: ["manager-offer-owner-profiles", ownerProfileIds],
-    enabled: ownerProfileIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
+        .from("import_managers")
         .select("id,full_name")
-        .in("id", ownerProfileIds);
+        .in("id", managerIdsForOffers);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as { id: string; full_name: string | null }[];
     },
   });
 
-  const ownerNameById = useMemo(() => {
+  const managerNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const p of ownerProfiles ?? []) m[p.id] = p.full_name ?? "—";
+    for (const r of offerManagers ?? []) m[r.id] = r.full_name ?? "—";
     return m;
-  }, [ownerProfiles]);
+  }, [offerManagers]);
 
-  // Returns { label, pending, actor } for the "Менеджер" column.
-  // Rule: when position_id exists, ALWAYS show responsible manager (or pending).
-  // created_by is shown separately as "Створив" only when distinct from owner.
+  // Returns { label, pending, actor } for the "Відповідальний" column.
+  // Source of truth: manager_offers.import_manager_id (business manager).
+  // "Створив" only shown when creator differs from responsible manager.
   function getResponsible(o: ManagerOffer): {
     label: string;
     pending: boolean;
     actor: string | null;
     isLegacy: boolean;
   } {
-    const positionId = (o as ManagerOffer & { position_id?: string | null }).position_id;
-    if (!positionId) {
-      // Legacy row — no position anchor, fall back to created_by.
+    const managerId = o.import_manager_id;
+    if (!managerId) {
+      // Legacy row predating responsible-manager enforcement.
       return {
         label: creatorById[o.created_by] ?? "—",
         pending: false,
@@ -399,18 +375,11 @@ function ManagerOffersPage() {
         isLegacy: true,
       };
     }
-    const ownerId = ownerUserIdByPosition[positionId];
-    if (!ownerId) {
-      return {
-        label: "не призначено",
-        pending: true,
-        actor: creatorById[o.created_by] ?? null,
-        isLegacy: false,
-      };
-    }
-    const actor = ownerId !== o.created_by ? creatorById[o.created_by] ?? null : null;
+    const managerName = managerNameById[managerId] ?? "—";
+    const creatorName = creatorById[o.created_by] ?? null;
+    const actor = creatorName && creatorName !== managerName ? creatorName : null;
     return {
-      label: ownerNameById[ownerId] ?? "—",
+      label: managerName,
       pending: false,
       actor,
       isLegacy: false,
@@ -1602,6 +1571,12 @@ function OfferEditor({
       const responsibleManagerId = isAdmin ? selectedManagerId : currentManagerId;
       if (!isAdmin && !currentManagerId) {
         throw new Error("Не вдалось визначити імпорт-менеджера для пропозиції");
+      }
+      if (isAdmin && !selectedManagerId) {
+        throw new Error("Оберіть відповідального менеджера перед публікацією");
+      }
+      if (!responsibleManagerId) {
+        throw new Error("Пропозиція не може бути створена без відповідального менеджера");
       }
       try {
         for (const it of items) {
