@@ -2771,7 +2771,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       toast.error("Можна редагувати лише власні товари");
       return;
     }
-    setConfirmOpen(false);
+    
     onRemove();
   };
 
