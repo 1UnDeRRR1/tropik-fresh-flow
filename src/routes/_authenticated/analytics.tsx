@@ -9,11 +9,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CostPair } from "@/components/CostPair";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { countPositions, countPositionsFromGroups, formatPositions } from "@/lib/positions";
+import { SearchableSelect } from "@/components/SearchableSelect";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: Analytics,
 });
+
+const ALL = "__all";
+const NO_COUNTRY = "__no_country__";
+const NO_COUNTRY_LABEL = "— Без країни";
 
 type ItemRow = {
   id: string;
