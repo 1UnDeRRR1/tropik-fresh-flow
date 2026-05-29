@@ -457,7 +457,7 @@ export function StatisticsPage() {
                 {rows.map(r => (
                   <TableRow key={r.item.id}>
                     <TableCell className="whitespace-nowrap">{fmtDate(r.date)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.item.product_name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.productCanonical}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.country}</TableCell>
                     <TableCell className="whitespace-nowrap">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</TableCell>
                     <TableCell className="whitespace-nowrap">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</TableCell>
