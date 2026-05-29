@@ -69,7 +69,8 @@ function surname(full: string) {
 export function CalendarPage() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
-  const [productFilter, setProductFilter] = useState<string>("__all");
+  const [productFilter, setProductFilter] = useState<string>(ALL);
+  const [countryFilter, setCountryFilter] = useState<string>(ALL);
   const [openItem, setOpenItem] = useState<{ sh: ShipmentRow; it: ShipmentItem } | null>(null);
 
   const today = new Date();
