@@ -403,10 +403,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main
         className={cn(
           "relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10",
-          // Owner mobile uses a fixed header (banner + safe-area + FX badge row),
-          // so we push content down by that height. Desktop reverts to normal padding.
+          // Owner mobile uses a fixed header (banner + safe-area, FX strip
+          // hidden), so we push content down by the banner height only.
+          // Desktop reverts to normal padding.
           isOwner && ownerMobileBanner
-            ? "pt-[calc(env(safe-area-inset-top)+9rem+2.25rem)] md:pt-3"
+            ? "pt-[calc(env(safe-area-inset-top)+12rem+0.5rem)] md:pt-3"
             : isOwner
               ? "pt-3"
               : "pt-4",
