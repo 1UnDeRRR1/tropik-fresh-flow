@@ -69,10 +69,10 @@ const UK_MONTHS = ["Січень","Лютий","Березень","Квітен�
 
 type PeriodMode = "week" | "month" | "year" | "custom";
 
-function StatisticsPage() {
+export function StatisticsPage() {
   const { hasRole, loading } = useAuth();
   if (loading) return null;
-  if (!hasRole(["admin", "super_admin"])) return <Navigate to="/" />;
+  if (!hasRole(["admin", "super_admin", "owner"])) return <Navigate to="/" />;
 
   const today = new Date();
   const minDate = addDays(today, -365);

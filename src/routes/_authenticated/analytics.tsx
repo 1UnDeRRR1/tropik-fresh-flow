@@ -60,7 +60,7 @@ type Flat = {
   shipment: ShipmentRow;
 };
 
-function Analytics() {
+export function Analytics() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
   const navigate = useNavigate();
@@ -580,6 +580,7 @@ function Analytics() {
 
                     <Button
                       className="w-full"
+                      data-mutation
                       onClick={() => {
                         const sid = openItem?.shipment.id;
                         if (!sid) return;

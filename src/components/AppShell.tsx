@@ -28,6 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSuper = hasRole("super_admin");
   const isManager = primaryRole === "import_manager";
   const isLogisticsRole = primaryRole === "logistics";
+  const isOwner = primaryRole === "owner";
   const canSeeLogistics = isAdmin || isManager || hasRole("logistics");
 
   const branchId = profile?.branch_id ?? null;
@@ -142,7 +143,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [userId, qc]);
 
-  const items: NavItem[] = isBranch
+  const items: NavItem[] = isOwner
+    ? [
+        { to: "/owner/calendar", label: "Календар", icon: Calendar },
+        { to: "/owner/analytics", label: "Аналітика", icon: BarChart3 },
+        { to: "/owner/statistics", label: "Статистика", icon: LineChart },
+        { to: "/settings", label: "Профіль", icon: Settings },
+      ]
+    : isBranch
     ? [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/distribution", label: "Вільно", icon: Package },

@@ -11,7 +11,8 @@ export type AppRole =
   | "logistics"
   | "branch"
   | "calendar_branch"
-  | "calendar_tropik";
+  | "calendar_tropik"
+  | "owner";
 
 export interface Profile {
   id: string;
@@ -44,6 +45,7 @@ const ROLE_PRIORITY: AppRole[] = [
   "admin",
   "import_manager",
   "logistics",
+  "owner",
   "calendar_branch",
   "calendar_tropik",
   "branch",
@@ -364,6 +366,7 @@ export const ROLE_LABEL_UK: Record<AppRole, string> = {
   branch: "Філія",
   calendar_branch: "Календар філії",
   calendar_tropik: "Календар Tropik",
+  owner: "Керівник",
 };
 
 export function defaultRoutePerRole(role: AppRole | null): string {
@@ -378,6 +381,8 @@ export function defaultRoutePerRole(role: AppRole | null): string {
       return "/logistics";
     case "branch":
       return "/dashboard/branch";
+    case "owner":
+      return "/owner/calendar";
     case "calendar_branch":
     case "calendar_tropik":
       // External calendar UI is disabled — send to safe landing page.

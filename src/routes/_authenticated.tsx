@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, Navigate, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Navigate, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
@@ -6,6 +6,7 @@ import { getPersonalAssets, type PersonalAssets } from "@/lib/branch-assets";
 import { getLastUserId } from "@/lib/last-user";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
+import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -79,7 +80,8 @@ function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
 }
 
 function AuthenticatedLayout() {
-  const { user, profile, loading, dataLoaded } = useAuth();
+  const { user, profile, loading, dataLoaded, primaryRole } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // Warm DB-backed alias cache once auth is established.
   useEffect(() => { if (user) initAliasCache(); }, [user]);
@@ -133,6 +135,13 @@ function AuthenticatedLayout() {
 
   // Pre-auth: send unauthenticated visitors to /login as soon as auth resolves.
   if (mounted && authReady && !user) return <Navigate to="/login" />;
+
+  // Owner / Director shell: redirect any operational URL back to the owner
+  // home. Allow-list lives in src/lib/owner-route-guard.ts. This is the
+  // primary URL gate — OwnerLinkGuard is a defence-in-depth cosmetic layer.
+  if (mounted && authReady && user && primaryRole === "owner" && !isOwnerAllowedPath(pathname)) {
+    return <Navigate to={OWNER_HOME} replace />;
+  }
 
   // Render AppShell underneath the splash overlay once we have a usable
   // identity — this lets the first-screen data query start while the splash
