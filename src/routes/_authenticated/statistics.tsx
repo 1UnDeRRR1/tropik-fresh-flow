@@ -184,7 +184,7 @@ export function StatisticsPage() {
   const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
-      const dateStr = sh.loading_date ?? sh.arrived_at ?? sh.eta ?? sh.created_at.slice(0, 10);
+      const dateStr = sh.arrived_at ?? sh.eta ?? sh.loading_date ?? sh.created_at.slice(0, 10);
       if (!dateStr) continue;
       if (dateStr < fromISOStr || dateStr > toISOStr) continue;
       for (const it of (sh.shipment_items ?? [])) {
@@ -448,6 +448,7 @@ export function StatisticsPage() {
               value={supplierF}
               onChange={setSupplierF}
               options={supplierOptions.map((s) => ({ value: s.id, label: s.name }))}
+              searchable={false}
             />
           </div>
           <div>
@@ -456,6 +457,7 @@ export function StatisticsPage() {
               value={managerF}
               onChange={setManagerF}
               options={managerOptions}
+              searchable={false}
             />
           </div>
         </div>

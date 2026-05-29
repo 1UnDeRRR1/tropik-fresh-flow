@@ -310,11 +310,11 @@ export function Analytics() {
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Менеджер</label>
-              <CompactFilterSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} />
+              <CompactFilterSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} searchable={false} />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Філія</label>
-              <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} />
+              <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} searchable={false} />
             </div>
           </div>
           <div className="text-right text-xs text-muted-foreground">
