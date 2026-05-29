@@ -539,7 +539,12 @@ export function StatisticsPage() {
               </div>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">{fmtDate(fromISOStr)} – {fmtDate(toISOStr)}</p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">Дата:</span>
+            <Button size="sm" variant={dateBasis === "loading" ? "default" : "outline"} onClick={() => setDateBasis("loading")}>Завантаження</Button>
+            <Button size="sm" variant={dateBasis === "arrival" ? "default" : "outline"} onClick={() => setDateBasis("arrival")}>Прибуття</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{fmtDate(fromISOStr)} – {fmtDate(toISOStr)} · {dateBasis === "loading" ? "за датою завантаження" : "за датою прибуття"}</p>
         </div>
       </SectionCard>
 
