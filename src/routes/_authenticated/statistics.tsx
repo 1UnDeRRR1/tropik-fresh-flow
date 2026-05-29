@@ -418,7 +418,7 @@ export function StatisticsPage() {
             <label className="text-xs text-muted-foreground">Товар</label>
             <CompactFilterSelect
               value={productF}
-              onChange={(v) => { setProductF(v); setCountryF(ALL); }}
+              onChange={setProductF}
               options={productOptions.map((p) => ({ value: p, label: p }))}
               aliases={productAliasMap}
             />
@@ -445,7 +445,7 @@ export function StatisticsPage() {
             <CompactFilterSelect
               value={managerF}
               onChange={setManagerF}
-              options={managerOptions.map((m) => ({ value: m.user_id ?? m.id, label: m.full_name }))}
+              options={managerOptions}
             />
           </div>
         </div>
