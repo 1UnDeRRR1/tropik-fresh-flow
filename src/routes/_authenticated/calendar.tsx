@@ -144,28 +144,44 @@ export function CalendarPage() {
     return out;
   }, [data, fromISO]);
 
-  // Active products list (only those with at least 1 pallet active)
+  // Product options: distinct product names (origin country handled separately)
   const productOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of allEntries) {
-      const country = e.it.origin_country || e.sh.country || "";
-      set.add(`${e.it.product_name.trim()}__${country}`);
+      const name = e.it.product_name.trim();
+      if (name) set.add(name);
     }
     return Array.from(set)
-      .map((k) => {
-        const [name, country] = k.split("__");
-        return { key: k, name, country };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+      .sort((a, b) => a.localeCompare(b, "uk"))
+      .map((name) => ({ value: name, label: name }));
+  }, [allEntries]);
+
+  // Country options: distinct product origin only (NEVER fallback to shipment.country)
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasMissing = false;
+    for (const e of allEntries) {
+      const c = (e.it.origin_country ?? "").trim();
+      if (c) set.add(c);
+      else hasMissing = true;
+    }
+    const arr = Array.from(set)
+      .sort((a, b) => a.localeCompare(b, "uk"))
+      .map((c) => ({ value: c, label: c }));
+    if (hasMissing) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    return arr;
   }, [allEntries]);
 
   const filtered = useMemo(() => {
-    if (productFilter === "__all") return allEntries;
     return allEntries.filter((e) => {
-      const country = e.it.origin_country || e.sh.country || "";
-      return `${e.it.product_name.trim()}__${country}` === productFilter;
+      if (productFilter !== ALL && e.it.product_name.trim() !== productFilter) return false;
+      if (countryFilter !== ALL) {
+        const c = (e.it.origin_country ?? "").trim();
+        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+      }
+      return true;
     });
-  }, [allEntries, productFilter]);
+  }, [allEntries, productFilter, countryFilter]);
 
   // Group by arrival date (only non-empty)
   const grouped = useMemo(() => {
@@ -185,7 +201,11 @@ export function CalendarPage() {
       });
   }, [filtered]);
 
-  const isProductView = productFilter !== "__all";
+  const hasAnyFilter = productFilter !== ALL || countryFilter !== ALL;
+  const totalFilteredPallets = useMemo(
+    () => filtered.reduce((s, e) => s + Number(e.it.pallet_count ?? 0), 0),
+    [filtered],
+  );
 
   return (
     <div className="space-y-4">
