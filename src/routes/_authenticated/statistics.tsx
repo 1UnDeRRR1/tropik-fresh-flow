@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { canonicalizeProductName } from "@/lib/product-aliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useProductAliases } from "@/hooks/useProductAliases";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/statistics")({
   component: StatisticsPage,
@@ -480,6 +481,64 @@ export function StatisticsPage() {
     </div>
   );
 
+  // Mobile-first detail list (Analytics-style cards)
+  const renderDetailList = (data: Flat[]) => (
+    <ul className="divide-y divide-border">
+      {data
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((f) => {
+          const it = f.item;
+          const sh = f.shipment;
+          const pallets = Number(it.pallet_count ?? 0);
+          const net = Number(it.net_weight_kg ?? 0);
+          const currency = it.price_currency ?? "";
+          return (
+            <li key={`${sh.id}-${it.id}`} className="flex flex-col gap-1 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold">
+                  {dateBasis === "loading" ? "Завант." : "ETA"} {fmtDate(f.date)}
+                </span>
+                <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                <span className="font-mono text-foreground">{shipmentLabel(sh)}</span>
+                <span className="truncate">{f.productCanonical}</span>
+                <span>·</span>
+                <span>{f.country}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                <span>{supplierMap[sh.supplier_id ?? ""] ?? "—"}</span>
+                {net > 0 ? <span>{Math.round(net)} кг</span> : null}
+              </div>
+              {(showPrice || showCost) && (
+                <div className="flex flex-wrap items-center gap-x-2 text-[11px]">
+                  {showPrice && (
+                    <span className="text-muted-foreground">
+                      закуп. {fmtNum(it.unit_price)} {currency}
+                    </span>
+                  )}
+                  {showCost && (
+                    <CostPair
+                      indicative={it.final_cost_indicative}
+                      invoice={it.final_cost_invoice}
+                      suffix=" кг"
+                      prefix=""
+                      size="xs"
+                    />
+                  )}
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground">
+                Менеджер: {managerLabelFor(f.managerKey)}
+              </div>
+            </li>
+          );
+        })}
+    </ul>
+  );
+
+
   const subtitle = (() => {
     if (mode === "month") {
       const [y, m] = monthVal.split("-").map(Number);
@@ -710,13 +769,17 @@ export function StatisticsPage() {
         )}
       </SectionCard>
 
-      {/* DRILL-DOWN DIALOG */}
+      {/* DRILL-DOWN DIALOG — Analytics-style list */}
       <Dialog open={!!drill} onOpenChange={(o) => { if (!o) setDrill(null); }}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{drill?.label ?? ""}</DialogTitle>
+            <DialogTitle className="pr-10 text-base break-words">
+              {drill?.label ?? ""}
+            </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+          <div className={`grid gap-2 text-center ${
+            metric === "purchase" ? "grid-cols-2" : metric === "cost" ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"
+          }`}>
             <div className="rounded-lg border border-border bg-card p-2">
               <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
               <div className="text-base font-bold">{drillTotals.pallets}</div>
@@ -743,28 +806,18 @@ export function StatisticsPage() {
           {drillRows.length === 0 ? (
             <EmptyState title="Немає рядків" />
           ) : (
-            renderPurchaseTable(drillRows)
+            renderDetailList(drillRows)
           )}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Закрити</Button>
-            </DialogClose>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* FULL PURCHASES TABLE DIALOG */}
+      {/* FULL PURCHASES DIALOG — same list layout */}
       <Dialog open={fullTableOpen} onOpenChange={setFullTableOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Товари — закупки ({rows.length})</DialogTitle>
+            <DialogTitle className="pr-10 text-base break-words">Товари — закупки ({rows.length})</DialogTitle>
           </DialogHeader>
-          {renderPurchaseTable(rows)}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Закрити</Button>
-            </DialogClose>
-          </DialogFooter>
+          {rows.length === 0 ? <EmptyState title="Немає рядків" /> : renderDetailList(rows)}
         </DialogContent>
       </Dialog>
     </div>
