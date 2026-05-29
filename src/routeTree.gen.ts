@@ -17,6 +17,7 @@ import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
 import { Route as AuthenticatedStatisticsRouteImport } from './routes/_authenticated/statistics'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedOwnerRouteImport } from './routes/_authenticated/owner'
 import { Route as AuthenticatedOffersRouteImport } from './routes/_authenticated/offers'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedMasterDataRouteImport } from './routes/_authenticated/master-data'
@@ -33,12 +34,16 @@ import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSuperAdminIndexRouteImport } from './routes/_authenticated/super-admin/index'
 import { Route as AuthenticatedShipmentsIndexRouteImport } from './routes/_authenticated/shipments/index'
+import { Route as AuthenticatedOwnerIndexRouteImport } from './routes/_authenticated/owner/index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedSuperAdminUsersRouteImport } from './routes/_authenticated/super-admin/users'
 import { Route as AuthenticatedSuperAdminLogsRouteImport } from './routes/_authenticated/super-admin/logs'
 import { Route as AuthenticatedShipmentsNewDraftTestRouteImport } from './routes/_authenticated/shipments/new-draft-test'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
+import { Route as AuthenticatedOwnerStatisticsRouteImport } from './routes/_authenticated/owner/statistics'
+import { Route as AuthenticatedOwnerCalendarRouteImport } from './routes/_authenticated/owner/calendar'
+import { Route as AuthenticatedOwnerAnalyticsRouteImport } from './routes/_authenticated/owner/analytics'
 import { Route as AuthenticatedDistributionShipmentIdRouteImport } from './routes/_authenticated/distribution/$shipmentId'
 import { Route as AuthenticatedDashboardSuperAdminRouteImport } from './routes/_authenticated/dashboard/super-admin'
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard/manager'
@@ -99,6 +104,11 @@ const AuthenticatedStatisticsRoute = AuthenticatedStatisticsRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOwnerRoute = AuthenticatedOwnerRouteImport.update({
+  id: '/owner',
+  path: '/owner',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedOffersRoute = AuthenticatedOffersRouteImport.update({
@@ -189,6 +199,11 @@ const AuthenticatedShipmentsIndexRoute =
     path: '/shipments/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedOwnerIndexRoute = AuthenticatedOwnerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedOwnerRoute,
+} as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -223,6 +238,24 @@ const AuthenticatedShipmentsIdRoute =
     id: '/shipments/$id',
     path: '/shipments/$id',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOwnerStatisticsRoute =
+  AuthenticatedOwnerStatisticsRouteImport.update({
+    id: '/statistics',
+    path: '/statistics',
+    getParentRoute: () => AuthenticatedOwnerRoute,
+  } as any)
+const AuthenticatedOwnerCalendarRoute =
+  AuthenticatedOwnerCalendarRouteImport.update({
+    id: '/calendar',
+    path: '/calendar',
+    getParentRoute: () => AuthenticatedOwnerRoute,
+  } as any)
+const AuthenticatedOwnerAnalyticsRoute =
+  AuthenticatedOwnerAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedOwnerRoute,
   } as any)
 const AuthenticatedDistributionShipmentIdRoute =
   AuthenticatedDistributionShipmentIdRouteImport.update({
@@ -372,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/master-data': typeof AuthenticatedMasterDataRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/offers': typeof AuthenticatedOffersRoute
+  '/owner': typeof AuthenticatedOwnerRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/statistics': typeof AuthenticatedStatisticsRoute
   '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
@@ -395,12 +429,16 @@ export interface FileRoutesByFullPath {
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
+  '/owner/analytics': typeof AuthenticatedOwnerAnalyticsRoute
+  '/owner/calendar': typeof AuthenticatedOwnerCalendarRoute
+  '/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
   '/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/owner/': typeof AuthenticatedOwnerIndexRoute
   '/shipments/': typeof AuthenticatedShipmentsIndexRoute
   '/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
   '/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
@@ -446,12 +484,16 @@ export interface FileRoutesByTo {
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
   '/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
+  '/owner/analytics': typeof AuthenticatedOwnerAnalyticsRoute
+  '/owner/calendar': typeof AuthenticatedOwnerCalendarRoute
+  '/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
   '/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/owner': typeof AuthenticatedOwnerIndexRoute
   '/shipments': typeof AuthenticatedShipmentsIndexRoute
   '/super-admin': typeof AuthenticatedSuperAdminIndexRoute
   '/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
@@ -477,6 +519,7 @@ export interface FileRoutesById {
   '/_authenticated/master-data': typeof AuthenticatedMasterDataRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/offers': typeof AuthenticatedOffersRoute
+  '/_authenticated/owner': typeof AuthenticatedOwnerRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/statistics': typeof AuthenticatedStatisticsRoute
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
@@ -501,12 +544,16 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/super-admin': typeof AuthenticatedDashboardSuperAdminRoute
   '/_authenticated/distribution/$shipmentId': typeof AuthenticatedDistributionShipmentIdRoute
+  '/_authenticated/owner/analytics': typeof AuthenticatedOwnerAnalyticsRoute
+  '/_authenticated/owner/calendar': typeof AuthenticatedOwnerCalendarRoute
+  '/_authenticated/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/_authenticated/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/_authenticated/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
   '/_authenticated/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/owner/': typeof AuthenticatedOwnerIndexRoute
   '/_authenticated/shipments/': typeof AuthenticatedShipmentsIndexRoute
   '/_authenticated/super-admin/': typeof AuthenticatedSuperAdminIndexRoute
   '/_authenticated/dashboard/admin/statuses': typeof AuthenticatedDashboardAdminStatusesRoute
@@ -533,6 +580,7 @@ export interface FileRouteTypes {
     | '/master-data'
     | '/notifications'
     | '/offers'
+    | '/owner'
     | '/settings'
     | '/statistics'
     | '/super-admin'
@@ -556,12 +604,16 @@ export interface FileRouteTypes {
     | '/dashboard/manager'
     | '/dashboard/super-admin'
     | '/distribution/$shipmentId'
+    | '/owner/analytics'
+    | '/owner/calendar'
+    | '/owner/statistics'
     | '/shipments/$id'
     | '/shipments/new'
     | '/shipments/new-draft-test'
     | '/super-admin/logs'
     | '/super-admin/users'
     | '/admin/'
+    | '/owner/'
     | '/shipments/'
     | '/super-admin/'
     | '/dashboard/admin/statuses'
@@ -607,12 +659,16 @@ export interface FileRouteTypes {
     | '/dashboard/manager'
     | '/dashboard/super-admin'
     | '/distribution/$shipmentId'
+    | '/owner/analytics'
+    | '/owner/calendar'
+    | '/owner/statistics'
     | '/shipments/$id'
     | '/shipments/new'
     | '/shipments/new-draft-test'
     | '/super-admin/logs'
     | '/super-admin/users'
     | '/admin'
+    | '/owner'
     | '/shipments'
     | '/super-admin'
     | '/dashboard/admin/statuses'
@@ -637,6 +693,7 @@ export interface FileRouteTypes {
     | '/_authenticated/master-data'
     | '/_authenticated/notifications'
     | '/_authenticated/offers'
+    | '/_authenticated/owner'
     | '/_authenticated/settings'
     | '/_authenticated/statistics'
     | '/_authenticated/super-admin'
@@ -661,12 +718,16 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/manager'
     | '/_authenticated/dashboard/super-admin'
     | '/_authenticated/distribution/$shipmentId'
+    | '/_authenticated/owner/analytics'
+    | '/_authenticated/owner/calendar'
+    | '/_authenticated/owner/statistics'
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
     | '/_authenticated/shipments/new-draft-test'
     | '/_authenticated/super-admin/logs'
     | '/_authenticated/super-admin/users'
     | '/_authenticated/admin/'
+    | '/_authenticated/owner/'
     | '/_authenticated/shipments/'
     | '/_authenticated/super-admin/'
     | '/_authenticated/dashboard/admin/statuses'
@@ -738,6 +799,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/owner': {
+      id: '/_authenticated/owner'
+      path: '/owner'
+      fullPath: '/owner'
+      preLoaderRoute: typeof AuthenticatedOwnerRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/offers': {
@@ -852,6 +920,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShipmentsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/owner/': {
+      id: '/_authenticated/owner/'
+      path: '/'
+      fullPath: '/owner/'
+      preLoaderRoute: typeof AuthenticatedOwnerIndexRouteImport
+      parentRoute: typeof AuthenticatedOwnerRoute
+    }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/'
@@ -893,6 +968,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/shipments/$id'
       preLoaderRoute: typeof AuthenticatedShipmentsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/owner/statistics': {
+      id: '/_authenticated/owner/statistics'
+      path: '/statistics'
+      fullPath: '/owner/statistics'
+      preLoaderRoute: typeof AuthenticatedOwnerStatisticsRouteImport
+      parentRoute: typeof AuthenticatedOwnerRoute
+    }
+    '/_authenticated/owner/calendar': {
+      id: '/_authenticated/owner/calendar'
+      path: '/calendar'
+      fullPath: '/owner/calendar'
+      preLoaderRoute: typeof AuthenticatedOwnerCalendarRouteImport
+      parentRoute: typeof AuthenticatedOwnerRoute
+    }
+    '/_authenticated/owner/analytics': {
+      id: '/_authenticated/owner/analytics'
+      path: '/analytics'
+      fullPath: '/owner/analytics'
+      preLoaderRoute: typeof AuthenticatedOwnerAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedOwnerRoute
     }
     '/_authenticated/distribution/$shipmentId': {
       id: '/_authenticated/distribution/$shipmentId'
@@ -1104,6 +1200,23 @@ const AuthenticatedDistributionRouteWithChildren =
     AuthenticatedDistributionRouteChildren,
   )
 
+interface AuthenticatedOwnerRouteChildren {
+  AuthenticatedOwnerAnalyticsRoute: typeof AuthenticatedOwnerAnalyticsRoute
+  AuthenticatedOwnerCalendarRoute: typeof AuthenticatedOwnerCalendarRoute
+  AuthenticatedOwnerStatisticsRoute: typeof AuthenticatedOwnerStatisticsRoute
+  AuthenticatedOwnerIndexRoute: typeof AuthenticatedOwnerIndexRoute
+}
+
+const AuthenticatedOwnerRouteChildren: AuthenticatedOwnerRouteChildren = {
+  AuthenticatedOwnerAnalyticsRoute: AuthenticatedOwnerAnalyticsRoute,
+  AuthenticatedOwnerCalendarRoute: AuthenticatedOwnerCalendarRoute,
+  AuthenticatedOwnerStatisticsRoute: AuthenticatedOwnerStatisticsRoute,
+  AuthenticatedOwnerIndexRoute: AuthenticatedOwnerIndexRoute,
+}
+
+const AuthenticatedOwnerRouteWithChildren =
+  AuthenticatedOwnerRoute._addFileChildren(AuthenticatedOwnerRouteChildren)
+
 interface AuthenticatedSuperAdminRouteChildren {
   AuthenticatedSuperAdminLogsRoute: typeof AuthenticatedSuperAdminLogsRoute
   AuthenticatedSuperAdminUsersRoute: typeof AuthenticatedSuperAdminUsersRoute
@@ -1167,6 +1280,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMasterDataRoute: typeof AuthenticatedMasterDataRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOffersRoute: typeof AuthenticatedOffersRoute
+  AuthenticatedOwnerRoute: typeof AuthenticatedOwnerRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatisticsRoute: typeof AuthenticatedStatisticsRoute
   AuthenticatedSuperAdminRoute: typeof AuthenticatedSuperAdminRouteWithChildren
@@ -1198,6 +1312,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMasterDataRoute: AuthenticatedMasterDataRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOffersRoute: AuthenticatedOffersRoute,
+  AuthenticatedOwnerRoute: AuthenticatedOwnerRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatisticsRoute: AuthenticatedStatisticsRoute,
   AuthenticatedSuperAdminRoute: AuthenticatedSuperAdminRouteWithChildren,
