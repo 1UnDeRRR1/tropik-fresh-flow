@@ -35,7 +35,7 @@ type ItemRow = {
 
 type ShipmentRow = {
   id: string;
-  shipment_code: string | null;
+  code: string | null;
   country: string | null;
   loading_date: string | null;
   eta: string | null;
@@ -177,13 +177,16 @@ export function StatisticsPage() {
       const [shRes, supRes, mgrRes] = await Promise.all([
         supabase
           .from("shipments")
-          .select("id,shipment_code,country,loading_date,eta,arrived_at,created_at,supplier_id,import_manager_id, shipment_items(id,shipment_id,product_name,origin_country,pallet_count,net_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice)")
+          .select("id,code,country,loading_date,eta,arrived_at,created_at,supplier_id,import_manager_id, shipment_items(id,shipment_id,product_name,origin_country,pallet_count,net_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice)")
           .gte("created_at", `${cutoff}T00:00:00`)
           .order("loading_date", { ascending: false })
           .limit(2000),
         supabase.from("suppliers").select("id,name").order("name"),
         supabase.from("import_managers").select("id,user_id,full_name").order("full_name"),
       ]);
+      if (shRes.error) throw shRes.error;
+      if (supRes.error) throw supRes.error;
+      if (mgrRes.error) throw mgrRes.error;
       const shipments = ((shRes.data ?? []) as unknown as (ShipmentRow & { shipment_items: ItemRow[] })[]);
       return {
         shipments,
@@ -404,7 +407,7 @@ export function StatisticsPage() {
   };
   const fmtNum = (n: number | null | undefined, digits = 2) => n == null ? "—" : Number(n).toFixed(digits);
   const shipmentLabel = (sh: ShipmentRow) => {
-    const code = (sh.shipment_code ?? "").trim();
+    const code = (sh.code ?? "").trim();
     if (code) return code;
     return sh.id ? sh.id.slice(-6) : "—";
   };
