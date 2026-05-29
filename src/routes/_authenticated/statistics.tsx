@@ -769,13 +769,17 @@ export function StatisticsPage() {
         )}
       </SectionCard>
 
-      {/* DRILL-DOWN DIALOG */}
+      {/* DRILL-DOWN DIALOG — Analytics-style list */}
       <Dialog open={!!drill} onOpenChange={(o) => { if (!o) setDrill(null); }}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{drill?.label ?? ""}</DialogTitle>
+            <DialogTitle className="pr-10 text-base break-words">
+              {drill?.label ?? ""}
+            </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+          <div className={`grid gap-2 text-center ${
+            metric === "purchase" ? "grid-cols-2" : metric === "cost" ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"
+          }`}>
             <div className="rounded-lg border border-border bg-card p-2">
               <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
               <div className="text-base font-bold">{drillTotals.pallets}</div>
@@ -802,28 +806,18 @@ export function StatisticsPage() {
           {drillRows.length === 0 ? (
             <EmptyState title="Немає рядків" />
           ) : (
-            renderPurchaseTable(drillRows)
+            renderDetailList(drillRows)
           )}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Закрити</Button>
-            </DialogClose>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* FULL PURCHASES TABLE DIALOG */}
+      {/* FULL PURCHASES DIALOG — same list layout */}
       <Dialog open={fullTableOpen} onOpenChange={setFullTableOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Товари — закупки ({rows.length})</DialogTitle>
+            <DialogTitle className="pr-10 text-base break-words">Товари — закупки ({rows.length})</DialogTitle>
           </DialogHeader>
-          {renderPurchaseTable(rows)}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Закрити</Button>
-            </DialogClose>
-          </DialogFooter>
+          {rows.length === 0 ? <EmptyState title="Немає рядків" /> : renderDetailList(rows)}
         </DialogContent>
       </Dialog>
     </div>
