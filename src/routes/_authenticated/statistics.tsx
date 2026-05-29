@@ -501,15 +501,15 @@ export function StatisticsPage() {
               <table className="w-full min-w-[840px] caption-bottom border-collapse text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Дата</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Товар</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Країна</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Постачальник</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Менеджер</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Палет</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Закупка</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Індикатив</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Інвойс</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Дата</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Товар</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Країна</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Постачальник</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Менеджер</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Палет</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Закупка</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success">Індикатив</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive">Інвойс</th>
                   </tr>
                 </thead>
                 <tbody>
