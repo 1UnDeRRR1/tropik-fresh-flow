@@ -460,7 +460,7 @@ export function Analytics() {
                         if (!sid) return;
                         setOpenItem(null);
                         setOpenGroup(null);
-                        setOpenOwner(null);
+                        setOpenGroup(null);
                         navigate({ to: "/distribution/$shipmentId", params: { shipmentId: sid } });
                       }}
                     >
