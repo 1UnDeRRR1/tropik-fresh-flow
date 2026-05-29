@@ -10,7 +10,9 @@ function OwnerLayout() {
   return (
     <ReadOnlyShell>
       <OwnerLinkGuard>
-        <Outlet />
+        <div className="owner-warm-theme contents">
+          <Outlet />
+        </div>
       </OwnerLinkGuard>
     </ReadOnlyShell>
   );
