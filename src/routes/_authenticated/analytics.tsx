@@ -271,70 +271,41 @@ export function Analytics() {
       <PageHeader title="Аналітика" subtitle="Усі активні товари в системі" />
 
       {isStaffAll && (
-        <div className="flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-lg bg-muted p-1 text-xs font-medium">
-            {(
-              [
-                { v: "product", label: "Товар" },
-                { v: "manager", label: "Менеджер" },
-                { v: "supplier", label: "Постачальник" },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.v}
-                type="button"
-                onClick={() => setView(t.v)}
-                className={`rounded-md px-3 py-1.5 transition-colors ${
-                  view === t.v ? "bg-background text-foreground shadow" : "text-muted-foreground"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+              <SearchableSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+              <SearchableSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Менеджер</label>
+              <SearchableSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Філія</label>
+              <SearchableSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} />
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
+          <div className="text-right text-xs text-muted-foreground">
             <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
             <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
             <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
-          </span>
+          </div>
         </div>
       )}
 
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder={
-          view === "manager"
-            ? "Пошук менеджера…"
-            : view === "supplier"
-              ? "Пошук постачальника…"
-              : "Пошук товару або країни…"
-        }
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-      />
-
-      {view === "product" && (() => {
-        const filtered = searchLower
-          ? groups.filter(
-              (g) =>
-                g.product.toLowerCase().includes(searchLower) ||
-                g.country.toLowerCase().includes(searchLower),
-            )
-          : groups;
-        return (
       <SectionCard title="Товар · країна · палети">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
-        ) : !filtered.length ? (
-          <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} hint={searchLower ? undefined : "Товари зникають з аналітики наступного дня після прибуття."} />
+        ) : !groups.length ? (
+          <EmptyState title="Немає активних товарів" hint="Товари зникають з аналітики наступного дня після прибуття." />
         ) : (
           <ul className="divide-y divide-border">
-            {filtered.map((g) => (
+            {groups.map((g) => (
               <li key={g.key}>
                 <button
                   type="button"
@@ -360,97 +331,7 @@ export function Analytics() {
           </ul>
         )}
       </SectionCard>
-        );
-      })()}
 
-      {view !== "product" && (() => {
-        const filtered = searchLower
-          ? ownerGroups.filter((og) => og.name.toLowerCase().includes(searchLower))
-          : ownerGroups;
-        return (
-        <SectionCard title={view === "manager" ? "Менеджер · палети" : "Постачальник · палети"}>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Завантаження…</p>
-          ) : !filtered.length ? (
-            <EmptyState title={searchLower ? "Нічого не знайдено" : "Немає активних товарів"} />
-          ) : (
-            <ul className="divide-y divide-border">
-              {filtered.map((og) => (
-                <li key={og.key}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenOwner(og)}
-                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
-                  >
-                    <div className="min-w-0 flex-1 text-sm">
-                      <div className="font-medium">{og.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {og.shipments} пост. · {formatPositions({ base: og.basePositions, total: og.positions })} поз.
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-sm font-bold tabular-nums text-brand">{og.pallets}п</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SectionCard>
-        );
-      })()}
-
-      {/* Owner detail dialog */}
-      <Dialog open={!!openOwner} onOpenChange={(o) => !o && setOpenOwner(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base">
-              {openOwner?.name}
-              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openOwner?.shipments} пост. · {openOwner ? formatPositions({ base: openOwner.basePositions, total: openOwner.positions }) : "0 / 0"} поз. · {openOwner?.pallets}п
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          {openOwner ? (
-            <ul className="divide-y divide-border">
-              {openOwner.products.map((p) => (
-                <li key={`${p.product}__${p.country}`}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenGroup({
-                        key: `${p.product}__${p.country}`,
-                        product: p.product,
-                        country: p.country,
-                        pallets: p.pallets,
-                        positions: p.positions,
-                        shipments: p.shipments,
-                        flats: p.flats,
-                      })
-                    }
-                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left active:opacity-70"
-                  >
-                    <div className="min-w-0 flex-1 text-sm">
-                      <div>
-                        <span className="font-medium">{p.product}</span>
-                        {p.country ? <span className="text-muted-foreground"> · {p.country}</span> : null}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {p.shipments} пост. · {formatPositions({ base: 1, total: p.positions })} поз.
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-sm font-bold tabular-nums text-brand">{p.pallets}п</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       {/* Level 2: positions of selected product+country */}
       <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
