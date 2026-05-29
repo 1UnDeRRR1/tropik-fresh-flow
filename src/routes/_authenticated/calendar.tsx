@@ -61,7 +61,7 @@ function surname(full: string) {
 }
 
 
-function CalendarPage() {
+export function CalendarPage() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin"]);
   const [productFilter, setProductFilter] = useState<string>("__all");
@@ -318,6 +318,7 @@ function CalendarPage() {
                     to="/distribution/$shipmentId"
                     params={{ shipmentId: openItem.sh.id }}
                     onClick={() => setOpenItem(null)}
+                    data-mutation
                     className="block w-full rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-brand-foreground active:opacity-80"
                   >
                     Розподілити
