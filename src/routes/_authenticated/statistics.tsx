@@ -321,8 +321,12 @@ export function StatisticsPage() {
   if (supplierF !== ALL) activeChips.push(`Постачальник: ${supplierMap[supplierF] ?? "—"}`);
   if (managerF !== ALL) activeChips.push(`Менеджер: ${managerMap[managerF] ?? "—"}`);
 
+  if (loading) return null;
+  if (!canView) return <Navigate to="/" />;
+
   return (
     <div className="space-y-4">
+
       <PageHeader title="Статистика" subtitle="Останні 12 місяців" />
 
       {/* PERIOD */}
