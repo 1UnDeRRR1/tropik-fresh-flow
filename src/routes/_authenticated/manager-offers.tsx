@@ -820,6 +820,43 @@ function ManagerOffersPage() {
             const pendingLinked = o.status === "linked"
               ? Math.max(totalApproved - totalLinked, 0)
               : 0;
+            // STAGE 3A gate: strict loadable math for "Створити поставку /
+            // Підтягнути / Прив'язати" actions. Uses confirmed approved_pallets
+            // ONLY — no `?? requested_pallets` fallback — so unconfirmed branch
+            // requests do not enable the load path (which would dead-end at
+            // "Немає вільних палет за цією пропозицією" in shipment prefill).
+            const confirmedStrict = activeResponses.reduce(
+              (s, r) => s + Number(r.approved_pallets ?? 0),
+              0,
+            );
+            const linkedStrict = activeResponses.reduce(
+              (s, r) =>
+                s +
+                Number(
+                  (r as ManagerOfferResponse & { linked_pallets?: number })
+                    .linked_pallets ?? 0,
+                ),
+              0,
+            );
+            const loadableNow = Math.max(confirmedStrict - linkedStrict, 0);
+            const pendingOchik = activeResponses.reduce(
+              (s, r) =>
+                s +
+                (r.approved_pallets == null
+                  ? Number(r.requested_pallets ?? 0)
+                  : 0),
+              0,
+            );
+            const canLoad = loadableNow > 0;
+            const allLinkedExhausted =
+              !canLoad && confirmedStrict > 0 && linkedStrict >= confirmedStrict;
+            const blockReason: string | null = canLoad
+              ? null
+              : pendingOchik > 0
+                ? `Спочатку підтвердіть кількість палет для філій (Очік. ${pendingOchik}).`
+                : allLinkedExhausted
+                  ? "Усі підтверджені палети вже прив'язані до поставки."
+                  : null;
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
@@ -959,15 +996,19 @@ function ManagerOffersPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
-                        >
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                            <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
-                          </Button>
-                        </Link>
+                        {canLoad ? (
+                          <Link
+                            to="/shipments/new"
+                            search={{ fromOffer: o.id } as never}
+                            onClick={() => setDetailOfferId(null)}
+                          >
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                              <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
+                            </Button>
+                          </Link>
+                        ) : blockReason ? (
+                          <div className="text-xs text-warning">{blockReason}</div>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -998,69 +1039,77 @@ function ManagerOffersPage() {
                     </Button>
                   )}
                   {o.status === "closed" && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={cn(
-                          hasLinkable
-                            ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                            : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
-                        )}
-                        onClick={() => {
-                          if (hasLinkable) {
-                            setLinkOffer(o);
-                          } else {
-                            toast.message("Немає підходящої поставки", {
-                              description: "Створіть нову поставку — товар не знайдено в наявних незаповнених поставках.",
-                            });
-                          }
-                        }}
-                        title={
-                          hasLinkable
-                            ? "Є відповідна поставка з нерозподіленим товаром"
-                            : "Немає поставки з таким товаром, країною та калібром"
-                        }
-                      >
-                        <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
-                      </Button>
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
-                        <Button size="sm">
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
-                        </Button>
-                      </Link>
-                    </>
-                  )}
-                  {(o.status === "confirmed" || o.status === "in_work") && (
-                    hasLinkable ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                        onClick={() => setLinkOffer(o)}
-                      >
-                        <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
-                      </Button>
-                    ) : (
-                      <Link
-                        to="/shipments/new"
-                        search={{ fromOffer: o.id } as never}
-                        onClick={() => setDetailOfferId(null)}
-                      >
+                    canLoad ? (
+                      <>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
-                          title="Немає підходящої поставки — створіть нову"
+                          className={cn(
+                            hasLinkable
+                              ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                              : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
+                          )}
+                          onClick={() => {
+                            if (hasLinkable) {
+                              setLinkOffer(o);
+                            } else {
+                              toast.message("Немає підходящої поставки", {
+                                description: "Створіть нову поставку — товар не знайдено в наявних незаповнених поставках.",
+                              });
+                            }
+                          }}
+                          title={
+                            hasLinkable
+                              ? "Є відповідна поставка з нерозподіленим товаром"
+                              : "Немає поставки з таким товаром, країною та калібром"
+                          }
                         >
-                          <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
+                          <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
                         </Button>
-                      </Link>
-                    )
+                        <Link
+                          to="/shipments/new"
+                          search={{ fromOffer: o.id } as never}
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          <Button size="sm">
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
+                          </Button>
+                        </Link>
+                      </>
+                    ) : blockReason ? (
+                      <div className="text-xs text-warning">{blockReason}</div>
+                    ) : null
+                  )}
+                  {(o.status === "confirmed" || o.status === "in_work") && (
+                    canLoad ? (
+                      hasLinkable ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
+                          onClick={() => setLinkOffer(o)}
+                        >
+                          <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
+                        </Button>
+                      ) : (
+                        <Link
+                          to="/shipments/new"
+                          search={{ fromOffer: o.id } as never}
+                          onClick={() => setDetailOfferId(null)}
+                        >
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
+                            title="Немає підходящої поставки — створіть нову"
+                          >
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
+                          </Button>
+                        </Link>
+                      )
+                    ) : blockReason ? (
+                      <div className="text-xs text-warning">{blockReason}</div>
+                    ) : null
                   )}
                   {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button size="sm" variant="outline" onClick={() => setEditing(o)}>
