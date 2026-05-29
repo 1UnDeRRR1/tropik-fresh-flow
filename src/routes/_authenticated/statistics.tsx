@@ -353,11 +353,25 @@ export function StatisticsPage() {
 
   const resetAll = () => { setProductF(ALL); setCountryF(ALL); setSupplierF(ALL); setManagerF(ALL); };
 
+  const managerLabelFor = (key: string) =>
+    key === NO_MANAGER ? NO_MANAGER_LABEL : managerLabel.get(key) ?? UNKNOWN_MANAGER_LABEL;
+
+  // Per-manager breakdown so totals reconcile with the overall 'Палет' value.
+  const byManager = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      m.set(r.managerKey, (m.get(r.managerKey) ?? 0) + Number(r.item.pallet_count ?? 0));
+    }
+    return Array.from(m.entries())
+      .map(([key, pallets]) => ({ key, label: managerLabelFor(key), pallets }))
+      .sort((a, b) => b.pallets - a.pallets);
+  }, [rows, managerLabel]);
+
   const activeChips: string[] = [];
   if (productF !== ALL) activeChips.push(`Товар: ${productF}`);
   if (countryF !== ALL) activeChips.push(`Країна: ${countryF}`);
   if (supplierF !== ALL) activeChips.push(`Постачальник: ${supplierMap[supplierF] ?? "—"}`);
-  if (managerF !== ALL) activeChips.push(`Менеджер: ${managerMap[managerF] ?? "—"}`);
+  if (managerF !== ALL) activeChips.push(`Менеджер: ${managerLabelFor(managerF)}`);
 
   if (loading) return null;
   if (!canView) return <Navigate to="/" />;
