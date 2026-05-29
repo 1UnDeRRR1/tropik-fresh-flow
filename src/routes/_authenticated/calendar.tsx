@@ -303,7 +303,7 @@ export function CalendarPage() {
               {openItem?.it.product_name}
               {openItem?.it.caliber ? <span className="text-muted-foreground"> ·{openItem.it.caliber}</span> : null}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openItem?.sh.code} · {(openItem?.it.origin_country || openItem?.sh.country) ?? ""}
+                {openItem?.sh.code} · {openItem?.it.origin_country ?? ""}
                 {openItem ? (() => {
                   const mn = mgrMap.get(openItem.sh.import_manager_id ?? "");
                   return mn ? <> · {surname(mn)}</> : null;
