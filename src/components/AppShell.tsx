@@ -341,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {ownerMobileBanner && (
           <div
             className="relative w-full overflow-hidden md:hidden"
-            style={{ height: "calc(env(safe-area-inset-top) + 9rem)" }}
+            style={{ height: "calc(env(safe-area-inset-top) + 12rem)" }}
           >
             <img
               src={ownerMobileBanner.src}
@@ -358,7 +358,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         {!isBranch && (
-          <div className="flex justify-center border-t border-border/60 bg-card/70 px-4 py-1">
+          <div className={cn(
+            "justify-center border-t border-border/60 bg-card/70 px-4 py-1",
+            // Hide FX badge for owner on mobile — director doesn't need it,
+            // and removing the strip lets the banner grow taller. Desktop unchanged.
+            isOwner ? "hidden md:flex" : "flex",
+          )}>
             <FxRateBadge />
           </div>
         )}
