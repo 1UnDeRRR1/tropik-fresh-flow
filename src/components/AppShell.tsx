@@ -207,6 +207,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   // user's branding.
   const personalAssets = getPersonalAssets(profile?.id, profile?.branch_id);
 
+  // Owner-only mobile header banner. Maps the current owner/director route to
+  // a fruit banner image. Returns null for non-owners or unmapped routes.
+  // Rendered only at the mobile breakpoint; desktop keeps the neutral header.
+  const ownerMobileBanner = (() => {
+    if (!isOwner) return null;
+    const a = getOwnerBannerAssets();
+    if (pathname.startsWith("/owner/calendar")) return a.calendar;
+    if (pathname.startsWith("/owner/analytics")) return a.analytics;
+    if (pathname.startsWith("/owner/statistics")) return a.statistics;
+    if (pathname.startsWith("/settings")) return a.settings;
+    return null;
+  })();
+
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
@@ -297,7 +310,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         )}
-        {/* FX badge: thin strip below header, outside the picture, non-branch only */}
+        {/* Owner mobile header banner — mapped per route, no text overlay.
+            Fixed aspect ratio reserves the box so the image cannot push
+            content or jump on scroll. Mobile only; desktop unchanged. */}
+        {ownerMobileBanner && (
+          <div className="relative w-full overflow-hidden md:hidden">
+            <div className="aspect-[16/5] w-full">
+              <img
+                src={ownerMobileBanner}
+                alt=""
+                className="h-full w-full object-cover object-center"
+                loading="eager"
+                decoding="async"
+                draggable={false}
+              />
+            </div>
+          </div>
+        )}
+
         {!isBranch && (
           <div className="flex justify-center border-t border-border/60 bg-card/70 px-4 py-1">
             <FxRateBadge />
