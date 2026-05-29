@@ -349,6 +349,20 @@ function BranchDashboard() {
     },
   });
 
+  // Branch-safe shipment manager names via shipments_branch view (RLS-friendly for branch users).
+  const { data: shipMgrs } = useQuery({
+    queryKey: ["branch-ship-managers", shipmentIds.join(",")],
+    enabled: shipmentIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("shipments_branch")
+        .select("id,import_manager_id,import_manager_name")
+        .in("id", shipmentIds);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; import_manager_id: string | null; import_manager_name: string | null }>;
+    },
+  });
+
   const { data: baselines } = useQuery({
     queryKey: ["branch-baselines", branchId],
     enabled: !!branchId,
@@ -409,6 +423,12 @@ function BranchDashboard() {
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
     const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
+    // Branch-safe map: shipment id → manager full name from shipments_branch.
+    const shipMgrNameMap = new Map(
+      (shipMgrs ?? [])
+        .filter((s) => !!s.import_manager_name)
+        .map((s) => [s.id, s.import_manager_name as string]),
+    );
     // Cleanup Pack #6: fallback responsible-manager source — manager_offers.import_manager_id
     // via distribution_items.reserved_offer_id. Useful when shipment lacks import_manager_id
     // but the товар came from a manager offer that does have one.
@@ -476,9 +496,9 @@ function BranchDashboard() {
             supplier_name: s?.supplier_id ? supMap.get(s.supplier_id) ?? null : null,
             temperature_mode: s?.temperature_mode ?? null,
             manager_name:
-              (s?.import_manager_id && mgrMap.get(s.import_manager_id))
-                ? (mgrMap.get(s.import_manager_id) as string)
-                : (di.reserved_offer_id ? offerMgrMap.get(di.reserved_offer_id) ?? null : null),
+              (s?.id && shipMgrNameMap.get(s.id))
+                ?? (s?.import_manager_id && mgrMap.get(s.import_manager_id))
+                ?? (di.reserved_offer_id ? offerMgrMap.get(di.reserved_offer_id) ?? null : null),
             pallets: Number(di.pallets ?? 0),
             weight: Number(di.qty ?? 0),
             indicative: displayInd,
@@ -605,7 +625,7 @@ function BranchDashboard() {
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, suppliers, managers, baselines, bvps, board, pendingOffers, bridgeOffers]);
+  }, [dists, items, ships, suppliers, managers, shipMgrs, baselines, bvps, board, pendingOffers, bridgeOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
