@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { canonicalizeProductName } from "@/lib/product-aliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useProductAliases } from "@/hooks/useProductAliases";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/statistics")({
   component: StatisticsPage,
