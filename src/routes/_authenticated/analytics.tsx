@@ -404,7 +404,7 @@ export function Analytics() {
               {openItem?.item.product_name}
               {openItem?.item.caliber ? <span className="text-muted-foreground"> ·{openItem.item.caliber}</span> : null}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openItem?.shipment.code} · {(openItem?.item.origin_country || openItem?.shipment.country) ?? ""}
+                {openItem?.shipment.code} · {openItem?.item.origin_country ?? ""}
               </div>
             </DialogTitle>
           </DialogHeader>
