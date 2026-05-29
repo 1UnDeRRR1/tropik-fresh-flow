@@ -1803,6 +1803,8 @@ function ProductsFullscreen() {
       await syncVehicleStateForShipment(id);
       // D1-Fix v2.4 — invalidate then FORCE-refetch ["shipment", id] before navigate.
       // Details page reads final_cost_* from this key; "type: all" reaches the unmounted route.
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
       qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
       qc.invalidateQueries({ queryKey: ["shipment", id] });
       qc.invalidateQueries({ queryKey: ["shipments"] });
