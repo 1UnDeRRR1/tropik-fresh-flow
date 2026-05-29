@@ -163,63 +163,84 @@ export function Analytics() {
   const [managerFilter, setManagerFilter] = useState<string>(ALL);
   const [branchFilter, setBranchFilter] = useState<string>(ALL);
 
-  // Filter options derived from activeFlat
+  // Leave-one-out helpers: each filter's options reflect the dataset
+  // narrowed by all OTHER active filters (AND). The current selection is
+  // preserved in its own list so the user can still switch values.
+  const passes = (
+    f: Flat,
+    excl: "product" | "country" | "manager" | "branch" | null,
+  ) => {
+    if (excl !== "product" && productFilter !== ALL && f.item.product_name.trim() !== productFilter) return false;
+    if (excl !== "country" && countryFilter !== ALL) {
+      const c = (f.item.origin_country ?? "").trim();
+      if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+    }
+    if (excl !== "manager" && managerFilter !== ALL && f.shipment.import_manager_id !== managerFilter) return false;
+    if (excl !== "branch" && branchFilter !== ALL) {
+      const inner = distByItem.get(f.item.id);
+      if (!inner || (inner.get(branchFilter) ?? 0) <= 0) return false;
+    }
+    return true;
+  };
+
   const productOptions = useMemo(() => {
     const set = new Set<string>();
     for (const f of activeFlat) {
+      if (!passes(f, "product")) continue;
       const n = f.item.product_name.trim();
       if (n) set.add(n);
     }
+    if (productFilter !== ALL) set.add(productFilter);
     return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
-  }, [activeFlat]);
+  }, [activeFlat, countryFilter, managerFilter, branchFilter, productFilter, distByItem]);
 
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
     let hasMissing = false;
     for (const f of activeFlat) {
+      if (!passes(f, "country")) continue;
       const c = (f.item.origin_country ?? "").trim();
       if (c) set.add(c);
       else hasMissing = true;
     }
     const arr = Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
-    if (hasMissing) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    if (hasMissing || countryFilter === NO_COUNTRY) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
     return arr;
-  }, [activeFlat]);
+  }, [activeFlat, productFilter, managerFilter, branchFilter, countryFilter, distByItem]);
 
   const managerOptions = useMemo(() => {
     const ids = new Set<string>();
     for (const f of activeFlat) {
+      if (!passes(f, "manager")) continue;
       const id = f.shipment.import_manager_id;
       if (id) ids.add(id);
     }
+    if (managerFilter !== ALL) ids.add(managerFilter);
     return Array.from(ids)
-      .map((id) => ({ value: id, label: mgrMap.get(id) ?? "—" }))
+      .map((id) => ({ value: id, label: mgrMap.get(id) ?? "— Менеджер не знайдений" }))
       .sort((a, b) => a.label.localeCompare(b.label, "uk"));
-  }, [activeFlat, mgrMap]);
+  }, [activeFlat, productFilter, countryFilter, branchFilter, managerFilter, distByItem, mgrMap]);
 
-  const branchOptions = useMemo(
-    () =>
-      (data?.branches ?? [])
-        .map((b) => ({ value: b.id, label: b.name }))
-        .sort((a, b) => a.label.localeCompare(b.label, "uk")),
-    [data],
-  );
+  const branchOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const f of activeFlat) {
+      if (!passes(f, "branch")) continue;
+      const inner = distByItem.get(f.item.id);
+      if (!inner) continue;
+      for (const [bid, p] of inner.entries()) {
+        if (Number(p) > 0) ids.add(bid);
+      }
+    }
+    if (branchFilter !== ALL) ids.add(branchFilter);
+    return (data?.branches ?? [])
+      .filter((b) => ids.has(b.id))
+      .map((b) => ({ value: b.id, label: b.name }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [activeFlat, productFilter, countryFilter, managerFilter, branchFilter, distByItem, data]);
 
   // AND filter
   const filteredFlat = useMemo<Flat[]>(() => {
-    return activeFlat.filter((f) => {
-      if (productFilter !== ALL && f.item.product_name.trim() !== productFilter) return false;
-      if (countryFilter !== ALL) {
-        const c = (f.item.origin_country ?? "").trim();
-        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
-      }
-      if (managerFilter !== ALL && f.shipment.import_manager_id !== managerFilter) return false;
-      if (branchFilter !== ALL) {
-        const inner = distByItem.get(f.item.id);
-        if (!inner || (inner.get(branchFilter) ?? 0) <= 0) return false;
-      }
-      return true;
-    });
+    return activeFlat.filter((f) => passes(f, null));
   }, [activeFlat, productFilter, countryFilter, managerFilter, branchFilter, distByItem]);
 
   // Level 1: grouped by product+country (using product origin only)
