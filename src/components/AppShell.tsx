@@ -213,12 +213,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const ownerMobileBanner = (() => {
     if (!isOwner) return null;
     const a = getOwnerBannerAssets();
-    if (pathname.startsWith("/owner/calendar")) return a.calendar;
-    if (pathname.startsWith("/owner/analytics")) return a.analytics;
-    if (pathname.startsWith("/owner/statistics")) return a.statistics;
-    if (pathname.startsWith("/settings")) return a.settings;
+    // Per-banner object-position so the top of the composition (sky / foliage)
+    // covers the status-bar safe area instead of the middle being clipped.
+    if (pathname.startsWith("/owner/calendar"))
+      return { src: a.calendar, position: "center 25%" };
+    if (pathname.startsWith("/owner/analytics"))
+      return { src: a.analytics, position: "center 20%" };
+    if (pathname.startsWith("/owner/statistics"))
+      return { src: a.statistics, position: "center 25%" };
+    if (pathname.startsWith("/settings"))
+      return { src: a.settings, position: "center 30%" };
     return null;
   })();
+
 
   return (
     <div className="relative min-h-dvh">
@@ -337,15 +344,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             style={{ height: "calc(env(safe-area-inset-top) + 9rem)" }}
           >
             <img
-              src={ownerMobileBanner}
+              src={ownerMobileBanner.src}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover object-center"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ objectPosition: ownerMobileBanner.position }}
               loading="eager"
               decoding="async"
               draggable={false}
             />
           </div>
         )}
+
 
 
         {!isBranch && (
