@@ -426,3 +426,28 @@ body[data-branch-test="malekhiv"] nav.fixed.bottom-0 {
   background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
 }
 
+
+/* ============================================================
+   Owner / Director warm beige surfaces — scoped only.
+   Activated by .owner-warm-theme wrapper in
+   src/routes/_authenticated/owner.tsx.
+   Does NOT redefine --background on :root or body, so page
+   background and background image stay untouched.
+   Rollback: remove this block, or remove the wrapper class.
+   ============================================================ */
+.owner-warm-theme,
+body:has(.owner-warm-theme) {
+  --card:        oklch(0.955 0.018 75);
+  --popover:     oklch(0.955 0.018 75);
+  --muted:       oklch(0.925 0.022 72);
+  --secondary:   oklch(0.925 0.022 72);
+  --border:      oklch(0.86 0.025 70);
+  --input:       oklch(0.86 0.025 70);
+  --table-head:  oklch(0.90 0.030 70 / 0.7);
+}
+
+/* Dialog content reads bg-background — tint it warm cream only
+   inside dialogs while the owner shell is mounted. */
+body:has(.owner-warm-theme) [role="dialog"] {
+  --background: oklch(0.955 0.018 75);
+}
