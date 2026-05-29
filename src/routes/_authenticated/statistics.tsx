@@ -155,10 +155,6 @@ export function StatisticsPage() {
     }
     return m;
   }, [managers]);
-  const managerMap = useMemo(
-    () => Object.fromEntries(managers.map((m) => [m.user_id ?? m.id, m.full_name])),
-    [managers],
-  );
 
   const NO_MANAGER = "__no_manager__";
   const NO_MANAGER_LABEL = "— Без менеджера";
