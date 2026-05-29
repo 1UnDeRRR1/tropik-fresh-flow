@@ -210,7 +210,7 @@ function BranchDashboard() {
       const { data, error } = await (supabase as any)
         .from("manager_offer_responses")
         .select(`id,offer_id,approved_pallets,requested_pallets,
-          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight)`)
+          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight,created_by)`)
         .eq("branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
@@ -221,6 +221,7 @@ function BranchDashboard() {
           indicative_cost_usd: number | null; invoice_cost_usd: number | null;
           linked_shipment_id: string | null; status: string;
           import_manager_id: string | null; pallet_weight: number | null;
+          created_by: string | null;
         };
       }>;
     },
@@ -363,6 +364,33 @@ function BranchDashboard() {
     },
   });
 
+  // Stage 2B: branch-safe fallback for pending/offer-row manager name.
+  // Branch users cannot SELECT import_managers (RLS). Resolve manager_offers.created_by
+  // via existing SECURITY DEFINER RPC get_profile_names. In current Tropik flow the
+  // offer creator IS the responsible manager — used for display fallback only.
+  const offerCreatorIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (pendingOffers ?? [])
+            .map((p) => p.manager_offers.created_by)
+            .filter(Boolean) as string[],
+        ),
+      ),
+    [pendingOffers],
+  );
+  const { data: offerCreators } = useQuery({
+    queryKey: ["branch-offer-creators", offerCreatorIds.join(",")],
+    enabled: offerCreatorIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("get_profile_names", {
+        _ids: offerCreatorIds,
+      });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; full_name: string | null }>;
+    },
+  });
+
   const { data: baselines } = useQuery({
     queryKey: ["branch-baselines", branchId],
     enabled: !!branchId,
@@ -428,6 +456,12 @@ function BranchDashboard() {
       (shipMgrs ?? [])
         .filter((s) => !!s.import_manager_name)
         .map((s) => [s.id, s.import_manager_name as string]),
+    );
+    // Stage 2B: created_by → full_name from get_profile_names RPC (branch-safe).
+    const offerCreatorNameMap = new Map(
+      (offerCreators ?? [])
+        .filter((u) => !!u.full_name)
+        .map((u) => [u.id, u.full_name as string]),
     );
     // Cleanup Pack #6: fallback responsible-manager source — manager_offers.import_manager_id
     // via distribution_items.reserved_offer_id. Useful when shipment lacks import_manager_id
@@ -602,7 +636,10 @@ function BranchDashboard() {
                 packaging: null,
                 supplier_name: null,
                 temperature_mode: null,
-                manager_name: o.import_manager_id ? mgrMap.get(o.import_manager_id) ?? null : null,
+                manager_name:
+                  (o.import_manager_id && mgrMap.get(o.import_manager_id))
+                  ?? (o.created_by && offerCreatorNameMap.get(o.created_by))
+                  ?? null,
                 pallets,
                 weight,
                 indicative: o.indicative_cost_usd,
@@ -625,7 +662,7 @@ function BranchDashboard() {
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, suppliers, managers, shipMgrs, baselines, bvps, board, pendingOffers, bridgeOffers]);
+  }, [dists, items, ships, suppliers, managers, shipMgrs, offerCreators, baselines, bvps, board, pendingOffers, bridgeOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
