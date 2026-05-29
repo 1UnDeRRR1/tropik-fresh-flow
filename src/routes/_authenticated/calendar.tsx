@@ -9,10 +9,15 @@ import { useAuth } from "@/lib/auth";
 import { StaffOnly } from "@/components/StaffOnly";
 import { CostPair } from "@/components/CostPair";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
 });
+
+const ALL = "__all";
+const NO_COUNTRY = "__no_country__";
+const NO_COUNTRY_LABEL = "— Без країни";
 
 type ShipmentItem = {
   id: string;
