@@ -7,16 +7,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -2651,7 +2641,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   const netGtGross = netNum > 0 && grossNum > 0 && netNum > grossNum;
   const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  
 
   // Resolver — onBlur of Товар/Країна, gated by touchedRef.
   type ResolverHint =
@@ -2781,7 +2771,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       toast.error("Можна редагувати лише власні товари");
       return;
     }
-    setConfirmOpen(false);
+    
     onRemove();
   };
 
@@ -2980,40 +2970,15 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
       </td>
       <td className="sticky right-0 z-[60] w-12 min-w-[3rem] bg-card px-1 py-0.5 shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.22)]">
         <div className="flex justify-center">
-          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <button
-              type="button"
-              onClick={() => {
-                if (readOnly) {
-                  toast.error("Можна редагувати лише власні товари");
-                  return;
-                }
-                setConfirmOpen(true);
-              }}
-              disabled={readOnly}
-              aria-label="Видалити рядок"
-              className="relative z-10 inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Trash2 className="h-5 w-5" />
-            </button>
-            <AlertDialogContent className="max-w-[calc(100vw-2rem)] rounded-lg">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Видалити позицію?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Рядок товару буде видалено з поставки після натискання «Готово».
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => { remove(); }}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Видалити
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <button
+            type="button"
+            onClick={() => { remove(); }}
+            disabled={readOnly}
+            aria-label="Видалити рядок"
+            className="relative z-10 inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
         </div>
       </td>
     </tr>
