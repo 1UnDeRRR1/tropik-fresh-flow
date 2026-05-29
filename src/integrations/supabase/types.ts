@@ -3566,6 +3566,7 @@ export type Database = {
         | "calendar_tropik"
         | "logistics"
         | "broker"
+        | "owner"
       branch_offer_status:
         | "pending"
         | "partially_accepted"
@@ -3766,6 +3767,7 @@ export const Constants = {
         "calendar_tropik",
         "logistics",
         "broker",
+        "owner",
       ],
       branch_offer_status: [
         "pending",
