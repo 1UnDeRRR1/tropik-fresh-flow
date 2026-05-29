@@ -344,15 +344,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             style={{ height: "calc(env(safe-area-inset-top) + 9rem)" }}
           >
             <img
-              src={ownerMobileBanner}
+              src={ownerMobileBanner.src}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover object-center"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ objectPosition: ownerMobileBanner.position }}
               loading="eager"
               decoding="async"
               draggable={false}
             />
           </div>
         )}
+
 
 
         {!isBranch && (
