@@ -139,6 +139,7 @@ export function StatisticsPage() {
   // UI mode
   const [metric, setMetric] = useState<Metric>("purchase");
   const [compareMode, setCompareMode] = useState<CompareMode>("managers");
+  const [dateBasis, setDateBasis] = useState<"loading" | "arrival">("loading");
 
   // Drill-down dialog
   const [drill, setDrill] = useState<
