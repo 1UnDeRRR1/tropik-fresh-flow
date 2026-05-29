@@ -820,6 +820,43 @@ function ManagerOffersPage() {
             const pendingLinked = o.status === "linked"
               ? Math.max(totalApproved - totalLinked, 0)
               : 0;
+            // STAGE 3A gate: strict loadable math for "Створити поставку /
+            // Підтягнути / Прив'язати" actions. Uses confirmed approved_pallets
+            // ONLY — no `?? requested_pallets` fallback — so unconfirmed branch
+            // requests do not enable the load path (which would dead-end at
+            // "Немає вільних палет за цією пропозицією" in shipment prefill).
+            const confirmedStrict = activeResponses.reduce(
+              (s, r) => s + Number(r.approved_pallets ?? 0),
+              0,
+            );
+            const linkedStrict = activeResponses.reduce(
+              (s, r) =>
+                s +
+                Number(
+                  (r as ManagerOfferResponse & { linked_pallets?: number })
+                    .linked_pallets ?? 0,
+                ),
+              0,
+            );
+            const loadableNow = Math.max(confirmedStrict - linkedStrict, 0);
+            const pendingOchik = activeResponses.reduce(
+              (s, r) =>
+                s +
+                (r.approved_pallets == null
+                  ? Number(r.requested_pallets ?? 0)
+                  : 0),
+              0,
+            );
+            const canLoad = loadableNow > 0;
+            const allLinkedExhausted =
+              !canLoad && confirmedStrict > 0 && linkedStrict >= confirmedStrict;
+            const blockReason: string | null = canLoad
+              ? null
+              : pendingOchik > 0
+                ? `Спочатку підтвердіть кількість палет для філій (Очік. ${pendingOchik}).`
+                : allLinkedExhausted
+                  ? "Усі підтверджені палети вже прив'язані до поставки."
+                  : null;
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
