@@ -139,6 +139,7 @@ export function StatisticsPage() {
   // UI mode
   const [metric, setMetric] = useState<Metric>("purchase");
   const [compareMode, setCompareMode] = useState<CompareMode>("managers");
+  const [dateBasis, setDateBasis] = useState<"loading" | "arrival">("loading");
 
   // Drill-down dialog
   const [drill, setDrill] = useState<
@@ -222,7 +223,9 @@ export function StatisticsPage() {
   const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
-      const dateStr = sh.arrived_at ?? sh.eta ?? sh.loading_date ?? sh.created_at.slice(0, 10);
+      const dateStr = dateBasis === "loading"
+        ? (sh.loading_date ?? sh.arrived_at ?? sh.eta ?? sh.created_at.slice(0, 10))
+        : (sh.arrived_at ?? sh.eta ?? sh.loading_date ?? sh.created_at.slice(0, 10));
       if (!dateStr) continue;
       if (dateStr < fromISOStr || dateStr > toISOStr) continue;
       for (const it of (sh.shipment_items ?? [])) {
@@ -238,7 +241,7 @@ export function StatisticsPage() {
       }
     }
     return out;
-  }, [shipments, fromISOStr, toISOStr, countryAliasMap]);
+  }, [shipments, fromISOStr, toISOStr, countryAliasMap, dateBasis]);
 
   const passesExcept = (
     f: Flat,
@@ -474,9 +477,27 @@ export function StatisticsPage() {
     </div>
   );
 
+  const subtitle = (() => {
+    if (mode === "month") {
+      const [y, m] = monthVal.split("-").map(Number);
+      return `${UK_MONTHS[m - 1]} ${y}`;
+    }
+    if (mode === "year") return yearVal;
+    if (mode === "week") {
+      const [y, w] = weekVal.split("-W").map(Number);
+      const [s, e] = weekRange(y, w);
+      return `Тиждень ${w} · ${fmtDate(toISO(s))} – ${fmtDate(toISO(e))}`;
+    }
+    return `${fmtDate(fromISOStr)} – ${fmtDate(toISOStr)}`;
+  })();
+
+  const emptyHint = dateBasis === "arrival"
+    ? "За обраний період немає поставок за датою прибуття. Спробуйте інший місяць або переключіть Дата → Завантаження."
+    : "За обраний період немає поставок за датою завантаження. Спробуйте інший період.";
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Статистика" subtitle="Останні 12 місяців" />
+      <PageHeader title="Статистика" subtitle={subtitle} />
 
       {/* PERIOD */}
       <SectionCard title="Період">
@@ -518,7 +539,12 @@ export function StatisticsPage() {
               </div>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">{fmtDate(fromISOStr)} – {fmtDate(toISOStr)}</p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">Дата:</span>
+            <Button size="sm" variant={dateBasis === "loading" ? "default" : "outline"} onClick={() => setDateBasis("loading")}>Завантаження</Button>
+            <Button size="sm" variant={dateBasis === "arrival" ? "default" : "outline"} onClick={() => setDateBasis("arrival")}>Прибуття</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{fmtDate(fromISOStr)} – {fmtDate(toISOStr)} · {dateBasis === "loading" ? "за датою завантаження" : "за датою прибуття"}</p>
         </div>
       </SectionCard>
 
@@ -637,7 +663,7 @@ export function StatisticsPage() {
           ))}
         </div>
         {compareList.length === 0 ? (
-          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
+          <EmptyState title="Немає даних" hint={flatPeriod.length === 0 ? emptyHint : "За обраними фільтрами"} />
         ) : (
           <ul className="divide-y divide-border">
             {compareList.map((g) => (
@@ -665,7 +691,7 @@ export function StatisticsPage() {
         {isLoading ? (
           <EmptyState title="Завантаження…" />
         ) : rows.length === 0 ? (
-          <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
+          <EmptyState title="Немає закупок" hint={flatPeriod.length === 0 ? emptyHint : "За обраними фільтрами"} />
         ) : (
           <>
             {renderPurchaseTable(previewRows)}
