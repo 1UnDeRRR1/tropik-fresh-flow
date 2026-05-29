@@ -4,11 +4,12 @@ import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FxRateBadge } from "@/components/FxRateBadge";
-import { getPersonalAssets } from "@/lib/branch-assets";
+import { getOwnerBannerAssets, getPersonalAssets } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
+
 
 interface NavItem {
   to: string;
@@ -335,7 +336,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
 
-      <main className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10">
+      <main className={cn("relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10", showOwnerBanner ? "pt-3" : "pt-4")}>
         {children}
       </main>
 

@@ -39,9 +39,19 @@ export type PersonalAssets = {
   profileBgMobilePng?: string;
 };
 
+export type OwnerBannerAssets = {
+  calendar: string;
+  analytics: string;
+  statistics: string;
+  settings: string;
+  splashMobile: string;
+  splashDesktop: string;
+};
+
 const TERESHCHENKO_USER_ID = "cfaade16-8eb7-40df-95f8-a44c7368b60b";
 const MALEKHIV_USER_ID = "44eddfe6-bd13-43ae-acaf-3afb5941179c";
 const LUKACH_USER_ID = "f475e275-458e-4af8-96ea-7e06991cbeb2";
+const OWNER_BANNER_BASE = "/owner-assets";
 
 function buildFullPackage(
   folder: string,
@@ -62,6 +72,19 @@ function buildFullPackage(
     headerDesktopWidth: dims.headerDesktop[0],
     headerDesktopHeight: dims.headerDesktop[1],
   };
+}
+
+const OWNER_BANNER_ASSETS: OwnerBannerAssets = {
+  calendar: `${OWNER_BANNER_BASE}/banner-calendar-oranges.png`,
+  analytics: `${OWNER_BANNER_BASE}/banner-analytics-lemons.png`,
+  statistics: `${OWNER_BANNER_BASE}/banner-statistics-grapes.jpeg`,
+  settings: `${OWNER_BANNER_BASE}/banner-settings-apples.png`,
+  splashMobile: `${OWNER_BANNER_BASE}/splash-bananas-mobile.webp`,
+  splashDesktop: `${OWNER_BANNER_BASE}/splash-bananas-mobile.png`,
+};
+
+export function getOwnerBannerAssets(): OwnerBannerAssets {
+  return OWNER_BANNER_ASSETS;
 }
 
 // Per-user personal packages. Key = profile.id / auth user.id.

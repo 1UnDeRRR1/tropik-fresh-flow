@@ -2,11 +2,12 @@ import { createFileRoute, Outlet, Navigate, Link, useRouter, useRouterState } fr
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
-import { getPersonalAssets, type PersonalAssets } from "@/lib/branch-assets";
+import { getOwnerBannerAssets, getPersonalAssets, type PersonalAssets } from "@/lib/branch-assets";
 import { getLastUserId } from "@/lib/last-user";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
+
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -83,22 +84,17 @@ function AuthenticatedLayout() {
   const { user, profile, loading, dataLoaded, primaryRole } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // Warm DB-backed alias cache once auth is established.
   useEffect(() => { if (user) initAliasCache(); }, [user]);
 
-  // Hydration-safe mount flag — personal splash asset is only resolved after
-  // hydration so SSR and first client render produce identical neutral HTML.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Minimum visible splash duration.
   const [minElapsed, setMinElapsed] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setMinElapsed(true), MIN_SPLASH_MS);
     return () => clearTimeout(t);
   }, []);
 
-  // First-screen readiness gate (set by route children via useFirstScreenGate).
   const pendingGatesRef = useRef<Set<string>>(new Set());
   const [pendingCount, setPendingCount] = useState(0);
   const requireGate = useCallback((key: string) => {
@@ -115,19 +111,22 @@ function AuthenticatedLayout() {
   }, []);
   const gateCtx = useMemo<FirstScreenCtx>(() => ({ requireGate, markReady }), [requireGate, markReady]);
 
-  // Safety: never let the first-screen gate hold the splash forever. If a
-  // route forgets to clear its gate (or its query hangs), force-open after 8 s.
   const [hardTimeout, setHardTimeout] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setHardTimeout(true), 8000);
     return () => clearTimeout(t);
   }, []);
 
-  // Personal asset lookup — uses live user id, falling back to the last user
-  // id remembered on this device so the splash is already personalised on
-  // reload before Supabase finishes restoring the session.
   const lookupId = mounted ? (user?.id ?? getLastUserId()) : null;
   const personal = lookupId ? getPersonalAssets(lookupId, profile?.branch_id) : null;
+  const ownerAssets = primaryRole === "owner" ? getOwnerBannerAssets() : null;
+  const splashPersonal = ownerAssets
+    ? {
+        splashMobileWebp: ownerAssets.splashMobile,
+        splashMobilePng: ownerAssets.splashDesktop,
+        splashDesktopPng: ownerAssets.splashDesktop,
+      }
+    : personal;
 
   const authReady = !loading && (!user || dataLoaded);
   const firstScreenReady = pendingCount === 0 || hardTimeout;
@@ -155,7 +154,7 @@ function AuthenticatedLayout() {
           <Outlet />
         </AppShell>
       ) : null}
-      {splashVisible ? <SplashOverlay personal={personal} /> : null}
+      {splashVisible ? <SplashOverlay personal={splashPersonal} /> : null}
     </FirstScreenContext.Provider>
   );
 }
