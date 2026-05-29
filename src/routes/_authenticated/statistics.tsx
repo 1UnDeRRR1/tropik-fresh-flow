@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { canonicalizeProductName, normalizeProductKey } from "@/lib/product-aliases";
+import { canonicalizeProductName } from "@/lib/product-aliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 
 export const Route = createFileRoute("/_authenticated/statistics")({
