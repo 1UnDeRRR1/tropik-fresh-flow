@@ -457,6 +457,12 @@ function BranchDashboard() {
         .filter((s) => !!s.import_manager_name)
         .map((s) => [s.id, s.import_manager_name as string]),
     );
+    // Stage 2B: created_by → full_name from get_profile_names RPC (branch-safe).
+    const offerCreatorNameMap = new Map(
+      (offerCreators ?? [])
+        .filter((u) => !!u.full_name)
+        .map((u) => [u.id, u.full_name as string]),
+    );
     // Cleanup Pack #6: fallback responsible-manager source — manager_offers.import_manager_id
     // via distribution_items.reserved_offer_id. Useful when shipment lacks import_manager_id
     // but the товар came from a manager offer that does have one.
