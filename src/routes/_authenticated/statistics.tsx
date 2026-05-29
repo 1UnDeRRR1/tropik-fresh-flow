@@ -223,7 +223,9 @@ export function StatisticsPage() {
   const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
-      const dateStr = sh.arrived_at ?? sh.eta ?? sh.loading_date ?? sh.created_at.slice(0, 10);
+      const dateStr = dateBasis === "loading"
+        ? (sh.loading_date ?? sh.arrived_at ?? sh.eta ?? sh.created_at.slice(0, 10))
+        : (sh.arrived_at ?? sh.eta ?? sh.loading_date ?? sh.created_at.slice(0, 10));
       if (!dateStr) continue;
       if (dateStr < fromISOStr || dateStr > toISOStr) continue;
       for (const it of (sh.shipment_items ?? [])) {
@@ -239,7 +241,7 @@ export function StatisticsPage() {
       }
     }
     return out;
-  }, [shipments, fromISOStr, toISOStr, countryAliasMap]);
+  }, [shipments, fromISOStr, toISOStr, countryAliasMap, dateBasis]);
 
   const passesExcept = (
     f: Flat,
