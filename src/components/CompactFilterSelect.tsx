@@ -30,6 +30,7 @@ export function CompactFilterSelect({
   allValue = "__all__",
   aliases,
   className,
+  searchable = true,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -40,6 +41,8 @@ export function CompactFilterSelect({
   /** alias_normalized (lowercased) → canonical label */
   aliases?: Record<string, string>;
   className?: string;
+  /** When false, hides the inline search input (scroll-only list). */
+  searchable?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -118,26 +121,30 @@ export function CompactFilterSelect({
           }
         }}
       >
-        <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук…"
-            className="h-7 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          {search ? (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-        </div>
+        {searchable ? (
+          <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Пошук…"
+              inputMode="search"
+              enterKeyHint="search"
+              className="h-7 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <ul className="max-h-64 overflow-y-auto py-1">
           <li>
             <button

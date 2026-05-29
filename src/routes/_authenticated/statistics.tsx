@@ -94,6 +94,7 @@ export function StatisticsPage() {
   const [countryF, setCountryF] = useState<string>(ALL);
   const [supplierF, setSupplierF] = useState<string>(ALL);
   const [managerF, setManagerF] = useState<string>(ALL);
+  const [compareMode, setCompareMode] = useState<"managers" | "suppliers" | "products">("managers");
 
   const [from, to] = useMemo<[Date, Date]>(() => {
     if (mode === "month") {
@@ -184,7 +185,7 @@ export function StatisticsPage() {
   const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
-      const dateStr = sh.loading_date ?? sh.arrived_at ?? sh.eta ?? sh.created_at.slice(0, 10);
+      const dateStr = sh.arrived_at ?? sh.eta ?? sh.loading_date ?? sh.created_at.slice(0, 10);
       if (!dateStr) continue;
       if (dateStr < fromISOStr || dateStr > toISOStr) continue;
       for (const it of (sh.shipment_items ?? [])) {
@@ -363,6 +364,17 @@ export function StatisticsPage() {
       .sort((a, b) => b.pallets - a.pallets);
   }, [rows, managerLabel]);
 
+  // Per-product breakdown for the comparison card.
+  const byProduct = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      m.set(r.productCanonical, (m.get(r.productCanonical) ?? 0) + Number(r.item.pallet_count ?? 0));
+    }
+    return Array.from(m.entries())
+      .map(([key, pallets]) => ({ key, label: key, pallets }))
+      .sort((a, b) => b.pallets - a.pallets);
+  }, [rows]);
+
   const activeChips: string[] = [];
   if (productF !== ALL) activeChips.push(`Товар: ${productF}`);
   if (countryF !== ALL) activeChips.push(`Країна: ${countryF}`);
@@ -448,6 +460,7 @@ export function StatisticsPage() {
               value={supplierF}
               onChange={setSupplierF}
               options={supplierOptions.map((s) => ({ value: s.id, label: s.name }))}
+              searchable={false}
             />
           </div>
           <div>
@@ -456,6 +469,7 @@ export function StatisticsPage() {
               value={managerF}
               onChange={setManagerF}
               options={managerOptions}
+              searchable={false}
             />
           </div>
         </div>
@@ -499,15 +513,15 @@ export function StatisticsPage() {
               <table className="w-full min-w-[840px] caption-bottom border-collapse text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Дата</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Товар</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Країна</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Постачальник</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Менеджер</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Палет</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Закупка</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Індикатив</th>
-                    <th className="sticky top-14 z-20 h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur sm:top-16">Інвойс</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Дата</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Товар</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Країна</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Постачальник</th>
+                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Менеджер</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Палет</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Закупка</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success">Індикатив</th>
+                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive">Інвойс</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -537,41 +551,60 @@ export function StatisticsPage() {
         )}
       </SectionCard>
 
-      {/* MANAGERS — reconciliation breakdown */}
-      <SectionCard title="По менеджерах">
-        {byManager.length === 0 ? (
-          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
-        ) : (
-          <ul className="divide-y divide-border">
-            {byManager.map((g) => (
-              <li key={g.key} className="flex items-center justify-between gap-2 py-2">
-                <span className="truncate text-sm">{g.label}</span>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
-              </li>
-            ))}
-            <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
-              <span className="text-sm">Разом</span>
-              <span className="text-sm tabular-nums">{totals.pallets}п</span>
-            </li>
-          </ul>
-        )}
-      </SectionCard>
-
-      {/* SUPPLIERS — aggregation */}
-      <SectionCard title="Постачальники — порівняння">
-        {bySupplier.length === 0 ? (
-          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
-        ) : (
-          <div className="space-y-3">
-            {bySupplier.map(g => (
-              <div key={g.id} className="rounded-xl border border-border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-semibold">{g.name}</div>
-                  <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
+      {/* COMPARISON — managers / suppliers / products */}
+      <SectionCard title="Порівняння">
+        <div className="mb-3 flex flex-wrap gap-2">
+          {([
+            ["managers", "Менеджери"],
+            ["suppliers", "Постачальники"],
+            ["products", "Товари"],
+          ] as const).map(([k, lbl]) => (
+            <Button
+              key={k}
+              size="sm"
+              variant={compareMode === k ? "default" : "outline"}
+              onClick={() => setCompareMode(k)}
+            >
+              {lbl}
+            </Button>
+          ))}
+        </div>
+        {compareMode === "suppliers" ? (
+          bySupplier.length === 0 ? (
+            <EmptyState title="Немає даних" hint="За обраними фільтрами" />
+          ) : (
+            <div className="space-y-3">
+              {bySupplier.map((g) => (
+                <div key={g.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{g.name}</div>
+                    <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        ) : (
+          (() => {
+            const list = compareMode === "managers" ? byManager : byProduct;
+            if (list.length === 0) {
+              return <EmptyState title="Немає даних" hint="За обраними фільтрами" />;
+            }
+            return (
+              <ul className="divide-y divide-border">
+                {list.map((g) => (
+                  <li key={g.key} className="flex items-center justify-between gap-2 py-2">
+                    <span className="truncate text-sm">{g.label}</span>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
+                  </li>
+                ))}
+                <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
+                  <span className="text-sm">Разом</span>
+                  <span className="text-sm tabular-nums">{totals.pallets}п</span>
+                </li>
+              </ul>
+            );
+          })()
         )}
       </SectionCard>
     </div>

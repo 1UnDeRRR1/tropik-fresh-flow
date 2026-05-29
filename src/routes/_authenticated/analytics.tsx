@@ -310,11 +310,11 @@ export function Analytics() {
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Менеджер</label>
-              <CompactFilterSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} />
+              <CompactFilterSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} searchable={false} />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Філія</label>
-              <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} />
+              <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} searchable={false} />
             </div>
           </div>
           <div className="text-right text-xs text-muted-foreground">
@@ -400,7 +400,6 @@ export function Analytics() {
                           <span className="font-mono text-foreground">{sh.code}</span>
                           {it.caliber ? <span>·{it.caliber}</span> : null}
                           <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
-                          <span>{it.origin_country ?? "—"}</span>
                           <span>{Math.round(weight)} кг</span>
                           <span className="text-success">розпод. {distributed}п</span>
                           <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
@@ -431,7 +430,7 @@ export function Analytics() {
               {openItem?.item.product_name}
               {openItem?.item.caliber ? <span className="text-muted-foreground"> ·{openItem.item.caliber}</span> : null}
               <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openItem?.shipment.code} · {openItem?.item.origin_country ?? ""}
+                {openItem?.shipment.code}
               </div>
             </DialogTitle>
           </DialogHeader>
