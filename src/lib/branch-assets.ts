@@ -103,6 +103,19 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
 // Per-branch packages. Key = branches.id.
 const BRANCH_ASSETS: Record<string, PersonalAssets> = {};
 
+const OWNER_BANNER_ASSETS: OwnerBannerAssets = {
+  calendar: `${OWNER_BANNER_BASE}/banner-calendar-oranges.png`,
+  analytics: `${OWNER_BANNER_BASE}/banner-analytics-lemons.png`,
+  statistics: `${OWNER_BANNER_BASE}/banner-statistics-grapes.jpeg`,
+  settings: `${OWNER_BANNER_BASE}/banner-settings-apples.png`,
+  splashMobile: `${OWNER_BANNER_BASE}/splash-bananas-mobile.png`,
+  splashDesktop: `${OWNER_BANNER_BASE}/splash-bananas-mobile.png`,
+};
+
+export function getOwnerBannerAssets(): OwnerBannerAssets {
+  return OWNER_BANNER_ASSETS;
+}
+
 /**
  * Resolve the personal asset package for the current user.
  * User-level package wins over branch-level. Returns null when neither
