@@ -276,8 +276,8 @@ export function CalendarPage() {
                           </div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
                             <span className="font-medium text-foreground">{e.it.product_name}</span>
-                            {(e.it.origin_country || e.sh.country) ? (
-                              <span> · {e.it.origin_country || e.sh.country}</span>
+                            {e.it.origin_country ? (
+                              <span> · {e.it.origin_country}</span>
                             ) : null}
                             <span> · <span className="font-bold tabular-nums text-brand">{Number(e.it.pallet_count ?? 0)}п</span></span>
                             {isStaffAll && mgrName ? (
