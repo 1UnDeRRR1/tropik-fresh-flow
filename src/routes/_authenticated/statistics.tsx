@@ -73,10 +73,10 @@ type PeriodMode = "week" | "month" | "year" | "custom";
 
 export function StatisticsPage() {
   const { hasRole, loading } = useAuth();
-  if (loading) return null;
-  if (!hasRole(["admin", "super_admin", "owner"])) return <Navigate to="/" />;
+  const canView = hasRole(["admin", "super_admin", "owner"]);
 
   const today = new Date();
+
   const minDate = addDays(today, -365);
 
   // Period state
