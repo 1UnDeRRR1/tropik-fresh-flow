@@ -21,18 +21,16 @@ function Settings() {
       {isOwner && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-x-0 top-0 z-0 overflow-hidden bg-[#f3ead8]"
-          style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}
-        >
-          <img
-            src={ownerSettingsBg}
-            alt=""
-            className="h-full w-full object-contain object-bottom"
-            loading="eager"
-            decoding="async"
-            draggable={false}
-          />
-        </div>
+          className="pointer-events-none fixed inset-x-0 z-0 overflow-hidden md:hidden"
+          style={{
+            top: "calc(env(safe-area-inset-top) + 15rem)",
+            bottom: "calc(env(safe-area-inset-bottom) + 5rem)",
+            backgroundImage: `url(${ownerSettingsBg})`,
+            backgroundPosition: "center 58%",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+          }}
+        />
       )}
       {hasProfileBg && personal && (
         <div
@@ -55,7 +53,7 @@ function Settings() {
           </picture>
         </div>
       )}
-      <div className="relative z-10 space-y-4 pt-16">
+      <div className={isOwner ? "relative z-10 space-y-4 pt-3" : "relative z-10 space-y-4 pt-16"}>
         <Button
           variant="outline"
           className={
