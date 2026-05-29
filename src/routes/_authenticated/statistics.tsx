@@ -146,14 +146,25 @@ export function StatisticsPage() {
     [managers],
   );
 
+  const countryAliasMap = useCountryAliases();
+  const resolveCountry = (raw: string | null | undefined) => {
+    const t = (raw ?? "").trim();
+    if (!t) return "— Без країни";
+    const alias = countryAliasMap[t.toLowerCase()];
+    return alias ?? t;
+  };
+
   type Flat = {
     item: ItemRow;
     shipment: ShipmentRow;
     date: string;
-    country: string;
+    country: string; // product origin only (or "— Без країни"); canonicalized via aliases
+    productCanonical: string; // canonical product name via existing alias helper
   };
 
-  // Period-only flat (used to populate filter options)
+  // Period-only flat — used for filter options AND aggregates.
+  // Items WITHOUT pallets are kept so country/product options are not artificially
+  // empty for historical periods; aggregates ignore items with pallet_count <= 0.
   const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
@@ -162,24 +173,29 @@ export function StatisticsPage() {
       if (dateStr < fromISOStr || dateStr > toISOStr) continue;
       for (const it of (sh.shipment_items ?? [])) {
         if (!it.product_name?.trim()) continue;
-        if (!it.pallet_count || Number(it.pallet_count) <= 0) continue;
-        out.push({ item: it, shipment: sh, date: dateStr, country: it.origin_country ?? sh.country ?? "—" });
+        out.push({
+          item: it,
+          shipment: sh,
+          date: dateStr,
+          country: resolveCountry(it.origin_country),
+          productCanonical: canonicalizeProductName(it.product_name) || it.product_name.trim(),
+        });
       }
     }
     return out;
-  }, [shipments, fromISOStr, toISOStr]);
+  }, [shipments, fromISOStr, toISOStr, countryAliasMap]);
 
   // Filter options derived from period (so they react)
   const productOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const f of flatPeriod) set.add(f.item.product_name);
+    for (const f of flatPeriod) set.add(f.productCanonical);
     return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
   }, [flatPeriod]);
 
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF === ALL || f.item.product_name === productF) set.add(f.country);
+      if (productF === ALL || f.productCanonical === productF) set.add(f.country);
     }
     return Array.from(set).sort((a,b) => a.localeCompare(b, "uk"));
   }, [flatPeriod, productF]);
@@ -187,7 +203,7 @@ export function StatisticsPage() {
   const supplierOptions = useMemo(() => {
     const ids = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF !== ALL && f.item.product_name !== productF) continue;
+      if (productF !== ALL && f.productCanonical !== productF) continue;
       if (countryF !== ALL && f.country !== countryF) continue;
       if (f.shipment.supplier_id) ids.add(f.shipment.supplier_id);
     }
@@ -197,7 +213,7 @@ export function StatisticsPage() {
   const managerOptions = useMemo(() => {
     const ids = new Set<string>();
     for (const f of flatPeriod) {
-      if (productF !== ALL && f.item.product_name !== productF) continue;
+      if (productF !== ALL && f.productCanonical !== productF) continue;
       if (countryF !== ALL && f.country !== countryF) continue;
       if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) continue;
       if (f.shipment.import_manager_id) ids.add(f.shipment.import_manager_id);
@@ -205,10 +221,11 @@ export function StatisticsPage() {
     return managers.filter((m) => ids.has(m.user_id ?? "") || ids.has(m.id));
   }, [flatPeriod, productF, countryF, supplierF, managers]);
 
-  // Final filtered rows
+  // Final filtered rows — exclude zero-pallet items from numeric aggregation
   const rows = useMemo<Flat[]>(() => {
     return flatPeriod.filter(f => {
-      if (productF !== ALL && f.item.product_name !== productF) return false;
+      if (!f.item.pallet_count || Number(f.item.pallet_count) <= 0) return false;
+      if (productF !== ALL && f.productCanonical !== productF) return false;
       if (countryF !== ALL && f.country !== countryF) return false;
       if (supplierF !== ALL && f.shipment.supplier_id !== supplierF) return false;
       if (managerF !== ALL && f.shipment.import_manager_id !== managerF) return false;
