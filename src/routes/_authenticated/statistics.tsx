@@ -73,10 +73,10 @@ type PeriodMode = "week" | "month" | "year" | "custom";
 
 export function StatisticsPage() {
   const { hasRole, loading } = useAuth();
-  if (loading) return null;
-  if (!hasRole(["admin", "super_admin", "owner"])) return <Navigate to="/" />;
+  const canView = hasRole(["admin", "super_admin", "owner"]);
 
   const today = new Date();
+
   const minDate = addDays(today, -365);
 
   // Period state
@@ -116,7 +116,9 @@ export function StatisticsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["statistics-12m"],
+    enabled: !loading && canView,
     queryFn: async () => {
+
       const cutoff = toISO(minDate);
       const [shRes, supRes, mgrRes] = await Promise.all([
         supabase
@@ -319,8 +321,12 @@ export function StatisticsPage() {
   if (supplierF !== ALL) activeChips.push(`Постачальник: ${supplierMap[supplierF] ?? "—"}`);
   if (managerF !== ALL) activeChips.push(`Менеджер: ${managerMap[managerF] ?? "—"}`);
 
+  if (loading) return null;
+  if (!canView) return <Navigate to="/" />;
+
   return (
     <div className="space-y-4">
+
       <PageHeader title="Статистика" subtitle="Останні 12 місяців" />
 
       {/* PERIOD */}

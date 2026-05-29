@@ -67,7 +67,7 @@ type Flat = {
 
 export function Analytics() {
   const { user, hasRole } = useAuth();
-  const isStaffAll = hasRole(["admin", "super_admin"]);
+  const isStaffAll = hasRole(["admin", "super_admin", "owner"]);
   const navigate = useNavigate();
   const today = todayISO();
   const { data: currentManagerId } = useQuery({
