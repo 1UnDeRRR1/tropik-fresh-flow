@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { canonicalizeProductName } from "@/lib/product-aliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useProductAliases } from "@/hooks/useProductAliases";
@@ -25,6 +26,7 @@ type ItemRow = {
   product_name: string;
   origin_country: string | null;
   pallet_count: number | null;
+  net_weight_kg: number | null;
   unit_price: number | null;
   price_currency: string | null;
   final_cost_indicative: number | null;
@@ -33,6 +35,7 @@ type ItemRow = {
 
 type ShipmentRow = {
   id: string;
+  shipment_code: string | null;
   country: string | null;
   loading_date: string | null;
   eta: string | null;
@@ -44,6 +47,9 @@ type ShipmentRow = {
 
 type Supplier = { id: string; name: string };
 type Manager = { id: string; user_id: string | null; full_name: string };
+
+type Metric = "purchase" | "cost" | "both";
+type CompareMode = "managers" | "suppliers" | "products";
 
 function pad(n: number) { return n < 10 ? `0${n}` : `${n}`; }
 function toISO(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -71,12 +77,47 @@ const UK_MONTHS = ["Січень","Лютий","Березень","Квітен�
 
 type PeriodMode = "week" | "month" | "year" | "custom";
 
+type Flat = {
+  item: ItemRow;
+  shipment: ShipmentRow;
+  date: string;
+  country: string;
+  productCanonical: string;
+  managerKey: string;
+};
+
+// Volume for weighted averages: net_weight_kg if > 0, else pallet_count if > 0, else 0
+function volumeOf(it: ItemRow): number {
+  const w = Number(it.net_weight_kg ?? 0);
+  if (w > 0) return w;
+  const p = Number(it.pallet_count ?? 0);
+  return p > 0 ? p : 0;
+}
+
+function weightedAvg(rows: Flat[], getPrice: (it: ItemRow) => number | null | undefined): number {
+  let num = 0, den = 0;
+  for (const r of rows) {
+    const p = getPrice(r.item);
+    if (p == null || !Number.isFinite(Number(p))) continue;
+    const v = volumeOf(r.item);
+    if (v <= 0) continue;
+    num += Number(p) * v;
+    den += v;
+  }
+  return den > 0 ? num / den : 0;
+}
+
+function sumPallets(rows: Flat[]): number {
+  let s = 0;
+  for (const r of rows) s += Number(r.item.pallet_count ?? 0);
+  return s;
+}
+
 export function StatisticsPage() {
   const { hasRole, loading } = useAuth();
   const canView = hasRole(["admin", "super_admin", "owner"]);
 
   const today = new Date();
-
   const minDate = addDays(today, -365);
 
   // Period state
@@ -89,12 +130,24 @@ export function StatisticsPage() {
   const [fromVal, setFromVal] = useState<string>(toISO(minDate));
   const [toVal, setToVal] = useState<string>(toISO(today));
 
-  // Filter state (ALL or value)
+  // Filter state
   const [productF, setProductF] = useState<string>(ALL);
   const [countryF, setCountryF] = useState<string>(ALL);
   const [supplierF, setSupplierF] = useState<string>(ALL);
   const [managerF, setManagerF] = useState<string>(ALL);
-  const [compareMode, setCompareMode] = useState<"managers" | "suppliers" | "products">("managers");
+
+  // UI mode
+  const [metric, setMetric] = useState<Metric>("purchase");
+  const [compareMode, setCompareMode] = useState<CompareMode>("managers");
+
+  // Drill-down dialog
+  const [drill, setDrill] = useState<
+    | null
+    | { kind: CompareMode; key: string; label: string }
+  >(null);
+
+  // Full purchases table dialog
+  const [fullTableOpen, setFullTableOpen] = useState(false);
 
   const [from, to] = useMemo<[Date, Date]>(() => {
     if (mode === "month") {
@@ -119,12 +172,11 @@ export function StatisticsPage() {
     queryKey: ["statistics-12m"],
     enabled: !loading && canView,
     queryFn: async () => {
-
       const cutoff = toISO(minDate);
       const [shRes, supRes, mgrRes] = await Promise.all([
         supabase
           .from("shipments")
-          .select("id,country,loading_date,eta,arrived_at,created_at,supplier_id,import_manager_id, shipment_items(id,shipment_id,product_name,origin_country,pallet_count,unit_price,price_currency,final_cost_indicative,final_cost_invoice)")
+          .select("id,shipment_code,country,loading_date,eta,arrived_at,created_at,supplier_id,import_manager_id, shipment_items(id,shipment_id,product_name,origin_country,pallet_count,net_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice)")
           .gte("created_at", `${cutoff}T00:00:00`)
           .order("loading_date", { ascending: false })
           .limit(2000),
@@ -145,9 +197,6 @@ export function StatisticsPage() {
   const managers = data?.managers ?? [];
   const supplierMap = useMemo(() => Object.fromEntries(suppliers.map(s => [s.id, s.name])), [suppliers]);
 
-  // Manager label map keyed by BOTH import_managers.id and import_managers.user_id,
-  // because shipments may store either form in import_manager_id depending on
-  // how the row was created. This is read-only — no data mutation.
   const managerLabel = useMemo(() => {
     const m = new Map<string, string>();
     for (const mgr of managers) {
@@ -170,18 +219,6 @@ export function StatisticsPage() {
     return alias ?? t;
   };
 
-  type Flat = {
-    item: ItemRow;
-    shipment: ShipmentRow;
-    date: string;
-    country: string; // product origin only (or "— Без країни"); canonicalized via aliases
-    productCanonical: string; // canonical product name via existing alias helper
-    managerKey: string; // shipment.import_manager_id ?? NO_MANAGER
-  };
-
-  // Period-only flat — used for filter options AND aggregates.
-  // Items WITHOUT pallets are kept so country/product options are not artificially
-  // empty for historical periods; aggregates ignore items with pallet_count <= 0.
   const flatPeriod = useMemo<Flat[]>(() => {
     const out: Flat[] = [];
     for (const sh of shipments) {
@@ -203,8 +240,6 @@ export function StatisticsPage() {
     return out;
   }, [shipments, fromISOStr, toISOStr, countryAliasMap]);
 
-  // Leave-one-out: each filter's options reflect the dataset narrowed by all
-  // OTHER active filters (AND). Current selection is always preserved.
   const passesExcept = (
     f: Flat,
     excl: "product" | "country" | "supplier" | "manager" | null,
@@ -240,10 +275,6 @@ export function StatisticsPage() {
     return suppliers.filter(s => ids.has(s.id));
   }, [flatPeriod, productF, countryF, managerF, supplierF, suppliers]);
 
-  // Manager options: derived from distinct shipment.import_manager_id values
-  // present in the filtered dataset (leave-one-out). Includes a synthetic
-  // "— Без менеджера" bucket when null-manager rows exist and an
-  // "— Менеджер не знайдений" label when the id has no row in import_managers.
   const managerOptions = useMemo(() => {
     const keys = new Set<string>();
     for (const f of flatPeriod) {
@@ -262,7 +293,6 @@ export function StatisticsPage() {
       .sort((a, b) => a.label.localeCompare(b.label, "uk"));
   }, [flatPeriod, productF, countryF, supplierF, managerF, managerLabel]);
 
-  // Final filtered rows — exclude zero-pallet items from numeric aggregation
   const rows = useMemo<Flat[]>(() => {
     return flatPeriod.filter(f => {
       if (!f.item.pallet_count || Number(f.item.pallet_count) <= 0) return false;
@@ -270,45 +300,68 @@ export function StatisticsPage() {
     }).sort((a,b) => a.date.localeCompare(b.date));
   }, [flatPeriod, productF, countryF, supplierF, managerF]);
 
-  // Aggregates
-  const totals = useMemo(() => {
-    let pallets = 0, priceSum = 0, priceCnt = 0, indSum = 0, indCnt = 0, invSum = 0, invCnt = 0;
-    for (const r of rows) {
-      pallets += Number(r.item.pallet_count ?? 0);
-      if (r.item.unit_price) { priceSum += Number(r.item.unit_price); priceCnt++; }
-      if (r.item.final_cost_indicative) { indSum += Number(r.item.final_cost_indicative); indCnt++; }
-      if (r.item.final_cost_invoice) { invSum += Number(r.item.final_cost_invoice); invCnt++; }
-    }
-    return {
-      pallets,
-      avgPrice: priceCnt ? priceSum / priceCnt : 0,
-      avgInd: indCnt ? indSum / indCnt : 0,
-      avgInv: invCnt ? invSum / invCnt : 0,
-    };
-  }, [rows]);
+  const totals = useMemo(() => ({
+    pallets: sumPallets(rows),
+    avgPrice: weightedAvg(rows, (it) => it.unit_price),
+    avgInd: weightedAvg(rows, (it) => it.final_cost_indicative),
+    avgInv: weightedAvg(rows, (it) => it.final_cost_invoice),
+  }), [rows]);
 
-  // Per-supplier breakdown
-  const bySupplier = useMemo(() => {
-    const map = new Map<string, { name: string; pallets: number; priceSum: number; priceCnt: number; indSum: number; indCnt: number; invSum: number; invCnt: number; rows: Flat[] }>();
+  const managerLabelFor = (key: string) =>
+    key === NO_MANAGER ? NO_MANAGER_LABEL : managerLabel.get(key) ?? UNKNOWN_MANAGER_LABEL;
+
+  // Unified comparison list: each row carries key + label + pallets + weighted averages.
+  // Products are grouped by productCanonical + country (key uses "||" separator).
+  const compareList = useMemo(() => {
+    const groups = new Map<string, Flat[]>();
+    const labels = new Map<string, string>();
     for (const r of rows) {
-      const sid = r.shipment.supplier_id ?? "—";
-      const name = supplierMap[sid] ?? "—";
-      const cur = map.get(sid) ?? { name, pallets: 0, priceSum: 0, priceCnt: 0, indSum: 0, indCnt: 0, invSum: 0, invCnt: 0, rows: [] };
-      cur.pallets += Number(r.item.pallet_count ?? 0);
-      if (r.item.unit_price) { cur.priceSum += Number(r.item.unit_price); cur.priceCnt++; }
-      if (r.item.final_cost_indicative) { cur.indSum += Number(r.item.final_cost_indicative); cur.indCnt++; }
-      if (r.item.final_cost_invoice) { cur.invSum += Number(r.item.final_cost_invoice); cur.invCnt++; }
-      cur.rows.push(r);
-      map.set(sid, cur);
+      let key: string;
+      let label: string;
+      if (compareMode === "managers") {
+        key = r.managerKey;
+        label = managerLabelFor(r.managerKey);
+      } else if (compareMode === "suppliers") {
+        key = r.shipment.supplier_id ?? "—";
+        label = supplierMap[r.shipment.supplier_id ?? ""] ?? "—";
+      } else {
+        key = `${r.productCanonical}||${r.country}`;
+        label = `${r.productCanonical} · ${r.country}`;
+      }
+      let arr = groups.get(key);
+      if (!arr) { arr = []; groups.set(key, arr); }
+      arr.push(r);
+      if (!labels.has(key)) labels.set(key, label);
     }
-    return Array.from(map.entries()).map(([id, v]) => ({
-      id, name: v.name, pallets: v.pallets,
-      avgPrice: v.priceCnt ? v.priceSum / v.priceCnt : 0,
-      avgInd: v.indCnt ? v.indSum / v.indCnt : 0,
-      avgInv: v.invCnt ? v.invSum / v.invCnt : 0,
-      rows: v.rows,
-    })).sort((a,b) => b.pallets - a.pallets);
-  }, [rows, supplierMap]);
+    return Array.from(groups.entries())
+      .map(([key, grpRows]) => ({
+        key,
+        label: labels.get(key) ?? key,
+        pallets: sumPallets(grpRows),
+        avgPrice: weightedAvg(grpRows, (it) => it.unit_price),
+        avgInd: weightedAvg(grpRows, (it) => it.final_cost_indicative),
+        avgInv: weightedAvg(grpRows, (it) => it.final_cost_invoice),
+        rows: grpRows,
+      }))
+      .sort((a, b) => b.pallets - a.pallets);
+  }, [rows, compareMode, supplierMap, managerLabel]);
+
+  // Drill-down rows for currently opened group
+  const drillRows = useMemo<Flat[]>(() => {
+    if (!drill) return [];
+    if (drill.kind === "managers") return rows.filter((r) => r.managerKey === drill.key);
+    if (drill.kind === "suppliers") return rows.filter((r) => (r.shipment.supplier_id ?? "—") === drill.key);
+    // products: key = productCanonical||country
+    const [p, c] = drill.key.split("||");
+    return rows.filter((r) => r.productCanonical === p && r.country === c);
+  }, [drill, rows]);
+
+  const drillTotals = useMemo(() => ({
+    pallets: sumPallets(drillRows),
+    avgPrice: weightedAvg(drillRows, (it) => it.unit_price),
+    avgInd: weightedAvg(drillRows, (it) => it.final_cost_indicative),
+    avgInv: weightedAvg(drillRows, (it) => it.final_cost_invoice),
+  }), [drillRows]);
 
   // Period dropdown options
   const monthOptions = useMemo(() => {
@@ -347,33 +400,13 @@ export function StatisticsPage() {
     return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${String(d.getFullYear()).slice(2)}`;
   };
   const fmtNum = (n: number | null | undefined, digits = 2) => n == null ? "—" : Number(n).toFixed(digits);
+  const shipmentLabel = (sh: ShipmentRow) => {
+    const code = (sh.shipment_code ?? "").trim();
+    if (code) return code;
+    return sh.id ? sh.id.slice(-6) : "—";
+  };
 
   const resetAll = () => { setProductF(ALL); setCountryF(ALL); setSupplierF(ALL); setManagerF(ALL); };
-
-  const managerLabelFor = (key: string) =>
-    key === NO_MANAGER ? NO_MANAGER_LABEL : managerLabel.get(key) ?? UNKNOWN_MANAGER_LABEL;
-
-  // Per-manager breakdown so totals reconcile with the overall 'Палет' value.
-  const byManager = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of rows) {
-      m.set(r.managerKey, (m.get(r.managerKey) ?? 0) + Number(r.item.pallet_count ?? 0));
-    }
-    return Array.from(m.entries())
-      .map(([key, pallets]) => ({ key, label: managerLabelFor(key), pallets }))
-      .sort((a, b) => b.pallets - a.pallets);
-  }, [rows, managerLabel]);
-
-  // Per-product breakdown for the comparison card.
-  const byProduct = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of rows) {
-      m.set(r.productCanonical, (m.get(r.productCanonical) ?? 0) + Number(r.item.pallet_count ?? 0));
-    }
-    return Array.from(m.entries())
-      .map(([key, pallets]) => ({ key, label: key, pallets }))
-      .sort((a, b) => b.pallets - a.pallets);
-  }, [rows]);
 
   const activeChips: string[] = [];
   if (productF !== ALL) activeChips.push(`Товар: ${productF}`);
@@ -381,12 +414,68 @@ export function StatisticsPage() {
   if (supplierF !== ALL) activeChips.push(`Постачальник: ${supplierMap[supplierF] ?? "—"}`);
   if (managerF !== ALL) activeChips.push(`Менеджер: ${managerLabelFor(managerF)}`);
 
+  const showPrice = metric === "purchase" || metric === "both";
+  const showCost = metric === "cost" || metric === "both";
+
   if (loading) return null;
   if (!canView) return <Navigate to="/" />;
 
+  // Comparison row metric chips
+  const renderCompareMeta = (g: { pallets: number; avgPrice: number; avgInd: number; avgInv: number }) => (
+    <span className="shrink-0 text-xs tabular-nums">
+      <span className="font-bold text-brand">{g.pallets}п</span>
+      {showPrice && <> · <span className="text-muted-foreground">зак.</span> <span className="font-semibold">{g.avgPrice.toFixed(2)}</span></>}
+      {showCost && <> · <span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span></>}
+      {showCost && <> · <span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></>}
+    </span>
+  );
+
+  // Preview rows for "Товари — закупки"
+  const PREVIEW_LIMIT = 8;
+  const previewRows = rows.slice(0, PREVIEW_LIMIT);
+
+  const renderPurchaseTable = (data: Flat[]) => (
+    <div className="relative">
+      <div className="overflow-x-auto overscroll-x-contain">
+        <table className="w-full min-w-[920px] caption-bottom border-collapse text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Дата</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Поставка</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Товар</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Країна</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Постачальник</th>
+              <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Менеджер</th>
+              <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Палет</th>
+              {showPrice && <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Закупка</th>}
+              {showCost && <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success">Індикатив</th>}
+              {showCost && <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive">Інвойс</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map(r => (
+              <tr key={r.item.id} className="border-b transition-colors hover:bg-muted/50">
+                <td className="whitespace-nowrap p-1.5 align-middle">{fmtDate(r.date)}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle text-xs text-muted-foreground">{shipmentLabel(r.shipment)}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle">{r.productCanonical}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle">{r.country}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
+                <td className="whitespace-nowrap p-1.5 align-middle">{managerLabelFor(r.managerKey)}</td>
+                <td className="p-1.5 text-right align-middle tabular-nums">{fmtNum(r.item.pallet_count, 0)}</td>
+                {showPrice && <td className="p-1.5 text-right align-middle tabular-nums">{fmtNum(r.item.unit_price)}</td>}
+                {showCost && <td className="p-1.5 text-right align-middle font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</td>}
+                {showCost && <td className="p-1.5 text-right align-middle font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card to-transparent sm:hidden" />
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-
       <PageHeader title="Статистика" subtitle="Останні 12 місяців" />
 
       {/* PERIOD */}
@@ -481,77 +570,55 @@ export function StatisticsPage() {
             <Button size="sm" variant="ghost" onClick={resetAll}>Скинути</Button>
           </div>
         )}
-        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+      </SectionCard>
+
+      {/* METRIC TOGGLE */}
+      <SectionCard title="Показник">
+        <div className="flex flex-wrap gap-2">
+          {([
+            ["purchase", "Закупка"],
+            ["cost", "Собівартість"],
+            ["both", "Обидва"],
+          ] as const).map(([k, lbl]) => (
+            <Button
+              key={k}
+              size="sm"
+              variant={metric === k ? "default" : "outline"}
+              onClick={() => setMetric(k)}
+            >
+              {lbl}
+            </Button>
+          ))}
+        </div>
+        <div className={`mt-3 grid gap-2 text-center ${
+          metric === "purchase" ? "grid-cols-2" : metric === "cost" ? "grid-cols-3" : "grid-cols-4"
+        }`}>
           <div className="rounded-lg border border-border bg-card p-2">
             <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
             <div className="text-base font-bold">{totals.pallets}</div>
           </div>
-          <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-muted-foreground">сер. зак.</div>
-            <div className="text-base font-bold">{totals.avgPrice.toFixed(2)}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-success">сер. інд.</div>
-            <div className="text-base font-bold text-success">{totals.avgInd.toFixed(2)}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-2">
-            <div className="text-[10px] uppercase text-destructive">сер. інв.</div>
-            <div className="text-base font-bold text-destructive">{totals.avgInv.toFixed(2)}</div>
-          </div>
+          {showPrice && (
+            <div className="rounded-lg border border-border bg-card p-2">
+              <div className="text-[10px] uppercase text-muted-foreground">сер. зак.</div>
+              <div className="text-base font-bold">{totals.avgPrice.toFixed(2)}</div>
+            </div>
+          )}
+          {showCost && (
+            <div className="rounded-lg border border-border bg-card p-2">
+              <div className="text-[10px] uppercase text-success">сер. інд.</div>
+              <div className="text-base font-bold text-success">{totals.avgInd.toFixed(2)}</div>
+            </div>
+          )}
+          {showCost && (
+            <div className="rounded-lg border border-border bg-card p-2">
+              <div className="text-[10px] uppercase text-destructive">сер. інв.</div>
+              <div className="text-base font-bold text-destructive">{totals.avgInv.toFixed(2)}</div>
+            </div>
+          )}
         </div>
       </SectionCard>
 
-      {/* PRODUCTS — list of purchases */}
-      <SectionCard title="Товари — закупки">
-        {isLoading ? (
-          <EmptyState title="Завантаження…" />
-        ) : rows.length === 0 ? (
-          <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
-        ) : (
-          <div className="relative">
-            <div className="overflow-x-auto overscroll-x-contain">
-              <table className="w-full min-w-[840px] caption-bottom border-collapse text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Дата</th>
-                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Товар</th>
-                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Країна</th>
-                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Постачальник</th>
-                    <th className="h-9 bg-table-head px-1.5 text-left align-middle text-xs font-bold text-muted-foreground">Менеджер</th>
-                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Палет</th>
-                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-muted-foreground">Закупка</th>
-                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-success">Індикатив</th>
-                    <th className="h-9 bg-table-head px-1.5 text-right align-middle text-xs font-bold text-destructive">Інвойс</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(r => (
-                    <tr key={r.item.id} className="border-b transition-colors hover:bg-muted/50">
-                      <td className="whitespace-nowrap p-1.5 align-middle">{fmtDate(r.date)}</td>
-                      <td className="whitespace-nowrap p-1.5 align-middle">{r.productCanonical}</td>
-                      <td className="whitespace-nowrap p-1.5 align-middle">{r.country}</td>
-                      <td className="whitespace-nowrap p-1.5 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
-                      <td className="whitespace-nowrap p-1.5 align-middle">{managerLabelFor(r.managerKey)}</td>
-                      <td className="p-1.5 text-right align-middle">{fmtNum(r.item.pallet_count, 0)}</td>
-                      <td className="p-1.5 text-right align-middle">{fmtNum(r.item.unit_price)}</td>
-                      <td className="p-1.5 text-right align-middle font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</td>
-                      <td className="p-1.5 text-right align-middle font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</td>
-                    </tr>
-                  ))}
-                  <tr className="border-t bg-muted/40 font-semibold">
-                    <td className="p-1.5 align-middle" colSpan={5}>Разом</td>
-                    <td className="p-1.5 text-right align-middle tabular-nums">{totals.pallets}</td>
-                    <td className="p-1.5" colSpan={3}></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card to-transparent sm:hidden" />
-          </div>
-        )}
-      </SectionCard>
-
-      {/* COMPARISON — managers / suppliers / products */}
+      {/* COMPARISON */}
       <SectionCard title="Порівняння">
         <div className="mb-3 flex flex-wrap gap-2">
           {([
@@ -569,44 +636,108 @@ export function StatisticsPage() {
             </Button>
           ))}
         </div>
-        {compareMode === "suppliers" ? (
-          bySupplier.length === 0 ? (
-            <EmptyState title="Немає даних" hint="За обраними фільтрами" />
-          ) : (
-            <div className="space-y-3">
-              {bySupplier.map((g) => (
-                <div key={g.id} className="rounded-xl border border-border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-semibold">{g.name}</div>
-                    <div className="text-xs"><span className="text-muted-foreground">{g.pallets} п • зак. {g.avgPrice.toFixed(2)} • </span><span className="text-success font-semibold">інд. {g.avgInd.toFixed(2)}</span><span className="text-muted-foreground"> / </span><span className="text-destructive font-semibold">інв. {g.avgInv.toFixed(2)}</span></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
+        {compareList.length === 0 ? (
+          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
         ) : (
-          (() => {
-            const list = compareMode === "managers" ? byManager : byProduct;
-            if (list.length === 0) {
-              return <EmptyState title="Немає даних" hint="За обраними фільтрами" />;
-            }
-            return (
-              <ul className="divide-y divide-border">
-                {list.map((g) => (
-                  <li key={g.key} className="flex items-center justify-between gap-2 py-2">
-                    <span className="truncate text-sm">{g.label}</span>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{g.pallets}п</span>
-                  </li>
-                ))}
-                <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
-                  <span className="text-sm">Разом</span>
-                  <span className="text-sm tabular-nums">{totals.pallets}п</span>
-                </li>
-              </ul>
-            );
-          })()
+          <ul className="divide-y divide-border">
+            {compareList.map((g) => (
+              <li key={g.key}>
+                <button
+                  type="button"
+                  onClick={() => setDrill({ kind: compareMode, key: g.key, label: g.label })}
+                  className="flex w-full items-center justify-between gap-2 py-2 text-left hover:bg-muted/40 rounded px-1 -mx-1"
+                >
+                  <span className="truncate text-sm">{g.label}</span>
+                  {renderCompareMeta(g)}
+                </button>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-2 border-t border-border py-2 font-semibold">
+              <span className="text-sm">Разом</span>
+              <span className="text-sm tabular-nums">{totals.pallets}п</span>
+            </li>
+          </ul>
         )}
       </SectionCard>
+
+      {/* PRODUCTS — collapsed preview */}
+      <SectionCard title="Товари — закупки">
+        {isLoading ? (
+          <EmptyState title="Завантаження…" />
+        ) : rows.length === 0 ? (
+          <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
+        ) : (
+          <>
+            {renderPurchaseTable(previewRows)}
+            <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Показано {Math.min(PREVIEW_LIMIT, rows.length)} з {rows.length}</span>
+              {rows.length > PREVIEW_LIMIT && (
+                <Button size="sm" variant="outline" onClick={() => setFullTableOpen(true)}>
+                  Розгорнути всі закупки
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+      </SectionCard>
+
+      {/* DRILL-DOWN DIALOG */}
+      <Dialog open={!!drill} onOpenChange={(o) => { if (!o) setDrill(null); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{drill?.label ?? ""}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+            <div className="rounded-lg border border-border bg-card p-2">
+              <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
+              <div className="text-base font-bold">{drillTotals.pallets}</div>
+            </div>
+            {showPrice && (
+              <div className="rounded-lg border border-border bg-card p-2">
+                <div className="text-[10px] uppercase text-muted-foreground">сер. зак.</div>
+                <div className="text-base font-bold">{drillTotals.avgPrice.toFixed(2)}</div>
+              </div>
+            )}
+            {showCost && (
+              <div className="rounded-lg border border-border bg-card p-2">
+                <div className="text-[10px] uppercase text-success">сер. інд.</div>
+                <div className="text-base font-bold text-success">{drillTotals.avgInd.toFixed(2)}</div>
+              </div>
+            )}
+            {showCost && (
+              <div className="rounded-lg border border-border bg-card p-2">
+                <div className="text-[10px] uppercase text-destructive">сер. інв.</div>
+                <div className="text-base font-bold text-destructive">{drillTotals.avgInv.toFixed(2)}</div>
+              </div>
+            )}
+          </div>
+          {drillRows.length === 0 ? (
+            <EmptyState title="Немає рядків" />
+          ) : (
+            renderPurchaseTable(drillRows)
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Закрити</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* FULL PURCHASES TABLE DIALOG */}
+      <Dialog open={fullTableOpen} onOpenChange={setFullTableOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Товари — закупки ({rows.length})</DialogTitle>
+          </DialogHeader>
+          {renderPurchaseTable(rows)}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Закрити</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
