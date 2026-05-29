@@ -389,20 +389,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main
         className={cn(
           "relative z-10 mx-auto w-full max-w-3xl px-4 pb-28 md:max-w-[1600px] md:px-6 md:pb-10 lg:px-10",
-          isOwner ? "pt-3" : "pt-4",
-        )}
-        style={
+          // Owner mobile uses a fixed header (banner + safe-area + FX badge row),
+          // so we push content down by that height. Desktop reverts to normal padding.
           isOwner && ownerMobileBanner
-            ? {
-                // Fixed owner mobile header = banner (safe-area + 9rem) + FX badge row (~2rem).
-                // Desktop overrides via md: padding utilities below.
-                paddingTop: "calc(env(safe-area-inset-top) + 9rem + 2.25rem)",
-              }
-            : undefined
-        }
+            ? "pt-[calc(env(safe-area-inset-top)+9rem+2.25rem)] md:pt-3"
+            : isOwner
+              ? "pt-3"
+              : "pt-4",
+        )}
       >
         {children}
       </main>
+
 
 
       {/* Bottom nav: mobile only */}
