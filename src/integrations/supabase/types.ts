@@ -3330,6 +3330,15 @@ export type Database = {
         Args: { _offer_id: string; _user_id: string }
         Returns: boolean
       }
+      rebalance_offer_allocation_for_item: {
+        Args: { p_offer_id: string; p_shipment_item_id: string }
+        Returns: {
+          new_allocated: number
+          old_allocated: number
+          reduced_by: number
+          remaining: number
+        }[]
+      }
       recompute_vehicle_item_costs: {
         Args: { _shipment_id: string; _vehicle_id: string }
         Returns: undefined
