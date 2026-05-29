@@ -223,7 +223,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <header
+        className={cn(
+          "z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70",
+          // Owner mobile: hard-pin to viewport top so the status-bar safe area
+          // is always covered by the banner. Desktop falls back to sticky so
+          // the wider nav layout behaves as before.
+          isOwner && ownerMobileBanner
+            ? "fixed inset-x-0 top-0 md:sticky md:top-0"
+            : "sticky top-0",
+        )}
+      >
+
         {personalAssets?.headerDesktopWebp ? (
           /* Full-bleed personal header banner — only for users with a package.
              width/height attributes on each <source> + <img> let the browser
