@@ -18,38 +18,31 @@ function Settings() {
 
   return (
     <div className="relative space-y-4">
+      {isOwner && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#f3ead8]"
+        >
+          <img
+            src={ownerSettingsBg}
+            alt=""
+            className="h-full w-full object-cover object-top"
+            loading="eager"
+            decoding="async"
+            draggable={false}
+          />
+        </div>
+      )}
       {hasProfileBg && personal && (
-        // Full-page background for the Профіль route. Covers the entire
-        // viewport behind all content (z-0); pointer-events-none keeps the
-        // exit button and bottom nav clickable. object-cover fills the area
-        // without distorting the image (may crop edges, never stretches).
-        // bg-background under the <img> hides any underlying app chrome so
-        // there is no visible seam on the sides.
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background"
         >
           <picture>
-            <source
-              media="(max-width: 767px)"
-              type="image/webp"
-              srcSet={personal.profileBgMobileWebp}
-            />
-            <source
-              media="(max-width: 767px)"
-              type="image/png"
-              srcSet={personal.profileBgMobilePng}
-            />
-            <source
-              media="(min-width: 768px)"
-              type="image/webp"
-              srcSet={personal.profileBgDesktopWebp}
-            />
-            <source
-              media="(min-width: 768px)"
-              type="image/png"
-              srcSet={personal.profileBgDesktopPng}
-            />
+            <source media="(max-width: 767px)" type="image/webp" srcSet={personal.profileBgMobileWebp} />
+            <source media="(max-width: 767px)" type="image/png" srcSet={personal.profileBgMobilePng} />
+            <source media="(min-width: 768px)" type="image/webp" srcSet={personal.profileBgDesktopWebp} />
+            <source media="(min-width: 768px)" type="image/png" srcSet={personal.profileBgDesktopPng} />
             <img
               src={personal.profileBgDesktopPng ?? personal.profileBgMobilePng}
               alt=""
@@ -66,7 +59,7 @@ function Settings() {
           variant="outline"
           className={
             isOwner
-              ? "relative z-10 w-full bg-transparent border-red-500/70 text-red-700 hover:bg-red-500/10"
+              ? "relative z-10 w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10"
               : "relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
           }
           onClick={async () => {
@@ -76,18 +69,6 @@ function Settings() {
         >
           <LogOut className="mr-2 h-4 w-4" /> Вийти
         </Button>
-        {isOwner && (
-          <div className="pointer-events-none mt-6 flex justify-center px-4">
-            <img
-              src={ownerSettingsBg}
-              alt=""
-              className="w-full max-w-md rounded-lg object-contain opacity-95"
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-            />
-          </div>
-        )}
       </div>
     </div>
   );
