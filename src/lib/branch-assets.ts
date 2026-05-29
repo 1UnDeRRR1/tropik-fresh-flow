@@ -84,14 +84,12 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     headerMobile: [2880, 720],
     headerDesktop: [2880, 720],
   }),
-  // Лукач: splash + profile background only (no custom header — neutral chrome).
+  // Лукач: owner/director art package.
   [LUKACH_USER_ID]: (() => {
     const base = `/personal-assets/${LUKACH_USER_ID}`;
     return {
-      splashMobileWebp: `${base}/splash_mobile.webp`,
-      splashMobilePng: `${base}/splash_mobile.png`,
-      splashDesktopWebp: `${base}/splash_desktop.webp`,
-      splashDesktopPng: `${base}/splash_desktop.png`,
+      splashMobilePng: OWNER_BANNER_ASSETS.splashMobile,
+      splashDesktopPng: OWNER_BANNER_ASSETS.splashDesktop,
       profileBgMobileWebp: `${base}/profile_bg_mobile.webp`,
       profileBgMobilePng: `${base}/profile_bg_mobile.png`,
       profileBgDesktopWebp: `${base}/profile_bg_desktop.webp`,
