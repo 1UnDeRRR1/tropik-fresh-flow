@@ -150,23 +150,31 @@ export function CalendarPage() {
     return out;
   }, [data, fromISO]);
 
-  // Product options: distinct product names (origin country handled separately)
+  // Filter options — leave-one-out: each option list reflects the dataset
+  // narrowed by all OTHER active filters (AND), so options stay in sync with
+  // the current selection without removing the active value itself.
   const productOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of allEntries) {
+      if (countryFilter !== ALL) {
+        const c = (e.it.origin_country ?? "").trim();
+        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) continue;
+      }
       const name = e.it.product_name.trim();
       if (name) set.add(name);
     }
+    if (productFilter !== ALL) set.add(productFilter);
     return Array.from(set)
       .sort((a, b) => a.localeCompare(b, "uk"))
       .map((name) => ({ value: name, label: name }));
-  }, [allEntries]);
+  }, [allEntries, countryFilter, productFilter]);
 
   // Country options: distinct product origin only (NEVER fallback to shipment.country)
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
     let hasMissing = false;
     for (const e of allEntries) {
+      if (productFilter !== ALL && e.it.product_name.trim() !== productFilter) continue;
       const c = (e.it.origin_country ?? "").trim();
       if (c) set.add(c);
       else hasMissing = true;
@@ -174,9 +182,9 @@ export function CalendarPage() {
     const arr = Array.from(set)
       .sort((a, b) => a.localeCompare(b, "uk"))
       .map((c) => ({ value: c, label: c }));
-    if (hasMissing) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    if (hasMissing || countryFilter === NO_COUNTRY) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
     return arr;
-  }, [allEntries]);
+  }, [allEntries, productFilter, countryFilter]);
 
   const filtered = useMemo(() => {
     return allEntries.filter((e) => {
