@@ -481,6 +481,64 @@ export function StatisticsPage() {
     </div>
   );
 
+  // Mobile-first detail list (Analytics-style cards)
+  const renderDetailList = (data: Flat[]) => (
+    <ul className="divide-y divide-border">
+      {data
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((f) => {
+          const it = f.item;
+          const sh = f.shipment;
+          const pallets = Number(it.pallet_count ?? 0);
+          const net = Number(it.net_weight_kg ?? 0);
+          const currency = it.price_currency ?? "";
+          return (
+            <li key={`${sh.id}-${it.id}`} className="flex flex-col gap-1 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold">
+                  {dateBasis === "loading" ? "Завант." : "ETA"} {fmtDate(f.date)}
+                </span>
+                <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                <span className="font-mono text-foreground">{shipmentLabel(sh)}</span>
+                <span className="truncate">{f.productCanonical}</span>
+                <span>·</span>
+                <span>{f.country}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                <span>{supplierMap[sh.supplier_id ?? ""] ?? "—"}</span>
+                {net > 0 ? <span>{Math.round(net)} кг</span> : null}
+              </div>
+              {(showPrice || showCost) && (
+                <div className="flex flex-wrap items-center gap-x-2 text-[11px]">
+                  {showPrice && (
+                    <span className="text-muted-foreground">
+                      закуп. {fmtNum(it.unit_price)} {currency}
+                    </span>
+                  )}
+                  {showCost && (
+                    <CostPair
+                      indicative={it.final_cost_indicative}
+                      invoice={it.final_cost_invoice}
+                      suffix=" кг"
+                      prefix=""
+                      size="xs"
+                    />
+                  )}
+                </div>
+              )}
+              <div className="text-[11px] text-muted-foreground">
+                Менеджер: {managerLabelFor(f.managerKey)}
+              </div>
+            </li>
+          );
+        })}
+    </ul>
+  );
+
+
   const subtitle = (() => {
     if (mode === "month") {
       const [y, m] = monthVal.split("-").map(Number);
