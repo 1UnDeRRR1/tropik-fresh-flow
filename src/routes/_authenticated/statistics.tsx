@@ -477,9 +477,27 @@ export function StatisticsPage() {
     </div>
   );
 
+  const subtitle = (() => {
+    if (mode === "month") {
+      const [y, m] = monthVal.split("-").map(Number);
+      return `${UK_MONTHS[m - 1]} ${y}`;
+    }
+    if (mode === "year") return yearVal;
+    if (mode === "week") {
+      const [y, w] = weekVal.split("-W").map(Number);
+      const [s, e] = weekRange(y, w);
+      return `Тиждень ${w} · ${fmtDate(toISO(s))} – ${fmtDate(toISO(e))}`;
+    }
+    return `${fmtDate(fromISOStr)} – ${fmtDate(toISOStr)}`;
+  })();
+
+  const emptyHint = dateBasis === "arrival"
+    ? "За обраний період немає поставок за датою прибуття. Спробуйте інший місяць або переключіть Дата → Завантаження."
+    : "За обраний період немає поставок за датою завантаження. Спробуйте інший період.";
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Статистика" subtitle="Останні 12 місяців" />
+      <PageHeader title="Статистика" subtitle={subtitle} />
 
       {/* PERIOD */}
       <SectionCard title="Період">
