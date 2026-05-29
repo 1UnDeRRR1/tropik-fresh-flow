@@ -501,18 +501,18 @@ export function StatisticsPage() {
                 </span>
                 <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
               </div>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base text-muted-foreground">
                 <span className="font-mono text-foreground">{shipmentLabel(sh)}</span>
                 <span className="truncate">{f.productCanonical}</span>
                 <span>·</span>
                 <span>{f.country}</span>
               </div>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base text-muted-foreground">
                 <span>{supplierMap[sh.supplier_id ?? ""] ?? "—"}</span>
                 {net > 0 ? <span>{Math.round(net)} кг</span> : null}
               </div>
               {(showPrice || showCost) && (
-                <div className="flex flex-wrap items-center gap-x-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-x-2 text-base">
                   {showPrice && (
                     <span className="text-muted-foreground">
                       закуп. {fmtNum(it.unit_price)} {currency}
@@ -524,12 +524,12 @@ export function StatisticsPage() {
                       invoice={it.final_cost_invoice}
                       suffix=" кг"
                       prefix=""
-                      size="xs"
+                      size="md"
                     />
                   )}
                 </div>
               )}
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-base text-muted-foreground">
                 Менеджер: {managerLabelFor(f.managerKey)}
               </div>
             </li>
