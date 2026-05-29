@@ -152,7 +152,71 @@ export function Analytics() {
     return out;
   }, [data, today]);
 
-  // Level 1: grouped by product+country
+  const [productFilter, setProductFilter] = useState<string>(ALL);
+  const [countryFilter, setCountryFilter] = useState<string>(ALL);
+  const [managerFilter, setManagerFilter] = useState<string>(ALL);
+  const [branchFilter, setBranchFilter] = useState<string>(ALL);
+
+  // Filter options derived from activeFlat
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of activeFlat) {
+      const n = f.item.product_name.trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
+  }, [activeFlat]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasMissing = false;
+    for (const f of activeFlat) {
+      const c = (f.item.origin_country ?? "").trim();
+      if (c) set.add(c);
+      else hasMissing = true;
+    }
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((v) => ({ value: v, label: v }));
+    if (hasMissing) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    return arr;
+  }, [activeFlat]);
+
+  const managerOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const f of activeFlat) {
+      const id = f.shipment.import_manager_id;
+      if (id) ids.add(id);
+    }
+    return Array.from(ids)
+      .map((id) => ({ value: id, label: mgrMap.get(id) ?? "—" }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [activeFlat, mgrMap]);
+
+  const branchOptions = useMemo(
+    () =>
+      (data?.branches ?? [])
+        .map((b) => ({ value: b.id, label: b.name }))
+        .sort((a, b) => a.label.localeCompare(b.label, "uk")),
+    [data],
+  );
+
+  // AND filter
+  const filteredFlat = useMemo<Flat[]>(() => {
+    return activeFlat.filter((f) => {
+      if (productFilter !== ALL && f.item.product_name.trim() !== productFilter) return false;
+      if (countryFilter !== ALL) {
+        const c = (f.item.origin_country ?? "").trim();
+        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+      }
+      if (managerFilter !== ALL && f.shipment.import_manager_id !== managerFilter) return false;
+      if (branchFilter !== ALL) {
+        const inner = distByItem.get(f.item.id);
+        if (!inner || (inner.get(branchFilter) ?? 0) <= 0) return false;
+      }
+      return true;
+    });
+  }, [activeFlat, productFilter, countryFilter, managerFilter, branchFilter, distByItem]);
+
+  // Level 1: grouped by product+country (using product origin only)
   type Group = {
     key: string;
     product: string;
@@ -165,8 +229,8 @@ export function Analytics() {
   const groups = useMemo<Group[]>(() => {
     const m = new Map<string, Group>();
     const shipSets = new Map<string, Set<string>>();
-    for (const f of activeFlat) {
-      const country = (f.item.origin_country || f.shipment.country || "").trim();
+    for (const f of filteredFlat) {
+      const country = (f.item.origin_country ?? "").trim();
       const product = f.item.product_name.trim();
       const key = `${product}__${country}`;
       const g =
@@ -183,100 +247,24 @@ export function Analytics() {
     return Array.from(m.values()).sort(
       (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
     );
-  }, [activeFlat]);
+  }, [filteredFlat]);
 
   const [openGroup, setOpenGroup] = useState<Group | null>(null);
   const [openItem, setOpenItem] = useState<Flat | null>(null);
-  const [view, setView] = useState<"product" | "manager" | "supplier">("product");
-  const [search, setSearch] = useState("");
-  const searchLower = search.trim().toLowerCase();
-
-  // Grouping by manager / supplier (admins only)
-  type ProdSub = {
-    product: string;
-    country: string;
-    pallets: number;
-    positions: number;
-    shipments: number;
-    flats: Flat[];
-  };
-  type OwnerGroup = {
-    key: string;
-    name: string;
-    pallets: number;
-    positions: number;
-    basePositions: number;
-    shipments: number;
-    products: ProdSub[];
-  };
-  const ownerGroups = useMemo<OwnerGroup[]>(() => {
-    if (view === "product") return [];
-    const map = new Map<string, OwnerGroup>();
-    const ownerShipSets = new Map<string, Set<string>>();
-    const prodShipSets = new Map<string, Set<string>>();
-    for (const f of activeFlat) {
-      const ownerId =
-        view === "manager" ? f.shipment.import_manager_id ?? "" : f.shipment.supplier_id ?? "";
-      const ownerName =
-        view === "manager"
-          ? mgrMap.get(ownerId) ?? "— Без менеджера"
-          : supMap.get(ownerId) ?? "— Без постачальника";
-      const key = ownerId || `__none_${view}`;
-      const og =
-        map.get(key) ?? { key, name: ownerName, pallets: 0, positions: 0, basePositions: 0, shipments: 0, products: [] };
-      const product = f.item.product_name.trim();
-      const country = (f.item.origin_country || f.shipment.country || "").trim();
-      const pallets = Number(f.item.pallet_count ?? 0);
-      let pg = og.products.find((p) => p.product === product && p.country === country);
-      if (!pg) {
-        pg = { product, country, pallets: 0, positions: 0, shipments: 0, flats: [] };
-        og.products.push(pg);
-      }
-      pg.pallets += pallets;
-      pg.positions += 1;
-      pg.flats.push(f);
-      og.pallets += pallets;
-      og.positions += 1;
-      map.set(key, og);
-      const oset = ownerShipSets.get(key) ?? new Set<string>();
-      oset.add(f.shipment.id);
-      ownerShipSets.set(key, oset);
-      const pkey = `${key}__${product}__${country}`;
-      const pset = prodShipSets.get(pkey) ?? new Set<string>();
-      pset.add(f.shipment.id);
-      prodShipSets.set(pkey, pset);
-    }
-    const arr = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "uk"));
-    for (const g of arr) {
-      g.shipments = ownerShipSets.get(g.key)?.size ?? 0;
-      g.products.sort(
-        (a, b) => a.product.localeCompare(b.product, "uk") || a.country.localeCompare(b.country, "uk"),
-      );
-      g.basePositions = countPositionsFromGroups(g.products, (p) => p.product).base;
-      for (const p of g.products) {
-        p.shipments = prodShipSets.get(`${g.key}__${p.product}__${p.country}`)?.size ?? 0;
-      }
-    }
-    return arr;
-  }, [activeFlat, view, mgrMap, supMap]);
-
-  const [openOwner, setOpenOwner] = useState<OwnerGroup | null>(null);
 
   const totalPallets = useMemo(
-    () => activeFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
-    [activeFlat],
+    () => filteredFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
+    [filteredFlat],
   );
-  // total = unique product+country combinations (matches the grouped rows shown below);
-  // base  = unique products ignoring country.
   const positionsCount = useMemo(
     () => countPositionsFromGroups(groups, (g) => g.product),
     [groups],
   );
   const totalShipments = useMemo(() => {
     const s = new Set<string>();
-    for (const f of activeFlat) s.add(f.shipment.id);
+    for (const f of filteredFlat) s.add(f.shipment.id);
     return s.size;
-  }, [activeFlat]);
+  }, [filteredFlat]);
 
   return (
     <div className="space-y-4">
