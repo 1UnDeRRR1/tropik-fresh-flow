@@ -9,7 +9,10 @@ import { useAuth } from "@/lib/auth";
 import { StaffOnly } from "@/components/StaffOnly";
 import { CostPair } from "@/components/CostPair";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useReadOnly } from "@/components/ReadOnlyShell";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
@@ -68,7 +71,10 @@ function surname(full: string) {
 
 export function CalendarPage() {
   const { user, hasRole } = useAuth();
-  const isStaffAll = hasRole(["admin", "super_admin"]);
+  const isStaffAll = hasRole(["admin", "super_admin", "owner"]);
+  const isReadOnly = useReadOnly();
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
   const [productFilter, setProductFilter] = useState<string>(ALL);
   const [countryFilter, setCountryFilter] = useState<string>(ALL);
   const [openItem, setOpenItem] = useState<{ sh: ShipmentRow; it: ShipmentItem } | null>(null);
@@ -215,22 +221,24 @@ export function CalendarPage() {
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
-            <SearchableSelect
+            <CompactFilterSelect
               value={productFilter}
               onChange={setProductFilter}
               options={productOptions}
               allLabel="Всі товари"
               allValue={ALL}
+              aliases={productAliases}
             />
           </div>
           <div className="min-w-0 flex-1">
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
-            <SearchableSelect
+            <CompactFilterSelect
               value={countryFilter}
               onChange={setCountryFilter}
               options={countryOptions}
               allLabel="Всі країни"
               allValue={ALL}
+              aliases={countryAliases}
             />
           </div>
           <span
@@ -354,7 +362,7 @@ export function CalendarPage() {
                   <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
                 )}
 
-                {isStaffAll ? (
+                {isStaffAll && !isReadOnly ? (
                   <Link
                     to="/distribution/$shipmentId"
                     params={{ shipmentId: openItem.sh.id }}

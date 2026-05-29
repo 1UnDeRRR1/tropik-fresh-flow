@@ -9,7 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CostPair } from "@/components/CostPair";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useReadOnly } from "@/components/ReadOnlyShell";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
@@ -68,6 +71,9 @@ type Flat = {
 export function Analytics() {
   const { user, hasRole } = useAuth();
   const isStaffAll = hasRole(["admin", "super_admin", "owner"]);
+  const isReadOnly = useReadOnly();
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
   const navigate = useNavigate();
   const today = todayISO();
   const { data: currentManagerId } = useQuery({
@@ -275,19 +281,19 @@ export function Analytics() {
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
-              <SearchableSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} />
+              <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
-              <SearchableSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} />
+              <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Менеджер</label>
-              <SearchableSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} />
+              <CompactFilterSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Філія</label>
-              <SearchableSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} />
+              <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} />
             </div>
           </div>
           <div className="text-right text-xs text-muted-foreground">
@@ -452,19 +458,21 @@ export function Analytics() {
                       <EmptyState title="Ще не розподілено" hint="Усі палети — у залишку." />
                     )}
 
-                    <Button
-                      className="w-full"
-                      data-mutation
-                      onClick={() => {
-                        const sid = openItem?.shipment.id;
-                        if (!sid) return;
-                        setOpenItem(null);
-                        setOpenGroup(null);
-                        navigate({ to: "/distribution/$shipmentId", params: { shipmentId: sid } });
-                      }}
-                    >
-                      Розподілити
-                    </Button>
+                    {isStaffAll && !isReadOnly ? (
+                      <Button
+                        className="w-full"
+                        data-mutation
+                        onClick={() => {
+                          const sid = openItem?.shipment.id;
+                          if (!sid) return;
+                          setOpenItem(null);
+                          setOpenGroup(null);
+                          navigate({ to: "/distribution/$shipmentId", params: { shipmentId: sid } });
+                        }}
+                      >
+                        Розподілити
+                      </Button>
+                    ) : null}
                   </div>
                 );
               })()

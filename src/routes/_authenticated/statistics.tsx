@@ -7,11 +7,11 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { SearchableSelect } from "@/components/SearchableSelect";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canonicalizeProductName } from "@/lib/product-aliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { useProductAliases } from "@/hooks/useProductAliases";
 
 export const Route = createFileRoute("/_authenticated/statistics")({
   component: StatisticsPage,
@@ -149,6 +149,7 @@ export function StatisticsPage() {
   );
 
   const countryAliasMap = useCountryAliases();
+  const productAliasMap = useProductAliases();
   const resolveCountry = (raw: string | null | undefined) => {
     const t = (raw ?? "").trim();
     if (!t) return "— Без країни";
@@ -378,23 +379,25 @@ export function StatisticsPage() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="text-xs text-muted-foreground">Товар</label>
-            <SearchableSelect
+            <CompactFilterSelect
               value={productF}
               onChange={(v) => { setProductF(v); setCountryF(ALL); }}
               options={productOptions.map((p) => ({ value: p, label: p }))}
+              aliases={productAliasMap}
             />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Країна</label>
-            <SearchableSelect
+            <CompactFilterSelect
               value={countryF}
               onChange={setCountryF}
               options={countryOptions.map((c) => ({ value: c, label: c }))}
+              aliases={countryAliasMap}
             />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Постачальник</label>
-            <SearchableSelect
+            <CompactFilterSelect
               value={supplierF}
               onChange={setSupplierF}
               options={supplierOptions.map((s) => ({ value: s.id, label: s.name }))}
@@ -402,7 +405,7 @@ export function StatisticsPage() {
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Імпорт-менеджер</label>
-            <SearchableSelect
+            <CompactFilterSelect
               value={managerF}
               onChange={setManagerF}
               options={managerOptions.map((m) => ({ value: m.user_id ?? m.id, label: m.full_name }))}
@@ -445,35 +448,35 @@ export function StatisticsPage() {
           <EmptyState title="Немає закупок" hint="За обраними фільтрами" />
         ) : (
           <div className="-mx-4 px-4">
-            <table className="w-full caption-bottom text-sm">
-              <TableHeader className="sticky top-16 z-20 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-table-head [&_th]:font-bold">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Дата</TableHead>
-                  <TableHead>Товар</TableHead>
-                  <TableHead>Країна</TableHead>
-                  <TableHead>Постачальник</TableHead>
-                  <TableHead>Менеджер</TableHead>
-                  <TableHead className="text-right">Палет</TableHead>
-                  <TableHead className="text-right">Закупка</TableHead>
-                  <TableHead className="text-right text-success">Індикатив</TableHead>
-                  <TableHead className="text-right text-destructive">Інвойс</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full caption-bottom border-collapse text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Дата</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Товар</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Країна</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Постачальник</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-left align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Менеджер</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Палет</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-muted-foreground shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Закупка</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-success shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Індикатив</th>
+                  <th className="sticky top-16 z-20 h-10 bg-table-head px-2 text-right align-middle text-xs font-bold text-destructive shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur">Інвойс</th>
+                </tr>
+              </thead>
+              <tbody>
                 {rows.map(r => (
-                  <TableRow key={r.item.id}>
-                    <TableCell className="whitespace-nowrap">{fmtDate(r.date)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.productCanonical}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.country}</TableCell>
-                    <TableCell className="whitespace-nowrap">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</TableCell>
-                    <TableCell className="text-right">{fmtNum(r.item.pallet_count, 0)}</TableCell>
-                    <TableCell className="text-right">{fmtNum(r.item.unit_price)}</TableCell>
-                    <TableCell className="text-right font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</TableCell>
-                    <TableCell className="text-right font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</TableCell>
-                  </TableRow>
+                  <tr key={r.item.id} className="border-b transition-colors hover:bg-muted/50">
+                    <td className="whitespace-nowrap p-2 align-middle">{fmtDate(r.date)}</td>
+                    <td className="whitespace-nowrap p-2 align-middle">{r.productCanonical}</td>
+                    <td className="whitespace-nowrap p-2 align-middle">{r.country}</td>
+                    <td className="whitespace-nowrap p-2 align-middle">{supplierMap[r.shipment.supplier_id ?? ""] ?? "—"}</td>
+                    <td className="whitespace-nowrap p-2 align-middle">{managerMap[r.shipment.import_manager_id ?? ""] ?? "—"}</td>
+                    <td className="p-2 text-right align-middle">{fmtNum(r.item.pallet_count, 0)}</td>
+                    <td className="p-2 text-right align-middle">{fmtNum(r.item.unit_price)}</td>
+                    <td className="p-2 text-right align-middle font-semibold text-success tabular-nums">{fmtNum(r.item.final_cost_indicative)}</td>
+                    <td className="p-2 text-right align-middle font-semibold text-destructive tabular-nums">{fmtNum(r.item.final_cost_invoice)}</td>
+                  </tr>
                 ))}
-              </TableBody>
+              </tbody>
             </table>
           </div>
         )}
