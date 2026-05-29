@@ -65,7 +65,7 @@ function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
           <img
             src={personal.splashDesktopPng}
             alt=""
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-top"
             loading="eager"
             decoding="async"
             draggable={false}
