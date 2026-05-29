@@ -444,6 +444,23 @@ body:has(.owner-warm-theme) {
   --border:      oklch(0.86 0.025 70);
   --input:       oklch(0.86 0.025 70);
   --table-head:  oklch(0.90 0.030 70 / 0.7);
+
+  /* Tint outline/default button surfaces to warm cream (body uses
+     background-image, not bg-background, so page bg is unaffected). */
+  --background:         oklch(0.955 0.018 75);
+
+  /* Soften active/selected buttons (Місяць, Завантаження, Закупка,
+     Менеджери...) from harsh navy to muted dusty blue. */
+  --primary:            oklch(0.50 0.06 255);
+  --primary-foreground: oklch(0.99 0.003 250);
+
+  /* Calendar shipment codes use text-brand — make them near-black;
+     font-bold utility preserved at the call site. Does NOT affect
+     --destructive / --success metric colors. */
+  --brand:              oklch(0.18 0.04 265);
+
+  /* Darker muted captions for readability on cream. */
+  --muted-foreground:   oklch(0.32 0.02 260);
 }
 
 /* Dialog content reads bg-background — tint it warm cream only
