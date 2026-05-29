@@ -663,7 +663,7 @@ export function StatisticsPage() {
           ))}
         </div>
         {compareList.length === 0 ? (
-          <EmptyState title="Немає даних" hint="За обраними фільтрами" />
+          <EmptyState title="Немає даних" hint={flatPeriod.length === 0 ? emptyHint : "За обраними фільтрами"} />
         ) : (
           <ul className="divide-y divide-border">
             {compareList.map((g) => (
