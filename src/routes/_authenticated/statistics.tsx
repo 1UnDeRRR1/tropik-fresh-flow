@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { canonicalizeProductName } from "@/lib/product-aliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useProductAliases } from "@/hooks/useProductAliases";
