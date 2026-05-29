@@ -291,8 +291,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         ) : (
-          /* Neutral chrome — no personal package installed for this user */
-          <div className="flex items-center justify-between gap-3 px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:px-6">
+          /* Neutral chrome — no personal package installed for this user.
+             For owner on mobile we hide this row entirely; the owner banner
+             below carries the safe-area top and replaces the chrome. */
+          <div className={cn(
+            "items-center justify-between gap-3 px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:px-6 md:flex",
+            isOwner && ownerMobileBanner ? "hidden" : "flex",
+          )}>
             <Link to={dashHref} className="text-sm font-bold tracking-tight text-foreground">
               Tropik
             </Link>
@@ -310,23 +315,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         )}
-        {/* Owner mobile header banner — mapped per route, no text overlay.
-            Fixed aspect ratio reserves the box so the image cannot push
-            content or jump on scroll. Mobile only; desktop unchanged. */}
+        {/* Owner mobile header banner — full-bleed, extends into the top
+            safe-area so the status bar sits on top of the image instead of a
+            white strip. Height includes safe-area-inset-top so the banner is
+            a proper tall header, not a thin strip under the status bar.
+            Sticky behaviour comes from the parent <header>. Mobile only. */}
         {ownerMobileBanner && (
-          <div className="relative w-full overflow-hidden md:hidden">
-            <div className="aspect-[16/5] w-full">
-              <img
-                src={ownerMobileBanner}
-                alt=""
-                className="h-full w-full object-cover object-center"
-                loading="eager"
-                decoding="async"
-                draggable={false}
-              />
-            </div>
+          <div
+            className="relative w-full overflow-hidden md:hidden"
+            style={{ height: "calc(env(safe-area-inset-top) + 9rem)" }}
+          >
+            <img
+              src={ownerMobileBanner}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              loading="eager"
+              decoding="async"
+              draggable={false}
+            />
           </div>
         )}
+
 
         {!isBranch && (
           <div className="flex justify-center border-t border-border/60 bg-card/70 px-4 py-1">
