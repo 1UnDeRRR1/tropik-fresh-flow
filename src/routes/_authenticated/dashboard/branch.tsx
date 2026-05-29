@@ -364,6 +364,33 @@ function BranchDashboard() {
     },
   });
 
+  // Stage 2B: branch-safe fallback for pending/offer-row manager name.
+  // Branch users cannot SELECT import_managers (RLS). Resolve manager_offers.created_by
+  // via existing SECURITY DEFINER RPC get_profile_names. In current Tropik flow the
+  // offer creator IS the responsible manager — used for display fallback only.
+  const offerCreatorIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (pendingOffers ?? [])
+            .map((p) => p.manager_offers.created_by)
+            .filter(Boolean) as string[],
+        ),
+      ),
+    [pendingOffers],
+  );
+  const { data: offerCreators } = useQuery({
+    queryKey: ["branch-offer-creators", offerCreatorIds.join(",")],
+    enabled: offerCreatorIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("get_profile_names", {
+        _ids: offerCreatorIds,
+      });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; full_name: string | null }>;
+    },
+  });
+
   const { data: baselines } = useQuery({
     queryKey: ["branch-baselines", branchId],
     enabled: !!branchId,
