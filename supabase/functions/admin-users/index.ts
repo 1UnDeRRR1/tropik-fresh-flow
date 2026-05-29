@@ -8,7 +8,7 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Role = "super_admin" | "admin" | "import_manager" | "branch";
+type Role = "super_admin" | "admin" | "import_manager" | "branch" | "owner";
 
 interface Body {
   action:

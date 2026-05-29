@@ -42,7 +42,7 @@ interface UserRow {
   created_at: string;
 }
 
-const ROLES: AppRole[] = ["super_admin", "admin", "import_manager", "branch"];
+const ROLES: AppRole[] = ["super_admin", "admin", "import_manager", "branch", "owner"];
 
 async function callAdmin<T = unknown>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("admin-users", { body });
