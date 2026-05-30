@@ -731,6 +731,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         )}
       </nav>
+
+      {/* Reveal-handle: tiny chevron pill at the bottom edge that appears
+          only when the mobile nav is auto-hidden. Tapping it slides the nav
+          back up. Desktop is unaffected. */}
+      <button
+        type="button"
+        aria-label="Показати навігацію"
+        onClick={revealNav}
+        onPointerDown={revealNav}
+        className={cn(
+          "fixed bottom-0 left-1/2 z-40 -translate-x-1/2 md:hidden",
+          "rounded-t-xl border border-b-0 border-border bg-card/90 backdrop-blur",
+          "px-7 py-1.5 shadow-sm",
+          "transition-opacity duration-200",
+          navHidden ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 0.25rem)",
+        }}
+      >
+        <span className="block h-1 w-10 rounded-full bg-muted-foreground/50" />
+      </button>
     </div>
   );
 }
