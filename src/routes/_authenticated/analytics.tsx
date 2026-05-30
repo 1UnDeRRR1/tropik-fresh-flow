@@ -163,6 +163,14 @@ export function Analytics() {
   const [managerFilter, setManagerFilter] = useState<string>(ALL);
   const [branchFilter, setBranchFilter] = useState<string>(ALL);
 
+  // Branch-aware visible pallets: when a branch is selected, analytics totals
+  // must reflect ONLY that branch's allocation for the item, not the full
+  // shipment_item.pallet_count.
+  const getVisiblePallets = (f: Flat): number => {
+    if (branchFilter === ALL) return Number(f.item.pallet_count ?? 0);
+    return distByItem.get(f.item.id)?.get(branchFilter) ?? 0;
+  };
+
   // Leave-one-out helpers: each filter's options reflect the dataset
   // narrowed by all OTHER active filters (AND). The current selection is
   // preserved in its own list so the user can still switch values.
