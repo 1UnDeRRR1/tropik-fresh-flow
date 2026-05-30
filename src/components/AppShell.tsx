@@ -7,31 +7,122 @@ import { FxRateBadge } from "@/components/FxRateBadge";
 import { getOwnerBannerAssets, getPersonalAssets } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
+import { playTapSound, tapVibrate } from "@/lib/nav-feedback";
 
-import calendarMono from "@/assets/nav-icons/owner/calendar-mono.png";
-import calendarColor from "@/assets/nav-icons/owner/calendar-color.png";
-import analyticsMono from "@/assets/nav-icons/owner/analytics-mono.png";
-import analyticsColor from "@/assets/nav-icons/owner/analytics-color.png";
-import statisticsMono from "@/assets/nav-icons/owner/statistics-mono.png";
-import statisticsColor from "@/assets/nav-icons/owner/statistics-color.png";
-import profileMono from "@/assets/nav-icons/owner/profile-mono.png";
-import profileColor from "@/assets/nav-icons/owner/profile-color.png";
+import calendarNormal from "@/assets/nav-icons/owner/calendar-normal.png";
+import calendarPress from "@/assets/nav-icons/owner/calendar-press.png";
+import calendarSplash from "@/assets/nav-icons/owner/calendar-splash.png";
+import calendarRestore from "@/assets/nav-icons/owner/calendar-restore.png";
+import analyticsNormal from "@/assets/nav-icons/owner/analytics-normal.png";
+import analyticsPress from "@/assets/nav-icons/owner/analytics-press.png";
+import analyticsSplash from "@/assets/nav-icons/owner/analytics-splash.png";
+import analyticsRestore from "@/assets/nav-icons/owner/analytics-restore.png";
+import statisticsNormal from "@/assets/nav-icons/owner/statistics-normal.png";
+import statisticsPress from "@/assets/nav-icons/owner/statistics-press.png";
+import statisticsSplash from "@/assets/nav-icons/owner/statistics-splash.png";
+import statisticsRestore from "@/assets/nav-icons/owner/statistics-restore.png";
+import profileNormal from "@/assets/nav-icons/owner/profile-normal.png";
+import profilePress from "@/assets/nav-icons/owner/profile-press.png";
+import profileSplash from "@/assets/nav-icons/owner/profile-splash.png";
+import profileRestore from "@/assets/nav-icons/owner/profile-restore.png";
 
-// Owner mobile bottom-nav: pencil-sketch / muted-color icon pair per tab.
+// Owner mobile bottom-nav: squish-fruit icon set (4 frames per tab).
 // Only consumed in the mobile bottom-nav render path for owner role.
-const OWNER_NAV_ICONS: Record<
-  string,
-  { mono: string; color: string; activeColor: string }
-> = {
-  "/owner/calendar":   { mono: calendarMono,   color: calendarColor,   activeColor: "#b07a3a" },
-  "/owner/analytics":  { mono: analyticsMono,  color: analyticsColor,  activeColor: "#6b8a5a" },
-  "/owner/statistics": { mono: statisticsMono, color: statisticsColor, activeColor: "#a8624a" },
-  "/settings":         { mono: profileMono,    color: profileColor,    activeColor: "#5a7a92" },
+type OwnerFrame = "normal" | "press" | "splash" | "restore";
+type OwnerIconSet = {
+  normal: string;
+  press: string;
+  splash: string;
+  restore: string;
+  activeColor: string;
+};
+const OWNER_NAV_ICONS: Record<string, OwnerIconSet> = {
+  "/owner/calendar":   { normal: calendarNormal,   press: calendarPress,   splash: calendarSplash,   restore: calendarRestore,   activeColor: "#c0392b" },
+  "/owner/analytics":  { normal: analyticsNormal,  press: analyticsPress,  splash: analyticsSplash,  restore: analyticsRestore,  activeColor: "#2e7d32" },
+  "/owner/statistics": { normal: statisticsNormal, press: statisticsPress, splash: statisticsSplash, restore: statisticsRestore, activeColor: "#ef6c00" },
+  "/settings":         { normal: profileNormal,    press: profilePress,    splash: profileSplash,    restore: profileRestore,    activeColor: "#6a1b9a" },
 };
 const OWNER_NAV_LABEL_FONT =
   '"Caveat", "Patrick Hand", "Bradley Hand", "Segoe Script", cursive';
+
+function OwnerNavTab({
+  to,
+  label,
+  icons,
+  active,
+}: {
+  to: string;
+  label: string;
+  icons: OwnerIconSet;
+  active: boolean;
+}) {
+  const [frame, setFrame] = useState<OwnerFrame>("normal");
+  const timersRef = useRef<number[]>([]);
+
+  const clearTimers = () => {
+    for (const id of timersRef.current) window.clearTimeout(id);
+    timersRef.current = [];
+  };
+
+  useEffect(() => clearTimers, []);
+
+  const runSequence = () => {
+    clearTimers();
+    setFrame("press");
+    playTapSound();
+    tapVibrate(15);
+    timersRef.current.push(
+      window.setTimeout(() => setFrame("splash"), 80),
+      window.setTimeout(() => setFrame("restore"), 80 + 100),
+      window.setTimeout(() => setFrame("normal"), 80 + 100 + 180),
+    );
+  };
+
+  const cancel = () => {
+    clearTimers();
+    setFrame("normal");
+  };
+
+  // Source: active tab rests on `restore` (filled fruit); otherwise frame asset.
+  const src =
+    active && frame === "normal" ? icons.restore : icons[frame];
+
+  return (
+    <Link
+      to={to}
+      onPointerDown={runSequence}
+      onPointerCancel={cancel}
+      onPointerLeave={cancel}
+      className={cn(
+        "fruit-tap relative flex w-[64px] shrink-0 flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
+        "text-[#5a5048]",
+      )}
+    >
+      <span className="relative">
+        <img
+          src={src}
+          alt=""
+          width={28}
+          height={28}
+          className="h-7 w-7 select-none"
+          draggable={false}
+          decoding="async"
+        />
+      </span>
+      <span
+        className="whitespace-nowrap text-[11px] font-normal tracking-wide"
+        style={{
+          fontFamily: OWNER_NAV_LABEL_FONT,
+          color: active ? icons.activeColor : "#6b5e54",
+        }}
+      >
+        {label}
+      </span>
+    </Link>
+  );
+}
 
 
 
@@ -481,50 +572,35 @@ export function AppShell({ children }: { children: ReactNode }) {
               {items.map((it) => {
                 const active = isActive(it.to, it.label);
                 const ownerIcon = isOwner ? OWNER_NAV_ICONS[it.to] : undefined;
+                if (ownerIcon) {
+                  return (
+                    <OwnerNavTab
+                      key={it.to}
+                      to={it.to}
+                      label={it.label}
+                      icons={ownerIcon}
+                      active={active}
+                    />
+                  );
+                }
                 return (
                   <Link
                     key={it.to}
                     to={it.to}
                     className={cn(
                       "fruit-tap relative flex w-[64px] shrink-0 flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
-                      ownerIcon
-                        ? "text-[#5a5048]"
-                        : active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
+                      active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     <span className="relative">
-                      {ownerIcon ? (
-                        <img
-                          src={active ? ownerIcon.color : ownerIcon.mono}
-                          alt=""
-                          width={28}
-                          height={28}
-                          className="h-7 w-7 select-none"
-                          draggable={false}
-                          decoding="async"
-                        />
-                      ) : (
-                        <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
-                      )}
+                      <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
                       {it.badge && it.badge > 0 ? (
                         <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                           {it.badge > 99 ? "99+" : it.badge}
                         </span>
                       ) : null}
                     </span>
-                    {ownerIcon ? (
-                      <span
-                        className="whitespace-nowrap text-[11px] font-normal tracking-wide"
-                        style={{
-                          fontFamily: OWNER_NAV_LABEL_FONT,
-                          color: active ? ownerIcon.activeColor : "#6b5e54",
-                        }}
-                      >
-                        {it.label}
-                      </span>
-                    ) : (
-                      <span className="whitespace-nowrap">{it.label}</span>
-                    )}
+                    <span className="whitespace-nowrap">{it.label}</span>
                   </Link>
                 );
               })}
