@@ -385,12 +385,17 @@ export function Analytics() {
                 .map((f) => {
                   const it = f.item;
                   const sh = f.shipment;
-                  const pallets = Number(it.pallet_count ?? 0);
+                  const itemTotal = Number(it.pallet_count ?? 0);
+                  const visiblePallets = getVisiblePallets(f);
+                  const branchScoped = branchFilter !== ALL;
+                  const palletsForWeight = branchScoped ? visiblePallets : itemTotal;
                   const net = Number(it.net_weight_kg ?? 0);
-                  const weight = net > 0 ? net : pallets * Number(it.pallet_weight ?? 0);
+                  const weight = branchScoped
+                    ? palletsForWeight * Number(it.pallet_weight ?? 0)
+                    : (net > 0 ? net : itemTotal * Number(it.pallet_weight ?? 0));
                   const dist = distByItem.get(it.id);
                   const distributed = dist ? Array.from(dist.values()).reduce((a, b) => a + b, 0) : 0;
-                  const remaining = pallets - distributed;
+                  const remaining = itemTotal - distributed;
                   return (
                     <li key={`${sh.id}-${it.id}`}>
                       <button
@@ -402,15 +407,21 @@ export function Analytics() {
                           <span className="truncate text-sm font-semibold">
                             ETA {sh.eta ?? "—"}
                           </span>
-                          <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{pallets}п</span>
+                          <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{visiblePallets}п</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                           <span className="font-mono text-foreground">{sh.code}</span>
                           {it.caliber ? <span>·{it.caliber}</span> : null}
                           <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
                           <span>{Math.round(weight)} кг</span>
-                          <span className="text-success">розпод. {distributed}п</span>
-                          <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
+                          {branchScoped ? (
+                            <span className="text-muted-foreground">з {itemTotal}п усього</span>
+                          ) : (
+                            <>
+                              <span className="text-success">розпод. {distributed}п</span>
+                              <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
+                            </>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 text-[11px]">
                           <span className="text-muted-foreground">
