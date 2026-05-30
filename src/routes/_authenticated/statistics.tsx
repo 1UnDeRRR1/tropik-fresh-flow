@@ -757,12 +757,12 @@ export function StatisticsPage() {
           <EmptyState title="Немає закупок" hint={flatPeriod.length === 0 ? emptyHint : "За обраними фільтрами"} />
         ) : (
           <>
-            {renderPurchaseTable(previewRows)}
+            {renderPurchaseTable(fullTableExpanded ? rows : previewRows)}
             <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>Показано {Math.min(PREVIEW_LIMIT, rows.length)} з {rows.length}</span>
+              <span>Показано {fullTableExpanded ? rows.length : Math.min(PREVIEW_LIMIT, rows.length)} з {rows.length}</span>
               {rows.length > PREVIEW_LIMIT && (
-                <Button size="sm" variant="outline" onClick={() => setFullTableOpen(true)}>
-                  Розгорнути всі закупки
+                <Button size="sm" variant="outline" onClick={() => setFullTableExpanded(v => !v)}>
+                  {fullTableExpanded ? "Згорнути" : "Розгорнути всі закупки"}
                 </Button>
               )}
             </div>
