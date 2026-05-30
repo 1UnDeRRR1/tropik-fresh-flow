@@ -419,7 +419,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
       {/* Bottom nav: mobile only */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-safe md:hidden">
+      <nav className={cn(
+        "fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
+        isOwner && pathname.startsWith("/settings")
+          ? "bg-[#f3eadc]/85"
+          : "bg-card/95",
+      )}>
         {isBranch ? (
           <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
             {items.map((it) => {
