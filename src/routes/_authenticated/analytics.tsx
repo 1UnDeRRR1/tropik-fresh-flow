@@ -457,32 +457,48 @@ export function Analytics() {
             ? (() => {
                 const total = Number(openItem.item.pallet_count ?? 0);
                 const dist = distByItem.get(openItem.item.id);
-                const rows = dist
+                const allRows = dist
                   ? Array.from(dist.entries())
-                      .map(([bid, p]) => ({ branch: brMap.get(bid) ?? "—", pallets: p }))
+                      .map(([bid, p]) => ({ bid, branch: brMap.get(bid) ?? "—", pallets: p }))
                       .filter((r) => r.pallets > 0)
                       .sort((a, b) => a.branch.localeCompare(b.branch, "uk"))
                   : [];
-                const distributed = rows.reduce((a, b) => a + b.pallets, 0);
+                const branchScoped = branchFilter !== ALL;
+                const rows = branchScoped ? allRows.filter((r) => r.bid === branchFilter) : allRows;
+                const distributed = allRows.reduce((a, b) => a + b.pallets, 0);
                 const remaining = total - distributed;
+                const branchPallets = rows.reduce((a, b) => a + b.pallets, 0);
                 return (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-secondary px-2 py-1.5">
-                        <div className="text-[10px] text-muted-foreground">Всього</div>
-                        <div className="text-sm font-bold tabular-nums">{total}п</div>
-                      </div>
-                      <div className="rounded-lg bg-success/15 px-2 py-1.5">
-                        <div className="text-[10px] text-success">Розпод.</div>
-                        <div className="text-sm font-bold tabular-nums text-success">{distributed}п</div>
-                      </div>
-                      <div className={`rounded-lg px-2 py-1.5 ${remaining < 0 ? "bg-destructive/15" : "bg-warning/15"}`}>
-                        <div className={`text-[10px] ${remaining < 0 ? "text-destructive" : "text-warning"}`}>Залиш.</div>
-                        <div className={`text-sm font-bold tabular-nums ${remaining < 0 ? "text-destructive" : "text-warning"}`}>
-                          {remaining}п
+                    {branchScoped ? (
+                      <div className="grid grid-cols-2 gap-2 text-center">
+                        <div className="rounded-lg bg-brand/15 px-2 py-1.5">
+                          <div className="text-[10px] text-brand">Ця філія</div>
+                          <div className="text-sm font-bold tabular-nums text-brand">{branchPallets}п</div>
+                        </div>
+                        <div className="rounded-lg bg-secondary px-2 py-1.5">
+                          <div className="text-[10px] text-muted-foreground">Всього (глобально)</div>
+                          <div className="text-sm font-bold tabular-nums">{total}п</div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-secondary px-2 py-1.5">
+                          <div className="text-[10px] text-muted-foreground">Всього</div>
+                          <div className="text-sm font-bold tabular-nums">{total}п</div>
+                        </div>
+                        <div className="rounded-lg bg-success/15 px-2 py-1.5">
+                          <div className="text-[10px] text-success">Розпод.</div>
+                          <div className="text-sm font-bold tabular-nums text-success">{distributed}п</div>
+                        </div>
+                        <div className={`rounded-lg px-2 py-1.5 ${remaining < 0 ? "bg-destructive/15" : "bg-warning/15"}`}>
+                          <div className={`text-[10px] ${remaining < 0 ? "text-destructive" : "text-warning"}`}>Залиш.</div>
+                          <div className={`text-sm font-bold tabular-nums ${remaining < 0 ? "text-destructive" : "text-warning"}`}>
+                            {remaining}п
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {rows.length ? (
                       <ul className="divide-y divide-border rounded-xl border border-border">
