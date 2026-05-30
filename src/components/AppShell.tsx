@@ -531,15 +531,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="relative w-full overflow-hidden md:hidden"
             style={{ height: "calc(env(safe-area-inset-top) + 12rem)" }}
           >
-            <img
-              src={ownerMobileBanner.src}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ objectPosition: ownerMobileBanner.position }}
-              loading="eager"
-              decoding="async"
-              draggable={false}
-            />
+            <picture>
+              {/* WebP variant — exists for calendar/analytics/settings PNG
+                  banners (~280–425 KB vs ~3 MB PNG). grapes.jpeg has no
+                  .webp companion and falls through to the <img> fallback. */}
+              {ownerMobileBanner.src.endsWith(".png") && (
+                <source
+                  type="image/webp"
+                  srcSet={ownerMobileBanner.src.replace(/\.png$/, ".webp")}
+                />
+              )}
+              <img
+                src={ownerMobileBanner.src}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{ objectPosition: ownerMobileBanner.position }}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                draggable={false}
+              />
+            </picture>
           </div>
         )}
 
