@@ -148,8 +148,8 @@ export function StatisticsPage() {
     | { kind: CompareMode; key: string; label: string }
   >(null);
 
-  // Full purchases table dialog
-  const [fullTableOpen, setFullTableOpen] = useState(false);
+  // Full purchases table toggle
+  const [fullTableExpanded, setFullTableExpanded] = useState(false);
 
   const [from, to] = useMemo<[Date, Date]>(() => {
     if (mode === "month") {
