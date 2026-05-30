@@ -480,29 +480,57 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex w-max gap-1 px-2">
               {items.map((it) => {
                 const active = isActive(it.to, it.label);
+                const ownerIcon = isOwner ? OWNER_NAV_ICONS[it.to] : undefined;
                 return (
                   <Link
                     key={it.to}
                     to={it.to}
                     className={cn(
                       "fruit-tap relative flex w-[64px] shrink-0 flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
-                      active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
+                      ownerIcon
+                        ? "text-[#5a5048]"
+                        : active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     <span className="relative">
-                      <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
+                      {ownerIcon ? (
+                        <img
+                          src={active ? ownerIcon.color : ownerIcon.mono}
+                          alt=""
+                          width={28}
+                          height={28}
+                          className="h-7 w-7 select-none"
+                          draggable={false}
+                          decoding="async"
+                        />
+                      ) : (
+                        <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
+                      )}
                       {it.badge && it.badge > 0 ? (
                         <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
                           {it.badge > 99 ? "99+" : it.badge}
                         </span>
                       ) : null}
                     </span>
-                    <span className="whitespace-nowrap">{it.label}</span>
+                    {ownerIcon ? (
+                      <span
+                        className="whitespace-nowrap text-[11px] font-normal tracking-wide"
+                        style={{
+                          fontFamily: OWNER_NAV_LABEL_FONT,
+                          color: active ? ownerIcon.activeColor : "#6b5e54",
+                        }}
+                      >
+                        {it.label}
+                      </span>
+                    ) : (
+                      <span className="whitespace-nowrap">{it.label}</span>
+                    )}
                   </Link>
                 );
               })}
             </div>
           </div>
+
         )}
       </nav>
     </div>
