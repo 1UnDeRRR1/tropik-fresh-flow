@@ -21,44 +21,41 @@ function Settings() {
     navigate({ to: "/login" });
   };
 
-  // Owner mobile exit page: one local container, button on top of the free
-  // upper area of the artwork, single <img> with object-contain below. No
-  // background-image, no fixed layer, no overlay, no cover, no manual
-  // object-position. Desktop owner falls back to the plain layout.
+  // Owner exit: mobile = fixed viewport-slot between owner banner and bottom
+  // nav, asset prepared exactly for the 440x361 slot (1320x1083 PNG, ratio
+  // 1.2188:1). No background-image, no cover/contain/object-position, no
+  // second layer, no scroll. Desktop = plain button, no artwork.
   if (isOwner) {
     return (
-      <div className="relative space-y-4">
-        {/* Mobile owner exit area */}
+      <>
         <div
-          className="flex flex-col gap-4 md:hidden"
+          className="fixed left-0 right-0 z-20 overflow-hidden md:hidden"
           style={{
-            // Header on owner mobile = safe-area-top + 12rem banner + 0.5rem
-            // padding. Main has pb-28 (=7rem) for the bottom nav. Leave a
-            // small buffer so nothing slides under the nav.
-            minHeight:
-              "calc(100dvh - env(safe-area-inset-top) - 12rem - 0.5rem - 7rem - 1rem)",
+            top: "calc(env(safe-area-inset-top) + 12rem)",
+            bottom: "calc(env(safe-area-inset-bottom) + 3.7rem)",
           }}
         >
-          <Button
-            variant="outline"
-            className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
-            onClick={handleSignOut}
-          >
-            <LogOut className="mr-2 h-4 w-4" /> Вийти
-          </Button>
           <img
             src={ownerSettingsBg}
             alt=""
             aria-hidden="true"
-            className="min-h-0 w-full flex-1 object-contain"
+            className="absolute inset-0 h-full w-full"
             draggable={false}
-            loading="lazy"
             decoding="async"
           />
+          <div className="absolute left-0 right-0 top-0 px-4 pt-4">
+            <Button
+              variant="outline"
+              className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
+              onClick={handleSignOut}
+            >
+              <LogOut className="mr-2 h-4 w-4" /> Вийти
+            </Button>
+          </div>
         </div>
 
         {/* Desktop owner: plain button only, no artwork. */}
-        <div className="hidden md:block md:pt-3">
+        <div className="relative hidden space-y-4 md:block md:pt-3">
           <Button
             variant="outline"
             className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
@@ -67,7 +64,7 @@ function Settings() {
             <LogOut className="mr-2 h-4 w-4" /> Вийти
           </Button>
         </div>
-      </div>
+      </>
     );
   }
 
