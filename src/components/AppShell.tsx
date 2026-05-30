@@ -74,9 +74,9 @@ function OwnerNavTab({
     playTapSound();
     tapVibrate(15);
     timersRef.current.push(
-      window.setTimeout(() => setFrame("splash"), 80),
-      window.setTimeout(() => setFrame("restore"), 80 + 100),
-      window.setTimeout(() => setFrame("normal"), 80 + 100 + 180),
+      window.setTimeout(() => setFrame("splash"), 120),
+      window.setTimeout(() => setFrame("restore"), 380),
+      window.setTimeout(() => setFrame("normal"), 620),
     );
   };
 
