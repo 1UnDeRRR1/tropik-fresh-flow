@@ -93,8 +93,11 @@ function OwnerNavTab({
     <Link
       to={to}
       onPointerDown={runSequence}
+      // Only cancel on a real pointercancel (system gesture, scroll-steal).
+      // A normal pointerup / pointerleave must NOT abort the cycle — the
+      // user should see the full normal → press → splash → restore after a
+      // quick tap without holding their finger.
       onPointerCancel={cancel}
-      onPointerLeave={cancel}
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
       draggable={false}
