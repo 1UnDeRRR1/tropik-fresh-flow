@@ -353,6 +353,67 @@ export function AppShell({ children }: { children: ReactNode }) {
     return null;
   })();
 
+  // Auto-hide mobile bottom nav on scroll-down, reveal on scroll-up.
+  // Goals: free up vertical space for big tables without breaking taps,
+  // safe-area, badges, or routing. Desktop nav (md+) is unaffected.
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const keepVisibleUntilRef = useRef(0);
+
+  // Briefly force-show on every route change so the user sees where they
+  // landed and the fruit animation has time to settle.
+  useEffect(() => {
+    setNavHidden(false);
+    keepVisibleUntilRef.current = Date.now() + 1500;
+    lastScrollYRef.current = typeof window !== "undefined" ? window.scrollY : 0;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    lastScrollYRef.current = window.scrollY;
+    const onScroll = () => {
+      // Don't auto-hide while the soft keyboard is open — avoids flicker
+      // around focused inputs / selects / dropdowns.
+      const kb = parseFloat(
+        getComputedStyle(document.body).getPropertyValue("--keyboard-inset") || "0",
+      );
+      if (kb > 0) {
+        setNavHidden(false);
+        lastScrollYRef.current = window.scrollY;
+        return;
+      }
+      const y = window.scrollY;
+      const dy = y - lastScrollYRef.current;
+      // Within the protected window after a tap / route change, never hide.
+      if (Date.now() < keepVisibleUntilRef.current) {
+        lastScrollYRef.current = y;
+        return;
+      }
+      if (y < 48) {
+        setNavHidden(false);
+      } else if (dy > 8) {
+        setNavHidden(true);
+      } else if (dy < -8) {
+        setNavHidden(false);
+      }
+      lastScrollYRef.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Any tap inside the nav extends the visible window so the fruit
+  // animation gets to finish before auto-hide can re-engage.
+  const extendNavVisible = () => {
+    keepVisibleUntilRef.current = Date.now() + 800;
+  };
+
+  const revealNav = () => {
+    setNavHidden(false);
+    keepVisibleUntilRef.current = Date.now() + 1500;
+  };
+
+
 
   return (
     <div className="relative min-h-dvh">
