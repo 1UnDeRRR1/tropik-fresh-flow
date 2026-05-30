@@ -1,104 +1,58 @@
 
-# Fix: origin_country leak in shipment creation from offer
+## Scope (strict)
 
-## Scope (single file, local fix)
+Edit only:
+- `src/components/AppShell.tsx` — minimal additions for 4 owner mobile tabs
+- New assets: `src/assets/nav-icons/owner/` (8 PNG files)
 
-Only file changed:
-- `src/routes/_authenticated/shipments/new.tsx`
+Do NOT touch: styles.css, header, owner mobile banner, body bg, owner-settings-bg.png, layout, routes, other roles, other pages, desktop nav, backend, DB, RLS, auth, RPC, formulas, position_id, badge logic, pb-safe, bg-card/95, owner /settings bg-[#f3eadc]/85.
 
-No helper file is needed. The bug is fully contained in two adjacent blocks of this route (the `fromOfferPrefill` query and the supplier auto-pick effect). Extracting a helper would expand scope and touch shared code, which is explicitly out of scope.
+## Step 1 — Generate 8 PNG icons (Variant 1: pencil sketch ↔ muted color)
 
-## Root cause
+Path: `src/assets/nav-icons/owner/`
+Size: 512×512 transparent PNG (rendered at 28×28 CSS).
+Style: hand-drawn graphite pencil sketch on transparent canvas; mono uses soft graphite (#3a3a3a-ish); color uses muted watercolor/pencil tints — identical geometry to mono, only differs in fill/tint.
 
-In `src/routes/_authenticated/shipments/new.tsx`:
+Files:
+- `calendar-mono.png` / `calendar-color.png` — desk calendar with spiral
+- `analytics-mono.png` / `analytics-color.png` — 3 bars + trend arrow
+- `statistics-mono.png` / `statistics-color.png` — pie chart
+- `profile-mono.png` / `profile-color.png` — bust silhouette
 
-1. Line ~364 — prefill returns:
-   ```ts
-   country: linkedShipment?.country ?? offer.origin_country ?? null
-   ```
-   This makes product `origin_country` fall through as the shipment/loading country whenever there is no linked shipment.
+Active palette (muted, no neon): warm amber, sage, terracotta, dusty blue — picked to feel like one set.
 
-2. Lines ~380–410 — when there is no linked-shipment supplier, the effect uses `fromOfferPrefill.country` (which, per #1, may actually be `origin_country`) as `targetCountry` and filters `suppliers` by `supplier.country === targetCountry`, auto-selecting the first match.
+## Step 2 — Edit `src/components/AppShell.tsx`
 
-3. Lines ~373–378 — the country-prefill effect then writes that same `fromOfferPrefill.country` into the shipment `country` state, which downstream feeds the shipment code's country segment and the vehicle code (`previewCc = getCountryCode(country)`).
+Add imports for 8 assets + a map keyed by pathname:
 
-Net effect with Mango / Peru: `origin_country = "Peru"` propagates into shipment country, vehicle/shipment code country segment, and supplier filter — violating the country-separation rule.
+```ts
+import calendarMono from "@/assets/nav-icons/owner/calendar-mono.png";
+import calendarColor from "@/assets/nav-icons/owner/calendar-color.png";
+// ...same for analytics, statistics, profile
 
-## Exact logic to remove
+const ownerNavIcons: Record<string, { mono: string; color: string; activeColor: string }> = {
+  "/owner/calendar":   { mono: calendarMono,   color: calendarColor,   activeColor: "#b07a3a" },
+  "/owner/analytics":  { mono: analyticsMono,  color: analyticsColor,  activeColor: "#6b8a5a" },
+  "/owner/statistics": { mono: statisticsMono, color: statisticsColor, activeColor: "#a8624a" },
+  "/settings":         { mono: profileMono,    color: profileColor,    activeColor: "#5a7a92" },
+};
+```
 
-In `src/routes/_authenticated/shipments/new.tsx`:
+In the mobile bottom-nav `NavItem` render path, for owner role only, if the item's `to` matches a key in `ownerNavIcons`:
+- replace the lucide `<Icon />` with `<img src={isActive ? color : mono} width={28} height={28} alt="" />`
+- apply pencil-style class to the existing label span: inactive → `text-[#5a5048] font-light tracking-wide` (graphite); active → inline `style={{ color: activeColor }}` + same weight/tracking
+- pick a handwritten-looking system fallback stack via inline `fontFamily: '"Caveat", "Patrick Hand", "Bradley Hand", cursive'` (Caveat/Patrick Hand are not installed — fallback chain ends at `cursive`, system handwriting fonts render on iOS/Android)
 
-1. In the `fromOfferPrefill` queryFn return object, remove the `?? offer.origin_country` fallback:
-   ```ts
-   // remove:
-   country: linkedShipment?.country ?? offer.origin_country ?? null,
-   ```
+No layout/grid/padding/pb-safe/bg changes. Other tabs / other roles / desktop sidebar untouched.
 
-2. Drop `origin_country` from the offer `.select(...)` on line ~345 (no other consumer of `fromOfferPrefill` reads it).
+## Step 3 — QA
 
-3. In the supplier auto-pick effect (lines ~380–410), remove the entire country-based fallback branch:
-   - `const targetCountry = normalizeCountry(fromOfferPrefill.country ?? "");`
-   - the `scopedManagerId` / `scopedPool` / `pools` block
-   - the `for (const pool of pools) { ... countryMatches ... setSupplierId(countryMatches[0].id) ... }` loop
+Screenshot owner mobile bottom nav at 440×612 showing inactive (mono pencil + graphite label) and active state (color icon + muted colored label). If 28×28 + labels look cramped/illegible → STOP, do not change layout, report back proposing an auto-hide expandable panel as a separate task.
 
-## Exact new logic to add
+## Deliverables in reply
 
-1. New prefill shape (no origin fallback):
-   ```ts
-   return {
-     supplierId: linkedShipment?.supplier_id ?? null,
-     country: linkedShipment?.country ?? null,           // only from linked shipment
-     offerManagerId: offer.import_manager_id ?? null,
-     offerPositionId: (offer as { position_id?: string | null }).position_id ?? null,
-   };
-   ```
-
-2. Supplier auto-pick effect, reduced to direct linked-shipment supplier only:
-   ```ts
-   useEffect(() => {
-     if (supplierId || !fromOfferPrefill || !suppliers?.length) return;
-     if (!fromOfferPrefill.supplierId) return;           // no linked shipment → no auto-pick
-     const directSupplier = suppliers.find(s => s.id === fromOfferPrefill.supplierId);
-     if (directSupplier) setSupplierId(directSupplier.id);
-   }, [fromOfferPrefill, suppliers, supplierId]);
-   ```
-   (Drop `currentManagerId` from the deps list since it is no longer used here.)
-
-3. Country prefill effect (lines ~373–378) stays as-is in structure — but because `fromOfferPrefill.country` is now `null` unless a linked shipment exists, it naturally no longer prefills from `origin_country`. No code change required there beyond verifying behavior.
-
-4. Re: business rule #3 ("direct `supplier_id` on offer"): confirmed via `\d manager_offers` that `manager_offers` has no `supplier_id` column today. The only direct supplier source is `linked_shipment.supplier_id`, which is preserved. No new column, no new query — explicitly out of scope.
-
-## Result vs. regression scenario
-
-Mango / `origin_country = Peru`, no linked shipment:
-- `fromOfferPrefill.country` → `null` → shipment `country` stays empty → manager picks it manually.
-- Supplier auto-pick early-returns (no `supplierId` from linked shipment) → supplier list is not filtered by Peru, nothing auto-selected.
-- `previewCc` / shipment code country segment is driven solely by the manually selected `country`.
-- Peru remains only as product origin on the offer record.
-
-With a linked shipment:
-- Country comes only from `linkedShipment.country`.
-- Supplier comes only from `linkedShipment.supplier_id`.
-
-## Out of scope — explicit confirmation
-
-No changes to:
-- DB / schema / migrations / RLS / triggers / RPCs / enums / indexes
-- routes, route tree, navigation, tabs, buttons
-- UI layout of `shipments/new.tsx` (only the two effect/query bodies above)
-- product-entry screen, manager-offers screens, branch screens, loading plan, distribution
-- shared components (AppShell, InlineAutocomplete, AutocompleteCell, etc.)
-- `manager_offer_allocation_parts` and related RPCs
-- any other file in `src/`
-
-## Manual smoke test
-
-1. Open an offer with `origin_country = Peru` and no `linked_shipment_id`. Click "Create shipment from offer".
-   - Expect: shipment country field is empty; vehicle/shipment code preview has no country segment; supplier field is empty; supplier dropdown shows the full allowed list (not filtered to Peru).
-2. Manually select loading country = Turkey, then pick a Turkish supplier.
-   - Expect: shipment code country segment reflects Turkey, not Peru.
-3. Open an offer whose `linked_shipment_id` points to a shipment with `country = Turkey`, `supplier_id = X`.
-   - Expect: country prefills to Turkey; supplier prefills to X; no Peru anywhere.
-4. Open an offer with `linked_shipment_id` set but the shipment has `country = null` and `supplier_id = null`.
-   - Expect: country empty, supplier empty, no fallback to `origin_country`.
-5. Sanity: existing "create shipment" flow (not from offer) is unchanged — country and supplier behave as before.
+1. Changed files list
+2. Names of 8 created assets
+3. Final AppShell snippet wiring owner icons + labels
+4. Screenshot of owner mobile bottom nav
+5. Confirmation nothing else changed
