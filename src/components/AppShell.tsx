@@ -95,8 +95,17 @@ function OwnerNavTab({
       onPointerDown={runSequence}
       onPointerCancel={cancel}
       onPointerLeave={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+      draggable={false}
+      style={{
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        touchAction: "manipulation",
+      }}
       className={cn(
-        "fruit-tap relative flex w-[64px] shrink-0 flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
+        "fruit-tap relative flex flex-col items-center justify-center py-1 font-medium leading-tight transition",
         "text-[#5a5048]",
       )}
     >
@@ -104,15 +113,15 @@ function OwnerNavTab({
         <img
           src={src}
           alt=""
-          width={28}
-          height={28}
-          className="h-7 w-7 select-none"
+          width={48}
+          height={48}
+          className="h-12 w-12 select-none pointer-events-none"
           draggable={false}
           decoding="async"
         />
       </span>
       <span
-        className="whitespace-nowrap text-[11px] font-normal tracking-wide"
+        className="whitespace-nowrap text-[12px] font-normal tracking-wide"
         style={{
           fontFamily: OWNER_NAV_LABEL_FONT,
           color: active ? icons.activeColor : "#6b5e54",
