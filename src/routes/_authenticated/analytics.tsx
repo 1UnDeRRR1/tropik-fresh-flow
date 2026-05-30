@@ -288,8 +288,8 @@ export function Analytics() {
   const [openItem, setOpenItem] = useState<Flat | null>(null);
 
   const totalPallets = useMemo(
-    () => filteredFlat.reduce((a, f) => a + Number(f.item.pallet_count ?? 0), 0),
-    [filteredFlat],
+    () => filteredFlat.reduce((a, f) => a + getVisiblePallets(f), 0),
+    [filteredFlat, branchFilter, distByItem],
   );
   const positionsCount = useMemo(
     () => countPositionsFromGroups(groups, (g) => g.product),
