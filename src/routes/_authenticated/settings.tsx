@@ -21,37 +21,34 @@ function Settings() {
     navigate({ to: "/login" });
   };
 
-  // Owner exit: mobile = fixed viewport-slot between owner banner and bottom
-  // nav, asset prepared exactly for the 440x361 slot (1320x1083 PNG, ratio
-  // 1.2188:1). No background-image, no cover/contain/object-position, no
-  // second layer, no scroll. Desktop = plain button, no artwork.
+  // Owner exit: mobile = same proven mechanism as Lukach's profile background
+  // (fixed inset-0 layer, object-cover object-center, no slot math, no
+  // object-fill, no transform/scale). Exit button overlays the background.
+  // Desktop = plain button, no artwork.
   if (isOwner) {
     return (
       <>
         <div
-          className="fixed left-0 right-0 z-20 overflow-hidden md:hidden"
-          style={{
-            top: "calc(env(safe-area-inset-top) + 12rem)",
-            bottom: "calc(env(safe-area-inset-bottom) + 3.7rem)",
-          }}
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background md:hidden"
         >
           <img
             src={ownerSettingsBg}
             alt=""
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full"
-            draggable={false}
+            className="h-full w-full object-cover object-center"
             decoding="async"
+            draggable={false}
           />
-          <div className="absolute left-0 right-0 top-0 px-4 pt-4">
-            <Button
-              variant="outline"
-              className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
-              onClick={handleSignOut}
-            >
-              <LogOut className="mr-2 h-4 w-4" /> Вийти
-            </Button>
-          </div>
+        </div>
+
+        <div className="relative z-10 space-y-4 pt-16 md:hidden">
+          <Button
+            variant="outline"
+            className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
+            onClick={handleSignOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" /> Вийти
+          </Button>
         </div>
 
         {/* Desktop owner: plain button only, no artwork. */}
@@ -67,6 +64,7 @@ function Settings() {
       </>
     );
   }
+
 
   // Non-owner roles: unchanged behaviour (personal profile bg + button).
   return (
