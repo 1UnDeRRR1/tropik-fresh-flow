@@ -93,8 +93,11 @@ function OwnerNavTab({
     <Link
       to={to}
       onPointerDown={runSequence}
+      // Only cancel on a real pointercancel (system gesture, scroll-steal).
+      // A normal pointerup / pointerleave must NOT abort the cycle — the
+      // user should see the full normal → press → splash → restore after a
+      // quick tap without holding their finger.
       onPointerCancel={cancel}
-      onPointerLeave={cancel}
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
       draggable={false}
@@ -350,6 +353,67 @@ export function AppShell({ children }: { children: ReactNode }) {
     return null;
   })();
 
+  // Auto-hide mobile bottom nav on scroll-down, reveal on scroll-up.
+  // Goals: free up vertical space for big tables without breaking taps,
+  // safe-area, badges, or routing. Desktop nav (md+) is unaffected.
+  const [navHidden, setNavHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const keepVisibleUntilRef = useRef(0);
+
+  // Briefly force-show on every route change so the user sees where they
+  // landed and the fruit animation has time to settle.
+  useEffect(() => {
+    setNavHidden(false);
+    keepVisibleUntilRef.current = Date.now() + 1500;
+    lastScrollYRef.current = typeof window !== "undefined" ? window.scrollY : 0;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    lastScrollYRef.current = window.scrollY;
+    const onScroll = () => {
+      // Don't auto-hide while the soft keyboard is open — avoids flicker
+      // around focused inputs / selects / dropdowns.
+      const kb = parseFloat(
+        getComputedStyle(document.body).getPropertyValue("--keyboard-inset") || "0",
+      );
+      if (kb > 0) {
+        setNavHidden(false);
+        lastScrollYRef.current = window.scrollY;
+        return;
+      }
+      const y = window.scrollY;
+      const dy = y - lastScrollYRef.current;
+      // Within the protected window after a tap / route change, never hide.
+      if (Date.now() < keepVisibleUntilRef.current) {
+        lastScrollYRef.current = y;
+        return;
+      }
+      if (y < 48) {
+        setNavHidden(false);
+      } else if (dy > 8) {
+        setNavHidden(true);
+      } else if (dy < -8) {
+        setNavHidden(false);
+      }
+      lastScrollYRef.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Any tap inside the nav extends the visible window so the fruit
+  // animation gets to finish before auto-hide can re-engage.
+  const extendNavVisible = () => {
+    keepVisibleUntilRef.current = Date.now() + 800;
+  };
+
+  const revealNav = () => {
+    setNavHidden(false);
+    keepVisibleUntilRef.current = Date.now() + 1500;
+  };
+
+
 
   return (
     <div className="relative min-h-dvh">
@@ -542,13 +606,20 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
 
-      {/* Bottom nav: mobile only */}
-      <nav className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
-        isOwner && pathname.startsWith("/settings")
-          ? "bg-[#f3eadc]/85"
-          : "bg-card/95",
-      )}>
+      {/* Bottom nav: mobile only — auto-hides on scroll-down, re-shows on
+          scroll-up. A small handle is revealed when hidden so the user can
+          tap to bring the nav back without scrolling. */}
+      <nav
+        onPointerDownCapture={extendNavVisible}
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
+          "transition-transform duration-300 ease-out will-change-transform",
+          navHidden ? "translate-y-full" : "translate-y-0",
+          isOwner && pathname.startsWith("/settings")
+            ? "bg-[#f3eadc]/85"
+            : "bg-card/95",
+        )}
+      >
         {isBranch ? (
           <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
             {items.map((it) => {
@@ -660,6 +731,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         )}
       </nav>
+
+      {/* Reveal-handle: tiny chevron pill at the bottom edge that appears
+          only when the mobile nav is auto-hidden. Tapping it slides the nav
+          back up. Desktop is unaffected. */}
+      <button
+        type="button"
+        aria-label="Показати навігацію"
+        onClick={revealNav}
+        onPointerDown={revealNav}
+        className={cn(
+          "fixed bottom-0 left-1/2 z-40 -translate-x-1/2 md:hidden",
+          "rounded-t-xl border border-b-0 border-border bg-card/90 backdrop-blur",
+          "px-7 py-1.5 shadow-sm",
+          "transition-opacity duration-200",
+          navHidden ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 0.25rem)",
+        }}
+      >
+        <span className="block h-1 w-10 rounded-full bg-muted-foreground/50" />
+      </button>
     </div>
   );
 }
