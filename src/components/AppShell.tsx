@@ -575,6 +575,48 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </div>
+        ) : isOwner ? (
+          <div className="mx-auto grid max-w-3xl grid-cols-4 px-2">
+            {items.map((it) => {
+              const active = isActive(it.to, it.label);
+              const ownerIcon = OWNER_NAV_ICONS[it.to];
+              if (ownerIcon) {
+                return (
+                  <OwnerNavTab
+                    key={it.to}
+                    to={it.to}
+                    label={it.label}
+                    icons={ownerIcon}
+                    active={active}
+                  />
+                );
+              }
+              return (
+                <Link
+                  key={it.to}
+                  to={it.to}
+                  onContextMenu={(e) => e.preventDefault()}
+                  onDragStart={(e) => e.preventDefault()}
+                  draggable={false}
+                  style={{
+                    WebkitTouchCallout: "none",
+                    WebkitUserSelect: "none",
+                    userSelect: "none",
+                    touchAction: "manipulation",
+                  }}
+                  className={cn(
+                    "fruit-tap relative flex flex-col items-center justify-center py-1 text-[12px] font-medium leading-tight transition",
+                    active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span className="relative">
+                    <FruitIcon name={labelToFruit(it.label)} className="h-12 w-12 text-[40px]" />
+                  </span>
+                  <span className="whitespace-nowrap">{it.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         ) : (
           <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:auto] [&::-webkit-scrollbar]:hidden">
             <div className="flex w-max gap-1 px-2">
