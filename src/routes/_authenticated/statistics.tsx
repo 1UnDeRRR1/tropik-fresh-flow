@@ -148,8 +148,8 @@ export function StatisticsPage() {
     | { kind: CompareMode; key: string; label: string }
   >(null);
 
-  // Full purchases table dialog
-  const [fullTableOpen, setFullTableOpen] = useState(false);
+  // Full purchases table toggle
+  const [fullTableExpanded, setFullTableExpanded] = useState(false);
 
   const [from, to] = useMemo<[Date, Date]>(() => {
     if (mode === "month") {
@@ -757,12 +757,12 @@ export function StatisticsPage() {
           <EmptyState title="Немає закупок" hint={flatPeriod.length === 0 ? emptyHint : "За обраними фільтрами"} />
         ) : (
           <>
-            {renderPurchaseTable(previewRows)}
+            {renderPurchaseTable(fullTableExpanded ? rows : previewRows)}
             <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>Показано {Math.min(PREVIEW_LIMIT, rows.length)} з {rows.length}</span>
+              <span>Показано {fullTableExpanded ? rows.length : Math.min(PREVIEW_LIMIT, rows.length)} з {rows.length}</span>
               {rows.length > PREVIEW_LIMIT && (
-                <Button size="sm" variant="outline" onClick={() => setFullTableOpen(true)}>
-                  Розгорнути всі закупки
+                <Button size="sm" variant="outline" onClick={() => setFullTableExpanded(v => !v)}>
+                  {fullTableExpanded ? "Згорнути" : "Розгорнути всі закупки"}
                 </Button>
               )}
             </div>
@@ -809,16 +809,6 @@ export function StatisticsPage() {
           ) : (
             renderDetailList(drillRows)
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* FULL PURCHASES DIALOG — same list layout */}
-      <Dialog open={fullTableOpen} onOpenChange={setFullTableOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="pr-10 text-base break-words">Товари — закупки ({rows.length})</DialogTitle>
-          </DialogHeader>
-          {rows.length === 0 ? <EmptyState title="Немає рядків" /> : renderDetailList(rows)}
         </DialogContent>
       </Dialog>
     </div>
