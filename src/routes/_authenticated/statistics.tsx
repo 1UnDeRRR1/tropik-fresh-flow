@@ -811,16 +811,6 @@ export function StatisticsPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* FULL PURCHASES DIALOG — same list layout */}
-      <Dialog open={fullTableOpen} onOpenChange={setFullTableOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="pr-10 text-base break-words">Товари — закупки ({rows.length})</DialogTitle>
-          </DialogHeader>
-          {rows.length === 0 ? <EmptyState title="Немає рядків" /> : renderDetailList(rows)}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
