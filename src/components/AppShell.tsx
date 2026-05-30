@@ -10,6 +10,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
+import calendarMono from "@/assets/nav-icons/owner/calendar-mono.png";
+import calendarColor from "@/assets/nav-icons/owner/calendar-color.png";
+import analyticsMono from "@/assets/nav-icons/owner/analytics-mono.png";
+import analyticsColor from "@/assets/nav-icons/owner/analytics-color.png";
+import statisticsMono from "@/assets/nav-icons/owner/statistics-mono.png";
+import statisticsColor from "@/assets/nav-icons/owner/statistics-color.png";
+import profileMono from "@/assets/nav-icons/owner/profile-mono.png";
+import profileColor from "@/assets/nav-icons/owner/profile-color.png";
+
+// Owner mobile bottom-nav: pencil-sketch / muted-color icon pair per tab.
+// Only consumed in the mobile bottom-nav render path for owner role.
+const OWNER_NAV_ICONS: Record<
+  string,
+  { mono: string; color: string; activeColor: string }
+> = {
+  "/owner/calendar":   { mono: calendarMono,   color: calendarColor,   activeColor: "#b07a3a" },
+  "/owner/analytics":  { mono: analyticsMono,  color: analyticsColor,  activeColor: "#6b8a5a" },
+  "/owner/statistics": { mono: statisticsMono, color: statisticsColor, activeColor: "#a8624a" },
+  "/settings":         { mono: profileMono,    color: profileColor,    activeColor: "#5a7a92" },
+};
+const OWNER_NAV_LABEL_FONT =
+  '"Caveat", "Patrick Hand", "Bradley Hand", "Segoe Script", cursive';
+
+
 
 interface NavItem {
   to: string;
