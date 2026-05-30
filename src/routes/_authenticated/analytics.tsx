@@ -270,7 +270,7 @@ export function Analytics() {
       const key = `${product}__${country}`;
       const g =
         m.get(key) ?? { key, product, country, pallets: 0, positions: 0, shipments: 0, flats: [] };
-      g.pallets += Number(f.item.pallet_count ?? 0);
+      g.pallets += getVisiblePallets(f);
       g.positions += 1;
       g.flats.push(f);
       m.set(key, g);
