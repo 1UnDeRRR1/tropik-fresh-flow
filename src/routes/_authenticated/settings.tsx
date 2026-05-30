@@ -30,7 +30,8 @@ function Settings() {
       <>
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background md:hidden"
+          className="pointer-events-none fixed inset-x-0 top-0 z-0 overflow-hidden md:hidden"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 3.7rem)" }}
         >
           <img
             src={ownerSettingsBg}
