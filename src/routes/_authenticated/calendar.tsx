@@ -345,17 +345,25 @@ export function CalendarPage() {
                           className="w-full py-2 text-left text-sm active:opacity-70"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-xs font-bold text-brand">{e.sh.code}</span>
+                            <div className="text-sm font-medium text-foreground">
+                              {e.it.product_name}
+                              {e.it.origin_country ? (
+                                <span className="text-muted-foreground"> · {e.it.origin_country}</span>
+                              ) : null}
+                              <span className="text-muted-foreground">
+                                {" · "}
+                                <span className="font-bold tabular-nums text-brand">{getVisiblePallets(e)}п</span>
+                              </span>
+                            </div>
                             <CostPair indicative={e.it.final_cost_indicative} invoice={e.it.final_cost_invoice} suffix=" кг" size="xs" />
                           </div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground">{e.it.product_name}</span>
-                            {e.it.origin_country ? (
-                              <span> · {e.it.origin_country}</span>
-                            ) : null}
-                            <span> · <span className="font-bold tabular-nums text-brand">{getVisiblePallets(e)}п</span></span>
+                            <span className="font-mono text-xs font-bold text-brand">{e.sh.code}</span>
                             {isStaffAll && mgrName ? (
-                              <span> · <span className="text-foreground">{surname(mgrName)}</span></span>
+                              <span>
+                                {" · "}
+                                <span className="text-foreground">{surname(mgrName)}</span>
+                              </span>
                             ) : null}
                           </div>
                         </button>
