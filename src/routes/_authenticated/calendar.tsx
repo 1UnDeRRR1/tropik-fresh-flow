@@ -323,7 +323,7 @@ export function CalendarPage() {
       ) : (
         <div className="space-y-3">
           {grouped.map((d) => {
-            const totalPallets = d.entries.reduce((s, e) => s + Number(e.it.pallet_count ?? 0), 0);
+            const totalPallets = d.entries.reduce((s, e) => s + getVisiblePallets(e), 0);
             return (
               <SectionCard
                 key={d.iso}
