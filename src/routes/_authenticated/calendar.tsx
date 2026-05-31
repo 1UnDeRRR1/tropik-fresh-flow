@@ -153,16 +153,36 @@ export function CalendarPage() {
     return out;
   }, [data, fromISO]);
 
-  // Filter options — leave-one-out: each option list reflects the dataset
-  // narrowed by all OTHER active filters (AND), so options stay in sync with
-  // the current selection without removing the active value itself.
+  // Branch-aware visible pallets: when a branch is selected, totals reflect
+  // ONLY that branch's allocation for the item, not the full pallet_count.
+  const getVisiblePallets = (e: Entry): number => {
+    if (branchFilter === ALL) return Number(e.it.pallet_count ?? 0);
+    return distByItem.get(e.it.id)?.get(branchFilter) ?? 0;
+  };
+
+  // Leave-one-out: each filter's options reflect the dataset narrowed by all
+  // OTHER active filters (AND). The active value is preserved in its own list.
+  const passes = (
+    e: Entry,
+    excl: "product" | "country" | "manager" | "branch" | null,
+  ) => {
+    if (excl !== "product" && productFilter !== ALL && e.it.product_name.trim() !== productFilter) return false;
+    if (excl !== "country" && countryFilter !== ALL) {
+      const c = (e.it.origin_country ?? "").trim();
+      if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+    }
+    if (excl !== "manager" && managerFilter !== ALL && e.sh.import_manager_id !== managerFilter) return false;
+    if (excl !== "branch" && branchFilter !== ALL) {
+      const inner = distByItem.get(e.it.id);
+      if (!inner || (inner.get(branchFilter) ?? 0) <= 0) return false;
+    }
+    return true;
+  };
+
   const productOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of allEntries) {
-      if (countryFilter !== ALL) {
-        const c = (e.it.origin_country ?? "").trim();
-        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) continue;
-      }
+      if (!passes(e, "product")) continue;
       const name = e.it.product_name.trim();
       if (name) set.add(name);
     }
@@ -170,14 +190,13 @@ export function CalendarPage() {
     return Array.from(set)
       .sort((a, b) => a.localeCompare(b, "uk"))
       .map((name) => ({ value: name, label: name }));
-  }, [allEntries, countryFilter, productFilter]);
+  }, [allEntries, countryFilter, managerFilter, branchFilter, productFilter, distByItem]);
 
-  // Country options: distinct product origin only (NEVER fallback to shipment.country)
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
     let hasMissing = false;
     for (const e of allEntries) {
-      if (productFilter !== ALL && e.it.product_name.trim() !== productFilter) continue;
+      if (!passes(e, "country")) continue;
       const c = (e.it.origin_country ?? "").trim();
       if (c) set.add(c);
       else hasMissing = true;
@@ -187,18 +206,41 @@ export function CalendarPage() {
       .map((c) => ({ value: c, label: c }));
     if (hasMissing || countryFilter === NO_COUNTRY) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
     return arr;
-  }, [allEntries, productFilter, countryFilter]);
+  }, [allEntries, productFilter, managerFilter, branchFilter, countryFilter, distByItem]);
+
+  const managerOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of allEntries) {
+      if (!passes(e, "manager")) continue;
+      const id = e.sh.import_manager_id;
+      if (id) ids.add(id);
+    }
+    if (managerFilter !== ALL) ids.add(managerFilter);
+    return Array.from(ids)
+      .map((id) => ({ value: id, label: mgrMap.get(id) ?? "— Менеджер не знайдений" }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [allEntries, productFilter, countryFilter, branchFilter, managerFilter, distByItem, mgrMap]);
+
+  const branchOptions = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of allEntries) {
+      if (!passes(e, "branch")) continue;
+      const inner = distByItem.get(e.it.id);
+      if (!inner) continue;
+      for (const [bid, p] of inner.entries()) {
+        if (Number(p) > 0) ids.add(bid);
+      }
+    }
+    if (branchFilter !== ALL) ids.add(branchFilter);
+    return (data?.branches ?? [])
+      .filter((b) => ids.has(b.id))
+      .map((b) => ({ value: b.id, label: b.name }))
+      .sort((a, b) => a.label.localeCompare(b.label, "uk"));
+  }, [allEntries, productFilter, countryFilter, managerFilter, branchFilter, distByItem, data]);
 
   const filtered = useMemo(() => {
-    return allEntries.filter((e) => {
-      if (productFilter !== ALL && e.it.product_name.trim() !== productFilter) return false;
-      if (countryFilter !== ALL) {
-        const c = (e.it.origin_country ?? "").trim();
-        if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
-      }
-      return true;
-    });
-  }, [allEntries, productFilter, countryFilter]);
+    return allEntries.filter((e) => passes(e, null));
+  }, [allEntries, productFilter, countryFilter, managerFilter, branchFilter, distByItem]);
 
   // Group by arrival date (only non-empty)
   const grouped = useMemo(() => {
@@ -218,48 +260,61 @@ export function CalendarPage() {
       });
   }, [filtered]);
 
-  const hasAnyFilter = productFilter !== ALL || countryFilter !== ALL;
+  const hasAnyFilter =
+    productFilter !== ALL || countryFilter !== ALL || managerFilter !== ALL || branchFilter !== ALL;
   const totalFilteredPallets = useMemo(
-    () => filtered.reduce((s, e) => s + Number(e.it.pallet_count ?? 0), 0),
-    [filtered],
+    () => filtered.reduce((s, e) => s + getVisiblePallets(e), 0),
+    [filtered, branchFilter, distByItem],
   );
+  const totalShipments = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of filtered) s.add(e.sh.id);
+    return s.size;
+  }, [filtered]);
+  const positionsCount = useMemo(() => {
+    const keys = new Map<string, string>();
+    for (const e of filtered) {
+      const product = e.it.product_name.trim();
+      const country = (e.it.origin_country ?? "").trim();
+      const key = `${product}__${country}`;
+      if (!keys.has(key)) keys.set(key, product);
+    }
+    const groups = Array.from(keys.entries()).map(([, product]) => ({ product }));
+    return countPositionsFromGroups(groups, (g) => g.product);
+  }, [filtered]);
 
   return (
     <div className="space-y-4">
       <PageHeader title="Календар" subtitle="Активні поставки за датами прибуття" />
 
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex items-end gap-2">
-          <div className="min-w-0 flex-1">
+      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
-            <CompactFilterSelect
-              value={productFilter}
-              onChange={setProductFilter}
-              options={productOptions}
-              allLabel="Всі товари"
-              allValue={ALL}
-              aliases={productAliases}
-            />
+            <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
           </div>
-          <div className="min-w-0 flex-1">
+          <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
-            <CompactFilterSelect
-              value={countryFilter}
-              onChange={setCountryFilter}
-              options={countryOptions}
-              allLabel="Всі країни"
-              allValue={ALL}
-              aliases={countryAliases}
-            />
+            <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
           </div>
-          <span
-            className="shrink-0 self-stretch flex items-center rounded-md bg-brand/10 px-2 text-sm font-bold tabular-nums text-brand"
-            title="Палет за поточним фільтром"
-          >
-            {totalFilteredPallets}п
-          </span>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Менеджер</label>
+            <CompactFilterSelect value={managerFilter} onChange={setManagerFilter} options={managerOptions} allLabel="Всі менеджери" allValue={ALL} searchable={false} />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Філія</label>
+            <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} searchable={false} />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <div className="rounded-md bg-destructive/5 px-2 py-1 text-xs text-muted-foreground">
+            <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
+            <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
+            <span className="font-bold tabular-nums text-brand">{totalFilteredPallets}п</span>
+          </div>
         </div>
       </div>
+
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
