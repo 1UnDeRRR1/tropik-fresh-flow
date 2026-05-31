@@ -345,24 +345,22 @@ export function CalendarPage() {
                           className="w-full py-2 text-left text-sm active:opacity-70"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium text-foreground">
+                            <div className="text-sm font-bold text-foreground">
                               {e.it.product_name}
                               {e.it.origin_country ? (
-                                <span className="text-muted-foreground"> · {e.it.origin_country}</span>
+                                <span> · {e.it.origin_country}</span>
                               ) : null}
-                              <span className="text-muted-foreground">
-                                {" · "}
-                                <span className="font-bold tabular-nums text-brand">{getVisiblePallets(e)}п</span>
-                              </span>
+                              {" · "}
+                              <span className="tabular-nums text-brand">{getVisiblePallets(e)}п</span>
                             </div>
                             <CostPair indicative={e.it.final_cost_indicative} invoice={e.it.final_cost_invoice} suffix=" кг" size="xs" />
                           </div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">
-                            <span className="font-mono text-xs font-bold text-brand">{e.sh.code}</span>
+                          <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                            <span className="font-mono">{e.sh.code}</span>
                             {isStaffAll && mgrName ? (
                               <span>
                                 {" · "}
-                                <span className="text-foreground">{surname(mgrName)}</span>
+                                <span>{surname(mgrName)}</span>
                               </span>
                             ) : null}
                           </div>
