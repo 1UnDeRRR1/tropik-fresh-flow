@@ -78,6 +78,8 @@ export function CalendarPage() {
   const countryAliases = useCountryAliases();
   const [productFilter, setProductFilter] = useState<string>(ALL);
   const [countryFilter, setCountryFilter] = useState<string>(ALL);
+  const [managerFilter, setManagerFilter] = useState<string>(ALL);
+  const [branchFilter, setBranchFilter] = useState<string>(ALL);
   const [openItem, setOpenItem] = useState<{ sh: ShipmentRow; it: ShipmentItem } | null>(null);
 
   const today = new Date();
