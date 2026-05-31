@@ -13,6 +13,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useReadOnly } from "@/components/ReadOnlyShell";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
