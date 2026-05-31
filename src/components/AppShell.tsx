@@ -71,7 +71,6 @@ function OwnerNavTab({
   const runSequence = () => {
     clearTimers();
     setFrame("press");
-    playTapSound();
     tapVibrate(15);
     timersRef.current.push(
       window.setTimeout(() => setFrame("splash"), 120),
