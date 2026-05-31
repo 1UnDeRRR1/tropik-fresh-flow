@@ -327,10 +327,12 @@ export function Analytics() {
               <CompactFilterSelect value={branchFilter} onChange={setBranchFilter} options={branchOptions} allLabel="Всі філії" allValue={ALL} searchable={false} />
             </div>
           </div>
-          <div className="text-right text-xs text-muted-foreground">
-            <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
-            <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
-            <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
+          <div className="flex justify-end">
+            <div className="rounded-md bg-destructive/5 px-2 py-1 text-xs text-muted-foreground">
+              <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
+              <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
+              <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
+            </div>
           </div>
         </div>
       )}
