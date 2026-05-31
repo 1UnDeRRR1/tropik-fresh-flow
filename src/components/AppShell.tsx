@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
-import { playTapSound, tapVibrate } from "@/lib/nav-feedback";
+import { tapVibrate } from "@/lib/nav-feedback";
 
 import calendarNormal from "@/assets/nav-icons/owner/calendar-normal.png";
 import calendarPress from "@/assets/nav-icons/owner/calendar-press.png";
