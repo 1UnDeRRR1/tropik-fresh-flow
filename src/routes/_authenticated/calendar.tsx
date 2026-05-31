@@ -353,7 +353,7 @@ export function CalendarPage() {
                             {e.it.origin_country ? (
                               <span> · {e.it.origin_country}</span>
                             ) : null}
-                            <span> · <span className="font-bold tabular-nums text-brand">{Number(e.it.pallet_count ?? 0)}п</span></span>
+                            <span> · <span className="font-bold tabular-nums text-brand">{getVisiblePallets(e)}п</span></span>
                             {isStaffAll && mgrName ? (
                               <span> · <span className="text-foreground">{surname(mgrName)}</span></span>
                             ) : null}
