@@ -682,7 +682,7 @@ export function StatisticsPage() {
         <div className={`mt-3 grid gap-2 text-center ${
           metric === "purchase" ? "grid-cols-2" : metric === "cost" ? "grid-cols-3" : "grid-cols-4"
         }`}>
-          <div className="rounded-lg border border-border bg-card p-2">
+          <div className="rounded-lg border border-border bg-destructive/10 p-2">
             <div className="text-[10px] uppercase text-muted-foreground">Палет</div>
             <div className="text-base font-bold">{totals.pallets}</div>
           </div>

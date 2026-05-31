@@ -328,7 +328,7 @@ export function Analytics() {
             </div>
           </div>
           <div className="flex justify-end">
-            <div className="rounded-md bg-destructive/5 px-2 py-1 text-xs text-muted-foreground">
+            <div className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-muted-foreground">
               <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
               <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
               <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
