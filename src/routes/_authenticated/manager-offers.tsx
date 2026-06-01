@@ -1057,46 +1057,39 @@ function ManagerOffersPage() {
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
-                    {pendingLinked > 0 && totalLinked > 0 && (
-                      <span className="ml-2 text-xs font-normal text-warning">
-                        · у поставці: {totalLinked} · чекають номер поставки: {pendingLinked}
-                      </span>
-                    )}
                   </div>
-                  {pendingLinked > 0 && totalLinked > 0 && (
-                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-                      <div className="mb-1 space-y-1">
-                        <div>
-                          До завантаження <b>{totalApproved}п</b>.
-                          {ship ? <> У поставку <b>{ship.code}</b> помістилось <b>{totalLinked}п</b>.</> : <> Уже помістилось <b>{totalLinked}п</b>.</>}
-                        </div>
-                        <div>
-                          Решта <b>{pendingLinked}п</b> залишається підтвердженою та чекатиме наступну поставку.
-                        </div>
+                  {totalApproved > 0 && (
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm space-y-1">
+                      <div>
+                        замовлення: <b>{totalApproved}п</b>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {canLoad ? (
-                          <Link
-                            to="/shipments/new"
-                            search={{ fromOffer: o.id } as never}
-                            onClick={() => setDetailOfferId(null)}
-                          >
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                              <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
-                            </Button>
-                          </Link>
-                        ) : blockReason ? (
-                          <div className="text-xs text-warning">{blockReason}</div>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
-                          onClick={() => setDetailOfferId(null)}
-                        >
-                          Створю пізніше
-                        </Button>
-                      </div>
+                      {totalLinked > 0 && (
+                        <div>
+                          завантажено: <b>{totalLinked}п</b>
+                          {ship && (
+                            <>
+                              {" ("}
+                              <Link
+                                to="/shipments"
+                                className="font-semibold text-primary underline-offset-2 hover:underline"
+                                onClick={() => setDetailOfferId(null)}
+                              >
+                                {ship.code}
+                              </Link>
+                              {")"}
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {pendingLinked > 0 && (
+                        <div>
+                          залишилось до завантаження:{" "}
+                          <b className="text-destructive">{pendingLinked}п</b>
+                        </div>
+                      )}
+                      {blockReason && (
+                        <div className="mt-1 text-xs text-warning">{blockReason}</div>
+                      )}
                     </div>
                   )}
                   {o.notes && (
