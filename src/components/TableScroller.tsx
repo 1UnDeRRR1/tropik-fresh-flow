@@ -5,14 +5,25 @@ import { cn } from "@/lib/utils";
 /**
  * Unified mobile-first table scroll wrapper with dynamic sticky header.
  *
- * The cloned <thead> overlay is rendered through a React portal into
- * document.body so that ancestors with `transform`, `filter`, or
+ * Desktop (>=768px): the cloned <thead> overlay is rendered through a React
+ * portal into document.body so that ancestors with `transform`, `filter`, or
  * `backdrop-filter` (which create a containing block) cannot pin our
- * `position: fixed` overlay inside the page card — that was causing the
- * sticky header to render in the middle of the table.
+ * `position: fixed` overlay inside the page card.
+ *
+ * Mobile (<768px): the fixed portal clone is disabled. On iOS the URL-bar
+ * collapse desyncs a viewport-fixed clone from the page, which made the
+ * header float in the wrong place and made the table feel "jittery". On
+ * mobile the original <thead>'s own `sticky top-0` (in the table markup)
+ * stays attached to the table, which is the expected behavior.
  */
 
 const APP_HEADER_PX = 64;
+const MOBILE_MAX_PX = 767;
+
+function isMobileViewport() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia(`(max-width: ${MOBILE_MAX_PX}px)`).matches;
+}
 
 export function TableScroller({
   children,
@@ -23,11 +34,23 @@ export function TableScroller({
   const overlayRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    setIsMobile(isMobileViewport());
+    const mq = window.matchMedia(`(max-width: ${MOBILE_MAX_PX}px)`);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     if (!mounted) return;
+    // Mobile: do not install the fixed portal clone. The table's own
+    // sticky thead (markup `sticky top-0`) is enough and stays glued to
+    // the table without iOS URL-bar desync.
+    if (isMobile) return;
     const wrap = wrapRef.current;
     const overlay = overlayRef.current;
     const inner = innerRef.current;
@@ -95,9 +118,6 @@ export function TableScroller({
       const wrapRect = wrap.getBoundingClientRect();
       const theadRect = thead.getBoundingClientRect();
       const theadH = theadRect.height;
-      // Only show the fixed overlay AFTER the original thead has fully scrolled
-      // under the app header. This avoids the overlay covering the first data
-      // rows while the original thead is still partially visible.
       const shouldStick =
         theadRect.bottom <= APP_HEADER_PX &&
         tableRect.bottom > APP_HEADER_PX + theadH;
@@ -147,7 +167,7 @@ export function TableScroller({
       inner.innerHTML = "";
       cloneTable = null;
     };
-  }, [mounted]);
+  }, [mounted, isMobile]);
 
   return (
     <>
@@ -157,13 +177,15 @@ export function TableScroller({
           "-mx-4 md:-mx-6 lg:-mx-10",
           "overflow-x-auto overflow-y-clip overscroll-x-contain",
           "[scrollbar-width:thin]",
+          // Mobile: clear space under bottom nav so the last row isn't hidden.
+          "pb-[max(env(safe-area-inset-bottom),5rem)] md:pb-0",
           className,
         )}
         {...props}
       >
         {children}
       </div>
-      {mounted &&
+      {mounted && !isMobile &&
         createPortal(
           <div
             ref={overlayRef}
