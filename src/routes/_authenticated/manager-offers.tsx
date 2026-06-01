@@ -1277,16 +1277,6 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
-                                    {pendingP > 0 && (
-                                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                        у поставці: {linkedP}
-                                      </span>
-                                    )}
-                                    {pendingP > 0 && (
-                                      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
-                                        чекає: {pendingP}
-                                      </span>
-                                    )}
                                     {!rejected && (
                                       <Button
                                         size="sm"
