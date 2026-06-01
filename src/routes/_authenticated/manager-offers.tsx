@@ -883,9 +883,8 @@ function ManagerOffersPage() {
               (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
               0,
             );
-            const pendingLinked = o.status === "linked"
-              ? Math.max(totalApproved - totalLinked, 0)
-              : 0;
+            // Status-independent: source of truth = numbers.
+            const pendingLinked = Math.max(totalApproved - totalLinked, 0);
             // STAGE 3A gate: strict loadable math for "Створити поставку /
             // Підтягнути / Прив'язати" actions. Uses confirmed approved_pallets
             // ONLY — no `?? requested_pallets` fallback — so unconfirmed branch
