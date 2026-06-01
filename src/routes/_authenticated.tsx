@@ -7,6 +7,7 @@ import { getLastUserId } from "@/lib/last-user";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
+import { useActivityHeartbeat } from "@/hooks/useActivityHeartbeat";
 
 
 export const Route = createFileRoute("/_authenticated")({
