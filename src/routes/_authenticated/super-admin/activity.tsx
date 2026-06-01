@@ -197,6 +197,37 @@ function ActivityPage() {
       .sort((a, b) => b.total - a.total);
   }, [sessions]);
 
+  // Online now: one row per user_id (freshest by last_seen_at), non-offline.
+  const onlineRows = useMemo(() => {
+    if (!openSessions) return [];
+    const byUser = new Map<string, Session>();
+    for (const s of openSessions) {
+      if (statusOf(s) === "offline") continue;
+      const cur = byUser.get(s.user_id);
+      if (!cur || s.last_seen_at > cur.last_seen_at) byUser.set(s.user_id, s);
+    }
+    return Array.from(byUser.values()).sort((a, b) =>
+      a.last_seen_at < b.last_seen_at ? 1 : -1,
+    );
+  }, [openSessions]);
+
+  // History: hide technical 0s duplicates with same (user_id, started_at, last_seen_at).
+  const dedupedSessions = useMemo(() => {
+    if (!sessions) return [];
+    const seen = new Set<string>();
+    const out: Session[] = [];
+    for (const s of sessions) {
+      const dur = s.duration_seconds ?? 0;
+      if (dur === 0) {
+        const key = `${s.user_id}|${s.started_at}|${s.last_seen_at}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      out.push(s);
+    }
+    return out;
+  }, [sessions]);
+
   // User filter options
   const userOptions = useMemo(() => {
     const set = new Set<string>();
@@ -253,30 +284,28 @@ function ActivityPage() {
       />
 
       {/* A. Online now */}
-      <SectionCard title={`Зараз онлайн · ${openSessions?.filter((s) => statusOf(s) !== "offline").length ?? 0}`}>
-        {!openSessions?.length ? (
+      <SectionCard title={`Зараз онлайн · ${onlineRows.length}`}>
+        {!onlineRows.length ? (
           <EmptyState title="Нікого онлайн" hint="Сесії з'являться, коли користувачі увійдуть" />
         ) : (
           <ul className="divide-y divide-border">
-            {openSessions
-              .filter((s) => statusOf(s) !== "offline")
-              .map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{nameOf(s.user_id)}</span>
-                      <span className="text-xs text-muted-foreground">{roleOf(s.user_id)}</span>
-                      <StatusDot s={s} />
-                    </div>
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {s.last_path || "/"} · {shortUA(s.user_agent)}
-                    </div>
+            {onlineRows.map((s) => (
+              <li key={s.user_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{nameOf(s.user_id)}</span>
+                    <span className="text-xs text-muted-foreground">{roleOf(s.user_id)}</span>
+                    <StatusDot s={s} />
                   </div>
-                  <div className="text-right text-xs text-muted-foreground">
-                    {fmtSince(s.last_seen_at)}
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {s.last_path || "/"} · {shortUA(s.user_agent)}
                   </div>
-                </li>
-              ))}
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  {fmtSince(s.last_seen_at)}
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </SectionCard>
@@ -317,7 +346,7 @@ function ActivityPage() {
 
       {/* B. Sessions history */}
       <SectionCard
-        title={`Історія сесій · ${sessions?.length ?? 0}`}
+        title={`Історія сесій · ${dedupedSessions.length}`}
         action={
           <div className="flex items-center gap-2">
             <Select value={userFilter} onValueChange={setUserFilter}>
@@ -344,7 +373,7 @@ function ActivityPage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Завантаження…
           </div>
-        ) : !sessions?.length ? (
+        ) : !dedupedSessions.length ? (
           <EmptyState title="Сесій за обраний період немає" />
         ) : (
           <div className="overflow-x-auto">
@@ -361,7 +390,7 @@ function ActivityPage() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => (
+                {dedupedSessions.map((s) => (
                   <tr key={s.id} className="border-b last:border-0">
                     <td className="py-1.5 pr-3 font-medium">{nameOf(s.user_id)}</td>
                     <td className="py-1.5 pr-3 text-xs text-muted-foreground">{roleOf(s.user_id)}</td>

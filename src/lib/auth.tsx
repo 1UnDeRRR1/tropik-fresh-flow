@@ -335,7 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Best-effort close current activity session before signing out.
         try {
           const mod = await import("@/hooks/useActivityHeartbeat");
-          await mod.closeCurrentActivitySession();
+          await mod.closeCurrentActivitySession(user?.id);
         } catch { /* ignore */ }
         persistSessionBackup(null);
         await supabase.auth.signOut();
