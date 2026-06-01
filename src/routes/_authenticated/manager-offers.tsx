@@ -825,7 +825,12 @@ function ManagerOffersPage() {
                           )}
                         </td>
                         <td className="px-2 py-2 text-right tabular-nums">
-                          {totalApproved > 0 ? (
+                          {hasLinked && pendingLinked > 0 ? (
+                            <span>
+                              <span className="font-semibold text-warning">{pendingLinked}</span>
+                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">з {totalApproved}</span>
+                            </span>
+                          ) : totalApproved > 0 ? (
                             <span className="font-semibold text-success">{totalApproved}</span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
