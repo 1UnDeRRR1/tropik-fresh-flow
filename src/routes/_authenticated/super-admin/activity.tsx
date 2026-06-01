@@ -197,6 +197,37 @@ function ActivityPage() {
       .sort((a, b) => b.total - a.total);
   }, [sessions]);
 
+  // Online now: one row per user_id (freshest by last_seen_at), non-offline.
+  const onlineRows = useMemo(() => {
+    if (!openSessions) return [];
+    const byUser = new Map<string, Session>();
+    for (const s of openSessions) {
+      if (statusOf(s) === "offline") continue;
+      const cur = byUser.get(s.user_id);
+      if (!cur || s.last_seen_at > cur.last_seen_at) byUser.set(s.user_id, s);
+    }
+    return Array.from(byUser.values()).sort((a, b) =>
+      a.last_seen_at < b.last_seen_at ? 1 : -1,
+    );
+  }, [openSessions]);
+
+  // History: hide technical 0s duplicates with same (user_id, started_at, last_seen_at).
+  const dedupedSessions = useMemo(() => {
+    if (!sessions) return [];
+    const seen = new Set<string>();
+    const out: Session[] = [];
+    for (const s of sessions) {
+      const dur = s.duration_seconds ?? 0;
+      if (dur === 0) {
+        const key = `${s.user_id}|${s.started_at}|${s.last_seen_at}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      out.push(s);
+    }
+    return out;
+  }, [sessions]);
+
   // User filter options
   const userOptions = useMemo(() => {
     const set = new Set<string>();
