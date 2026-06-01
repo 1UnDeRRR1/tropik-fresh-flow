@@ -1226,7 +1226,7 @@ function ManagerOffersPage() {
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
                             const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
                             const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
-                            const pendingP = o.status === "linked" ? Math.max(apprP - linkedP, 0) : 0;
+                            const pendingP = Math.max(apprP - linkedP, 0);
                             return (
                               <tr
                                 key={r.id}
