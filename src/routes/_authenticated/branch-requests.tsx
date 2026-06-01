@@ -112,7 +112,9 @@ function BranchRequestsPage() {
           shipmentId: r.shipment_id ?? "",
           shipmentItemId: r.shipment_item_id,
           branchId: r.branch_id,
-          importManagerId: s?.created_by ?? null,
+          // Responsible manager = shipments.import_manager_id (source of truth);
+          // fall back to created_by only for legacy shipments without import_manager_id.
+          importManagerId: (s?.import_manager_id ?? s?.created_by) ?? null,
           product: it?.product_name ?? "—",
           country: it?.origin_country ?? s?.country ?? null,
           caliber: it?.caliber ?? "—",
@@ -217,6 +219,13 @@ function BranchRequestsPage() {
       );
       qc.invalidateQueries({ queryKey: ["branch-requests-full"] });
       qc.invalidateQueries({ queryKey: ["branch-free"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+      qc.invalidateQueries({ queryKey: ["link-dialog-offer"] });
+      qc.invalidateQueries({ queryKey: ["distribution-list"] });
+      qc.invalidateQueries({ queryKey: ["shipment-products"] });
       setEdit(null);
     } catch (e: any) {
       toast.error(e?.message ?? "Помилка");
@@ -239,6 +248,9 @@ function BranchRequestsPage() {
     toast.success("Заявку відхилено");
     qc.invalidateQueries({ queryKey: ["branch-requests-full"] });
     qc.invalidateQueries({ queryKey: ["branch-free"] });
+    qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    qc.invalidateQueries({ queryKey: ["manager-offers"] });
+    qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
   };
 
   const openEdit = (r: Row) => {

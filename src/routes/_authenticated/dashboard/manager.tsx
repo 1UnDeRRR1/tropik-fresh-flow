@@ -117,11 +117,16 @@ function ManagerDashboard() {
       const [shipsRes, requestsRes, planRes, loadedTotalsRes] = await Promise.all([
         supabase
           .from("shipments")
-          .select("id,code,eta,status,country,created_by,shipment_items(id,product_name,caliber,pallet_count),distributions(distribution_items(pallets))")
+          .select("id,code,eta,status,country,created_by,import_manager_id,shipment_items(id,product_name,caliber,pallet_count),distributions(distribution_items(pallets))")
           .eq("created_by", user!.id)
           .order("created_at", { ascending: false })
           .limit(200),
-        supabase.from("branch_requests").select("id").eq("status", "pending"),
+        // Pending branch_requests scoped to THIS manager's shipments
+        // (responsible manager = shipments.import_manager_id, fallback created_by for legacy).
+        supabase
+          .from("branch_requests")
+          .select("id,shipment_id,shipments!inner(import_manager_id,created_by)")
+          .eq("status", "pending"),
         supabase
           .from("loading_plan")
           .select("id,product_name,caliber,country,planned_pallets,count_existing,created_at")
@@ -175,7 +180,13 @@ function ManagerDashboard() {
         urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0), list: urgent.map(toItem) },
         distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0), list: distributed.map(toItem) },
         notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0), list: notDist.map(toItem) },
-        requests: requestsRes.data?.length ?? 0,
+        requests: ((requestsRes.data ?? []) as Array<{ shipments?: { import_manager_id?: string | null; created_by?: string | null } | null }>)
+          .filter((r) => {
+            const sh = r.shipments;
+            if (!sh) return false;
+            const responsible = sh.import_manager_id ?? sh.created_by ?? null;
+            return responsible === user!.id;
+          }).length,
         plan: planWithRemaining,
       };
     },

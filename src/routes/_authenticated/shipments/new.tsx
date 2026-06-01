@@ -554,6 +554,10 @@ function NewShipment() {
       qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["distribution-list"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["manager-offers"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["shipments-link-options"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["shipment-products"], refetchType: "all" });
       toast.success("Поставку створено. Додайте позиції товарів.");
       navigate({
         to: "/shipments/$id/products",

@@ -251,6 +251,13 @@ function DistributionMatrix() {
         qc.invalidateQueries({ queryKey: ["shipment", shipmentId] }),
         qc.invalidateQueries({ queryKey: ["shipments-list"] }),
         qc.invalidateQueries({ queryKey: ["distribution-list"] }),
+        qc.invalidateQueries({ queryKey: ["dash-manager"] }),
+        qc.invalidateQueries({ queryKey: ["manager-offers"] }),
+        qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
+        qc.invalidateQueries({ queryKey: ["branch-requests-full"] }),
+        qc.invalidateQueries({ queryKey: ["branch-free"] }),
+        qc.invalidateQueries({ queryKey: ["shipments-link-options"] }),
+        qc.invalidateQueries({ queryKey: ["link-dialog-offer"] }),
       ]);
       await Promise.all([
         qc.refetchQueries({ queryKey: ["matrix", shipmentId], type: "all" }),
