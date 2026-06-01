@@ -211,13 +211,19 @@ function ActivityPage() {
     );
   }, [openSessions]);
 
-  // History: hide technical 0s duplicates with same (user_id, started_at, last_seen_at).
+  // History: hide technical micro-sessions (closed, <=5s duration) — they are
+  // reload/remount/StrictMode artifacts, not real user sessions. Active sessions
+  // (ended_at IS NULL) are always kept regardless of current duration.
+  // Also dedup any leftover 0s rows that share (user_id, started_at, last_seen_at).
+  const MICRO_SESSION_MAX_SEC = 5;
   const dedupedSessions = useMemo(() => {
     if (!sessions) return [];
     const seen = new Set<string>();
     const out: Session[] = [];
     for (const s of sessions) {
       const dur = s.duration_seconds ?? 0;
+      const isClosed = s.ended_at !== null;
+      if (isClosed && dur <= MICRO_SESSION_MAX_SEC) continue;
       if (dur === 0) {
         const key = `${s.user_id}|${s.started_at}|${s.last_seen_at}`;
         if (seen.has(key)) continue;
