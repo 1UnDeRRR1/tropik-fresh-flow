@@ -443,30 +443,53 @@ function ManagerOffersPage() {
     }));
   }, [offers, responses, targets, branchById]);
 
-  const getPendingLinked = (offer: OfferWithResponses) => {
+  // Source of truth = numbers (approved_pallets / linked_pallets), NOT status.
+  // Server-side sync flips status linked→confirmed once fully covered, so
+  // status alone is unreliable for "still has remaining" decisions.
+  const sumApproved = (offer: OfferWithResponses) => {
     const inScope = (branchId: string) =>
       offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
-    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
-    const totalApproved = activeResponses.reduce(
-      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
-      0,
-    );
-    const totalLinked = activeResponses.reduce(
-      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-      0,
-    );
-    return Math.max(totalApproved - totalLinked, 0);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce(
+        (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+        0,
+      );
   };
+  const sumLinked = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce(
+        (sum, r) =>
+          sum +
+          Number(
+            (r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0,
+          ),
+        0,
+      );
+  };
+  const getPendingLinked = (offer: OfferWithResponses) =>
+    Math.max(sumApproved(offer) - sumLinked(offer), 0);
 
   const filtered = useMemo(() => {
     if (tab === "all") return merged;
     if (tab === "drafts") return merged.filter((o) => o.status === "draft");
     if (tab === "active")
-      return merged.filter((o) =>
-        ["active", "in_work", "confirmed", "closed"].includes(o.status)
-        || (o.status === "linked" && getPendingLinked(o) > 0),
-      );
-    if (tab === "linked") return merged.filter((o) => o.status === "linked" && getPendingLinked(o) === 0);
+      // Working tab: keep offers that still have unlinked remainder.
+      // Fully linked (linked > 0 && pending == 0) moves to "Прив'язані".
+      return merged.filter((o) => {
+        if (!["active", "in_work", "confirmed", "closed", "linked"].includes(o.status)) return false;
+        const linked = sumLinked(o);
+        const pending = getPendingLinked(o);
+        // Exclude fully linked offers from working tab.
+        if (linked > 0 && pending === 0) return false;
+        return true;
+      });
+    if (tab === "linked")
+      // Fully linked = number-based, status-independent.
+      return merged.filter((o) => sumLinked(o) > 0 && getPendingLinked(o) === 0);
     if (tab === "archive")
       return merged.filter((o) => o.status === "expired");
     return merged;
