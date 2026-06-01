@@ -107,6 +107,37 @@ function ManagerDashboard() {
     };
   }, [qc]);
 
+  // Targeted realtime for offers/requests/distribution → invalidate the
+  // manager dashboard summaries within ~1-2s instead of waiting 60s.
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel("dash-manager-offers-requests")
+      .on("postgres_changes", { event: "*", schema: "public", table: "manager_offers" }, () => {
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "manager_offer_responses" }, () => {
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "manager_offer_allocation_parts" }, () => {
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "branch_requests" }, () => {
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "distributions" }, () => {
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "distribution_items" }, () => {
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, user?.id]);
+
+
   const summaryQuery = useQuery({
     enabled: !!user?.id,
     queryKey: ["dash-manager", user?.id],

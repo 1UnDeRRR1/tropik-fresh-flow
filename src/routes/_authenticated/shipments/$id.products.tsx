@@ -28,6 +28,7 @@ import {
   rollbackBirthPosition,
 } from "@/lib/position-attach";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
+import { getCountryAliasTargets } from "@/lib/alias-cache";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 // D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
@@ -262,6 +263,17 @@ type ActiveCustomsRef = {
   euro1_markup_usd: number | null;
   euro1_percent: number | null;
 };
+function getCountryCandidatesNormalized(originCountry: string): Set<string> {
+  // Expand canonical country into all alias forms (e.g. "Південна Африка"
+  // → ["Південна Африка", "ПАР", …]) so customs_reference rows stored under
+  // any alias form are matched. Falls back to the raw input when alias cache
+  // is empty.
+  const raw = (originCountry ?? "").trim();
+  if (!raw) return new Set();
+  const targets = getCountryAliasTargets(raw);
+  const list = targets.length > 0 ? targets : [raw];
+  return new Set(list.map((c) => normalizeCustomsKey(c)));
+}
 function pickCustomsRefForDraft(
   productName: string,
   originCountry: string,
@@ -269,11 +281,11 @@ function pickCustomsRefForDraft(
 ): ActiveCustomsRef | null {
   const lookup = normalizeCustomsKey(customsLookupName(productName));
   if (!lookup) return null;
-  const origin = normalizeCustomsKey(originCountry);
-  // Exact product + country, ORDER BY threshold_price_usd DESC
+  const candidates = getCountryCandidatesNormalized(originCountry);
+  // Exact product + country (alias-expanded), ORDER BY threshold_price_usd DESC
   const exact = refs
     .filter((r) => normalizeCustomsKey(r.product_name) === lookup
-                && normalizeCustomsKey(r.country) === origin)
+                && candidates.has(normalizeCustomsKey(r.country)))
     .sort((a, b) => Number(b.threshold_price_usd ?? 0) - Number(a.threshold_price_usd ?? 0));
   if (exact.length > 0) return exact[0];
   // Fallback product-only, ORDER BY euro1_markup_usd DESC NULLS LAST, threshold_price_usd DESC
@@ -380,8 +392,8 @@ function computeRowPreview(
     // Clean row: use ONLY the saved customs_match_id row, never re-pick.
     ref = savedRefForClean;
     if (ref) {
-      const sameCountry =
-        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      const cand = getCountryCandidatesNormalized(d.origin_country);
+      const sameCountry = cand.has(normalizeCustomsKey(ref.country));
       components.matchedRef = {
         product_name: ref.product_name,
         country: ref.country,
@@ -397,8 +409,8 @@ function computeRowPreview(
   } else if (refs && d.product_name.trim() && d.origin_country.trim()) {
     ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
     if (ref) {
-      const sameCountry =
-        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      const cand = getCountryCandidatesNormalized(d.origin_country);
+      const sameCountry = cand.has(normalizeCustomsKey(ref.country));
       components.matchedRef = {
         product_name: ref.product_name,
         country: ref.country,
@@ -1061,12 +1073,12 @@ function ProductsFullscreen() {
   ).length;
 
   // Customs match status for the header indicator (server-computed only).
-  const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
   const fallbackItems = validDbItems
     .map((it) => {
       const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
       if (!ref) return null;
-      const sameCountry = norm(ref.country) === norm(it.origin_country);
+      const cand = getCountryCandidatesNormalized(it.origin_country ?? "");
+      const sameCountry = cand.has(normalizeCustomsKey(ref.country));
       return sameCountry ? null : { item: it, ref };
     })
     .filter((v): v is { item: ItemRow; ref: CustomsRefMini } => !!v);

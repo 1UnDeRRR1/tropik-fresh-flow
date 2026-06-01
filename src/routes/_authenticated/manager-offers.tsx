@@ -28,6 +28,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { computeOfferCost, fetchCustomsRef, isEuCountry, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry } from "@/lib/country-search";
@@ -220,6 +221,31 @@ function ManagerOffersPage() {
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
+
+  // Targeted realtime — keep the screen fresh within ~1-2s without relying on
+  // the 25s refetchInterval. Invalidates the queries used by this page.
+  useRealtimeInvalidate(
+    "manager-offers-realtime",
+    [
+      "manager_offers",
+      "manager_offer_responses",
+      "manager_offer_allocation_parts",
+      "shipments",
+      "shipment_items",
+      "distributions",
+      "distribution_items",
+      "branch_requests",
+    ],
+    [
+      ["manager-offers"],
+      ["manager-offer-responses"],
+      ["manager-offer-targets"],
+      ["manager-offer-linked-shipments"],
+      ["shipments-link-options"],
+      ["link-dialog-offer"],
+    ],
+    !!user,
+  );
   
   const [linkOffer, setLinkOffer] = useState<OfferWithResponses | null>(null);
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
@@ -1043,13 +1069,13 @@ function ManagerOffersPage() {
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
-                    {pendingLinked > 0 && (
+                    {pendingLinked > 0 && totalLinked > 0 && (
                       <span className="ml-2 text-xs font-normal text-warning">
                         · у поставці: {totalLinked} · чекають номер поставки: {pendingLinked}
                       </span>
                     )}
                   </div>
-                  {pendingLinked > 0 && (
+                  {pendingLinked > 0 && totalLinked > 0 && (
                     <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
                       <div className="mb-1 space-y-1">
                         <div>

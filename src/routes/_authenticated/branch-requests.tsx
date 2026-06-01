@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { toUaCountry } from "@/lib/countries";
 import { toast } from "sonner";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 export const Route = createFileRoute("/_authenticated/branch-requests")({
   component: BranchRequestsPage,
@@ -52,6 +53,22 @@ function BranchRequestsPage() {
   const [editPallets, setEditPallets] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Row | null>(null);
+
+  // Targeted realtime — keep request rows fresh after manager actions
+  // without waiting for refetch interval.
+  useRealtimeInvalidate(
+    "branch-requests-realtime",
+    [
+      "branch_requests",
+      "distributions",
+      "distribution_items",
+      "shipment_items",
+      "shipments",
+    ],
+    [["branch-requests-full"]],
+    !!user?.id,
+  );
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id],
