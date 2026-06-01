@@ -2421,10 +2421,8 @@ function LinkShipmentDialog({
     }
   }, [offerId, liveOffer, pendingLinked, onLinked]);
 
-  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-  const target = offer ? norm(offer.product_name) : "";
-  const targetCountry = offer ? norm(offer.origin_country) : "";
-  const targetCaliber = offer ? norm(offer.caliber) : "";
+
+
 
   const { data: shipments } = useQuery({
     queryKey: ["shipments-link-options", offerId, user?.id, currentManagerId],
