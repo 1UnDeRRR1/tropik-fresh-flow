@@ -7,6 +7,7 @@ import { getLastUserId } from "@/lib/last-user";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
+import { useActivityHeartbeat } from "@/hooks/useActivityHeartbeat";
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -83,6 +84,7 @@ function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
 function AuthenticatedLayout() {
   const { user, profile, loading, dataLoaded, primaryRole } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useActivityHeartbeat();
 
   useEffect(() => { if (user) initAliasCache(); }, [user]);
 

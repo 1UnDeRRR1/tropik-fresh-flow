@@ -2790,6 +2790,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity_sessions: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          heartbeat_count: number
+          id: string
+          last_path: string | null
+          last_seen_at: string
+          platform: string | null
+          started_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          heartbeat_count?: number
+          id?: string
+          last_path?: string | null
+          last_seen_at?: string
+          platform?: string | null
+          started_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          heartbeat_count?: number
+          id?: string
+          last_path?: string | null
+          last_seen_at?: string
+          platform?: string | null
+          started_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3354,6 +3399,24 @@ export type Database = {
       recompute_vehicle_totals_for: {
         Args: { _vehicle_id: string }
         Returns: undefined
+      }
+      rpc_activity_close_stale: { Args: never; Returns: number }
+      rpc_activity_end_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
+      rpc_activity_heartbeat: {
+        Args: { p_last_path?: string; p_session_id: string }
+        Returns: undefined
+      }
+      rpc_activity_start_session: {
+        Args: {
+          p_app_version?: string
+          p_last_path?: string
+          p_platform?: string
+          p_user_agent?: string
+        }
+        Returns: string
       }
       rpc_pallet_standard_exact: {
         Args: {

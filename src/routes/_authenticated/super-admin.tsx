@@ -8,6 +8,7 @@ export const Route = createFileRoute("/_authenticated/super-admin")({
 
 const TABS = [
   { to: "/super-admin/users", label: "Користувачі (доступ/паролі)" },
+  { to: "/super-admin/activity", label: "Журнал активності" },
   { to: "/super-admin/logs", label: "Системні логи" },
 ] as const;
 
