@@ -118,3 +118,19 @@ export function getCountryAliases(): Record<string, string> {
   if (!countryLoadPromise) countryLoadPromise = loadCountryAliases();
   return countryAliasMap;
 }
+
+/**
+ * Return raw alias strings (as stored in DB) that point to the given canonical
+ * country name. Always includes the canonical itself. Empty cache → just the
+ * canonical. Used by customs lookup to match `customs_reference.country`
+ * values that may be stored under any alias form (e.g. "ПАР" for canonical
+ * "Південна Африка").
+ */
+export function getCountryAliasTargets(canonical: string): string[] {
+  if (!countryLoadPromise) countryLoadPromise = loadCountryAliases();
+  const c = (canonical ?? "").trim();
+  if (!c) return [];
+  const targets = countryAliasTargetsMap[c.toLowerCase()] ?? [];
+  const set = new Set<string>([c, ...targets]);
+  return Array.from(set);
+}
