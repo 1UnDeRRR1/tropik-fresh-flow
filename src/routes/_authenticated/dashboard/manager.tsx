@@ -180,7 +180,13 @@ function ManagerDashboard() {
         urgent: { ships: urgent.length, pallets: urgent.reduce((a, x) => a + x.undistributed, 0), list: urgent.map(toItem) },
         distributed: { ships: distributed.length, pallets: distributed.reduce((a, x) => a + x.distributed, 0), list: distributed.map(toItem) },
         notDist: { ships: notDist.length, pallets: notDist.reduce((a, x) => a + x.undistributed, 0), list: notDist.map(toItem) },
-        requests: requestsRes.data?.length ?? 0,
+        requests: ((requestsRes.data ?? []) as Array<{ shipments?: { import_manager_id?: string | null; created_by?: string | null } | null }>)
+          .filter((r) => {
+            const sh = r.shipments;
+            if (!sh) return false;
+            const responsible = sh.import_manager_id ?? sh.created_by ?? null;
+            return responsible === user!.id;
+          }).length,
         plan: planWithRemaining,
       };
     },
