@@ -352,7 +352,12 @@ function AdminDashboard() {
           {detail === "transit" && (
             <>
               <DialogHeader>
-                <DialogTitle>В дорозі</DialogTitle>
+                <div className="flex items-center justify-between gap-2 pr-8">
+                  <DialogTitle>В дорозі</DialogTitle>
+                  <span className="shrink-0 rounded-full bg-warning/20 px-2 py-0.5 text-xs font-bold text-foreground">
+                    {(data?.transit.list ?? []).reduce((a, r) => a + (r.pallets ?? 0), 0)}п
+                  </span>
+                </div>
               </DialogHeader>
               {(data?.transit.list ?? []).length === 0 ? (
                 <EmptyState title="Немає активних поставок" />
@@ -379,8 +384,17 @@ function AdminDashboard() {
           {detail === "products" && (
             <>
               <DialogHeader>
-                <DialogTitle>Товари по філіям</DialogTitle>
+                <div className="flex items-center justify-between gap-2 pr-8">
+                  <DialogTitle>Товари по філіям</DialogTitle>
+                  <span className="shrink-0 rounded-full bg-warning/20 px-2 py-0.5 text-xs font-bold text-foreground">
+                    {(data?.products ?? []).reduce(
+                      (a, p) => a + Object.values(p.branches).reduce((s, n) => s + (n ?? 0), 0),
+                      0,
+                    )}п
+                  </span>
+                </div>
               </DialogHeader>
+
               {(data?.products ?? []).length === 0 ? (
                 <EmptyState title="Розподілених товарів в дорозі немає" />
               ) : (
