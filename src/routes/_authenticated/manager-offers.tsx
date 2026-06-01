@@ -443,30 +443,53 @@ function ManagerOffersPage() {
     }));
   }, [offers, responses, targets, branchById]);
 
-  const getPendingLinked = (offer: OfferWithResponses) => {
+  // Source of truth = numbers (approved_pallets / linked_pallets), NOT status.
+  // Server-side sync flips status linked→confirmed once fully covered, so
+  // status alone is unreliable for "still has remaining" decisions.
+  const sumApproved = (offer: OfferWithResponses) => {
     const inScope = (branchId: string) =>
       offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
-    const activeResponses = offer.responses.filter((r) => inScope(r.branch_id));
-    const totalApproved = activeResponses.reduce(
-      (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
-      0,
-    );
-    const totalLinked = activeResponses.reduce(
-      (sum, r) => sum + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-      0,
-    );
-    return Math.max(totalApproved - totalLinked, 0);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce(
+        (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+        0,
+      );
   };
+  const sumLinked = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce(
+        (sum, r) =>
+          sum +
+          Number(
+            (r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0,
+          ),
+        0,
+      );
+  };
+  const getPendingLinked = (offer: OfferWithResponses) =>
+    Math.max(sumApproved(offer) - sumLinked(offer), 0);
 
   const filtered = useMemo(() => {
     if (tab === "all") return merged;
     if (tab === "drafts") return merged.filter((o) => o.status === "draft");
     if (tab === "active")
-      return merged.filter((o) =>
-        ["active", "in_work", "confirmed", "closed"].includes(o.status)
-        || (o.status === "linked" && getPendingLinked(o) > 0),
-      );
-    if (tab === "linked") return merged.filter((o) => o.status === "linked" && getPendingLinked(o) === 0);
+      // Working tab: keep offers that still have unlinked remainder.
+      // Fully linked (linked > 0 && pending == 0) moves to "Прив'язані".
+      return merged.filter((o) => {
+        if (!["active", "in_work", "confirmed", "closed", "linked"].includes(o.status)) return false;
+        const linked = sumLinked(o);
+        const pending = getPendingLinked(o);
+        // Exclude fully linked offers from working tab.
+        if (linked > 0 && pending === 0) return false;
+        return true;
+      });
+    if (tab === "linked")
+      // Fully linked = number-based, status-independent.
+      return merged.filter((o) => sumLinked(o) > 0 && getPendingLinked(o) === 0);
     if (tab === "archive")
       return merged.filter((o) => o.status === "expired");
     return merged;
@@ -734,9 +757,9 @@ function ManagerOffersPage() {
                       (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
                       0,
                     );
-                    const pendingLinked = o.status === "linked"
-                      ? Math.max(totalApproved - totalLinked, 0)
-                      : 0;
+                    // Status-independent: use numbers, not status string.
+                    const pendingLinked = Math.max(totalApproved - totalLinked, 0);
+                    const hasLinked = totalLinked > 0;
                     const hasPending = totalPending > 0;
 
                     // Compact status: green Активно / yellow В роботі.
@@ -747,7 +770,7 @@ function ManagerOffersPage() {
                       o.status === "in_work" ||
                       o.status === "confirmed" ||
                       o.status === "closed" ||
-                      (o.status === "linked" && pendingLinked > 0)
+                      (hasLinked && pendingLinked > 0)
                     ) {
                       stColor = "bg-warning";
                       stTitle = "В роботі";
@@ -802,7 +825,12 @@ function ManagerOffersPage() {
                           )}
                         </td>
                         <td className="px-2 py-2 text-right tabular-nums">
-                          {totalApproved > 0 ? (
+                          {hasLinked && pendingLinked > 0 ? (
+                            <span>
+                              <span className="font-semibold text-warning">{pendingLinked}</span>
+                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">з {totalApproved}</span>
+                            </span>
+                          ) : totalApproved > 0 ? (
                             <span className="font-semibold text-success">{totalApproved}</span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
@@ -855,9 +883,8 @@ function ManagerOffersPage() {
               (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
               0,
             );
-            const pendingLinked = o.status === "linked"
-              ? Math.max(totalApproved - totalLinked, 0)
-              : 0;
+            // Status-independent: source of truth = numbers.
+            const pendingLinked = Math.max(totalApproved - totalLinked, 0);
             // STAGE 3A gate: strict loadable math for "Створити поставку /
             // Підтягнути / Прив'язати" actions. Uses confirmed approved_pallets
             // ONLY — no `?? requested_pallets` fallback — so unconfirmed branch
@@ -1199,7 +1226,7 @@ function ManagerOffersPage() {
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
                             const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
                             const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
-                            const pendingP = o.status === "linked" ? Math.max(apprP - linkedP, 0) : 0;
+                            const pendingP = Math.max(apprP - linkedP, 0);
                             return (
                               <tr
                                 key={r.id}
