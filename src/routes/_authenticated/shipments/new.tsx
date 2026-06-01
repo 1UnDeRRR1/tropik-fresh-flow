@@ -380,14 +380,10 @@ function NewShipment() {
     if (uaCountry) setCountry(uaCountry);
   }, [fromOfferPrefill?.country, countryTouched, country]);
 
-  useEffect(() => {
-    if (supplierId || !fromOfferPrefill || !suppliers?.length) return;
-    // Supplier prefill only from a directly linked shipment's supplier_id.
-    // NEVER infer supplier via origin_country or any country fallback.
-    if (!fromOfferPrefill.supplierId) return;
-    const directSupplier = suppliers.find((s) => s.id === fromOfferPrefill.supplierId);
-    if (directSupplier) setSupplierId(directSupplier.id);
-  }, [fromOfferPrefill, suppliers, supplierId]);
+  // Supplier is NEVER auto-selected from offer. Manager must pick supplier
+  // explicitly. Origin country (product origin) must never drive supplier
+  // selection, and even a linked shipment's supplier is not used to prefill
+  // here — that caused values to be restored after manual clearing.
 
 
   // Preview next per-country vehicle sequence
