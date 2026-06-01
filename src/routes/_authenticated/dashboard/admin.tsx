@@ -433,7 +433,8 @@ function AdminDashboard() {
                           ))}
                       </ul>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -442,7 +443,12 @@ function AdminDashboard() {
           {detail === "branches" && (
             <>
               <DialogHeader>
-                <DialogTitle>Філія товари</DialogTitle>
+                <div className="flex items-center justify-between gap-2 pr-8">
+                  <DialogTitle>Філія товари</DialogTitle>
+                  <span className="shrink-0 rounded-full bg-warning/20 px-2 py-0.5 text-xs font-bold text-foreground">
+                    {(data?.branches ?? []).reduce((a, b) => a + b.totalPallets, 0)}п
+                  </span>
+                </div>
               </DialogHeader>
               {(data?.branches ?? []).length === 0 ? (
                 <EmptyState title="Розподілених товарів в дорозі немає" />
