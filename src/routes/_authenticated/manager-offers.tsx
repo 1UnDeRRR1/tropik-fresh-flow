@@ -529,7 +529,10 @@ function ManagerOffersPage() {
       const { error } = await supabase.from("manager_offers").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["manager-offers"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
