@@ -15,6 +15,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 let productAliasMap: Record<string, string> = {};
 let countryAliasMap: Record<string, string> = {};
+// Reverse index: canonical country name (lowercased) → set of raw alias
+// strings (as stored in DB, e.g. "ПАР", "RSA"). Used by customs lookup so
+// `customs_reference.country` values stored under any alias form can be
+// matched from the canonical country name.
+let countryAliasTargetsMap: Record<string, string[]> = {};
+
 
 let productLoadPromise: Promise<void> | null = null;
 let countryLoadPromise: Promise<void> | null = null;
