@@ -2485,54 +2485,31 @@ function LinkShipmentDialog({
     return Math.max(0, total - allocated);
   };
 
+  // Identity = product + country + variety + caliber (per spec). Packaging/spec ignored.
+  // No caliber-mismatch path: differing caliber = not a match.
   const cards: Card[] = useMemo(() => {
     if (!offer || !shipments) return [];
-    if (!target || !targetCountry) return [];
     const out: Card[] = [];
     for (const s of shipments) {
       const items = s.shipment_items ?? [];
-      // Strict filter: product + country must match for at least one item.
-      const productCountryItems = items.filter(
-        (i) => norm(i.product_name) === target && norm(i.origin_country) === targetCountry,
-      );
-      if (productCountryItems.length === 0) continue;
-
-      const exact = targetCaliber
-        ? productCountryItems.find((i) => norm(i.caliber) === targetCaliber)
-        : productCountryItems[0];
-
-      if (exact) {
-        const freeP = itemAvailable(exact);
+      for (const i of items) {
+        if (!linkIdentityMatches(offer, i)) continue;
+        const freeP = itemAvailable(i);
         if (freeP <= 0) continue;
         out.push({
           id: s.id,
-          shipmentItemId: exact.id,
+          shipmentItemId: i.id,
           code: s.code,
           country: s.country,
           eta: s.eta,
           freeP,
           match: "exact",
-          shipmentCaliber: exact.caliber ?? null,
+          shipmentCaliber: i.caliber ?? null,
         });
-        continue;
       }
-      // Caliber mismatch: pick the first product+country item (its caliber wins).
-      const mismatch = productCountryItems[0];
-      const freeP = itemAvailable(mismatch);
-      if (freeP <= 0) continue;
-      out.push({
-        id: s.id,
-        shipmentItemId: mismatch.id,
-        code: s.code,
-        country: s.country,
-        eta: s.eta,
-        freeP,
-        match: "caliber_mismatch",
-        shipmentCaliber: mismatch.caliber ?? null,
-      });
     }
     return out;
-  }, [offer, shipments, target, targetCountry, targetCaliber]);
+  }, [offer, shipments]);
 
   const link = useMutation({
     mutationFn: async (vars: { shipmentItemId: string; allowMismatch: boolean }) => {
