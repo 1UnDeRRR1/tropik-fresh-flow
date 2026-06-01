@@ -2518,13 +2518,13 @@ function LinkShipmentDialog({
   }, [offer, shipments]);
 
   const link = useMutation({
-    mutationFn: async (vars: { shipmentItemId: string; allowMismatch: boolean }) => {
+    mutationFn: async (vars: { shipmentItemId: string }) => {
       if (!offer) return;
       const { error } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
         p_offer_id: offer.id,
         p_shipment_item_id: vars.shipmentItemId,
         p_max_pallets: null as unknown as number,
-        p_allow_caliber_mismatch: vars.allowMismatch,
+        p_allow_caliber_mismatch: false,
         p_notes: null as unknown as string,
       });
       if (error) throw error;
@@ -2534,6 +2534,11 @@ function LinkShipmentDialog({
       qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      qc.invalidateQueries({ queryKey: ["branch-requests-full"] });
+      qc.invalidateQueries({ queryKey: ["branch-free"] });
+      qc.invalidateQueries({ queryKey: ["distribution-list"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
     },
     onError: (err: any) => {
       const msg = err?.message ?? "";
@@ -2555,15 +2560,7 @@ function LinkShipmentDialog({
       toast.error("У поставці немає вільних палет");
       return;
     }
-    if (c.match === "caliber_mismatch") {
-      const ok = window.confirm(
-        `Калібр у поставці (${c.shipmentCaliber ?? "—"}) відрізняється від очікуваного (${offer?.caliber ?? "—"}). ` +
-          `Товар буде додано в поставку з калібром поставки. Продовжити?`,
-      );
-      if (!ok) return;
-      toast.info(`Калібр змінено: ${offer?.caliber ?? "—"} → ${c.shipmentCaliber ?? "—"}`);
-    }
-    link.mutate({ shipmentItemId: c.shipmentItemId, allowMismatch: c.match === "caliber_mismatch" });
+    link.mutate({ shipmentItemId: c.shipmentItemId });
   };
 
   return (
@@ -2593,7 +2590,6 @@ function LinkShipmentDialog({
           ) : (
             cards.map((c) => {
               const disabled = c.freeP <= 0 || link.isPending || pendingLinked <= 0;
-              const isExact = c.match === "exact";
               return (
                 <button
                   key={c.shipmentItemId}
@@ -2602,32 +2598,19 @@ function LinkShipmentDialog({
                   disabled={disabled}
                   className={cn(
                     "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition",
-                    isExact
-                      ? "border-success/50 bg-success/5 hover:bg-success/10"
-                      : "border-warning/50 bg-warning/5 hover:bg-warning/10",
+                    "border-success/50 bg-success/5 hover:bg-success/10",
                     disabled && "opacity-60 cursor-not-allowed",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold">{c.code}</div>
-                    <span
-                      className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                        isExact ? "bg-success/15 text-success" : "bg-warning/20 text-warning",
-                      )}
-                    >
-                      {isExact ? "є товар" : "інший калібр"}
+                    <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                      є товар
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {c.country ?? "—"} · ETA {c.eta ?? "—"}
                   </div>
-                  {!isExact && (
-                    <div className="text-xs text-warning">
-                      Не збігається калібр. Потрібно: <b>{offer?.caliber ?? "—"}</b>,
-                      у поставці: <b>{c.shipmentCaliber ?? "—"}</b>
-                    </div>
-                  )}
                   <div className="text-xs font-medium text-foreground">
                     Вільних палет: <b>{c.freeP}п</b>
                   </div>
@@ -2635,6 +2618,7 @@ function LinkShipmentDialog({
               );
             })
           )}
+
 
           <div className="flex flex-col gap-2 pt-2">
             <Link
