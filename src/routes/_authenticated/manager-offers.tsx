@@ -1007,18 +1007,6 @@ function ManagerOffersPage() {
                       )}
                     </div>
                   )}
-                  {o.linked_shipment_id && ship && (
-                    <div>
-                      <span className="text-muted-foreground">Поставка: </span>
-                      <Link
-                        to="/shipments"
-                        className="font-semibold text-primary underline-offset-2 hover:underline"
-                        onClick={() => setDetailOfferId(null)}
-                      >
-                        {ship.code}
-                      </Link>
-                    </div>
-                  )}
                   {(() => {
                     const r = getResponsible(o);
                     return (
@@ -1069,46 +1057,39 @@ function ManagerOffersPage() {
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
-                    {pendingLinked > 0 && totalLinked > 0 && (
-                      <span className="ml-2 text-xs font-normal text-warning">
-                        · у поставці: {totalLinked} · чекають номер поставки: {pendingLinked}
-                      </span>
-                    )}
                   </div>
-                  {pendingLinked > 0 && totalLinked > 0 && (
-                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
-                      <div className="mb-1 space-y-1">
-                        <div>
-                          До завантаження <b>{totalApproved}п</b>.
-                          {ship ? <> У поставку <b>{ship.code}</b> помістилось <b>{totalLinked}п</b>.</> : <> Уже помістилось <b>{totalLinked}п</b>.</>}
-                        </div>
-                        <div>
-                          Решта <b>{pendingLinked}п</b> залишається підтвердженою та чекатиме наступну поставку.
-                        </div>
+                  {totalApproved > 0 && (
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm space-y-1">
+                      <div>
+                        замовлення: <b>{totalApproved}п</b>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {canLoad ? (
-                          <Link
-                            to="/shipments/new"
-                            search={{ fromOffer: o.id } as never}
-                            onClick={() => setDetailOfferId(null)}
-                          >
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-                              <Plus className="mr-1 h-3 w-3" /> Створити поставку для решти
-                            </Button>
-                          </Link>
-                        ) : blockReason ? (
-                          <div className="text-xs text-warning">{blockReason}</div>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs text-warning hover:bg-warning/10 hover:text-warning"
-                          onClick={() => setDetailOfferId(null)}
-                        >
-                          Створю пізніше
-                        </Button>
-                      </div>
+                      {totalLinked > 0 && (
+                        <div>
+                          завантажено: <b>{totalLinked}п</b>
+                          {ship && (
+                            <>
+                              {" ("}
+                              <Link
+                                to="/shipments"
+                                className="font-semibold text-primary underline-offset-2 hover:underline"
+                                onClick={() => setDetailOfferId(null)}
+                              >
+                                {ship.code}
+                              </Link>
+                              {")"}
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {pendingLinked > 0 && (
+                        <div>
+                          залишилось до завантаження:{" "}
+                          <b className="text-destructive">{pendingLinked}п</b>
+                        </div>
+                      )}
+                      {blockReason && (
+                        <div className="mt-1 text-xs text-warning">{blockReason}</div>
+                      )}
                     </div>
                   )}
                   {o.notes && (
@@ -1163,7 +1144,7 @@ function ManagerOffersPage() {
                           onClick={() => setDetailOfferId(null)}
                         >
                           <Button size="sm">
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
+                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
                           </Button>
                         </Link>
                       </>
@@ -1194,7 +1175,7 @@ function ManagerOffersPage() {
                             className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
                             title="Немає підходящої поставки — створіть нову"
                           >
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
+                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
                           </Button>
                         </Link>
                       )
@@ -1250,9 +1231,6 @@ function ManagerOffersPage() {
                             const excluded = !inScope(r.branch_id);
                             const cancelledSupply = o.status === "deleted";
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
-                            const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
-                            const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
-                            const pendingP = Math.max(apprP - linkedP, 0);
                             return (
                               <tr
                                 key={r.id}
@@ -1296,16 +1274,6 @@ function ManagerOffersPage() {
                                         }
                                       }}
                                     />
-                                    {pendingP > 0 && (
-                                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                        у поставці: {linkedP}
-                                      </span>
-                                    )}
-                                    {pendingP > 0 && (
-                                      <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
-                                        чекає: {pendingP}
-                                      </span>
-                                    )}
                                     {!rejected && (
                                       <Button
                                         size="sm"

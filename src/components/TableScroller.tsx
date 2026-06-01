@@ -169,16 +169,37 @@ export function TableScroller({
     };
   }, [mounted, isMobile]);
 
+  // Mobile: simple self-contained scroll container with native sticky thead.
+  // Bounded height so vertical scroll happens INSIDE the table — this makes
+  // `thead { position: sticky; top: 0 }` (in markup) actually stick to the
+  // table viewport, header never floats off, no portal/fixed clone games,
+  // and the bottom nav cannot cover rows. Horizontal scroll also stays
+  // inside the wrapper (overscroll-contain). No negative margins on mobile.
+  if (mounted && isMobile) {
+    return (
+      <div
+        ref={wrapRef}
+        className={cn(
+          "overflow-auto overscroll-contain",
+          "max-h-[calc(100dvh-12rem)]",
+          "[scrollbar-width:thin]",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+
   return (
     <>
       <div
         ref={wrapRef}
         className={cn(
-          "-mx-4 md:-mx-6 lg:-mx-10",
+          "md:-mx-6 lg:-mx-10",
           "overflow-x-auto overflow-y-clip overscroll-x-contain",
           "[scrollbar-width:thin]",
-          // Mobile: clear space under bottom nav so the last row isn't hidden.
-          "pb-[max(env(safe-area-inset-bottom),5rem)] md:pb-0",
           className,
         )}
         {...props}
