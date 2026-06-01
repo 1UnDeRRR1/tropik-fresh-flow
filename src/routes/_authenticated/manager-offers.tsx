@@ -1175,7 +1175,7 @@ function ManagerOffersPage() {
                             className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
                             title="Немає підходящої поставки — створіть нову"
                           >
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити поставку
+                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
                           </Button>
                         </Link>
                       )
