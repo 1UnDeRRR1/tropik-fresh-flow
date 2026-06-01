@@ -72,21 +72,30 @@ async function loadCountryAliases(): Promise<void> {
   try {
     const PAGE = 1000;
     const merged: Record<string, string> = {};
+    const reverse: Record<string, Set<string>> = {};
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabase
         .from("country_aliases")
-        .select("alias_normalized,country_name")
+        .select("alias,alias_normalized,country_name")
         .range(from, from + PAGE - 1);
       if (error) throw error;
       for (const row of data ?? []) {
         const key = (row.alias_normalized ?? "").toLowerCase();
-        if (!key) continue;
         const target = (row.country_name ?? "") as string;
-        if (target && !merged[key]) merged[key] = target;
+        const rawAlias = ((row as { alias?: string }).alias ?? row.alias_normalized ?? "") as string;
+        if (target) {
+          if (key && !merged[key]) merged[key] = target;
+          const rk = target.toLowerCase();
+          if (!reverse[rk]) reverse[rk] = new Set<string>();
+          if (rawAlias) reverse[rk].add(rawAlias);
+        }
       }
       if (!data || data.length < PAGE) break;
     }
     countryAliasMap = merged;
+    const out: Record<string, string[]> = {};
+    for (const [k, set] of Object.entries(reverse)) out[k] = Array.from(set);
+    countryAliasTargetsMap = out;
   } catch {
     // Same fallback policy — empty cache is safe.
   }
