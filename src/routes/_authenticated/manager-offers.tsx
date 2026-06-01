@@ -529,7 +529,10 @@ function ManagerOffersPage() {
       const { error } = await supabase.from("manager_offers").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["manager-offers"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -557,7 +560,11 @@ function ManagerOffersPage() {
       if (ctx?.prev) for (const [key, data] of ctx.prev) qc.setQueryData(key, data);
       toast.error(e.message);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    },
   });
 
   const approveAllPending = useMutation({
@@ -588,6 +595,8 @@ function ManagerOffersPage() {
       if (ok > 0) toast.success(`Підтверджено відгуків: ${ok}`);
       if (failed > 0) toast.error(`Не вдалося підтвердити: ${failed}`);
       qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2431,7 +2440,7 @@ function LinkShipmentDialog({
       const { data, error } = await supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,created_by,import_manager_id,shipment_items(id,product_name,origin_country,caliber,pallet_count,distribution_items(pallets,reserved_pallets))",
+          "id,code,country,eta,created_by,import_manager_id,shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,distribution_items(pallets,reserved_pallets))",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -2449,6 +2458,7 @@ function LinkShipmentDialog({
               product_name: string;
               origin_country: string | null;
               caliber: string | null;
+              variety: string | null;
               pallet_count: number | null;
               distribution_items:
                 | { pallets: number | null; reserved_pallets: number | null }[]
@@ -2469,8 +2479,6 @@ function LinkShipmentDialog({
     country: string | null;
     eta: string | null;
     freeP: number;
-    match: "exact" | "caliber_mismatch";
-    shipmentCaliber: string | null;
   };
 
   const itemAvailable = (i: {
@@ -2503,8 +2511,6 @@ function LinkShipmentDialog({
           country: s.country,
           eta: s.eta,
           freeP,
-          match: "exact",
-          shipmentCaliber: i.caliber ?? null,
         });
       }
     }
@@ -2512,13 +2518,13 @@ function LinkShipmentDialog({
   }, [offer, shipments]);
 
   const link = useMutation({
-    mutationFn: async (vars: { shipmentItemId: string; allowMismatch: boolean }) => {
+    mutationFn: async (vars: { shipmentItemId: string }) => {
       if (!offer) return;
       const { error } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
         p_offer_id: offer.id,
         p_shipment_item_id: vars.shipmentItemId,
         p_max_pallets: null as unknown as number,
-        p_allow_caliber_mismatch: vars.allowMismatch,
+        p_allow_caliber_mismatch: false,
         p_notes: null as unknown as string,
       });
       if (error) throw error;
@@ -2528,6 +2534,11 @@ function LinkShipmentDialog({
       qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      qc.invalidateQueries({ queryKey: ["branch-requests-full"] });
+      qc.invalidateQueries({ queryKey: ["branch-free"] });
+      qc.invalidateQueries({ queryKey: ["distribution-list"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
     },
     onError: (err: any) => {
       const msg = err?.message ?? "";
@@ -2549,15 +2560,7 @@ function LinkShipmentDialog({
       toast.error("У поставці немає вільних палет");
       return;
     }
-    if (c.match === "caliber_mismatch") {
-      const ok = window.confirm(
-        `Калібр у поставці (${c.shipmentCaliber ?? "—"}) відрізняється від очікуваного (${offer?.caliber ?? "—"}). ` +
-          `Товар буде додано в поставку з калібром поставки. Продовжити?`,
-      );
-      if (!ok) return;
-      toast.info(`Калібр змінено: ${offer?.caliber ?? "—"} → ${c.shipmentCaliber ?? "—"}`);
-    }
-    link.mutate({ shipmentItemId: c.shipmentItemId, allowMismatch: c.match === "caliber_mismatch" });
+    link.mutate({ shipmentItemId: c.shipmentItemId });
   };
 
   return (
@@ -2587,7 +2590,6 @@ function LinkShipmentDialog({
           ) : (
             cards.map((c) => {
               const disabled = c.freeP <= 0 || link.isPending || pendingLinked <= 0;
-              const isExact = c.match === "exact";
               return (
                 <button
                   key={c.shipmentItemId}
@@ -2596,32 +2598,19 @@ function LinkShipmentDialog({
                   disabled={disabled}
                   className={cn(
                     "flex w-full flex-col gap-1 rounded-lg border p-3 text-left transition",
-                    isExact
-                      ? "border-success/50 bg-success/5 hover:bg-success/10"
-                      : "border-warning/50 bg-warning/5 hover:bg-warning/10",
+                    "border-success/50 bg-success/5 hover:bg-success/10",
                     disabled && "opacity-60 cursor-not-allowed",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold">{c.code}</div>
-                    <span
-                      className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] font-semibold",
-                        isExact ? "bg-success/15 text-success" : "bg-warning/20 text-warning",
-                      )}
-                    >
-                      {isExact ? "є товар" : "інший калібр"}
+                    <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
+                      є товар
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {c.country ?? "—"} · ETA {c.eta ?? "—"}
                   </div>
-                  {!isExact && (
-                    <div className="text-xs text-warning">
-                      Не збігається калібр. Потрібно: <b>{offer?.caliber ?? "—"}</b>,
-                      у поставці: <b>{c.shipmentCaliber ?? "—"}</b>
-                    </div>
-                  )}
                   <div className="text-xs font-medium text-foreground">
                     Вільних палет: <b>{c.freeP}п</b>
                   </div>
@@ -2629,6 +2618,7 @@ function LinkShipmentDialog({
               );
             })
           )}
+
 
           <div className="flex flex-col gap-2 pt-2">
             <Link
