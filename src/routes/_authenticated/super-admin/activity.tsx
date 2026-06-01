@@ -346,7 +346,7 @@ function ActivityPage() {
 
       {/* B. Sessions history */}
       <SectionCard
-        title={`Історія сесій · ${sessions?.length ?? 0}`}
+        title={`Історія сесій · ${dedupedSessions.length}`}
         action={
           <div className="flex items-center gap-2">
             <Select value={userFilter} onValueChange={setUserFilter}>
