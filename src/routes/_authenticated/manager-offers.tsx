@@ -595,6 +595,8 @@ function ManagerOffersPage() {
       if (ok > 0) toast.success(`Підтверджено відгуків: ${ok}`);
       if (failed > 0) toast.error(`Не вдалося підтвердити: ${failed}`);
       qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
