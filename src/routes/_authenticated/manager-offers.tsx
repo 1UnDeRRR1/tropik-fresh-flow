@@ -74,6 +74,44 @@ function matchesQuery(option: string, query: string) {
   return false;
 }
 
+// ── "Підтягнути" identity match helpers ──────────────────────────────────────
+// Matching rules (per spec): product, origin country, variety, caliber.
+// Packaging / tara / class / brand / specification / package_used are IGNORED.
+// product/country compared via aliases; variety/caliber as case-insensitive trim.
+function _normIdent(s: string | null | undefined) {
+  return (s ?? "").trim().toLowerCase();
+}
+export function linkMatchProduct(a: string | null | undefined, b: string | null | undefined) {
+  const na = _normIdent(canonicalizeProductName(a));
+  const nb = _normIdent(canonicalizeProductName(b));
+  return !!na && !!nb && na === nb;
+}
+export function linkMatchCountry(a: string | null | undefined, b: string | null | undefined) {
+  const na = _normIdent(normalizeCountry(a));
+  const nb = _normIdent(normalizeCountry(b));
+  return !!na && !!nb && na === nb;
+}
+// Symmetric optional match: both empty = match; only one empty = mismatch;
+// both filled = equal after trim/lowercase.
+export function linkMatchOptional(a: string | null | undefined, b: string | null | undefined) {
+  const na = _normIdent(a);
+  const nb = _normIdent(b);
+  if (!na && !nb) return true;
+  if (!na || !nb) return false;
+  return na === nb;
+}
+export function linkIdentityMatches(
+  offer: { product_name?: string | null; origin_country?: string | null; variety?: string | null; caliber?: string | null },
+  item: { product_name?: string | null; origin_country?: string | null; variety?: string | null; caliber?: string | null },
+) {
+  return (
+    linkMatchProduct(offer.product_name, item.product_name) &&
+    linkMatchCountry(offer.origin_country, item.origin_country) &&
+    linkMatchOptional(offer.variety, item.variety) &&
+    linkMatchOptional(offer.caliber, item.caliber)
+  );
+}
+
 function resolveOption(
   value: string,
   options: string[],
