@@ -560,7 +560,11 @@ function ManagerOffersPage() {
       if (ctx?.prev) for (const [key, data] of ctx.prev) qc.setQueryData(key, data);
       toast.error(e.message);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["manager-offer-responses"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    },
   });
 
   const approveAllPending = useMutation({
