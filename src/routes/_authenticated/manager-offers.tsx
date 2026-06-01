@@ -1144,7 +1144,7 @@ function ManagerOffersPage() {
                           onClick={() => setDetailOfferId(null)}
                         >
                           <Button size="sm">
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Створити нову поставку
+                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
                           </Button>
                         </Link>
                       </>
