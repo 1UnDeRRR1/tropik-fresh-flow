@@ -12,6 +12,7 @@
 //   - invoice_cost    = unit_usd + transport_per_kg + invoice_duty
 
 import { supabase } from "@/integrations/supabase/client";
+import { getCountryAliasTargets } from "@/lib/alias-cache";
 
 const EU_COUNTRIES_UPPER = new Set([
   "АВСТРІЯ","БЕЛЬГІЯ","БОЛГАРІЯ","ХОРВАТІЯ","КІПР","ЧЕХІЯ","ДАНІЯ",
@@ -61,14 +62,20 @@ function resolveCustomsProductName(name: string): string {
 export async function fetchCustomsRef(productName: string, country: string): Promise<CustomsRefRow | null> {
   const name = resolveCustomsProductName(productName.trim());
   if (!name) return null;
-  // 1) exact product + country match
-  if (country.trim()) {
+  // 1) exact product + country match. Expand country to all alias forms so
+  //    customs_reference rows stored under any alias (e.g. "ПАР" for canonical
+  //    "Південна Африка") are matched. Uses cached reverse alias index — no
+  //    extra network call.
+  const trimmedCountry = country.trim();
+  if (trimmedCountry) {
+    const candidates = getCountryAliasTargets(trimmedCountry);
+    const list = candidates.length > 0 ? candidates : [trimmedCountry];
     const { data } = await supabase
       .from("customs_reference")
       .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
       .eq("active", true)
       .ilike("product_name", name)
-      .ilike("country", country.trim())
+      .in("country", list)
       .order("threshold_price_usd", { ascending: false })
       .limit(1)
       .maybeSingle();

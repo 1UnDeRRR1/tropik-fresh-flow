@@ -15,6 +15,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 let productAliasMap: Record<string, string> = {};
 let countryAliasMap: Record<string, string> = {};
+// Reverse index: canonical country name (lowercased) → set of raw alias
+// strings (as stored in DB, e.g. "ПАР", "RSA"). Used by customs lookup so
+// `customs_reference.country` values stored under any alias form can be
+// matched from the canonical country name.
+let countryAliasTargetsMap: Record<string, string[]> = {};
+
 
 let productLoadPromise: Promise<void> | null = null;
 let countryLoadPromise: Promise<void> | null = null;
@@ -66,21 +72,30 @@ async function loadCountryAliases(): Promise<void> {
   try {
     const PAGE = 1000;
     const merged: Record<string, string> = {};
+    const reverse: Record<string, Set<string>> = {};
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabase
         .from("country_aliases")
-        .select("alias_normalized,country_name")
+        .select("alias,alias_normalized,country_name")
         .range(from, from + PAGE - 1);
       if (error) throw error;
       for (const row of data ?? []) {
         const key = (row.alias_normalized ?? "").toLowerCase();
-        if (!key) continue;
         const target = (row.country_name ?? "") as string;
-        if (target && !merged[key]) merged[key] = target;
+        const rawAlias = ((row as { alias?: string }).alias ?? row.alias_normalized ?? "") as string;
+        if (target) {
+          if (key && !merged[key]) merged[key] = target;
+          const rk = target.toLowerCase();
+          if (!reverse[rk]) reverse[rk] = new Set<string>();
+          if (rawAlias) reverse[rk].add(rawAlias);
+        }
       }
       if (!data || data.length < PAGE) break;
     }
     countryAliasMap = merged;
+    const out: Record<string, string[]> = {};
+    for (const [k, set] of Object.entries(reverse)) out[k] = Array.from(set);
+    countryAliasTargetsMap = out;
   } catch {
     // Same fallback policy — empty cache is safe.
   }
@@ -102,4 +117,20 @@ export function getProductAliases(): Record<string, string> {
 export function getCountryAliases(): Record<string, string> {
   if (!countryLoadPromise) countryLoadPromise = loadCountryAliases();
   return countryAliasMap;
+}
+
+/**
+ * Return raw alias strings (as stored in DB) that point to the given canonical
+ * country name. Always includes the canonical itself. Empty cache → just the
+ * canonical. Used by customs lookup to match `customs_reference.country`
+ * values that may be stored under any alias form (e.g. "ПАР" for canonical
+ * "Південна Африка").
+ */
+export function getCountryAliasTargets(canonical: string): string[] {
+  if (!countryLoadPromise) countryLoadPromise = loadCountryAliases();
+  const c = (canonical ?? "").trim();
+  if (!c) return [];
+  const targets = countryAliasTargetsMap[c.toLowerCase()] ?? [];
+  const set = new Set<string>([c, ...targets]);
+  return Array.from(set);
 }
