@@ -1231,9 +1231,8 @@ function ManagerOffersPage() {
                             const excluded = !inScope(r.branch_id);
                             const cancelledSupply = o.status === "deleted";
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
-                            const linkedP = Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0);
                             const apprP = r.approved_pallets ?? Number(r.requested_pallets ?? 0);
-                            const pendingP = Math.max(apprP - linkedP, 0);
+                            void apprP;
                             return (
                               <tr
                                 key={r.id}
