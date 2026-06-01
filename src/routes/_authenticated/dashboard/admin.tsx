@@ -357,16 +357,16 @@ function AdminDashboard() {
               {(data?.transit.list ?? []).length === 0 ? (
                 <EmptyState title="Немає активних поставок" />
               ) : (
-                <ul className="divide-y divide-border rounded-xl border border-border">
+                <ul className="w-full max-w-full divide-y divide-border overflow-hidden rounded-xl border border-border">
                   {data!.transit.list.map((r) => (
-                    <li key={r.key} className="px-3 py-2 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-semibold">{r.product}</span>
+                    <li key={r.key} className="w-full max-w-full px-3 py-2 text-sm">
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate font-semibold">{r.product}</span>
                         <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-bold text-success">
                           {r.pallets}п
                         </span>
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">
+                      <div className="w-full max-w-full truncate text-xs text-muted-foreground">
                         {r.country ? `${r.country} · ` : ""}{r.code} · ETA {r.eta ?? "—"} · {r.manager}
                       </div>
                     </li>
