@@ -757,9 +757,9 @@ function ManagerOffersPage() {
                       (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
                       0,
                     );
-                    const pendingLinked = o.status === "linked"
-                      ? Math.max(totalApproved - totalLinked, 0)
-                      : 0;
+                    // Status-independent: use numbers, not status string.
+                    const pendingLinked = Math.max(totalApproved - totalLinked, 0);
+                    const hasLinked = totalLinked > 0;
                     const hasPending = totalPending > 0;
 
                     // Compact status: green Активно / yellow В роботі.
