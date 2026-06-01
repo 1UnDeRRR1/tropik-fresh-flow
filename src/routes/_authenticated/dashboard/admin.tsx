@@ -399,13 +399,23 @@ function AdminDashboard() {
                 <EmptyState title="Розподілених товарів в дорозі немає" />
               ) : (
                 <div className="space-y-4">
-                  {data!.products.map((p) => (
+                  {data!.products.map((p) => {
+                    const productTotal = Object.values(p.branches).reduce(
+                      (s, n) => s + (n ?? 0),
+                      0,
+                    );
+                    return (
                     <div key={`${p.product}-${p.country}`}>
-                      <div className="mb-1 text-sm font-bold">
-                        {p.product}
-                        {p.country && (
-                          <span className="text-muted-foreground"> • {p.country}</span>
-                        )}
+                      <div className="mb-1 flex items-center justify-between gap-2 text-sm font-bold">
+                        <span className="min-w-0 truncate">
+                          {p.product}
+                          {p.country && (
+                            <span className="text-muted-foreground"> • {p.country}</span>
+                          )}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-warning/20 px-2 py-0.5 text-xs font-bold text-foreground">
+                          {productTotal}п
+                        </span>
                       </div>
                       <ul className="divide-y divide-border rounded-xl border border-border">
                         {Object.entries(p.branches)
