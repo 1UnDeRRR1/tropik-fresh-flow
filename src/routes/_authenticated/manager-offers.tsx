@@ -2479,8 +2479,6 @@ function LinkShipmentDialog({
     country: string | null;
     eta: string | null;
     freeP: number;
-    match: "exact" | "caliber_mismatch";
-    shipmentCaliber: string | null;
   };
 
   const itemAvailable = (i: {
