@@ -1073,7 +1073,6 @@ function ProductsFullscreen() {
   ).length;
 
   // Customs match status for the header indicator (server-computed only).
-  const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
   const fallbackItems = validDbItems
     .map((it) => {
       const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
