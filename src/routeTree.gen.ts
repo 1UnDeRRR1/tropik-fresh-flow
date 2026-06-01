@@ -38,6 +38,7 @@ import { Route as AuthenticatedOwnerIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedSuperAdminUsersRouteImport } from './routes/_authenticated/super-admin/users'
 import { Route as AuthenticatedSuperAdminLogsRouteImport } from './routes/_authenticated/super-admin/logs'
+import { Route as AuthenticatedSuperAdminActivityRouteImport } from './routes/_authenticated/super-admin/activity'
 import { Route as AuthenticatedShipmentsNewDraftTestRouteImport } from './routes/_authenticated/shipments/new-draft-test'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
@@ -219,6 +220,12 @@ const AuthenticatedSuperAdminLogsRoute =
   AuthenticatedSuperAdminLogsRouteImport.update({
     id: '/logs',
     path: '/logs',
+    getParentRoute: () => AuthenticatedSuperAdminRoute,
+  } as any)
+const AuthenticatedSuperAdminActivityRoute =
+  AuthenticatedSuperAdminActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
     getParentRoute: () => AuthenticatedSuperAdminRoute,
   } as any)
 const AuthenticatedShipmentsNewDraftTestRoute =
@@ -435,6 +442,7 @@ export interface FileRoutesByFullPath {
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
+  '/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
   '/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -490,6 +498,7 @@ export interface FileRoutesByTo {
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
+  '/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
   '/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -550,6 +559,7 @@ export interface FileRoutesById {
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
   '/_authenticated/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
+  '/_authenticated/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/_authenticated/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
   '/_authenticated/super-admin/users': typeof AuthenticatedSuperAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -610,6 +620,7 @@ export interface FileRouteTypes {
     | '/shipments/$id'
     | '/shipments/new'
     | '/shipments/new-draft-test'
+    | '/super-admin/activity'
     | '/super-admin/logs'
     | '/super-admin/users'
     | '/admin/'
@@ -665,6 +676,7 @@ export interface FileRouteTypes {
     | '/shipments/$id'
     | '/shipments/new'
     | '/shipments/new-draft-test'
+    | '/super-admin/activity'
     | '/super-admin/logs'
     | '/super-admin/users'
     | '/admin'
@@ -724,6 +736,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
     | '/_authenticated/shipments/new-draft-test'
+    | '/_authenticated/super-admin/activity'
     | '/_authenticated/super-admin/logs'
     | '/_authenticated/super-admin/users'
     | '/_authenticated/admin/'
@@ -946,6 +959,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/super-admin/logs'
       preLoaderRoute: typeof AuthenticatedSuperAdminLogsRouteImport
+      parentRoute: typeof AuthenticatedSuperAdminRoute
+    }
+    '/_authenticated/super-admin/activity': {
+      id: '/_authenticated/super-admin/activity'
+      path: '/activity'
+      fullPath: '/super-admin/activity'
+      preLoaderRoute: typeof AuthenticatedSuperAdminActivityRouteImport
       parentRoute: typeof AuthenticatedSuperAdminRoute
     }
     '/_authenticated/shipments/new-draft-test': {
@@ -1218,6 +1238,7 @@ const AuthenticatedOwnerRouteWithChildren =
   AuthenticatedOwnerRoute._addFileChildren(AuthenticatedOwnerRouteChildren)
 
 interface AuthenticatedSuperAdminRouteChildren {
+  AuthenticatedSuperAdminActivityRoute: typeof AuthenticatedSuperAdminActivityRoute
   AuthenticatedSuperAdminLogsRoute: typeof AuthenticatedSuperAdminLogsRoute
   AuthenticatedSuperAdminUsersRoute: typeof AuthenticatedSuperAdminUsersRoute
   AuthenticatedSuperAdminIndexRoute: typeof AuthenticatedSuperAdminIndexRoute
@@ -1225,6 +1246,7 @@ interface AuthenticatedSuperAdminRouteChildren {
 
 const AuthenticatedSuperAdminRouteChildren: AuthenticatedSuperAdminRouteChildren =
   {
+    AuthenticatedSuperAdminActivityRoute: AuthenticatedSuperAdminActivityRoute,
     AuthenticatedSuperAdminLogsRoute: AuthenticatedSuperAdminLogsRoute,
     AuthenticatedSuperAdminUsersRoute: AuthenticatedSuperAdminUsersRoute,
     AuthenticatedSuperAdminIndexRoute: AuthenticatedSuperAdminIndexRoute,
