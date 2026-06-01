@@ -1069,13 +1069,13 @@ function ManagerOffersPage() {
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
-                    {pendingLinked > 0 && (
+                    {pendingLinked > 0 && totalLinked > 0 && (
                       <span className="ml-2 text-xs font-normal text-warning">
                         · у поставці: {totalLinked} · чекають номер поставки: {pendingLinked}
                       </span>
                     )}
                   </div>
-                  {pendingLinked > 0 && (
+                  {pendingLinked > 0 && totalLinked > 0 && (
                     <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
                       <div className="mb-1 space-y-1">
                         <div>
