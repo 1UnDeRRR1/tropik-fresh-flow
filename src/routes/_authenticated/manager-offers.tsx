@@ -2440,7 +2440,7 @@ function LinkShipmentDialog({
       const { data, error } = await supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,created_by,import_manager_id,shipment_items(id,product_name,origin_country,caliber,pallet_count,distribution_items(pallets,reserved_pallets))",
+          "id,code,country,eta,created_by,import_manager_id,shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,distribution_items(pallets,reserved_pallets))",
         )
         .order("created_at", { ascending: false })
         .limit(100);
