@@ -600,48 +600,40 @@ function ManagerOffersPage() {
     [merged, detailOfferId],
   );
 
-  // Legacy text-matching path: only authoritative for rows without a
-  // position_id. New position-anchored rows must NOT use product_name +
-  // origin_country + caliber as identity — they will use position_id-based
-  // attach in a follow-up step.
-  const detailOfferPositionId = (detailOffer as (ManagerOffer & { position_id?: string | null }) | null)?.position_id ?? null;
-  const detailLegacyLinkEnabled = !!detailOffer && !!user && !detailOfferPositionId;
+  // "Підтягнути" candidate count for the offer detail panel.
+  // Single search path for both position-anchored and legacy offers: identity
+  // = product + country + variety + caliber (per spec). Packaging/spec ignored.
+  const detailLinkEnabled = !!detailOffer && !!user;
   const { data: detailLinkableCount } = useQuery({
     queryKey: [
       "detail-offer-linkable",
       detailOffer?.id,
       detailOffer?.product_name,
       detailOffer?.origin_country,
+      detailOffer?.variety,
       detailOffer?.caliber,
       user?.id,
     ],
-    enabled: detailLegacyLinkEnabled,
+    enabled: detailLinkEnabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shipments")
-        .select("id,created_by,shipment_items(id,product_name,origin_country,caliber,pallet_count)")
+        .select("id,created_by,shipment_items(id,product_name,origin_country,caliber,variety,pallet_count)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
-      const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-      const target = norm(detailOffer!.product_name);
-      const targetCountry = norm(detailOffer!.origin_country);
-      const targetCaliber = norm(detailOffer!.caliber);
       const mine = (data ?? []).filter(
         (s: { created_by?: string | null }) => s.created_by === user!.id,
       );
-      type SI = { id: string; product_name: string; origin_country: string | null; caliber: string | null; pallet_count: number | null };
+      type SI = { id: string; product_name: string; origin_country: string | null; caliber: string | null; variety: string | null; pallet_count: number | null };
       const candidateItemIds: string[] = [];
       for (const s of mine as { shipment_items: SI[] | null }[]) {
         for (const i of s.shipment_items ?? []) {
-          if (norm(i.product_name) !== target) continue;
-          if (targetCountry && norm(i.origin_country) !== targetCountry) continue;
-          if (targetCaliber && norm(i.caliber) !== targetCaliber) continue;
+          if (!linkIdentityMatches(detailOffer!, i)) continue;
           candidateItemIds.push(i.id);
         }
       }
       if (!candidateItemIds.length) return 0;
-      // Filter to items that still have undistributed pallets.
       const { data: dis, error: e2 } = await supabase
         .from("distribution_items")
         .select("shipment_item_id,pallets,reserved_pallets")
@@ -652,7 +644,6 @@ function ManagerOffersPage() {
         const v = Math.max(Number(d.pallets ?? 0), Number(d.reserved_pallets ?? 0));
         used.set(d.shipment_item_id, (used.get(d.shipment_item_id) ?? 0) + v);
       }
-      // Need original pallet_count → re-walk mine to map id→pallet_count
       const palletCountById = new Map<string, number>();
       for (const s of mine as { shipment_items: SI[] | null }[]) {
         for (const i of s.shipment_items ?? []) {
@@ -663,7 +654,6 @@ function ManagerOffersPage() {
       for (const id of candidateItemIds) {
         const total = palletCountById.get(id) ?? 0;
         const u = used.get(id) ?? 0;
-        // Undistributed if no allocations yet, or total pallets > distributed.
         if (total <= 0 || u < total) count++;
       }
       return count;
