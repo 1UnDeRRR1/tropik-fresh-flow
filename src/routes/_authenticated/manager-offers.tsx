@@ -2511,8 +2511,6 @@ function LinkShipmentDialog({
           country: s.country,
           eta: s.eta,
           freeP,
-          match: "exact",
-          shipmentCaliber: i.caliber ?? null,
         });
       }
     }
