@@ -390,7 +390,7 @@ function ActivityPage() {
                 </tr>
               </thead>
               <tbody>
-                {sessions.map((s) => (
+                {dedupedSessions.map((s) => (
                   <tr key={s.id} className="border-b last:border-0">
                     <td className="py-1.5 pr-3 font-medium">{nameOf(s.user_id)}</td>
                     <td className="py-1.5 pr-3 text-xs text-muted-foreground">{roleOf(s.user_id)}</td>
