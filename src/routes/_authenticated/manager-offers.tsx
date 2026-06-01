@@ -2458,6 +2458,7 @@ function LinkShipmentDialog({
               product_name: string;
               origin_country: string | null;
               caliber: string | null;
+              variety: string | null;
               pallet_count: number | null;
               distribution_items:
                 | { pallets: number | null; reserved_pallets: number | null }[]
