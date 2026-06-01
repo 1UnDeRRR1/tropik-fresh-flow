@@ -392,8 +392,8 @@ function computeRowPreview(
     // Clean row: use ONLY the saved customs_match_id row, never re-pick.
     ref = savedRefForClean;
     if (ref) {
-      const sameCountry =
-        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      const cand = getCountryCandidatesNormalized(d.origin_country);
+      const sameCountry = cand.has(normalizeCustomsKey(ref.country));
       components.matchedRef = {
         product_name: ref.product_name,
         country: ref.country,
@@ -409,8 +409,8 @@ function computeRowPreview(
   } else if (refs && d.product_name.trim() && d.origin_country.trim()) {
     ref = pickCustomsRefForDraft(d.product_name, d.origin_country, refs);
     if (ref) {
-      const sameCountry =
-        normalizeCustomsKey(ref.country) === normalizeCustomsKey(d.origin_country);
+      const cand = getCountryCandidatesNormalized(d.origin_country);
+      const sameCountry = cand.has(normalizeCustomsKey(ref.country));
       components.matchedRef = {
         product_name: ref.product_name,
         country: ref.country,
@@ -1078,7 +1078,8 @@ function ProductsFullscreen() {
     .map((it) => {
       const ref = it.customs_match_id ? refById.get(it.customs_match_id) : null;
       if (!ref) return null;
-      const sameCountry = norm(ref.country) === norm(it.origin_country);
+      const cand = getCountryCandidatesNormalized(it.origin_country ?? "");
+      const sameCountry = cand.has(normalizeCustomsKey(ref.country));
       return sameCountry ? null : { item: it, ref };
     })
     .filter((v): v is { item: ItemRow; ref: CustomsRefMini } => !!v);
