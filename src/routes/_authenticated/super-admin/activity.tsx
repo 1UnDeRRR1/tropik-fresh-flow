@@ -284,30 +284,28 @@ function ActivityPage() {
       />
 
       {/* A. Online now */}
-      <SectionCard title={`Зараз онлайн · ${openSessions?.filter((s) => statusOf(s) !== "offline").length ?? 0}`}>
-        {!openSessions?.length ? (
+      <SectionCard title={`Зараз онлайн · ${onlineRows.length}`}>
+        {!onlineRows.length ? (
           <EmptyState title="Нікого онлайн" hint="Сесії з'являться, коли користувачі увійдуть" />
         ) : (
           <ul className="divide-y divide-border">
-            {openSessions
-              .filter((s) => statusOf(s) !== "offline")
-              .map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{nameOf(s.user_id)}</span>
-                      <span className="text-xs text-muted-foreground">{roleOf(s.user_id)}</span>
-                      <StatusDot s={s} />
-                    </div>
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {s.last_path || "/"} · {shortUA(s.user_agent)}
-                    </div>
+            {onlineRows.map((s) => (
+              <li key={s.user_id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{nameOf(s.user_id)}</span>
+                    <span className="text-xs text-muted-foreground">{roleOf(s.user_id)}</span>
+                    <StatusDot s={s} />
                   </div>
-                  <div className="text-right text-xs text-muted-foreground">
-                    {fmtSince(s.last_seen_at)}
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {s.last_path || "/"} · {shortUA(s.user_agent)}
                   </div>
-                </li>
-              ))}
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  {fmtSince(s.last_seen_at)}
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </SectionCard>
