@@ -770,7 +770,7 @@ function ManagerOffersPage() {
                       o.status === "in_work" ||
                       o.status === "confirmed" ||
                       o.status === "closed" ||
-                      (o.status === "linked" && pendingLinked > 0)
+                      (hasLinked && pendingLinked > 0)
                     ) {
                       stColor = "bg-warning";
                       stTitle = "В роботі";
