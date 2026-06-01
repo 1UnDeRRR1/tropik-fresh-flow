@@ -91,7 +91,7 @@ export function useActivityHeartbeat(): void {
         const { data, error } = await supabase.rpc("rpc_activity_start_session", {
           p_user_agent: navigator.userAgent.slice(0, 300),
           p_platform: getPlatform(),
-          p_app_version: getAppVersion(),
+          p_app_version: getAppVersion() ?? undefined,
           p_last_path: pathRef.current.slice(0, 200),
         });
         if (error || cancelled) return;
