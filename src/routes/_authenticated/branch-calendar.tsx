@@ -238,7 +238,7 @@ function BranchCalendarPage() {
               <SectionCard
                 key={d.iso}
                 title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
-                action={isProductView ? (
+                action={hasFilter ? (
                   <span className="text-sm font-bold tabular-nums text-brand">{totalPallets}п</span>
                 ) : null}
               >
