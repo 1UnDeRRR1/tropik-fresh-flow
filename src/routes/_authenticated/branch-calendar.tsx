@@ -58,6 +58,7 @@ function BranchCalendarPage() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id;
   const [productFilter, setProductFilter] = useState<string>("__all");
+  const [countryFilter, setCountryFilter] = useState<string>("__all");
 
   const cutoff = new Date();
   cutoff.setHours(0, 0, 0, 0);
