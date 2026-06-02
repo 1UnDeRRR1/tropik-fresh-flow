@@ -676,7 +676,7 @@ function BranchDashboard() {
     }
   }, [rows, mainRows, offerRows]);
 
-  const viewRows = view === "main" ? mainRows : offerRows;
+  const viewRows = mainRows;
 
   const filteredRows = useMemo(() => {
     const baseRows = viewRows;
