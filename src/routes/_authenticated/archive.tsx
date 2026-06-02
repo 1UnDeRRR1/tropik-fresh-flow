@@ -24,10 +24,43 @@ const fmtDateTime = (d: string | null) =>
 
 function ArchivePage() {
   const [tab, setTab] = useState<Tab>("unloaded");
+  const { profile, primaryRole } = useAuth();
+  const isBranch = primaryRole === "branch";
+  const branchId = profile?.branch_id ?? null;
 
   const { data: unloaded = [] } = useQuery({
-    queryKey: ["archive-unloaded"],
+    queryKey: ["archive-unloaded", isBranch ? `branch:${branchId ?? ""}` : "staff"],
+    enabled: isBranch ? !!branchId : true,
     queryFn: async () => {
+      if (isBranch) {
+        // Branch-safe path: restrict to shipments where this branch has a
+        // distribution, then read only non-sensitive fields from the
+        // branch-safe view (no suppliers / costs / internal notes).
+        const { data: dists, error: distErr } = await supabase
+          .from("distributions")
+          .select("shipment_id")
+          .eq("branch_id", branchId!);
+        if (distErr) throw distErr;
+        const ids = Array.from(
+          new Set((dists ?? []).map((d) => d.shipment_id).filter(Boolean) as string[]),
+        );
+        if (!ids.length) return [];
+        const { data, error } = await (supabase as any)
+          .from("shipments_branch")
+          .select("id,code,country,eta,status,unloaded_at,archived_at")
+          .in("id", ids)
+          .not("unloaded_at", "is", null)
+          .is("archived_at", null)
+          .neq("status", "cancelled")
+          .order("unloaded_at", { ascending: false });
+        if (error) throw error;
+        return (data ?? []) as Array<{
+          id: string; code: string; country: string | null;
+          eta: string | null; status: string;
+          unloaded_at: string | null; archived_at: string | null;
+          archive_due_at?: null;
+        }>;
+      }
       const { data, error } = await supabase
         .from("shipments")
         .select("id,code,country,eta,status,unloaded_at,archive_due_at")
@@ -39,6 +72,7 @@ function ArchivePage() {
       return data ?? [];
     },
   });
+
 
   const { data: cancelled = [] } = useQuery({
     queryKey: ["archive-cancelled"],
