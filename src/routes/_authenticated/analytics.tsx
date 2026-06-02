@@ -416,6 +416,16 @@ export function Analytics() {
                   const specs = [it.variety, it.caliber, it.class, it.brand]
                     .map((s) => (s ?? "").trim())
                     .filter((s) => s.length > 0);
+                  const specPairs: { label: string; value: string }[] = [];
+                  const variety = (it.variety ?? "").trim();
+                  const caliber = (it.caliber ?? "").trim();
+                  const klass = (it.class ?? "").trim();
+                  const brand = (it.brand ?? "").trim();
+                  if (variety) specPairs.push({ label: "Сорт", value: variety });
+                  if (caliber) specPairs.push({ label: "Кал", value: caliber });
+                  if (klass) specPairs.push({ label: "Клас", value: klass });
+                  if (brand) specPairs.push({ label: "Бренд", value: brand });
+                  void specs;
                   return (
                     <li key={`${sh.id}-${it.id}`}>
                       <button
@@ -423,30 +433,37 @@ export function Analytics() {
                         onClick={() => setOpenItem(f)}
                         className="flex w-full flex-col gap-1.5 py-2.5 text-left active:opacity-70"
                       >
-                        <div className="flex items-start gap-2">
-                          <div className="shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
-                            <div className="text-sm font-bold tabular-nums">{tile.day}</div>
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 rounded-md border border-border bg-secondary px-3 py-2 text-center leading-tight">
+                            <div className="text-xl font-bold tabular-nums">{tile.day}</div>
                             <div className="text-[10px] text-muted-foreground">{tile.mon}</div>
                           </div>
                           <div className="min-w-0 flex-1 text-center">
-                            <div className="truncate text-sm font-semibold">
-                              {it.product_name}
-                              {country ? ` (${country})` : ""}
-                            </div>
-                            {specs.length ? (
-                              <div className="text-[11px] text-muted-foreground">{specs.join(" · ")}</div>
+                            {specPairs.length ? (
+                              <div className="text-[11px] text-muted-foreground">
+                                {specPairs.map((p, i) => (
+                                  <span key={p.label}>
+                                    {i > 0 ? "; " : ""}
+                                    {p.label}: <span className="text-foreground">{p.value}</span>
+                                  </span>
+                                ))}
+                              </div>
                             ) : null}
                           </div>
                           <div className="shrink-0 text-right leading-tight">
-                            <div className="text-sm font-bold tabular-nums text-brand">{visiblePallets}п</div>
+                            <div className="text-xl font-bold tabular-nums text-brand">{visiblePallets}п</div>
                             <div className="text-[11px] font-normal text-muted-foreground">{Math.round(weight)} кг</div>
                           </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <div className="text-[11px] text-muted-foreground">
                           <span className="font-mono text-foreground">{sh.code}</span>
+                          <span> (</span>
                           <span className="font-semibold text-foreground">{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
+                          <span>)</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
                           {branchScoped ? (
-                            <span>з {itemTotal}п усього</span>
+                            <span className="text-muted-foreground">з {itemTotal}п усього</span>
                           ) : (
                             <>
                               <span className="text-success">розпод. {distributed}п</span>
@@ -458,6 +475,7 @@ export function Analytics() {
                           <span className="text-muted-foreground">
                             закуп. {Number(it.unit_price ?? 0).toFixed(2)} {it.price_currency ?? ""}
                           </span>
+                          <span className="text-foreground">собівартість:</span>
                           <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
                         </div>
                         <div className="text-[11px] text-muted-foreground">
