@@ -241,7 +241,7 @@ function BranchDashboard() {
     enabled: itemIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("shipment_items")
+        .from("shipment_items_branch")
         .select("id,product_name,caliber,origin_country,variety,brand,class,linked_offer_id")
         .in("id", itemIds);
       if (error) throw error;
@@ -302,23 +302,20 @@ function BranchDashboard() {
     enabled: shipmentIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("shipments")
-        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,pipeline_status,temperature_mode,supplier_id,import_manager_id")
+        .from("shipments_branch")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,pipeline_status,temperature_mode,import_manager_id,import_manager_name")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
         unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null;
         status: string; pipeline_status: PipelineStatus; temperature_mode: string | null;
-        supplier_id: string | null; import_manager_id: string | null;
+        import_manager_id: string | null; import_manager_name: string | null;
       }>;
     },
   });
 
-  const supplierIds = useMemo(
-    () => Array.from(new Set((ships ?? []).map((s) => s.supplier_id).filter(Boolean) as string[])),
-    [ships],
-  );
+  // Branch path does not fetch suppliers (purchase-side data is hidden from branch).
   const managerIds = useMemo(
     () =>
       Array.from(
@@ -329,16 +326,6 @@ function BranchDashboard() {
       ),
     [ships, pendingOffers],
   );
-
-  const { data: suppliers } = useQuery({
-    queryKey: ["branch-suppliers", supplierIds.join(",")],
-    enabled: supplierIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id,name").in("id", supplierIds);
-      if (error) throw error;
-      return (data ?? []) as Array<{ id: string; name: string }>;
-    },
-  });
 
   const { data: managers } = useQuery({
     queryKey: ["branch-managers", managerIds.join(",")],
@@ -449,7 +436,7 @@ function BranchDashboard() {
     if (!dists) return [];
     const iMap = new Map((items ?? []).map((i) => [i.id, i]));
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
-    const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
+    // Suppliers are not fetched on the branch path; supplier_name is intentionally null.
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
     // Branch-safe map: shipment id → manager full name from shipments_branch.
     const shipMgrNameMap = new Map(
@@ -527,7 +514,7 @@ function BranchDashboard() {
             brand: it.brand,
             class: it.class,
             packaging: null,
-            supplier_name: s?.supplier_id ? supMap.get(s.supplier_id) ?? null : null,
+            supplier_name: null,
             temperature_mode: s?.temperature_mode ?? null,
             manager_name:
               (s?.id && shipMgrNameMap.get(s.id))
@@ -553,7 +540,7 @@ function BranchDashboard() {
               offerById,
               distributionItemId: d.id,
               shipmentId: d.shipment_id,
-              supplierId: s?.supplier_id ?? undefined,
+              supplierId: undefined,
             }),
             is_real_shipment_code: isRealShipmentCode(s?.code),
           } as Row;
@@ -662,7 +649,7 @@ function BranchDashboard() {
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, suppliers, managers, shipMgrs, offerCreators, baselines, bvps, board, pendingOffers, bridgeOffers]);
+  }, [dists, items, ships, managers, shipMgrs, offerCreators, baselines, bvps, board, pendingOffers, bridgeOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
