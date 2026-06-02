@@ -29,6 +29,8 @@ type ItemRow = {
   origin_country: string | null;
   caliber: string | null;
   variety: string | null;
+  brand: string | null;
+  class: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
   net_weight_kg: number | null;
@@ -38,6 +40,15 @@ type ItemRow = {
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
+
+const MONTH_UK = ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+function etaTile(iso: string | null): { day: string; mon: string } {
+  if (!iso) return { day: "—", mon: "" };
+  const parts = iso.split("-");
+  if (parts.length < 3) return { day: "—", mon: "" };
+  const mi = Number(parts[1]) - 1;
+  return { day: String(Number(parts[2])), mon: MONTH_UK[mi] ?? "" };
+}
 
 type ShipmentRow = {
   id: string;
