@@ -100,6 +100,7 @@ const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof Che
 };
 
 function QAPage() {
+  const { hasRole, loading } = useAuth();
   const [state, setState] = useState<State>({});
 
   useEffect(() => setState(loadState()), []);
