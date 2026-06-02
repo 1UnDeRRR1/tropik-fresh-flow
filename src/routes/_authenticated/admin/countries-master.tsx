@@ -60,6 +60,9 @@ function CountriesMaster() {
     onError: (e) => toast.error(translateError(e)),
   });
 
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/dashboard/admin" />;
+
   return (
     <div className="space-y-4">
       <PageHeader title="Країни (база)" subtitle="Майстер-довідник країн для всієї системи" />
