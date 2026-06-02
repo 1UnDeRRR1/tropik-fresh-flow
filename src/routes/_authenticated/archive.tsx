@@ -7,6 +7,8 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip } from "@/components/StatusChip";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
+import { useAuth } from "@/lib/auth";
+
 
 export const Route = createFileRoute("/_authenticated/archive")({
   component: ArchivePage,
