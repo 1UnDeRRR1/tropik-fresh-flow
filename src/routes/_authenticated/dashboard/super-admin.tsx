@@ -30,7 +30,11 @@ function SuperAdminDashboard() {
         logs: logs.data ?? [],
       };
     },
+    enabled: hasRole("super_admin"),
   });
+
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/" />;
 
   return (
     <div className="space-y-5">
