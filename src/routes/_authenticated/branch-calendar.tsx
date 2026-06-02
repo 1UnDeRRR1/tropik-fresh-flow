@@ -93,7 +93,7 @@ function BranchCalendarPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,product_name,origin_country,final_cost_indicative,final_cost_invoice")
+        .select("id,product_name,origin_country,variety,brand,class,caliber,final_cost_indicative,final_cost_invoice")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Item[];
