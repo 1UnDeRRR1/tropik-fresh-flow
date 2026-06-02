@@ -767,31 +767,6 @@ function BranchDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Розділ">
-        {([
-          { id: "main", label: "Головна", count: mainRows.length },
-          { id: "offers", label: "Пропозиції", count: offerRows.length },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={view === t.id}
-            onClick={() => setView(t.id)}
-            className={cn(
-              "h-10 rounded-lg border px-3 text-sm font-medium leading-none transition-colors",
-              view === t.id
-                ? "border-destructive bg-destructive/10 text-destructive"
-                : "border-input bg-card/80 text-foreground hover:bg-muted/50",
-            )}
-          >
-            {t.label} <span className="ml-1 text-xs tabular-nums opacity-70">{t.count}</span>
-          </button>
-        ))}
-      </div>
-
-      <MainBoardToggle value={board} onChange={setBoard} />
-
       {rows.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           <select
@@ -799,11 +774,11 @@ function BranchDashboard() {
             onChange={(e) => setSortBy(e.target.value as SortKey)}
             aria-label="Сортувати за"
             className={cn(controlBaseClass, controlFocusClass)}
-            data-active={sortBy !== "eta" ? "true" : undefined}
+            data-active={sortBy !== "last_event" ? "true" : undefined}
           >
             {sortOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                Сортувати: {o.label.replace(/^За /, "")}
+                Сортувати: {o.label}
               </option>
             ))}
           </select>
@@ -818,145 +793,31 @@ function BranchDashboard() {
         </div>
       )}
 
+      {rows.length > 0 && (
+        <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+          <span>Активний товар вашої філії</span>
+          <span className="font-bold tabular-nums text-destructive">{totalConfirmedPallets}п</span>
+        </div>
+      )}
+
       {distsPending || (!!branchId && dists === undefined && !distsError) ? (
         <div className="flex items-center justify-center py-10">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
         </div>
       ) : !filteredRows.length ? (
         <EmptyState
-          title={
-            search
-              ? "Немає товару за пошуком"
-              : board === "unloaded"
-                ? "У розвантажених поки порожньо"
-                : "Поки немає підтвердженого товару"
-          }
+          title={search ? "Немає товару за пошуком" : "Поки немає підтвердженого товару"}
         />
       ) : (
-        <div className="branch-table-wrap rounded-2xl border border-border bg-card p-2 shadow-card sm:p-3">
-          <TableScroller className="-mx-1">
-            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-xs">
-              <thead className="[&_th]:bg-table-head [&_th]:font-medium">
-                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground [&>th:first-child]:normal-case [&>th:first-child]:tracking-normal [&>th:first-child]:text-[11px]">
-                  <th className="sticky left-0 z-20 bg-card pl-1 pr-0.5 py-2 font-medium text-left normal-case tracking-normal whitespace-nowrap" style={{ width: 52, minWidth: 52, maxWidth: 52 }}>Статус</th>
-                  <th className="sticky left-[52px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 128, minWidth: 128, maxWidth: 128 }}>Товар</th>
-                  <th className="px-2 py-2 font-medium">Країна</th>
-                  <th className="px-2 py-2 font-medium">Заход</th>
-                  <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
-                    Палет
-                    <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
-                      {totalConfirmedPallets}п
-                    </span>
-                  </th>
-                  <th className="px-2 py-2 font-medium">Сорт</th>
-                  <th className="px-2 py-2 font-medium">Калібр</th>
-                  <th className="px-2 py-2 text-right font-medium">Собівартість</th>
-                  <th className="px-2 py-2 font-medium">Менеджер</th>
-                  <th className="px-2 py-2 font-medium">Поставка</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((r) => {
-                  const s = statsFor(r);
-                  const etaChanged = dateNeq(r.eta, r.seen_eta);
-                  const palChanged = numNeq(r.pallets, r.seen_pallets);
-                  const costChanged =
-                    !!r.bvp_reason &&
-                    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
-                    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
-                  return (
-                    <tr
-                      key={r.key}
-                      className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
-                    >
-                      <td
-                        className="sticky left-0 z-10 bg-card pl-1 pr-0.5 py-2 text-left cursor-pointer"
-                        style={{ width: 52, minWidth: 52, maxWidth: 52 }}
-                        onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
-                      >
-                        <StatusIcon status={r.pipeline} size={24} />
-                      </td>
-                      <td
-                        className="sticky left-[52px] z-10 bg-card px-2 py-2 cursor-pointer"
-                        style={{ width: 128, minWidth: 128, maxWidth: 128 }}
-                        onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
-                      >
-                        <div className="truncate" title={r.product}>
-                          {r.product}
-                        </div>
-                        {r.approved_qty_note && (
-                          <div className="truncate text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
-                        )}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
-                        <span className="sm:hidden">{r.country ? toShortUaCountry(r.country) : "—"}</span>
-                        <span className="hidden sm:inline">{r.country ? toUaCountry(r.country) : "—"}</span>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80 tabular-nums">
-                        {fmtEta(r.eta)}
-                        {etaChanged && (
-                          <ChangeBadge
-                            field="ETA"
-                            oldVal={fmtEta(r.seen_eta)}
-                            newVal={fmtEta(r.eta)}
-                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
-                        {s.pending > 0 ? (
-                          <span>
-                            {s.free}п <span className="text-muted-foreground"> / </span>
-                            <span className="text-blue-600">{s.pending}п</span>
-                          </span>
-                        ) : (
-                          <span>{r.pallets}п</span>
-                        )}
-                        {palChanged && (
-                          <ChangeBadge
-                            field="Палети"
-                            oldVal={`${Number(r.seen_pallets ?? 0)}п`}
-                            newVal={`${r.pallets}п`}
-                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
-                        {r.variety ?? <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
-                        {r.caliber ?? <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
-                        {costChanged && (
-                          <ChangeBadge
-                            field="Собівартість"
-                            oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
-                            newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
-                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-foreground/80 whitespace-nowrap">
-                        {r.manager_name ?? "—"}
-                      </td>
-                      <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
-                        {r.distribution_id.startsWith("mor-") ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          r.code || <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-              </tbody>
-            </table>
-          </TableScroller>
-        </div>
+        <BranchCardList
+          rows={filteredRows}
+          sortBy={sortBy}
+          statsFor={statsFor}
+          onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
+          ackChange={ackChange}
+        />
       )}
+
 
       {/* Product detail card — clean mobile detail view, not a label/value dump.
           Top: status icon + label (centered). Bottom: pallet counter + "Запропонувати"
