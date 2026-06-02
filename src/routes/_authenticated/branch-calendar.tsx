@@ -195,20 +195,35 @@ function BranchCalendarPage() {
     <div className="space-y-4">
       <PageHeader title="Календар" subtitle="Активний товар вашої філії за датами прибуття" />
 
-      <div className="rounded-xl border border-border bg-card p-3">
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
-        <select
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="__all">Всі активні товари</option>
-          {productOptions.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.name}{p.country ? ` • ${p.country}` : ""}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="__all">Всі товари</option>
+            {productOptions.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.name}{p.country ? ` • ${p.country}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Країна походження</label>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="__all">Всі країни</option>
+            {countryOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {isLoading ? (
