@@ -156,13 +156,23 @@ function BranchCalendarPage() {
       .sort((a, b) => a.name.localeCompare(b.name, "uk"));
   }, [allEntries]);
 
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of allEntries) {
+      const c = e.item.origin_country || e.ship.country || "";
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [allEntries]);
+
   const filtered = useMemo(() => {
-    if (productFilter === "__all") return allEntries;
     return allEntries.filter((e) => {
       const country = e.item.origin_country || e.ship.country || "";
-      return `${e.item.product_name.trim()}__${country}` === productFilter;
+      if (productFilter !== "__all" && `${e.item.product_name.trim()}__${country}` !== productFilter) return false;
+      if (countryFilter !== "__all" && country !== countryFilter) return false;
+      return true;
     });
-  }, [allEntries, productFilter]);
+  }, [allEntries, productFilter, countryFilter]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, Entry[]>();
@@ -179,7 +189,7 @@ function BranchCalendarPage() {
       });
   }, [filtered]);
 
-  const isProductView = productFilter !== "__all";
+  const hasFilter = productFilter !== "__all" || countryFilter !== "__all";
 
   return (
     <div className="space-y-4">
