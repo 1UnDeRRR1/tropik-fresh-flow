@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, ExternalLink, RotateCcw, Download } from "lucide-react";
 import { SectionCard } from "@/components/cards";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin/qa")({
   component: QAPage,
@@ -99,6 +100,7 @@ const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof Che
 };
 
 function QAPage() {
+  const { hasRole, loading } = useAuth();
   const [state, setState] = useState<State>({});
 
   useEffect(() => setState(loadState()), []);
@@ -146,6 +148,9 @@ function QAPage() {
     URL.revokeObjectURL(url);
     toast.success("Звіт збережено");
   };
+
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/dashboard/admin" />;
 
   return (
     <div className="space-y-4">

@@ -14,8 +14,8 @@ const TABS = [
   { to: "/admin/loading-plan", label: "План" },
   { to: "/admin/countries", label: "Логістика" },
   { to: "/admin/customs", label: "Митниця" },
-  { to: "/admin/qa", label: "QA" },
-  { to: "/admin/status-preview", label: "Статуси" },
+  { to: "/admin/qa", label: "QA", superAdminOnly: true },
+  { to: "/admin/status-preview", label: "Статуси", superAdminOnly: true },
 ] as const;
 
 function AdminLayout() {
@@ -23,13 +23,15 @@ function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   if (loading) return null;
   if (!hasRole(["admin", "super_admin"])) return <Navigate to="/" />;
+  const isSuperAdmin = hasRole("super_admin");
+  const visibleTabs = TABS.filter((t) => !("superAdminOnly" in t && t.superAdminOnly) || isSuperAdmin);
   const hideTabs = pathname.startsWith("/admin/triggers");
   return (
     <div className="space-y-4">
       {!hideTabs && (
         <div className="-mx-4 overflow-x-auto px-4">
           <div className="flex gap-2 pb-1">
-            {TABS.map((t) => {
+            {visibleTabs.map((t) => {
               const active = pathname.startsWith(t.to);
               return (
                 <Link
