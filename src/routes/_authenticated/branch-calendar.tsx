@@ -254,11 +254,17 @@ function BranchCalendarPage() {
                       </div>
                       <div className="mt-0.5 text-muted-foreground">
                         <span className="font-medium text-foreground">{e.item.product_name}</span>
+                        {e.item.variety ? <span> · {e.item.variety}</span> : null}
                         {(e.item.origin_country || e.ship.country) ? (
                           <span> · {e.item.origin_country || e.ship.country}</span>
                         ) : null}
                         <span> · <span className="font-bold tabular-nums text-brand">{e.pallets}п</span></span>
                       </div>
+                      {(e.item.class || e.item.brand || e.item.caliber) && (
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {[e.item.class, e.item.brand, e.item.caliber].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
