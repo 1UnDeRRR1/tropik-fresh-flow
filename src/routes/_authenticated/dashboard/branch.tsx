@@ -744,13 +744,11 @@ function BranchDashboard() {
   );
 
   const sortOptions: { value: SortKey; label: string }[] = [
-    { value: "eta", label: "За датою заходу" },
-    { value: "status", label: "За статусом / активністю" },
-    { value: "product", label: "За товаром" },
-    { value: "country", label: "За країною" },
-    { value: "manager", label: "За менеджером" },
-    { value: "shipment", label: "За поставкою" },
-    { value: "pallets", label: "За палетами" },
+    { value: "last_event", label: "Остання подія" },
+    { value: "eta", label: "Дата заходу" },
+    { value: "product", label: "Товар" },
+    { value: "country", label: "Країна" },
+    { value: "manager", label: "Менеджер" },
   ];
 
   const controlBaseClass =
