@@ -436,7 +436,7 @@ function BranchDashboard() {
     if (!dists) return [];
     const iMap = new Map((items ?? []).map((i) => [i.id, i]));
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
-    const supMap = new Map((suppliers ?? []).map((s) => [s.id, s.name]));
+    // Suppliers are not fetched on the branch path; supplier_name is intentionally null.
     const mgrMap = new Map((managers ?? []).map((m) => [m.id, m.full_name]));
     // Branch-safe map: shipment id → manager full name from shipments_branch.
     const shipMgrNameMap = new Map(
