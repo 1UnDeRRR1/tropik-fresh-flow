@@ -559,9 +559,7 @@ function BranchDashboard() {
       ),
     );
     const pending: Row[] =
-      board === "unloaded"
-        ? []
-        : (pendingOffers ?? [])
+      (pendingOffers ?? [])
             .filter((p) => !materialisedOfferIds.has(p.offer_id))
             // Cleanup Pack #8: "Підтверджений товар" — лише підтверджені/частково
             // підтверджені/замовлені. Заявки, що ще чекають на підтвердження
