@@ -485,11 +485,8 @@ function BranchDashboard() {
           const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
           const archived = !!s?.archived_at;
           if (archived) return null;
-          if (board === "unloaded") {
-            if (!unloadedShip || cancelled) return null;
-          } else {
-            if (unloadedShip || cancelled) return null;
-          }
+          // Branch dashboard: active board only (unloaded → /archive).
+          if (unloadedShip || cancelled) return null;
           if (Number(di.pallets ?? 0) <= 0) return null;
           const b = bMap.get(`${d.id}-${it.id}`);
           const v = vMap.get(`${d.id}-${it.id}`);
