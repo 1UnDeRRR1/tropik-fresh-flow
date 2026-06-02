@@ -412,10 +412,6 @@ export function Analytics() {
                   const distributed = dist ? Array.from(dist.values()).reduce((a, b) => a + b, 0) : 0;
                   const remaining = itemTotal - distributed;
                   const tile = etaTile(sh.eta);
-                  const country = (it.origin_country ?? "").trim();
-                  const specs = [it.variety, it.caliber, it.class, it.brand]
-                    .map((s) => (s ?? "").trim())
-                    .filter((s) => s.length > 0);
                   const specPairs: { label: string; value: string }[] = [];
                   const variety = (it.variety ?? "").trim();
                   const caliber = (it.caliber ?? "").trim();
@@ -425,7 +421,6 @@ export function Analytics() {
                   if (caliber) specPairs.push({ label: "Кал", value: caliber });
                   if (klass) specPairs.push({ label: "Клас", value: klass });
                   if (brand) specPairs.push({ label: "Бренд", value: brand });
-                  void specs;
                   return (
                     <li key={`${sh.id}-${it.id}`}>
                       <button
