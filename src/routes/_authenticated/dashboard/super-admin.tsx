@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Shield, ScrollText, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, StatCard, EmptyState } from "@/components/cards";
 
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/super-admin")({
 });
 
 function SuperAdminDashboard() {
+  const { hasRole, loading } = useAuth();
   const { data } = useQuery({
     queryKey: ["super-overview"],
     queryFn: async () => {

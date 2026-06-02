@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { requireCronSecret } from "@/lib/cron-guard.server";
 
 // Refresh EUR/USD rate from Frankfurter and upsert into exchange_rates.
-// Called daily by pg_cron with the project anon key as `apikey` header.
+// Called daily by pg_cron with x-cron-secret header.
 export const Route = createFileRoute("/api/public/hooks/refresh-fx")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const denied = requireCronSecret(request);
+        if (denied) return denied;
         try {
           const res = await fetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD");
           if (!res.ok) {

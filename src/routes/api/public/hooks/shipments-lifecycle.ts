@@ -1,10 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireCronSecret } from "@/lib/cron-guard.server";
 
 export const Route = createFileRoute("/api/public/hooks/shipments-lifecycle")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const denied = requireCronSecret(request);
+        if (denied) return denied;
+
         const results: Record<string, number | string> = {};
 
         const { data: unloaded, error: e1 } = await supabaseAdmin.rpc("auto_unload_shipments");
