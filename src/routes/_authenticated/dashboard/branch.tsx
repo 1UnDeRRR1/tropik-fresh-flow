@@ -42,7 +42,7 @@ function isRealShipmentCode(code: string | null | undefined): boolean {
 
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
-type SortKey = "eta" | "product" | "country" | "manager" | "shipment" | "pallets" | "status";
+type SortKey = "last_event" | "eta" | "product" | "country" | "manager";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
