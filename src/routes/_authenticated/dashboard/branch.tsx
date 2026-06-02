@@ -514,7 +514,7 @@ function BranchDashboard() {
             brand: it.brand,
             class: it.class,
             packaging: null,
-            supplier_name: s?.supplier_id ? supMap.get(s.supplier_id) ?? null : null,
+            supplier_name: null,
             temperature_mode: s?.temperature_mode ?? null,
             manager_name:
               (s?.id && shipMgrNameMap.get(s.id))
