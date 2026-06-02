@@ -538,6 +538,9 @@ function BranchDashboard() {
               supplierId: undefined,
             }),
             is_real_shipment_code: isRealShipmentCode(s?.code),
+            // Last operational event for the row, used as default sort.
+            // BVP updated_at fires on price/freight changes; falls back to ETA.
+            last_event_at: (v?.updated_at as string | undefined) ?? s?.eta ?? null,
           } as Row;
         })
         .filter(Boolean) as Row[],
