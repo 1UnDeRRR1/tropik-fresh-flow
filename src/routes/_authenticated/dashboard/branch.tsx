@@ -17,7 +17,7 @@ import { StatusIcon } from "@/components/StatusIcon";
 import { STATUS_TEXT_COLOR } from "@/lib/status-icon-map";
 import { PIPELINE_LABEL } from "@/lib/pipeline-status";
 import type { PipelineStatus } from "@/lib/pipeline-status";
-import { SectionCard } from "@/components/cards";
+
 import { useFirstScreenGate } from "@/routes/_authenticated";
 import {
   resolveOfferRow,
