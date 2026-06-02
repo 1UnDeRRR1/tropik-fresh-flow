@@ -162,9 +162,7 @@ function BranchDashboard() {
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
-  const [board, setBoard] = useState<BoardView>("active");
-  const [view, setView] = useState<"main" | "offers">("main");
-  const [sortBy, setSortBy] = useState<SortKey>("eta");
+  const [sortBy, setSortBy] = useState<SortKey>("last_event");
   const [search, setSearch] = useState<string>("");
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
