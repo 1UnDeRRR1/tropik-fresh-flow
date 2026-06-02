@@ -177,7 +177,7 @@ function TriggersPage() {
   });
 
   if (loading) return null;
-  if (!hasRole(["admin", "super_admin"])) return <Navigate to="/dashboard/admin" />;
+  if (!hasRole("super_admin")) return <Navigate to="/dashboard/admin" />;
 
   const grouped = useMemo(() => {
     return {

@@ -149,6 +149,9 @@ function QAPage() {
     toast.success("Звіт збережено");
   };
 
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/dashboard/admin" />;
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

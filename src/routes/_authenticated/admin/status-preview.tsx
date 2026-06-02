@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { PipelineStatusBadge, type PipelineBadgeVariant } from "@/components/PipelineStatusBadge";
 import { PIPELINE_ORDER } from "@/lib/pipeline-status";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin/status-preview")({
   component: StatusPreviewPage,
@@ -14,6 +15,9 @@ const VARIANTS: { id: PipelineBadgeVariant; title: string; desc: string }[] = [
 ];
 
 function StatusPreviewPage() {
+  const { hasRole, loading } = useAuth();
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/dashboard/admin" />;
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 space-y-10">
       <header>
