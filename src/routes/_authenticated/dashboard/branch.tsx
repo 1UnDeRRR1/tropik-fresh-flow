@@ -241,7 +241,7 @@ function BranchDashboard() {
     enabled: itemIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("shipment_items")
+        .from("shipment_items_branch")
         .select("id,product_name,caliber,origin_country,variety,brand,class,linked_offer_id")
         .in("id", itemIds);
       if (error) throw error;
