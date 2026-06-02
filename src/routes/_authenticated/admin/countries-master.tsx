@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { run, translateError } from "@/lib/mutation-helpers";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/admin/countries-master")({
   component: CountriesMaster,
@@ -20,6 +21,7 @@ interface C {
 }
 
 function CountriesMaster() {
+  const { hasRole, loading } = useAuth();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [edit, setEdit] = useState<Record<string, Partial<C>>>({});
