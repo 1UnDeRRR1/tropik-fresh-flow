@@ -646,7 +646,7 @@ function BranchDashboard() {
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, managers, shipMgrs, offerCreators, baselines, bvps, board, pendingOffers, bridgeOffers]);
+  }, [dists, items, ships, managers, shipMgrs, offerCreators, baselines, bvps, pendingOffers, bridgeOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
