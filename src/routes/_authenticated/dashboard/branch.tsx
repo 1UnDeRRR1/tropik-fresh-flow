@@ -302,23 +302,20 @@ function BranchDashboard() {
     enabled: shipmentIds.length > 0,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("shipments")
-        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,pipeline_status,temperature_mode,supplier_id,import_manager_id")
+        .from("shipments_branch")
+        .select("id,code,eta,country,unloaded_at,cancelled_at,archived_at,status,pipeline_status,temperature_mode,import_manager_id,import_manager_name")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null; country: string | null;
         unloaded_at: string | null; cancelled_at: string | null; archived_at: string | null;
         status: string; pipeline_status: PipelineStatus; temperature_mode: string | null;
-        supplier_id: string | null; import_manager_id: string | null;
+        import_manager_id: string | null; import_manager_name: string | null;
       }>;
     },
   });
 
-  const supplierIds = useMemo(
-    () => Array.from(new Set((ships ?? []).map((s) => s.supplier_id).filter(Boolean) as string[])),
-    [ships],
-  );
+  // Branch path does not fetch suppliers (purchase-side data is hidden from branch).
   const managerIds = useMemo(
     () =>
       Array.from(
@@ -329,16 +326,6 @@ function BranchDashboard() {
       ),
     [ships, pendingOffers],
   );
-
-  const { data: suppliers } = useQuery({
-    queryKey: ["branch-suppliers", supplierIds.join(",")],
-    enabled: supplierIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id,name").in("id", supplierIds);
-      if (error) throw error;
-      return (data ?? []) as Array<{ id: string; name: string }>;
-    },
-  });
 
   const { data: managers } = useQuery({
     queryKey: ["branch-managers", managerIds.join(",")],
