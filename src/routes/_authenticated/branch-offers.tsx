@@ -94,7 +94,7 @@ function BranchOffersPage() {
   const { data: shipments } = useQuery({
     queryKey: ["branch-offer-shipments"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("shipments_branch").select("id,code,eta,arrived_at");
+      const { data, error } = await (supabase as any).from("shipments_branch").select("id,code,eta,arrived_at");
       if (error) throw error;
       return data ?? [];
     },
