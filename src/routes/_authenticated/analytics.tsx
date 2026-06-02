@@ -29,6 +29,8 @@ type ItemRow = {
   origin_country: string | null;
   caliber: string | null;
   variety: string | null;
+  brand: string | null;
+  class: string | null;
   pallet_count: number | null;
   pallet_weight: number | null;
   net_weight_kg: number | null;
@@ -38,6 +40,15 @@ type ItemRow = {
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
+
+const MONTH_UK = ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+function etaTile(iso: string | null): { day: string; mon: string } {
+  if (!iso) return { day: "—", mon: "" };
+  const parts = iso.split("-");
+  if (parts.length < 3) return { day: "—", mon: "" };
+  const mi = Number(parts[1]) - 1;
+  return { day: String(Number(parts[2])), mon: MONTH_UK[mi] ?? "" };
+}
 
 type ShipmentRow = {
   id: string;
@@ -95,7 +106,7 @@ export function Analytics() {
       let q = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,status,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
+          "id,code,country,eta,arrived_at,status,import_manager_id,supplier_id, shipment_items(id,product_name,origin_country,caliber,variety,brand,class,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,unit_price,price_currency,final_cost_indicative,final_cost_invoice)",
         )
         .order("eta", { ascending: true })
         .limit(1000);
@@ -374,11 +385,11 @@ export function Analytics() {
 
       {/* Level 2: positions of selected product+country */}
       <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] overflow-y-auto [&>button.absolute]:hidden">
           <DialogHeader>
             <DialogTitle className="text-base">
               {openGroup?.product}
-              {openGroup?.country ? <span className="text-muted-foreground"> · {openGroup.country}</span> : null}
+              {openGroup?.country ? <span className="text-muted-foreground"> ({openGroup.country})</span> : null}
             </DialogTitle>
           </DialogHeader>
           {openGroup ? (
@@ -400,26 +411,42 @@ export function Analytics() {
                   const dist = distByItem.get(it.id);
                   const distributed = dist ? Array.from(dist.values()).reduce((a, b) => a + b, 0) : 0;
                   const remaining = itemTotal - distributed;
+                  const tile = etaTile(sh.eta);
+                  const country = (it.origin_country ?? "").trim();
+                  const specs = [it.variety, it.caliber, it.class, it.brand]
+                    .map((s) => (s ?? "").trim())
+                    .filter((s) => s.length > 0);
                   return (
                     <li key={`${sh.id}-${it.id}`}>
                       <button
                         type="button"
                         onClick={() => setOpenItem(f)}
-                        className="flex w-full flex-col gap-1 py-2.5 text-left active:opacity-70"
+                        className="flex w-full flex-col gap-1.5 py-2.5 text-left active:opacity-70"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-semibold">
-                            ETA {sh.eta ?? "—"}
-                          </span>
-                          <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{visiblePallets}п</span>
+                        <div className="flex items-start gap-2">
+                          <div className="shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
+                            <div className="text-sm font-bold tabular-nums">{tile.day}</div>
+                            <div className="text-[10px] text-muted-foreground">{tile.mon}</div>
+                          </div>
+                          <div className="min-w-0 flex-1 text-center">
+                            <div className="truncate text-sm font-semibold">
+                              {it.product_name}
+                              {country ? ` (${country})` : ""}
+                            </div>
+                            {specs.length ? (
+                              <div className="text-[11px] text-muted-foreground">{specs.join(" · ")}</div>
+                            ) : null}
+                          </div>
+                          <div className="shrink-0 text-right leading-tight">
+                            <div className="text-sm font-bold tabular-nums text-brand">{visiblePallets}п</div>
+                            <div className="text-[11px] font-normal text-muted-foreground">{Math.round(weight)} кг</div>
+                          </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                           <span className="font-mono text-foreground">{sh.code}</span>
-                          {it.caliber ? <span>·{it.caliber}</span> : null}
-                          <span>{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
-                          <span>{Math.round(weight)} кг</span>
+                          <span className="font-semibold text-foreground">{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
                           {branchScoped ? (
-                            <span className="text-muted-foreground">з {itemTotal}п усього</span>
+                            <span>з {itemTotal}п усього</span>
                           ) : (
                             <>
                               <span className="text-success">розпод. {distributed}п</span>
@@ -447,7 +474,7 @@ export function Analytics() {
 
       {/* Level 3: distribution per item by branch */}
       <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] overflow-y-auto [&>button.absolute]:hidden">
           <DialogHeader>
             <DialogTitle className="text-base">
               {openItem?.item.product_name}
