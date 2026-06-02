@@ -37,6 +37,10 @@ type Item = {
   id: string;
   product_name: string;
   origin_country: string | null;
+  variety: string | null;
+  brand: string | null;
+  class: string | null;
+  caliber: string | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
