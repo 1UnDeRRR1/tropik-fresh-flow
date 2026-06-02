@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { EmptyState } from "@/components/cards";
+import { EmptyState, SectionCard } from "@/components/cards";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
@@ -16,9 +16,8 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { StatusIcon } from "@/components/StatusIcon";
 import { STATUS_TEXT_COLOR } from "@/lib/status-icon-map";
 import { PIPELINE_LABEL } from "@/lib/pipeline-status";
-import { TableScroller } from "@/components/TableScroller";
 import type { PipelineStatus } from "@/lib/pipeline-status";
-import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
+
 import { useFirstScreenGate } from "@/routes/_authenticated";
 import {
   resolveOfferRow,
@@ -43,7 +42,7 @@ function isRealShipmentCode(code: string | null | undefined): boolean {
 
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
-type SortKey = "eta" | "product" | "country" | "manager" | "shipment" | "pallets" | "status";
+type SortKey = "last_event" | "eta" | "product" | "country" | "manager";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
   component: BranchDashboard,
@@ -86,6 +85,7 @@ type Row = {
   // Block 0.5/1: anchor + classification (read-only, derived).
   anchor: RowAnchor;
   is_real_shipment_code: boolean;
+  last_event_at: string | null;
 };
 
 const fmtEta = (eta: string | null) => {
@@ -153,7 +153,179 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+const WEEKDAYS_UK = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота"];
+const MONTHS_UK = [
+  "січня", "лютого", "березня", "квітня", "травня", "червня",
+  "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
+];
 
+function BranchCardList({
+  rows,
+  sortBy,
+  statsFor,
+  onOpen,
+  ackChange,
+}: {
+  rows: Row[];
+  sortBy: SortKey;
+  statsFor: (r: { distribution_id: string; shipment_item_id: string; pallets: number }) => { pending: number; accepted: number; free: number };
+  onOpen: (r: Row) => void;
+  ackChange: (distributionId: string, shipmentItemId: string) => void;
+}) {
+  // Group by ETA date only when sorted by date-like keys; otherwise flat list.
+  const groupByEta = sortBy === "eta" || sortBy === "last_event";
+  if (!groupByEta) {
+    return (
+      <SectionCard title="Товар">
+        <ul className="divide-y divide-border">
+          {rows.map((r) => (
+            <BranchCardRow
+              key={r.key}
+              r={r}
+              stats={statsFor(r)}
+              onOpen={() => onOpen(r)}
+              ackChange={ackChange}
+            />
+          ))}
+        </ul>
+      </SectionCard>
+    );
+  }
+  const groups = new Map<string, Row[]>();
+  for (const r of rows) {
+    const k = r.eta ?? "";
+    const arr = groups.get(k) ?? [];
+    arr.push(r);
+    groups.set(k, arr);
+  }
+  const ordered = Array.from(groups.entries()).sort(([a], [b]) => {
+    if (!a) return 1;
+    if (!b) return -1;
+    return a.localeCompare(b);
+  });
+  return (
+    <div className="space-y-3">
+      {ordered.map(([iso, entries]) => {
+        let title = "Без дати";
+        if (iso) {
+          const [y, m, d] = iso.split("-").map(Number);
+          const dt = new Date(y, m - 1, d);
+          title = `${WEEKDAYS_UK[dt.getDay()]} · ${dt.getDate()} ${MONTHS_UK[dt.getMonth()]}`;
+        }
+        const totalP = entries.reduce((s, r) => s + r.pallets, 0);
+        return (
+          <SectionCard
+            key={iso || "no-date"}
+            title={title}
+            action={<span className="text-sm font-bold tabular-nums text-brand">{totalP}п</span>}
+          >
+            <ul className="divide-y divide-border">
+              {entries.map((r) => (
+                <BranchCardRow
+                  key={r.key}
+                  r={r}
+                  stats={statsFor(r)}
+                  onOpen={() => onOpen(r)}
+                  ackChange={ackChange}
+                />
+              ))}
+            </ul>
+          </SectionCard>
+        );
+      })}
+    </div>
+  );
+}
+
+function BranchCardRow({
+  r,
+  stats,
+  onOpen,
+  ackChange,
+}: {
+  r: Row;
+  stats: { pending: number; accepted: number; free: number };
+  onOpen: () => void;
+  ackChange: (distributionId: string, shipmentItemId: string) => void;
+}) {
+  const etaChanged = dateNeq(r.eta, r.seen_eta);
+  const palChanged = numNeq(r.pallets, r.seen_pallets);
+  const costChanged =
+    !!r.bvp_reason &&
+    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
+    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
+  const subLeft = [r.class, r.brand, r.caliber].filter(Boolean).join(" · ");
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full px-1 py-2 text-left text-sm hover:bg-muted/30 active:bg-muted/50"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 text-sm leading-tight">
+              <StatusIcon status={r.pipeline} size={16} />
+              <span className="font-medium text-foreground truncate">{r.product}</span>
+              {(r.country || r.variety) && (
+                <span className="text-muted-foreground truncate">
+                  {r.country ? `· ${toUaCountry(r.country)}` : ""}
+                  {r.variety ? ` · ${r.variety}` : ""}
+                </span>
+              )}
+              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-brand">
+                {stats.pending > 0 ? (
+                  <>
+                    {stats.free}п<span className="text-muted-foreground font-normal"> / </span>
+                    <span className="text-blue-600">{stats.pending}п</span>
+                  </>
+                ) : (
+                  <>{r.pallets}п</>
+                )}
+                {palChanged && (
+                  <ChangeBadge
+                    field="Палети"
+                    oldVal={`${Number(r.seen_pallets ?? 0)}п`}
+                    newVal={`${r.pallets}п`}
+                    onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
+                  />
+                )}
+              </span>
+            </div>
+            {subLeft && (
+              <div className="mt-0.5 text-[11px] text-muted-foreground truncate">{subLeft}</div>
+            )}
+          </div>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <span className="text-[11px] font-mono text-muted-foreground truncate">
+            {r.code || "—"}
+            {r.manager_name ? <span className="font-sans"> · {r.manager_name}</span> : null}
+            {etaChanged && (
+              <ChangeBadge
+                field="ETA"
+                oldVal={fmtEta(r.seen_eta)}
+                newVal={fmtEta(r.eta)}
+                onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
+              />
+            )}
+          </span>
+          <span className="whitespace-nowrap">
+            <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+            {costChanged && (
+              <ChangeBadge
+                field="Собівартість"
+                oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
+                newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
+                onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
+              />
+            )}
+          </span>
+        </div>
+      </button>
+    </li>
+  );
+}
 
 
 function BranchDashboard() {
@@ -162,9 +334,7 @@ function BranchDashboard() {
   const branchId = profile?.branch_id;
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
-  const [board, setBoard] = useState<BoardView>("active");
-  const [view, setView] = useState<"main" | "offers">("main");
-  const [sortBy, setSortBy] = useState<SortKey>("eta");
+  const [sortBy, setSortBy] = useState<SortKey>("last_event");
   const [search, setSearch] = useState<string>("");
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
@@ -487,11 +657,8 @@ function BranchDashboard() {
           const cancelled = s?.status === "cancelled" || !!s?.cancelled_at;
           const archived = !!s?.archived_at;
           if (archived) return null;
-          if (board === "unloaded") {
-            if (!unloadedShip || cancelled) return null;
-          } else {
-            if (unloadedShip || cancelled) return null;
-          }
+          // Branch dashboard: active board only (unloaded → /archive).
+          if (unloadedShip || cancelled) return null;
           if (Number(di.pallets ?? 0) <= 0) return null;
           const b = bMap.get(`${d.id}-${it.id}`);
           const v = vMap.get(`${d.id}-${it.id}`);
@@ -543,6 +710,9 @@ function BranchDashboard() {
               supplierId: undefined,
             }),
             is_real_shipment_code: isRealShipmentCode(s?.code),
+            // Last operational event for the row, used as default sort.
+            // BVP updated_at fires on price/freight changes; falls back to ETA.
+            last_event_at: (v?.updated_at as string | undefined) ?? s?.eta ?? null,
           } as Row;
         })
         .filter(Boolean) as Row[],
@@ -561,9 +731,7 @@ function BranchDashboard() {
       ),
     );
     const pending: Row[] =
-      board === "unloaded"
-        ? []
-        : (pendingOffers ?? [])
+      (pendingOffers ?? [])
             .filter((p) => !materialisedOfferIds.has(p.offer_id))
             // Cleanup Pack #8: "Підтверджений товар" — лише підтверджені/частково
             // підтверджені/замовлені. Заявки, що ще чекають на підтвердження
@@ -644,12 +812,13 @@ function BranchDashboard() {
                 seen_inv: o.invoice_cost_usd,
                 anchor: resolveOfferRow({ offer: { id: o.id, position_id: o.position_id ?? null }, responseId: p.id }),
                 is_real_shipment_code: false, // pending/offer rows never have a real shipments.code
+                last_event_at: o.expected_eta ?? null,
               } as Row;
             });
 
 
     return [...materialized, ...pending];
-  }, [dists, items, ships, managers, shipMgrs, offerCreators, baselines, bvps, board, pendingOffers, bridgeOffers]);
+  }, [dists, items, ships, managers, shipMgrs, offerCreators, baselines, bvps, pendingOffers, bridgeOffers]);
 
 
   const ackChange = async (distributionId: string, shipmentItemId: string) => {
@@ -679,7 +848,7 @@ function BranchDashboard() {
     }
   }, [rows, mainRows, offerRows]);
 
-  const viewRows = view === "main" ? mainRows : offerRows;
+  const viewRows = mainRows;
 
   const filteredRows = useMemo(() => {
     const baseRows = viewRows;
@@ -710,15 +879,15 @@ function BranchDashboard() {
           return toUaCountry(a.country ?? "").localeCompare(toUaCountry(b.country ?? ""), "uk");
         case "manager":
           return (a.manager_name ?? "").localeCompare(b.manager_name ?? "", "uk");
-        case "shipment":
-          return a.code.localeCompare(b.code, "uk");
-        case "pallets":
-          return b.pallets - a.pallets;
-        case "status":
-          return a.pipeline.localeCompare(b.pipeline);
         case "eta":
-        default:
           return (a.eta ?? "").localeCompare(b.eta ?? "");
+        case "last_event":
+        default: {
+          // Most recent event first; rows without an event fall back to ETA.
+          const av = a.last_event_at ?? a.eta ?? "";
+          const bv = b.last_event_at ?? b.eta ?? "";
+          return bv.localeCompare(av);
+        }
       }
     };
     return sorted.sort(cmp);
@@ -747,13 +916,11 @@ function BranchDashboard() {
   );
 
   const sortOptions: { value: SortKey; label: string }[] = [
-    { value: "eta", label: "За датою заходу" },
-    { value: "status", label: "За статусом / активністю" },
-    { value: "product", label: "За товаром" },
-    { value: "country", label: "За країною" },
-    { value: "manager", label: "За менеджером" },
-    { value: "shipment", label: "За поставкою" },
-    { value: "pallets", label: "За палетами" },
+    { value: "last_event", label: "Остання подія" },
+    { value: "eta", label: "Дата заходу" },
+    { value: "product", label: "Товар" },
+    { value: "country", label: "Країна" },
+    { value: "manager", label: "Менеджер" },
   ];
 
   const controlBaseClass =
@@ -772,31 +939,6 @@ function BranchDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Розділ">
-        {([
-          { id: "main", label: "Головна", count: mainRows.length },
-          { id: "offers", label: "Пропозиції", count: offerRows.length },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={view === t.id}
-            onClick={() => setView(t.id)}
-            className={cn(
-              "h-10 rounded-lg border px-3 text-sm font-medium leading-none transition-colors",
-              view === t.id
-                ? "border-destructive bg-destructive/10 text-destructive"
-                : "border-input bg-card/80 text-foreground hover:bg-muted/50",
-            )}
-          >
-            {t.label} <span className="ml-1 text-xs tabular-nums opacity-70">{t.count}</span>
-          </button>
-        ))}
-      </div>
-
-      <MainBoardToggle value={board} onChange={setBoard} />
-
       {rows.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           <select
@@ -804,11 +946,11 @@ function BranchDashboard() {
             onChange={(e) => setSortBy(e.target.value as SortKey)}
             aria-label="Сортувати за"
             className={cn(controlBaseClass, controlFocusClass)}
-            data-active={sortBy !== "eta" ? "true" : undefined}
+            data-active={sortBy !== "last_event" ? "true" : undefined}
           >
             {sortOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                Сортувати: {o.label.replace(/^За /, "")}
+                Сортувати: {o.label}
               </option>
             ))}
           </select>
@@ -823,145 +965,31 @@ function BranchDashboard() {
         </div>
       )}
 
+      {rows.length > 0 && (
+        <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+          <span>Активний товар вашої філії</span>
+          <span className="font-bold tabular-nums text-destructive">{totalConfirmedPallets}п</span>
+        </div>
+      )}
+
       {distsPending || (!!branchId && dists === undefined && !distsError) ? (
         <div className="flex items-center justify-center py-10">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
         </div>
       ) : !filteredRows.length ? (
         <EmptyState
-          title={
-            search
-              ? "Немає товару за пошуком"
-              : board === "unloaded"
-                ? "У розвантажених поки порожньо"
-                : "Поки немає підтвердженого товару"
-          }
+          title={search ? "Немає товару за пошуком" : "Поки немає підтвердженого товару"}
         />
       ) : (
-        <div className="branch-table-wrap rounded-2xl border border-border bg-card p-2 shadow-card sm:p-3">
-          <TableScroller className="-mx-1">
-            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-xs">
-              <thead className="[&_th]:bg-table-head [&_th]:font-medium">
-                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground [&>th:first-child]:normal-case [&>th:first-child]:tracking-normal [&>th:first-child]:text-[11px]">
-                  <th className="sticky left-0 z-20 bg-card pl-1 pr-0.5 py-2 font-medium text-left normal-case tracking-normal whitespace-nowrap" style={{ width: 52, minWidth: 52, maxWidth: 52 }}>Статус</th>
-                  <th className="sticky left-[52px] z-20 bg-card px-2 py-2 font-medium" style={{ width: 128, minWidth: 128, maxWidth: 128 }}>Товар</th>
-                  <th className="px-2 py-2 font-medium">Країна</th>
-                  <th className="px-2 py-2 font-medium">Заход</th>
-                  <th className="relative px-2 py-2 pb-5 text-right font-medium align-top">
-                    Палет
-                    <span className="absolute right-2 bottom-0.5 text-[10px] font-bold leading-none tabular-nums text-destructive normal-case">
-                      {totalConfirmedPallets}п
-                    </span>
-                  </th>
-                  <th className="px-2 py-2 font-medium">Сорт</th>
-                  <th className="px-2 py-2 font-medium">Калібр</th>
-                  <th className="px-2 py-2 text-right font-medium">Собівартість</th>
-                  <th className="px-2 py-2 font-medium">Менеджер</th>
-                  <th className="px-2 py-2 font-medium">Поставка</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((r) => {
-                  const s = statsFor(r);
-                  const etaChanged = dateNeq(r.eta, r.seen_eta);
-                  const palChanged = numNeq(r.pallets, r.seen_pallets);
-                  const costChanged =
-                    !!r.bvp_reason &&
-                    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
-                    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
-                  return (
-                    <tr
-                      key={r.key}
-                      className="border-b border-border hover:bg-muted/40 active:bg-muted/60"
-                    >
-                      <td
-                        className="sticky left-0 z-10 bg-card pl-1 pr-0.5 py-2 text-left cursor-pointer"
-                        style={{ width: 52, minWidth: 52, maxWidth: 52 }}
-                        onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
-                      >
-                        <StatusIcon status={r.pipeline} size={24} />
-                      </td>
-                      <td
-                        className="sticky left-[52px] z-10 bg-card px-2 py-2 cursor-pointer"
-                        style={{ width: 128, minWidth: 128, maxWidth: 128 }}
-                        onClick={() => setDrill({ key: r.key, product: r.product, country: r.country })}
-                      >
-                        <div className="truncate" title={r.product}>
-                          {r.product}
-                        </div>
-                        {r.approved_qty_note && (
-                          <div className="truncate text-[10px] text-muted-foreground">{r.approved_qty_note}</div>
-                        )}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
-                        <span className="sm:hidden">{r.country ? toShortUaCountry(r.country) : "—"}</span>
-                        <span className="hidden sm:inline">{r.country ? toUaCountry(r.country) : "—"}</span>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80 tabular-nums">
-                        {fmtEta(r.eta)}
-                        {etaChanged && (
-                          <ChangeBadge
-                            field="ETA"
-                            oldVal={fmtEta(r.seen_eta)}
-                            newVal={fmtEta(r.eta)}
-                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">
-                        {s.pending > 0 ? (
-                          <span>
-                            {s.free}п <span className="text-muted-foreground"> / </span>
-                            <span className="text-blue-600">{s.pending}п</span>
-                          </span>
-                        ) : (
-                          <span>{r.pallets}п</span>
-                        )}
-                        {palChanged && (
-                          <ChangeBadge
-                            field="Палети"
-                            oldVal={`${Number(r.seen_pallets ?? 0)}п`}
-                            newVal={`${r.pallets}п`}
-                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
-                        {r.variety ?? <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-foreground/80">
-                        {r.caliber ?? <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
-                        {costChanged && (
-                          <ChangeBadge
-                            field="Собівартість"
-                            oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
-                            newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
-                            onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-foreground/80 whitespace-nowrap">
-                        {r.manager_name ?? "—"}
-                      </td>
-                      <td className="px-2 py-2 font-mono text-[11px] whitespace-nowrap">
-                        {r.distribution_id.startsWith("mor-") ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          r.code || <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-              </tbody>
-            </table>
-          </TableScroller>
-        </div>
+        <BranchCardList
+          rows={filteredRows}
+          sortBy={sortBy}
+          statsFor={statsFor}
+          onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
+          ackChange={ackChange}
+        />
       )}
+
 
       {/* Product detail card — clean mobile detail view, not a label/value dump.
           Top: status icon + label (centered). Bottom: pallet counter + "Запропонувати"

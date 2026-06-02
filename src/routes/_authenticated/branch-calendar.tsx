@@ -37,6 +37,10 @@ type Item = {
   id: string;
   product_name: string;
   origin_country: string | null;
+  variety: string | null;
+  brand: string | null;
+  class: string | null;
+  caliber: string | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
@@ -54,6 +58,7 @@ function BranchCalendarPage() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id;
   const [productFilter, setProductFilter] = useState<string>("__all");
+  const [countryFilter, setCountryFilter] = useState<string>("__all");
 
   const cutoff = new Date();
   cutoff.setHours(0, 0, 0, 0);
@@ -88,7 +93,7 @@ function BranchCalendarPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,product_name,origin_country,final_cost_indicative,final_cost_invoice")
+        .select("id,product_name,origin_country,variety,brand,class,caliber,final_cost_indicative,final_cost_invoice")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Item[];
@@ -151,13 +156,23 @@ function BranchCalendarPage() {
       .sort((a, b) => a.name.localeCompare(b.name, "uk"));
   }, [allEntries]);
 
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of allEntries) {
+      const c = e.item.origin_country || e.ship.country || "";
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [allEntries]);
+
   const filtered = useMemo(() => {
-    if (productFilter === "__all") return allEntries;
     return allEntries.filter((e) => {
       const country = e.item.origin_country || e.ship.country || "";
-      return `${e.item.product_name.trim()}__${country}` === productFilter;
+      if (productFilter !== "__all" && `${e.item.product_name.trim()}__${country}` !== productFilter) return false;
+      if (countryFilter !== "__all" && country !== countryFilter) return false;
+      return true;
     });
-  }, [allEntries, productFilter]);
+  }, [allEntries, productFilter, countryFilter]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, Entry[]>();
@@ -174,26 +189,41 @@ function BranchCalendarPage() {
       });
   }, [filtered]);
 
-  const isProductView = productFilter !== "__all";
+  const hasFilter = productFilter !== "__all" || countryFilter !== "__all";
 
   return (
     <div className="space-y-4">
       <PageHeader title="Календар" subtitle="Активний товар вашої філії за датами прибуття" />
 
-      <div className="rounded-xl border border-border bg-card p-3">
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
-        <select
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="__all">Всі активні товари</option>
-          {productOptions.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.name}{p.country ? ` • ${p.country}` : ""}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="__all">Всі товари</option>
+            {productOptions.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.name}{p.country ? ` • ${p.country}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Країна походження</label>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="__all">Всі країни</option>
+            {countryOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {isLoading ? (
@@ -208,7 +238,7 @@ function BranchCalendarPage() {
               <SectionCard
                 key={d.iso}
                 title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
-                action={isProductView ? (
+                action={hasFilter ? (
                   <span className="text-sm font-bold tabular-nums text-brand">{totalPallets}п</span>
                 ) : null}
               >
@@ -224,11 +254,17 @@ function BranchCalendarPage() {
                       </div>
                       <div className="mt-0.5 text-muted-foreground">
                         <span className="font-medium text-foreground">{e.item.product_name}</span>
+                        {e.item.variety ? <span> · {e.item.variety}</span> : null}
                         {(e.item.origin_country || e.ship.country) ? (
                           <span> · {e.item.origin_country || e.ship.country}</span>
                         ) : null}
                         <span> · <span className="font-bold tabular-nums text-brand">{e.pallets}п</span></span>
                       </div>
+                      {(e.item.class || e.item.brand || e.item.caliber) && (
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {[e.item.class, e.item.brand, e.item.caliber].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
