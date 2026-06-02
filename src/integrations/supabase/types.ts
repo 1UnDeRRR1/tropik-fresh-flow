@@ -2963,12 +2963,17 @@ export type Database = {
     Views: {
       shipment_items_branch: {
         Row: {
+          brand: string | null
           caliber: string | null
+          class: string | null
           created_at: string | null
           final_cost_indicative: number | null
           final_cost_invoice: number | null
           free_pallets: number | null
           id: string | null
+          import_manager_id: string | null
+          import_manager_name: string | null
+          linked_offer_id: string | null
           origin_country: string | null
           pallet_count: number | null
           pallet_weight: number | null
@@ -2980,43 +2985,14 @@ export type Database = {
           variety: string | null
           weight_kg: number | null
         }
-        Insert: {
-          caliber?: string | null
-          created_at?: string | null
-          final_cost_indicative?: number | null
-          final_cost_invoice?: number | null
-          free_pallets?: never
-          id?: string | null
-          origin_country?: string | null
-          pallet_count?: number | null
-          pallet_weight?: number | null
-          product_name?: string | null
-          qty?: number | null
-          shipment_id?: string | null
-          sku?: string | null
-          unit?: string | null
-          variety?: string | null
-          weight_kg?: number | null
-        }
-        Update: {
-          caliber?: string | null
-          created_at?: string | null
-          final_cost_indicative?: number | null
-          final_cost_invoice?: number | null
-          free_pallets?: never
-          id?: string | null
-          origin_country?: string | null
-          pallet_count?: number | null
-          pallet_weight?: number | null
-          product_name?: string | null
-          qty?: number | null
-          shipment_id?: string | null
-          sku?: string | null
-          unit?: string | null
-          variety?: string | null
-          weight_kg?: number | null
-        }
         Relationships: [
+          {
+            foreignKeyName: "shipment_items_linked_offer_id_fkey"
+            columns: ["linked_offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipment_items_shipment_id_fkey"
             columns: ["shipment_id"]
@@ -3029,6 +3005,13 @@ export type Database = {
             columns: ["shipment_id"]
             isOneToOne: false
             referencedRelation: "shipments_branch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_import_manager_id_fkey"
+            columns: ["import_manager_id"]
+            isOneToOne: false
+            referencedRelation: "import_managers"
             referencedColumns: ["id"]
           },
         ]
@@ -3046,7 +3029,9 @@ export type Database = {
           import_manager_id: string | null
           import_manager_name: string | null
           loading_date: string | null
+          pipeline_status: Database["public"]["Enums"]["pipeline_status"] | null
           status: Database["public"]["Enums"]["shipment_status"] | null
+          temperature_mode: string | null
           unloaded_at: string | null
           updated_at: string | null
         }
