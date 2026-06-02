@@ -85,6 +85,7 @@ type Row = {
   // Block 0.5/1: anchor + classification (read-only, derived).
   anchor: RowAnchor;
   is_real_shipment_code: boolean;
+  last_event_at: string | null;
 };
 
 const fmtEta = (eta: string | null) => {
