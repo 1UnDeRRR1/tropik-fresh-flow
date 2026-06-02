@@ -540,7 +540,7 @@ function BranchDashboard() {
               offerById,
               distributionItemId: d.id,
               shipmentId: d.shipment_id,
-              supplierId: s?.supplier_id ?? undefined,
+              supplierId: undefined,
             }),
             is_real_shipment_code: isRealShipmentCode(s?.code),
           } as Row;
