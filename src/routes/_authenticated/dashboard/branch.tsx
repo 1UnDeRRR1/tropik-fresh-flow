@@ -707,15 +707,15 @@ function BranchDashboard() {
           return toUaCountry(a.country ?? "").localeCompare(toUaCountry(b.country ?? ""), "uk");
         case "manager":
           return (a.manager_name ?? "").localeCompare(b.manager_name ?? "", "uk");
-        case "shipment":
-          return a.code.localeCompare(b.code, "uk");
-        case "pallets":
-          return b.pallets - a.pallets;
-        case "status":
-          return a.pipeline.localeCompare(b.pipeline);
         case "eta":
-        default:
           return (a.eta ?? "").localeCompare(b.eta ?? "");
+        case "last_event":
+        default: {
+          // Most recent event first; rows without an event fall back to ETA.
+          const av = a.last_event_at ?? a.eta ?? "";
+          const bv = b.last_event_at ?? b.eta ?? "";
+          return bv.localeCompare(av);
+        }
       }
     };
     return sorted.sort(cmp);
