@@ -124,7 +124,7 @@ function ArchivePage() {
                     <th className="px-2 py-2 font-medium">Країна</th>
                     <th className="px-2 py-2 font-medium">ETA</th>
                     <th className="px-2 py-2 font-medium">Розвантажено</th>
-                    <th className="px-2 py-2 font-medium">В архів</th>
+                    {!isBranch && <th className="px-2 py-2 font-medium">В архів</th>}
                     <th className="px-2 py-2 font-medium">Статус</th>
                   </tr>
                 </thead>
@@ -137,7 +137,10 @@ function ArchivePage() {
                       <td className="px-2 py-2 text-muted-foreground">{toUaCountry(s.country) ?? "—"}</td>
                       <td className="px-2 py-2 text-muted-foreground">{fmtDate(s.eta)}</td>
                       <td className="px-2 py-2 text-muted-foreground">{fmtDateTime(s.unloaded_at)}</td>
-                      <td className="px-2 py-2 text-muted-foreground">{fmtDate(s.archive_due_at)}</td>
+                      {!isBranch && (
+                        <td className="px-2 py-2 text-muted-foreground">{fmtDate((s as any).archive_due_at ?? null)}</td>
+                      )}
+
                       <td className="px-2 py-2"><StatusChip status={s.status} /></td>
                     </tr>
                   ))}
