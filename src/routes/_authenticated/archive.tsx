@@ -7,6 +7,8 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { StatusChip } from "@/components/StatusChip";
 import { cn } from "@/lib/utils";
 import { toUaCountry } from "@/lib/countries";
+import { useAuth } from "@/lib/auth";
+
 
 export const Route = createFileRoute("/_authenticated/archive")({
   component: ArchivePage,
@@ -22,10 +24,43 @@ const fmtDateTime = (d: string | null) =>
 
 function ArchivePage() {
   const [tab, setTab] = useState<Tab>("unloaded");
+  const { profile, primaryRole } = useAuth();
+  const isBranch = primaryRole === "branch";
+  const branchId = profile?.branch_id ?? null;
 
   const { data: unloaded = [] } = useQuery({
-    queryKey: ["archive-unloaded"],
+    queryKey: ["archive-unloaded", isBranch ? `branch:${branchId ?? ""}` : "staff"],
+    enabled: isBranch ? !!branchId : true,
     queryFn: async () => {
+      if (isBranch) {
+        // Branch-safe path: restrict to shipments where this branch has a
+        // distribution, then read only non-sensitive fields from the
+        // branch-safe view (no suppliers / costs / internal notes).
+        const { data: dists, error: distErr } = await supabase
+          .from("distributions")
+          .select("shipment_id")
+          .eq("branch_id", branchId!);
+        if (distErr) throw distErr;
+        const ids = Array.from(
+          new Set((dists ?? []).map((d) => d.shipment_id).filter(Boolean) as string[]),
+        );
+        if (!ids.length) return [];
+        const { data, error } = await (supabase as any)
+          .from("shipments_branch")
+          .select("id,code,country,eta,status,unloaded_at,archived_at")
+          .in("id", ids)
+          .not("unloaded_at", "is", null)
+          .is("archived_at", null)
+          .neq("status", "cancelled")
+          .order("unloaded_at", { ascending: false });
+        if (error) throw error;
+        return (data ?? []) as Array<{
+          id: string; code: string; country: string | null;
+          eta: string | null; status: string;
+          unloaded_at: string | null; archived_at: string | null;
+          archive_due_at?: null;
+        }>;
+      }
       const { data, error } = await supabase
         .from("shipments")
         .select("id,code,country,eta,status,unloaded_at,archive_due_at")
@@ -37,6 +72,7 @@ function ArchivePage() {
       return data ?? [];
     },
   });
+
 
   const { data: cancelled = [] } = useQuery({
     queryKey: ["archive-cancelled"],
@@ -88,7 +124,7 @@ function ArchivePage() {
                     <th className="px-2 py-2 font-medium">Країна</th>
                     <th className="px-2 py-2 font-medium">ETA</th>
                     <th className="px-2 py-2 font-medium">Розвантажено</th>
-                    <th className="px-2 py-2 font-medium">В архів</th>
+                    {!isBranch && <th className="px-2 py-2 font-medium">В архів</th>}
                     <th className="px-2 py-2 font-medium">Статус</th>
                   </tr>
                 </thead>
@@ -101,7 +137,10 @@ function ArchivePage() {
                       <td className="px-2 py-2 text-muted-foreground">{toUaCountry(s.country) ?? "—"}</td>
                       <td className="px-2 py-2 text-muted-foreground">{fmtDate(s.eta)}</td>
                       <td className="px-2 py-2 text-muted-foreground">{fmtDateTime(s.unloaded_at)}</td>
-                      <td className="px-2 py-2 text-muted-foreground">{fmtDate(s.archive_due_at)}</td>
+                      {!isBranch && (
+                        <td className="px-2 py-2 text-muted-foreground">{fmtDate((s as any).archive_due_at ?? null)}</td>
+                      )}
+
                       <td className="px-2 py-2"><StatusChip status={s.status} /></td>
                     </tr>
                   ))}

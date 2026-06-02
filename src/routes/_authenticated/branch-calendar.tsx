@@ -218,7 +218,7 @@ function BranchCalendarPage() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs">
                           <span className="font-mono font-bold text-brand">{e.ship.code}</span>
-                          <span className="font-normal text-muted-foreground"> ({e.ship.import_manager_name || "Оксана Сахарчук"})</span>
+                          <span className="font-normal text-muted-foreground"> ({e.ship.import_manager_name || "—"})</span>
                         </span>
                         <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="xs" />
                       </div>
