@@ -47,9 +47,9 @@ const fmtShort = (iso: string | null | undefined): string => {
   return `${day}\u202F${mo}.`;
 };
 
-type SortKey = "date" | "etd" | "eta" | "status";
+type SortKey = "last_event" | "etd" | "eta" | "status";
 const SORT_LABEL: Record<SortKey, string> = {
-  date: "датою",
+  last_event: "останньою подією",
   etd: "ETD",
   eta: "ETA",
   status: "статусом",
@@ -57,7 +57,7 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
   const [open, setOpen] = useState(false);
-  const keys: SortKey[] = ["date", "etd", "eta", "status"];
+  const keys: SortKey[] = ["last_event", "etd", "eta", "status"];
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -71,7 +71,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
           Сортувати за: <span className="font-bold">{SORT_LABEL[value]}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-44 p-1">
+      <PopoverContent align="end" className="w-52 p-1">
         {keys.map((k) => (
           <button
             key={k}
