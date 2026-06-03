@@ -418,10 +418,12 @@ export function Analytics() {
                   const klass = (it.class ?? "").trim();
                   const brand = (it.brand ?? "").trim();
                   if (variety) specPairs.push({ label: "Сорт", value: variety });
-                  if (caliber) specPairs.push({ label: "Кал", value: caliber });
-                  if (klass) specPairs.push({ label: "Клас", value: klass });
+                  if (caliber) specPairs.push({ label: "Калібр", value: caliber });
                   if (brand) specPairs.push({ label: "Бренд", value: brand });
-                    const countryLabel = (it.origin_country ?? "").trim();
+                  if (klass) specPairs.push({ label: "Клас", value: klass });
+                  const grossKg = Number(it.gross_weight_kg ?? 0) > 0
+                    ? Number(it.gross_weight_kg)
+                    : Math.round(weight);
                     return (
                       <li key={`${sh.id}-${it.id}`}>
                         <button
@@ -448,9 +450,10 @@ export function Analytics() {
                             </div>
                             <div className="shrink-0 pt-0.5 text-right leading-tight">
                               <div className="text-base font-bold tabular-nums text-brand">{visiblePallets}п</div>
-                              <div className="text-[11px] font-normal text-muted-foreground">{Math.round(weight)} кг</div>
+                              <div className="text-[11px] font-normal text-muted-foreground">Вага брутто: {Math.round(grossKg)} кг</div>
                             </div>
                           </div>
+
                           <div className="space-y-0.5 text-[11px]">
                             <div className="text-muted-foreground">
                               <span className="font-mono text-foreground">{sh.code}</span>
