@@ -150,14 +150,11 @@ function resolveManagerName(
 
 function LogisticsPage() {
   const { user, hasRole } = useAuth();
-  const [filter, setFilter] = useState<LogisticsFilter>("all");
-  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
-  const [board, setBoard] = useState<BoardView>("active");
+  const [sortBy, setSortBy] = useState<SortKey>("date");
 
   // Manager-only visibility scope: an import_manager (without admin/logistics)
-  // must only see vehicles that belong to him (own import_manager_id on
-  // shipment or its supplier). Admin / super_admin / logistics see everything.
+  // must only see vehicles that belong to him.
   const isPrivileged = hasRole(["super_admin", "admin", "logistics"]);
   const isManagerOnly = !isPrivileged && hasRole("import_manager");
 
@@ -213,8 +210,7 @@ function LogisticsPage() {
     staleTime: 5 * 60_000,
   });
 
-  // Manager-only ownership filter — applied as early as possible so chужі
-  // машини never appear in the list, counts, search, or summary.
+  // Manager-only ownership filter.
   const ownedRows = useMemo(() => {
     if (!isManagerOnly) return rows;
     if (!myImId) return [];
@@ -223,114 +219,109 @@ function LogisticsPage() {
     );
   }, [rows, isManagerOnly, myImId]);
 
-  const counts = useMemo(() => {
-    const c: Record<LogisticsFilter, number> = {
-      all: ownedRows.length,
-      incoming: 0,
-      assigned: 0,
-      loading: 0,
-      transit: 0,
-    };
-    for (const r of ownedRows) {
-      for (const f of ["incoming", "assigned", "loading", "transit"] as LogisticsFilter[]) {
-        const list = LOGISTICS_FILTER_STATUSES[f];
-        if (list && list.includes(r.logistics_status)) c[f]++;
-      }
-    }
-    return c;
-  }, [ownedRows]);
+  // Active only: exclude unloaded / archived / cancelled.
+  const activeRows = useMemo(
+    () =>
+      ownedRows.filter(
+        (r) => !r.archived_at && !r.unloaded_at && r.status !== "cancelled",
+      ),
+    [ownedRows],
+  );
 
-  const filtered = useMemo(() => {
-    const list = LOGISTICS_FILTER_STATUSES[filter];
-    let out = list ? ownedRows.filter((r) => list.includes(r.logistics_status)) : ownedRows;
-    out = out.filter((r) => {
-      if (r.archived_at) return false;
-      if (board === "unloaded") return !!r.unloaded_at && r.status !== "cancelled";
-      return !r.unloaded_at && r.status !== "cancelled";
+  const sorted = useMemo(() => {
+    const arr = [...activeRows];
+    const cmpStr = (a: string | null | undefined, b: string | null | undefined) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      return a.localeCompare(b);
+    };
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case "etd":
+          return cmpStr(a.loading_date, b.loading_date);
+        case "eta":
+          return cmpStr(a.eta, b.eta);
+        case "status":
+          return cmpStr(a.logistics_status, b.logistics_status);
+        case "date":
+        default:
+          return cmpStr(a.loading_date, b.loading_date);
+      }
     });
-    const q = search.trim().toLowerCase();
-    if (q) {
-      out = out.filter((r) =>
-        [
-          r.code,
-          r.supplier?.name ?? "",
-          r.country ?? "",
-          r.vehicle_plate ?? "",
-          r.tractor_plate ?? "",
-          r.trailer_plate ?? "",
-          r.driver_name ?? "",
-          resolveManagerName(r, managerMap) ?? "",
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
-    }
-    return out;
-  }, [ownedRows, filter, search, managerMap]);
+    return arr;
+  }, [activeRows, sortBy]);
 
   return (
     <div>
-      <PageHeader
-        title="Логістика"
-        subtitle="Єдине табло поставок з номером, постачальником та позиціями. Клікніть рядок для деталей."
-      />
-
-      <div className="mb-3"><MainBoardToggle value={board} onChange={setBoard} showSummary /></div>
-
-      {board !== "summary" && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {board === "active" && (Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
-            const active = filter === f;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {LOGISTICS_FILTER_LABEL[f]}
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 text-[10px]",
-                    active ? "bg-primary-foreground/20" : "bg-secondary",
-                  )}
-                >
-                  {counts[f]}
-                </span>
-              </button>
-            );
-          })}
-
-          <div className="relative ml-auto">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Пошук: код, постачальник, авто, водій…"
-              className="h-8 w-64 pl-7 text-xs"
-            />
-          </div>
-        </div>
-      )}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <PageHeader title="Логістика" />
+        <SortMenu value={sortBy} onChange={setSortBy} />
+      </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
-      ) : board === "summary" ? (
-        <SummaryTable rows={ownedRows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
-      ) : filtered.length === 0 ? (
-        <EmptyState title="Порожньо" hint="Немає поставок для обраного фільтру." />
+      ) : sorted.length === 0 ? (
+        <EmptyState title="Порожньо" hint="Немає активних поставок." />
       ) : (
-        <BoardTable
-          rows={filtered}
-          managerMap={managerMap}
-          onOpen={(r) => setEditing(r)}
-        />
+        <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border shadow-sm">
+          {sorted.map((r) => {
+            const totalPallets = r.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
+            const vehicle = r.tractor_plate ?? r.vehicle_plate ?? null;
+            const indicators = [
+              { icon: Truck, label: "Авто", ok: !!vehicle },
+              { icon: User, label: "Водій", ok: !!r.driver_name },
+              { icon: MapPin, label: "Адреса завантаження", ok: !!r.loading_address },
+              { icon: Hash, label: "Номер завантаження", ok: !!r.loading_reference },
+              { icon: Thermometer, label: "Температура", ok: !!r.temperature_mode },
+            ];
+            return (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => setEditing(r)}
+                  className="block w-full text-left p-3 transition-colors hover:bg-accent/30 active:bg-accent/40"
+                >
+                  {/* Line 1: code · supplier · country | pallets */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 text-sm leading-snug">
+                      <span className="font-bold text-foreground">{r.code}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-foreground">{r.supplier?.name ?? "—"}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-muted-foreground">{r.country ?? "—"}</span>
+                    </div>
+                    <div className="shrink-0 pl-2 text-sm font-bold tabular-nums text-foreground">
+                      {totalPallets || 0}п
+                    </div>
+                  </div>
+
+                  {/* Line 2: ETD / ETA — labels sky, dates dark. */}
+                  <div className="mt-1 text-xs tabular-nums">
+                    <span className="font-semibold text-sky-600 dark:text-sky-300">ETD</span>
+                    <span className="text-foreground"> {fmtShort(r.loading_date)}</span>
+                    <span className="text-foreground"> / </span>
+                    <span className="font-semibold text-sky-600 dark:text-sky-300">ETA</span>
+                    <span className="text-foreground"> {fmtShort(r.eta)}</span>
+                  </div>
+
+                  {/* Line 3: five red/green logistics indicators. */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {indicators.map((i) => (
+                      <StatusDot
+                        key={i.label}
+                        icon={i.icon}
+                        ok={i.ok}
+                        labelOk={i.label}
+                        labelMissing={i.label + " — не вказано"}
+                      />
+                    ))}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {editing && (
@@ -343,6 +334,7 @@ function LogisticsPage() {
       )}
     </div>
   );
+
 }
 
 function BoardTable({
