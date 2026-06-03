@@ -1,21 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useState, useMemo, useEffect } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { cn } from "@/lib/utils";
-import { EmptyState, SectionCard } from "@/components/cards";
-import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+import { EmptyState } from "@/components/cards";
+import { toUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
-import { OfferDialog } from "@/components/OfferDialog";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-
-import { StatusIcon } from "@/components/StatusIcon";
-import { STATUS_TEXT_COLOR } from "@/lib/status-icon-map";
-import { PIPELINE_LABEL } from "@/lib/pipeline-status";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 
 import { useFirstScreenGate } from "@/routes/_authenticated";
@@ -88,243 +83,61 @@ type Row = {
   last_event_at: string | null;
 };
 
-const fmtEta = (eta: string | null) => {
+const fmtEtaShort = (eta: string | null) => {
   if (!eta) return "—";
   const d = new Date(eta);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${dd}.${mm}`;
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day} ${mo}.`;
 };
 
-const numNeq = (a: number | null | undefined, b: number | null | undefined) =>
-  Number(a ?? 0).toFixed(2) !== Number(b ?? 0).toFixed(2);
-const dateNeq = (a: string | null | undefined, b: string | null | undefined) =>
-  (a ?? "") !== (b ?? "");
-
-function ChangeBadge({
-  field,
-  oldVal,
-  newVal,
-  onAck,
-}: {
-  field: "ETA" | "Палети" | "Собівартість";
-  oldVal: string;
-  newVal: string;
-  onAck: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        if (!o) onAck();
-      }}
-    >
-      <PopoverTrigger asChild>
-        <button
-          onClick={(e) => e.stopPropagation()}
-          className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-900 dark:bg-yellow-500/20 dark:text-yellow-200"
-          aria-label="Зміни"
-        >
-          <AlertTriangle className="h-2.5 w-2.5" />
-          зміни
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56 p-3 text-xs" align="end" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-1 font-semibold">{field}</div>
-        <div className="text-muted-foreground">
-          Було: <span className="font-medium text-foreground">{oldVal}</span>
-        </div>
-        <div className="text-muted-foreground">
-          Стало: <span className="font-medium text-foreground">{newVal}</span>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground text-right">{value}</span>
-    </div>
-  );
-}
-
-const WEEKDAYS_UK = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота"];
-const MONTHS_UK = [
-  "січня", "лютого", "березня", "квітня", "травня", "червня",
-  "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
-];
-
-function BranchCardList({
+function BranchFlatList({
   rows,
-  sortBy,
-  statsFor,
   onOpen,
-  ackChange,
 }: {
   rows: Row[];
-  sortBy: SortKey;
-  statsFor: (r: { distribution_id: string; shipment_item_id: string; pallets: number }) => { pending: number; accepted: number; free: number };
   onOpen: (r: Row) => void;
-  ackChange: (distributionId: string, shipmentItemId: string) => void;
 }) {
-  // Group by ETA date only when sorted by date-like keys; otherwise flat list.
-  const groupByEta = sortBy === "eta" || sortBy === "last_event";
-  if (!groupByEta) {
-    return (
-      <SectionCard title="Товар">
-        <ul className="divide-y divide-border">
-          {rows.map((r) => (
-            <BranchCardRow
-              key={r.key}
-              r={r}
-              stats={statsFor(r)}
-              onOpen={() => onOpen(r)}
-              ackChange={ackChange}
-            />
-          ))}
-        </ul>
-      </SectionCard>
-    );
-  }
-  const groups = new Map<string, Row[]>();
-  for (const r of rows) {
-    const k = r.eta ?? "";
-    const arr = groups.get(k) ?? [];
-    arr.push(r);
-    groups.set(k, arr);
-  }
-  const ordered = Array.from(groups.entries()).sort(([a], [b]) => {
-    if (!a) return 1;
-    if (!b) return -1;
-    return a.localeCompare(b);
-  });
   return (
-    <div className="space-y-3">
-      {ordered.map(([iso, entries]) => {
-        let title = "Без дати";
-        if (iso) {
-          const [y, m, d] = iso.split("-").map(Number);
-          const dt = new Date(y, m - 1, d);
-          title = `${WEEKDAYS_UK[dt.getDay()]} · ${dt.getDate()} ${MONTHS_UK[dt.getMonth()]}`;
-        }
-        const totalP = entries.reduce((s, r) => s + r.pallets, 0);
-        return (
-          <SectionCard
-            key={iso || "no-date"}
-            title={title}
-            action={<span className="text-sm font-bold tabular-nums text-foreground">{totalP}п</span>}
-          >
-            <ul className="divide-y divide-border">
-              {entries.map((r) => (
-                <BranchCardRow
-                  key={r.key}
-                  r={r}
-                  stats={statsFor(r)}
-                  onOpen={() => onOpen(r)}
-                  ackChange={ackChange}
-                />
-              ))}
-            </ul>
-          </SectionCard>
-        );
-      })}
+    <div className="rounded-2xl border border-border bg-card shadow-card">
+      <ul className="divide-y divide-border px-3">
+        {rows.map((r) => {
+          const country = r.country ? toUaCountry(r.country) : "";
+          return (
+            <li key={r.key}>
+              <button
+                type="button"
+                onClick={() => onOpen(r)}
+                className="w-full py-2 text-left text-sm active:opacity-70"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
+                    <span className="shrink-0 font-bold">{r.product}</span>
+                    {country ? (
+                      <span className="min-w-0 truncate"> · {country}{r.variety ? ` · ${r.variety}` : ""}</span>
+                    ) : r.variety ? (
+                      <span className="min-w-0 truncate"> · {r.variety}</span>
+                    ) : null}
+                    <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{r.pallets}п</span></span>
+                  </div>
+                  <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                </div>
+                <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                  <span className="font-mono text-sky-500">ETA {fmtEtaShort(r.eta)}</span>
+                  {r.code ? <span> · <span className="font-mono">{r.code}</span></span> : null}
+                  {r.manager_name ? <span> · {r.manager_name}</span> : null}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
 
-function BranchCardRow({
-  r,
-  stats,
-  onOpen,
-  ackChange,
-}: {
-  r: Row;
-  stats: { pending: number; accepted: number; free: number };
-  onOpen: () => void;
-  ackChange: (distributionId: string, shipmentItemId: string) => void;
-}) {
-  const etaChanged = dateNeq(r.eta, r.seen_eta);
-  const palChanged = numNeq(r.pallets, r.seen_pallets);
-  const costChanged =
-    !!r.bvp_reason &&
-    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
-    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
-  const subLeft = [r.variety, r.caliber].filter(Boolean).join(" · ");
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="block w-full px-1 py-2 text-left text-sm hover:bg-muted/30 active:bg-muted/50"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 text-sm leading-tight">
-              <StatusIcon status={r.pipeline} size={16} />
-              <span className="font-medium text-foreground truncate">{r.product}</span>
-              {r.country && (
-                <span className="text-muted-foreground truncate">
-                  · {toUaCountry(r.country)}
-                </span>
-              )}
-              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
-                {stats.pending > 0 ? (
-                  <>
-                    {stats.free}п<span className="text-muted-foreground font-normal"> / </span>
-                    <span className="text-blue-600">{stats.pending}п</span>
-                  </>
-                ) : (
-                  <>{r.pallets}п</>
-                )}
-                {palChanged && (
-                  <ChangeBadge
-                    field="Палети"
-                    oldVal={`${Number(r.seen_pallets ?? 0)}п`}
-                    newVal={`${r.pallets}п`}
-                    onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                  />
-                )}
-              </span>
-            </div>
-            {subLeft && (
-              <div className="mt-0.5 text-[11px] text-muted-foreground truncate">{subLeft}</div>
-            )}
-          </div>
-        </div>
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <span className="text-[11px] font-mono text-muted-foreground truncate">
-            {r.code || "—"}
-            {r.manager_name ? <span className="font-sans"> · {r.manager_name}</span> : null}
-            {etaChanged && (
-              <ChangeBadge
-                field="ETA"
-                oldVal={fmtEta(r.seen_eta)}
-                newVal={fmtEta(r.eta)}
-                onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-              />
-            )}
-          </span>
-          <span className="whitespace-nowrap">
-            <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
-            {costChanged && (
-              <ChangeBadge
-                field="Собівартість"
-                oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
-                newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
-                onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-              />
-            )}
-          </span>
-        </div>
-      </button>
-    </li>
-  );
-}
+
 
 
 function BranchDashboard() {
@@ -960,14 +773,40 @@ function BranchDashboard() {
     { value: "manager", label: "Менеджер" },
   ];
 
-  const controlBaseClass =
-    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground";
-  const controlFocusClass =
-    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive data-[active=true]:border-destructive data-[active=true]:ring-1 data-[active=true]:ring-destructive";
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
+  const drillRow = drillRows[0] ?? null;
+  const drillCountry = drillRow ? (drillRow.country ? toUaCountry(drillRow.country) : "") : "";
+  const drillExtras = useMemo(() => {
+    if (!drillRow) return [] as Array<{ label: string; value: string }>;
+    const xs: Array<{ label: string; value: string }> = [];
+    if (drillRow.variety) xs.push({ label: "Сорт", value: drillRow.variety });
+    if (drillRow.caliber) xs.push({ label: "Калібр", value: drillRow.caliber });
+    if (drillRow.brand) xs.push({ label: "Бренд", value: drillRow.brand });
+    if (drillRow.class) xs.push({ label: "Клас", value: drillRow.class });
+    if (drillRow.packaging) xs.push({ label: "Упаковка", value: drillRow.packaging });
+    return xs;
+  }, [drillRow]);
+
+  const positionsCount = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of filteredRows) {
+      const product = (r.product ?? "").trim();
+      if (!product) continue;
+      const country = r.country ? toUaCountry(r.country) : "";
+      const key = `${product}__${country}`;
+      if (!seen.has(key)) seen.set(key, product);
+    }
+    const groups = Array.from(seen.entries()).map(([, product]) => ({ product }));
+    return countPositionsFromGroups(groups, (g) => g.product);
+  }, [filteredRows]);
+
+  // Silence unused-state lint (kept to avoid touching data/handler logic).
+  void sortBy; void setSortBy; void offerRow; void setOfferRow; void statsFor; void ackChange;
 
   return (
     <div
-      className="space-y-3"
+      className="space-y-4"
       data-branch-test={isMalekhiv ? "malekhiv" : undefined}
     >
       {!branchId && (
@@ -977,61 +816,38 @@ function BranchDashboard() {
       )}
 
       {rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortKey)}
-            aria-label="Сортувати за"
-            className={cn(controlBaseClass, controlFocusClass)}
-            data-active={sortBy !== "last_event" ? "true" : undefined}
-          >
-            {sortOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                Сортувати: {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={productFilter}
-            onChange={(e) => setProductFilter(e.target.value)}
-            aria-label="Фільтр товару"
-            className={cn(controlBaseClass, controlFocusClass)}
-            data-active={productFilter !== "__all__" ? "true" : undefined}
-          >
-            <option value="__all__">Товар: всі</option>
-            {productOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                Товар: {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
-            aria-label="Фільтр країни"
-            className={cn(controlBaseClass, controlFocusClass)}
-            data-active={countryFilter !== "__all__" ? "true" : undefined}
-          >
-            <option value="__all__">Країна: всі</option>
-            {countryOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                Країна: {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {rows.length > 0 && (
-        <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
-          <span>Активний товар вашої філії</span>
-          <span className="font-bold tabular-nums text-destructive">
-            {summary.shipments} пост.
-            <span className="text-muted-foreground font-normal"> · </span>
-            {summary.products} / {summary.positions} поз.
-            <span className="text-muted-foreground font-normal"> · </span>
-            {summary.pallets}п
-          </span>
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+              <CompactFilterSelect
+                value={productFilter}
+                onChange={setProductFilter}
+                options={productOptions}
+                allLabel="Всі товари"
+                allValue="__all__"
+                aliases={productAliases}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+              <CompactFilterSelect
+                value={countryFilter}
+                onChange={setCountryFilter}
+                options={countryOptions}
+                allLabel="Всі країни"
+                allValue="__all__"
+                aliases={countryAliases}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <div className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-muted-foreground">
+              <span className="font-bold tabular-nums text-foreground">{summary.shipments}</span> пост. ·{" "}
+              <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
+              <span className="font-bold tabular-nums text-brand">{summary.pallets}п</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1043,170 +859,69 @@ function BranchDashboard() {
         <EmptyState
           title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
-
       ) : (
-        <BranchCardList
+        <BranchFlatList
           rows={filteredRows}
-          sortBy={sortBy}
-          statsFor={statsFor}
           onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
-          ackChange={ackChange}
         />
       )}
 
-
-      {/* Product detail card — clean mobile detail view, not a label/value dump.
-          Top: status icon + label (centered). Bottom: pallet counter + "Запропонувати"
-          as a balanced counterweight. Middle: product as primary, then ordered
-          spec list matching the table column order. */}
       <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
-        <DialogContent className="top-[calc(env(safe-area-inset-top)+88px)] translate-y-0 sm:top-1/2 sm:-translate-y-1/2 max-h-[85vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-md p-5 sm:p-6">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{drill?.product}</DialogTitle>
-          </DialogHeader>
-
-          {drillRows[0] && (() => {
-            const r = drillRows[0];
-            const s = statsFor(r);
-            // Counter state per spec:
-            //   pending > 0 → red "free/pending" (offer awaiting answer)
-            //   else accepted > 0 → green "free/accepted" (confirmed to other branch)
-            //   else → plain black total pallets
-            const counterMode =
-              s.pending > 0 ? "pending" : s.accepted > 0 ? "accepted" : "idle";
-            const etaDate = r.eta ? new Date(r.eta) : null;
-            const etaDay = etaDate
-              ? etaDate.toLocaleDateString("uk-UA", { day: "2-digit" })
-              : "—";
-            const etaMonth = etaDate
-              ? etaDate.toLocaleDateString("uk-UA", { month: "short" }).replace(".", "")
-              : "";
-            return (
-              <>
-                {/* Top centerpiece: status icon + label */}
-                <div className="flex flex-col items-center gap-2 pt-1">
-                  <div className="flex items-center gap-3">
-                    <StatusIcon status={r.pipeline} size={40} />
-                    <div
-                      className="text-xl font-semibold leading-none"
-                      style={{ color: STATUS_TEXT_COLOR[r.pipeline] }}
-                    >
-                      {PIPELINE_LABEL[r.pipeline]}
-                    </div>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          {drillRow ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">
+                  {drillRow.product}
+                  {drillCountry ? <span> · {drillCountry}</span> : null}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-secondary px-2 py-1.5">
+                    <div className="text-[10px] text-muted-foreground">ETA</div>
+                    <div className="text-sm font-bold tabular-nums">{drillRow.eta ?? "—"}</div>
+                    <div className="mt-1 text-[11px] font-mono text-muted-foreground">{drillRow.code}</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary px-2 py-1.5 text-right">
+                    <div className="text-[10px] text-muted-foreground">Палети</div>
+                    <div className="text-sm font-bold tabular-nums text-brand">{drillRow.pallets}п</div>
+                    {drillRow.weight > 0 ? (
+                      <div className="mt-1 text-[11px] tabular-nums text-muted-foreground">{drillRow.weight.toFixed(0)} кг</div>
+                    ) : null}
                   </div>
                 </div>
 
-                {/* Primary subject: product (big) + country */}
-                <div className="mt-5 text-center">
-                  <div className="text-2xl font-bold leading-tight tracking-tight text-foreground">
-                    {r.product}
-                  </div>
-                  {r.country && (
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      {toUaCountry(r.country)}
-                    </div>
-                  )}
-                </div>
+                {drillExtras.length ? (
+                  <ul className="space-y-1 rounded-xl border border-border px-3 py-2 text-xs">
+                    {drillExtras.map((x) => (
+                      <li key={x.label} className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">{x.label}:</span>
+                        <span className="font-medium text-foreground">{x.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-                {/* Ordered spec — same business order as the table */}
-                <div className="mt-5 rounded-2xl border border-border bg-card/70 divide-y divide-border/70">
-                  <DetailRow label="Палет" value={`${r.pallets}п`} />
-                  <DetailRow label="Сорт" value={r.variety ?? "—"} />
-                  <DetailRow label="Калібр" value={r.caliber ?? "—"} />
-                  <DetailRow
-                    label="Собівартість"
-                    value={
-                      r.indicative != null || r.invoice != null ? (
-                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="sm" />
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )
-                    }
-                  />
-                  <DetailRow
-                    label="Поставка"
-                    value={
-                      r.distribution_id.startsWith("mor-") ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span className="font-mono text-xs font-semibold">{r.code}</span>
-                      )
-                    }
-                  />
-                  {/* ETA as a small visual "tear-off" calendar */}
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Дата приходу
-                    </span>
-                    <div className="inline-flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-                      <div className="w-full bg-destructive py-[2px] text-center text-[8px] font-bold uppercase tracking-wider text-destructive-foreground">
-                        {etaMonth || "—"}
-                      </div>
-                      <div className="flex-1 w-full flex items-center justify-center text-base font-bold leading-none tabular-nums text-foreground">
-                        {etaDay}
-                      </div>
-                    </div>
+                {(drillRow.indicative != null || drillRow.invoice != null) ? (
+                  <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">Собівартість</span>
+                    <CostPair indicative={drillRow.indicative} invoice={drillRow.invoice} suffix=" кг" size="sm" />
                   </div>
-                </div>
+                ) : null}
 
-                {/* Bottom counterweight: counter + Запропонувати */}
-                <div className="mt-6 flex items-center justify-between gap-4">
-                  <div className="flex flex-col items-start">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Палет
-                    </span>
-                    <span className="text-2xl font-bold leading-none tabular-nums">
-                      {counterMode === "pending" ? (
-                        <>
-                          <span className="text-foreground">{s.free}</span>
-                          <span className="text-muted-foreground font-normal">/</span>
-                          <span className="text-destructive">{s.pending}</span>
-                        </>
-                      ) : counterMode === "accepted" ? (
-                        <>
-                          <span className="text-foreground">{s.free}</span>
-                          <span className="text-muted-foreground font-normal">/</span>
-                          <span className="text-success">{s.accepted}</span>
-                        </>
-                      ) : (
-                        <span className="text-foreground">{r.pallets}</span>
-                      )}
-                    </span>
+                {drillRow.manager_name ? (
+                  <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">Менеджер</span>
+                    <span className="font-medium text-foreground">{drillRow.manager_name}</span>
                   </div>
-                  <Button
-                    size="lg"
-                    className="h-12 flex-1 max-w-[60%] text-sm font-semibold"
-                    disabled={s.free <= 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOfferRow({ ...r, pallets: s.free });
-                    }}
-                  >
-                    Запропонувати
-                  </Button>
-                </div>
-              </>
-            );
-          })()}
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
-
-      <OfferDialog
-        open={!!offerRow}
-        onClose={() => setOfferRow(null)}
-        item={
-          offerRow
-            ? {
-                shipment_item_id: offerRow.shipment_item_id,
-                distribution_id: offerRow.distribution_id,
-                product_name: offerRow.product,
-                caliber: offerRow.caliber ?? "—",
-                available_pallets: offerRow.pallets,
-                shipment_code: offerRow.code,
-              }
-            : null
-        }
-      />
     </div>
   );
 }
+
