@@ -6,10 +6,19 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 import { CostPair } from "@/components/CostPair";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 export const Route = createFileRoute("/_authenticated/branch-calendar")({
   component: BranchCalendarPage,
 });
+
+const ALL = "__all";
+const NO_COUNTRY = "__no_country__";
+const NO_COUNTRY_LABEL = "— Без країни";
 
 const WEEKDAYS_UK = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота"];
 const MONTHS_UK = [
@@ -41,6 +50,7 @@ type Item = {
   brand: string | null;
   class: string | null;
   caliber: string | null;
+  pallet_weight: number | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
@@ -54,16 +64,20 @@ type Ship = {
   import_manager_name: string | null;
 };
 
+type Entry = { ship: Ship; item: Item; pallets: number; arrival: string; key: string };
+
 function BranchCalendarPage() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id;
-  const [productFilter, setProductFilter] = useState<string>("__all");
-  const [countryFilter, setCountryFilter] = useState<string>("__all");
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
+  const [productFilter, setProductFilter] = useState<string>(ALL);
+  const [countryFilter, setCountryFilter] = useState<string>(ALL);
+  const [openEntry, setOpenEntry] = useState<Entry | null>(null);
 
-  const cutoff = new Date();
-  cutoff.setHours(0, 0, 0, 0);
-  cutoff.setDate(cutoff.getDate() - 7);
-  const cutoffISO = isoDate(cutoff);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const fromISO = isoDate(today);
 
   const { data: dists, isLoading } = useQuery({
     queryKey: ["branch-cal-dists", branchId],
@@ -93,7 +107,7 @@ function BranchCalendarPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,product_name,origin_country,variety,brand,class,caliber,final_cost_indicative,final_cost_invoice")
+        .select("id,product_name,origin_country,variety,brand,class,caliber,pallet_weight,final_cost_indicative,final_cost_invoice")
         .in("id", itemIds);
       if (error) throw error;
       return (data ?? []) as Item[];
@@ -113,7 +127,6 @@ function BranchCalendarPage() {
     },
   });
 
-  type Entry = { ship: Ship; item: Item; pallets: number; arrival: string; key: string };
 
   const allEntries: Entry[] = useMemo(() => {
     if (!dists || !items || !ships) return [];
@@ -124,7 +137,7 @@ function BranchCalendarPage() {
       const sh = shipMap.get(d.shipment_id);
       if (!sh) continue;
       const arrival = sh.arrived_at ?? sh.eta;
-      if (!arrival || arrival < cutoffISO) continue;
+      if (!arrival || arrival < fromISO) continue;
       for (const di of d.distribution_items ?? []) {
         const pallets = Number(di.pallets ?? 0);
         if (pallets <= 0 || !di.shipment_item_id) continue;
@@ -140,39 +153,43 @@ function BranchCalendarPage() {
       }
     }
     return Array.from(merged.values());
-  }, [dists, items, ships, cutoffISO]);
+  }, [dists, items, ships, fromISO]);
+
+  const passes = (e: Entry, excl: "product" | "country" | null) => {
+    if (excl !== "product" && productFilter !== ALL && e.item.product_name.trim() !== productFilter) return false;
+    if (excl !== "country" && countryFilter !== ALL) {
+      const c = (e.item.origin_country ?? "").trim();
+      if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+    }
+    return true;
+  };
 
   const productOptions = useMemo(() => {
     const set = new Set<string>();
     for (const e of allEntries) {
-      const country = e.item.origin_country || e.ship.country || "";
-      set.add(`${e.item.product_name.trim()}__${country}`);
+      if (!passes(e, "product")) continue;
+      const name = e.item.product_name.trim();
+      if (name) set.add(name);
     }
-    return Array.from(set)
-      .map((k) => {
-        const [name, country] = k.split("__");
-        return { key: k, name, country };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
-  }, [allEntries]);
+    if (productFilter !== ALL) set.add(productFilter);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((n) => ({ value: n, label: n }));
+  }, [allEntries, countryFilter, productFilter]);
 
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
+    let hasMissing = false;
     for (const e of allEntries) {
-      const c = e.item.origin_country || e.ship.country || "";
+      if (!passes(e, "country")) continue;
+      const c = (e.item.origin_country ?? "").trim();
       if (c) set.add(c);
+      else hasMissing = true;
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
-  }, [allEntries]);
-
-  const filtered = useMemo(() => {
-    return allEntries.filter((e) => {
-      const country = e.item.origin_country || e.ship.country || "";
-      if (productFilter !== "__all" && `${e.item.product_name.trim()}__${country}` !== productFilter) return false;
-      if (countryFilter !== "__all" && country !== countryFilter) return false;
-      return true;
-    });
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((c) => ({ value: c, label: c }));
+    if (hasMissing || countryFilter === NO_COUNTRY) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    return arr;
   }, [allEntries, productFilter, countryFilter]);
+
+  const filtered = useMemo(() => allEntries.filter((e) => passes(e, null)), [allEntries, productFilter, countryFilter]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, Entry[]>();
@@ -189,40 +206,42 @@ function BranchCalendarPage() {
       });
   }, [filtered]);
 
-  const hasFilter = productFilter !== "__all" || countryFilter !== "__all";
+  const hasAnyFilter = productFilter !== ALL || countryFilter !== ALL;
+  const totalPallets = useMemo(() => filtered.reduce((s, e) => s + e.pallets, 0), [filtered]);
+  const totalShipments = useMemo(() => new Set(filtered.map((e) => e.ship.id)).size, [filtered]);
+  const positionsCount = useMemo(() => {
+    const keys = new Map<string, string>();
+    for (const e of filtered) {
+      const product = e.item.product_name.trim();
+      const country = (e.item.origin_country ?? "").trim();
+      const key = `${product}__${country}`;
+      if (!keys.has(key)) keys.set(key, product);
+    }
+    const groups = Array.from(keys.entries()).map(([, product]) => ({ product }));
+    return countPositionsFromGroups(groups, (g) => g.product);
+  }, [filtered]);
 
   return (
     <div className="space-y-4">
       <PageHeader title="Календар" subtitle="Активний товар вашої філії за датами прибуття" />
 
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Товар</label>
-          <select
-            value={productFilter}
-            onChange={(e) => setProductFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="__all">Всі товари</option>
-            {productOptions.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.name}{p.country ? ` • ${p.country}` : ""}
-              </option>
-            ))}
-          </select>
+      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+            <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+            <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Країна походження</label>
-          <select
-            value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="__all">Всі країни</option>
-            {countryOptions.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+        <div className="flex justify-end">
+          <div className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-muted-foreground">
+            <span className="font-bold tabular-nums text-foreground">{totalShipments}</span> пост. ·{" "}
+            <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
+            <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
+          </div>
         </div>
       </div>
 
@@ -233,46 +252,119 @@ function BranchCalendarPage() {
       ) : (
         <div className="space-y-3">
           {grouped.map((d) => {
-            const totalPallets = d.entries.reduce((s, e) => s + e.pallets, 0);
+            const dayPallets = d.entries.reduce((s, e) => s + e.pallets, 0);
             return (
               <SectionCard
                 key={d.iso}
                 title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
-                action={hasFilter ? (
-                  <span className="text-sm font-bold tabular-nums text-brand">{totalPallets}п</span>
+                action={hasAnyFilter ? (
+                  <span className="text-sm font-bold tabular-nums text-brand">{dayPallets}п</span>
                 ) : null}
               >
                 <ul className="divide-y divide-border">
-                  {d.entries.map((e) => (
-                    <li key={e.key} className="py-2 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs">
-                          <span className="font-mono font-bold text-brand">{e.ship.code}</span>
-                          <span className="font-normal text-muted-foreground"> ({e.ship.import_manager_name || "—"})</span>
-                        </span>
-                        <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="xs" />
-                      </div>
-                      <div className="mt-0.5 text-muted-foreground">
-                        <span className="font-medium text-foreground">{e.item.product_name}</span>
-                        {e.item.variety ? <span> · {e.item.variety}</span> : null}
-                        {(e.item.origin_country || e.ship.country) ? (
-                          <span> · {e.item.origin_country || e.ship.country}</span>
-                        ) : null}
-                        <span> · <span className="font-bold tabular-nums text-brand">{e.pallets}п</span></span>
-                      </div>
-                      {(e.item.class || e.item.brand || e.item.caliber) && (
-                        <div className="mt-0.5 text-[11px] text-muted-foreground">
-                          {[e.item.class, e.item.brand, e.item.caliber].filter(Boolean).join(" · ")}
-                        </div>
-                      )}
-                    </li>
-                  ))}
+                  {d.entries.map((e) => {
+                    const country = e.item.origin_country || e.ship.country || "";
+                    return (
+                      <li key={e.key}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenEntry(e)}
+                          className="w-full py-2 text-left text-sm active:opacity-70"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
+                              <span className="shrink-0 font-bold">{e.item.product_name}</span>
+                              {country ? (
+                                <span className="min-w-0 truncate"> · {country}{e.item.variety ? ` · ${e.item.variety}` : ""}</span>
+                              ) : e.item.variety ? (
+                                <span className="min-w-0 truncate"> · {e.item.variety}</span>
+                              ) : null}
+                              <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{e.pallets}п</span></span>
+                            </div>
+                            <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="xs" />
+                          </div>
+                          <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                            <span className="font-mono">{e.ship.code}</span>
+                            {e.ship.import_manager_name ? <span> · {e.ship.import_manager_name}</span> : null}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </SectionCard>
             );
           })}
         </div>
       )}
+
+      <Dialog open={!!openEntry} onOpenChange={(o) => !o && setOpenEntry(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          {openEntry ? (() => {
+            const e = openEntry;
+            const country = e.item.origin_country || e.ship.country || "";
+            const eta = e.ship.arrived_at ?? e.ship.eta;
+            const weight = Number(e.item.pallet_weight ?? 0) * e.pallets;
+            const extras: Array<{ label: string; value: string }> = [];
+            if (e.item.variety) extras.push({ label: "Сорт", value: e.item.variety });
+            if (e.item.caliber) extras.push({ label: "Калібр", value: e.item.caliber });
+            if (e.item.brand) extras.push({ label: "Бренд", value: e.item.brand });
+            if (e.item.class) extras.push({ label: "Клас", value: e.item.class });
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base">
+                    {e.item.product_name}
+                    {country ? <span> · {country}</span> : null}
+                    {e.item.variety ? <span className="font-normal text-muted-foreground"> · {e.item.variety}</span> : null}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-secondary px-2 py-1.5">
+                      <div className="text-[10px] text-muted-foreground">ETA</div>
+                      <div className="text-sm font-bold tabular-nums">{eta ?? "—"}</div>
+                      <div className="mt-1 text-[11px] font-mono text-muted-foreground">{e.ship.code}</div>
+                    </div>
+                    <div className="rounded-lg bg-secondary px-2 py-1.5 text-right">
+                      <div className="text-[10px] text-muted-foreground">Палети</div>
+                      <div className="text-sm font-bold tabular-nums text-brand">{e.pallets}п</div>
+                      {weight > 0 ? (
+                        <div className="mt-1 text-[11px] tabular-nums text-muted-foreground">{weight.toFixed(0)} кг</div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {extras.length ? (
+                    <ul className="space-y-1 rounded-xl border border-border px-3 py-2 text-xs">
+                      {extras.map((x) => (
+                        <li key={x.label} className="flex justify-between gap-2">
+                          <span className="text-muted-foreground">{x.label}:</span>
+                          <span className="font-medium text-foreground">{x.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {(e.item.final_cost_indicative != null || e.item.final_cost_invoice != null) ? (
+                    <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">Собівартість</span>
+                      <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="sm" />
+                    </div>
+                  ) : null}
+
+                  {e.ship.import_manager_name ? (
+                    <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">Менеджер</span>
+                      <span className="font-medium text-foreground">{e.ship.import_manager_name}</span>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            );
+          })() : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
