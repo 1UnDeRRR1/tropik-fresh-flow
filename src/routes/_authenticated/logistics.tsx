@@ -394,17 +394,17 @@ function EditDialog({
   const isManager = isAdmin || hasRole("import_manager");
   const isLogistics = isAdmin || hasRole("logistics");
 
-  const initialPickups = (() => {
+  const initialPickups = useMemo(() => {
     const addrs = (row.loading_address ?? "").split(/\n+/).map((s) => s.trim());
     const refs = (row.loading_reference ?? "").split(/\n+/).map((s) => s.trim());
     const n = Math.max(addrs.length, refs.length, 1);
     const out: Array<{ address: string; reference: string }> = [];
     for (let i = 0; i < n; i++) out.push({ address: addrs[i] ?? "", reference: refs[i] ?? "" });
     return out;
-  })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id]);
 
-  const [pickups, setPickups] = useState(initialPickups);
-  const [form, setForm] = useState({
+  const initialForm = useMemo(() => ({
     tractor_plate: row.tractor_plate ?? "",
     trailer_plate: row.trailer_plate ?? "",
     driver_name: row.driver_name ?? "",
@@ -417,7 +417,33 @@ function EditDialog({
     final_freight_currency: row.final_freight_currency ?? row.logistics_cost_currency ?? "EUR",
     final_freight_payment: row.final_freight_payment ?? "bank",
     logistics_comment: row.logistics_comment ?? "",
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [row.id]);
+
+  const [pickups, setPickups] = useState(initialPickups);
+  const [form, setForm] = useState(initialForm);
+
+  // Dirty-state: compare trimmed/normalized current values against the snapshot
+  // captured when the dialog opened. Save is enabled only when a real change exists.
+  // Reverting a field back to its initial value disables Save again.
+  const normPickups = (arr: Array<{ address: string; reference: string }>) =>
+    JSON.stringify(arr.map((p) => ({ a: p.address.trim(), r: p.reference.trim() })));
+  const normForm = (f: typeof initialForm) => ({
+    tractor_plate: f.tractor_plate.trim(),
+    trailer_plate: f.trailer_plate.trim(),
+    driver_name: f.driver_name.trim(),
+    driver_phone: f.driver_phone.trim(),
+    logistics_status: f.logistics_status,
+    temperature_mode: f.temperature_mode.trim(),
+    eta: f.eta.trim(),
+    final_freight_amount: f.final_freight_amount.trim(),
+    final_freight_currency: f.final_freight_currency,
+    final_freight_payment: f.final_freight_payment,
+    logistics_comment: f.logistics_comment.trim(),
   });
+  const isDirty =
+    JSON.stringify(normForm(form)) !== JSON.stringify(normForm(initialForm)) ||
+    normPickups(pickups) !== normPickups(initialPickups);
 
   const totalPallets = row.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
   const totalWeight = row.items.reduce((s, i) => {
