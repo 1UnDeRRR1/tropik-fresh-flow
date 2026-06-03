@@ -839,8 +839,9 @@ function EditDialog({
                 <Textarea
                   value={form.logistics_comment}
                   onChange={(e) => setForm({ ...form, logistics_comment: e.target.value })}
-                  rows={2}
+                  rows={3}
                   disabled={!isLogistics}
+                  className="min-h-[68px]"
                 />
               </Labeled>
             </div>
