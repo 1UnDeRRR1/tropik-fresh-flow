@@ -20,7 +20,8 @@ _(the immediately next step once the active request closes)_
 - (empty — add as items appear)
 
 ## Polish — P3 (nice to have)
-- (empty — add as items appear)
+- Owner Analytics Level 2 product-detail modal — cosmetic/layout revisit. Previous attempt (2026-06-03) was rolled back to base commit `b1495748` after a failed patch loop. Any future attempt MUST start as a fresh Plan/Preview task: (1) exact audit of existing layout in `src/routes/_authenticated/analytics.tsx`, (2) minimal visual plan with explicit allowed-change list, (3) Build only after approval. Do NOT continue as patches on top of the previous failed series. Not an active task.
+
 
 ## Blocked / waiting on developer response
 - (empty — add as items appear)
