@@ -406,6 +406,7 @@ function ShipmentRow({
   }[distTone];
 
   const etaStr = fmtEtaShort(eta);
+  const etdStr = etd ? fmtEtaShort(etd) : "—";
 
   return (
     <li data-focus-id={`ship:${shipmentId} mgr:${importManagerId ?? ""}`} className="relative">
