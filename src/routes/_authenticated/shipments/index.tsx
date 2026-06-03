@@ -360,6 +360,7 @@ function ShipmentRow({
   code: string;
   status: string;
   eta: string | null;
+  etd: string | null;
   pallets: number;
   netKg: number;
   dist: number;
