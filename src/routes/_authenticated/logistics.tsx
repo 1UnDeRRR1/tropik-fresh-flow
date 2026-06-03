@@ -282,27 +282,35 @@ function LogisticsPage() {
                   onClick={() => setEditing(r)}
                   className="block w-full text-left p-3 transition-colors hover:bg-accent/30 active:bg-accent/40"
                 >
-                  {/* Line 1: code · supplier · country | pallets */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1 text-sm leading-snug">
-                      <span className="font-bold text-foreground">{r.code}</span>
-                      <span className="text-muted-foreground"> · </span>
-                      <span className="text-foreground">{r.supplier?.name ?? "—"}</span>
-                      <span className="text-muted-foreground"> · </span>
-                      <span className="text-muted-foreground">{r.country ?? "—"}</span>
-                    </div>
-                    <div className="shrink-0 pl-2 text-sm font-bold tabular-nums text-foreground">
+                  {/* Shared grid so supplier (line 1) and country (line 2)
+                      align exactly under each other, and the ETD/ETA block
+                      occupies the same column as the shipment code. */}
+                  <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-baseline gap-x-2">
+                    {/* Line 1 */}
+                    <span className="text-sm font-bold leading-snug text-foreground">
+                      {r.code}
+                    </span>
+                    <span className="text-sm leading-snug text-muted-foreground">·</span>
+                    <span className="truncate text-sm font-bold leading-snug text-foreground">
+                      {r.supplier?.name ?? "—"}
+                    </span>
+                    <span className="pl-2 text-sm font-bold tabular-nums text-foreground">
                       {totalPallets || 0}п
-                    </div>
-                  </div>
+                    </span>
 
-                  {/* Line 2: ETD / ETA — labels sky, dates dark. */}
-                  <div className="mt-1 text-xs tabular-nums">
-                    <span className="font-semibold text-sky-600 dark:text-sky-300">ETD</span>
-                    <span className="text-foreground"> {fmtShort(r.loading_date)}</span>
-                    <span className="text-foreground"> / </span>
-                    <span className="font-semibold text-sky-600 dark:text-sky-300">ETA</span>
-                    <span className="text-foreground"> {fmtShort(r.eta)}</span>
+                    {/* Line 2 */}
+                    <span className="mt-1 text-xs tabular-nums leading-snug">
+                      <span className="font-semibold text-sky-600 dark:text-sky-300">ETD</span>
+                      <span className="text-foreground"> {fmtShort(r.loading_date)}</span>
+                      <span className="text-foreground"> / </span>
+                      <span className="font-semibold text-sky-600 dark:text-sky-300">ETA</span>
+                      <span className="text-foreground"> {fmtShort(r.eta)}</span>
+                    </span>
+                    <span className="mt-1 text-xs leading-snug text-muted-foreground">·</span>
+                    <span className="mt-1 truncate text-xs leading-snug text-foreground">
+                      {r.country ?? "—"}
+                    </span>
+                    <span className="mt-1" aria-hidden="true" />
                   </div>
 
                   {/* Line 3: five red/green logistics indicators. */}
