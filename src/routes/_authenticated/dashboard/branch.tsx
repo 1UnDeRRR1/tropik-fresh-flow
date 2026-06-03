@@ -103,7 +103,16 @@ function BranchFlatList({
     <div className="rounded-2xl border border-border bg-card shadow-card">
       <ul className="divide-y divide-border px-3">
         {rows.map((r) => {
-          const country = r.country ? toUaCountry(r.country) : "";
+          const countryFull = r.country ? toUaCountry(r.country) : "";
+          const countryShort = r.country ? toShortUaCountry(r.country) : "";
+          const variety = r.variety ?? "";
+          // Adaptive compaction: if combined left text is long, use short country alias.
+          const fullLeftLen = r.product.length + countryFull.length + variety.length;
+          const country = fullLeftLen > 28 && countryShort ? countryShort : countryFull;
+          const tailParts: string[] = [];
+          if (country) tailParts.push(country);
+          if (variety) tailParts.push(variety);
+          const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
           return (
             <li key={r.key}>
               <button
@@ -111,22 +120,22 @@ function BranchFlatList({
                 onClick={() => onOpen(r)}
                 className="w-full py-2 text-left text-sm active:opacity-70"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
-                    <span className="shrink-0 font-bold">{r.product}</span>
-                    {country ? (
-                      <span className="min-w-0 truncate"> · {country}{r.variety ? ` · ${r.variety}` : ""}</span>
-                    ) : r.variety ? (
-                      <span className="min-w-0 truncate"> · {r.variety}</span>
-                    ) : null}
-                    <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{r.pallets}п</span></span>
+                <div className="flex items-baseline justify-between gap-2">
+                  <div className="min-w-0 flex-1 truncate text-sm text-foreground">
+                    <span className="font-bold">{r.product}</span>
+                    {tail ? <span>{tail}</span> : null}
                   </div>
-                  <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                  <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{r.pallets}п</span>
                 </div>
-                <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
-                  <span className="font-mono text-sky-500">ETA {fmtEtaShort(r.eta)}</span>
-                  {r.code ? <span> · <span className="font-mono">{r.code}</span></span> : null}
-                  {r.manager_name ? <span> · {r.manager_name}</span> : null}
+                <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                  <div className="min-w-0 flex-1 truncate">
+                    <span className="font-mono text-sky-700 dark:text-sky-400">ETA {fmtEtaShort(r.eta)}</span>
+                    {r.code ? <span> · <span className="font-mono">{r.code}</span></span> : null}
+                    {r.manager_name ? <span> · {r.manager_name}</span> : null}
+                  </div>
+                  <span className="shrink-0">
+                    <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                  </span>
                 </div>
               </button>
             </li>
