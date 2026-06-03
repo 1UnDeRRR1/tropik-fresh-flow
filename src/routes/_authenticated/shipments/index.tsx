@@ -442,10 +442,10 @@ function ShipmentRow({
 
         {/* Line 2: ETD / ETA — labels blue, dates dark. Net/gross deferred. */}
         <div className="mt-1 text-xs tabular-nums">
-          <span className="font-semibold text-brand">ETD</span>
+          <span className="font-semibold text-sky-600 dark:text-sky-300">ETD</span>
           <span className="text-foreground"> {etdStr}</span>
           <span className="text-foreground"> / </span>
-          <span className="font-semibold text-brand">ETA</span>
+          <span className="font-semibold text-sky-600 dark:text-sky-300">ETA</span>
           <span className="text-foreground"> {etaStr}</span>
         </div>
 
