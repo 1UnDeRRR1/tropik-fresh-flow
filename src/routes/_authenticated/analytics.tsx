@@ -430,15 +430,11 @@ export function Analytics() {
                           className="flex w-full flex-col gap-2 px-3 py-2.5 text-left outline-none [-webkit-tap-highlight-color:transparent] focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 active:opacity-70"
                         >
                           <div className="grid grid-cols-[auto,1fr,auto] items-start gap-2.5">
-                            <div className="shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
+                            <div className="w-fit justify-self-start shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
                               <div className="text-sm font-bold tabular-nums">{tile.day}</div>
                               <div className="text-[10px] text-muted-foreground">{tile.mon}</div>
                             </div>
                             <div className="min-w-0 text-center leading-tight">
-                              <div className="truncate text-sm font-semibold text-foreground">
-                                {it.product_name}
-                                {countryLabel ? <span className="text-muted-foreground"> ({countryLabel})</span> : null}
-                              </div>
                               {specPairs.length ? (
                                 <div className="mt-0.5 text-[11px] text-muted-foreground">
                                   {specPairs.map((p, i) => (
