@@ -657,8 +657,9 @@ function EditDialog({
                           next[idx] = { ...next[idx], address: e.target.value };
                           setPickups(next);
                         }}
-                        rows={2}
+                        rows={3}
                         disabled={!isManager}
+                        className="min-h-[68px]"
                       />
                     </Labeled>
                     <Labeled label="Loading reference">
