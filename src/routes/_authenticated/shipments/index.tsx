@@ -340,6 +340,7 @@ function ShipmentRow({
   code,
   status,
   eta,
+  etd,
   pallets,
   netKg,
   dist,
