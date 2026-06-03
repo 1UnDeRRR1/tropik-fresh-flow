@@ -16,7 +16,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
-import { getCountryCode } from "@/lib/shipment-code";
+
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
 
