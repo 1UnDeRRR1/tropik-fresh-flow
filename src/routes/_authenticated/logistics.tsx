@@ -180,7 +180,7 @@ function LogisticsPage() {
         .from("shipments")
         .select(
           `id, code, status, logistics_status, loading_date, eta, country,
-           unloaded_at, archived_at,
+           unloaded_at, archived_at, updated_at,
            loading_address, loading_reference, driver_name, driver_phone,
            vehicle_plate, tractor_plate, trailer_plate,
            notes, logistics_comment, loading_started_at, loading_ended_at,
