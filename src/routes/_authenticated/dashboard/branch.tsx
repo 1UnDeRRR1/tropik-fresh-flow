@@ -89,7 +89,17 @@ const fmtEtaShort = (eta: string | null) => {
   if (Number.isNaN(d.getTime())) return "—";
   const day = String(d.getDate()).padStart(2, "0");
   const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
-  return `${day} ${mo}.`;
+  // Narrow no-break space (U+202F, ~50% of normal space) tightens day/month
+  // without touching font-size, letter-spacing or line-height.
+  return `${day}\u202F${mo}.`;
+};
+
+// Abbreviate manager name when row is tight: "Назар Лукач" → "Назар Л.".
+// Single word stays as-is. One human-readable dot, never "..." ellipsis.
+const shortenManager = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
 };
 
 function BranchFlatList({
@@ -99,20 +109,36 @@ function BranchFlatList({
   rows: Row[];
   onOpen: (r: Row) => void;
 }) {
+  // Tight middle-dot separator (narrow spaces around it) — same character,
+  // just less air on each side. Keeps elements visually distinct.
+  const SEP_TIGHT = "\u2009·\u2009";
   return (
     <div className="rounded-2xl border border-border bg-card shadow-card">
       <ul className="divide-y divide-border px-3">
         {rows.map((r) => {
           const countryFull = r.country ? toUaCountry(r.country) : "";
-          const countryShort = r.country ? toShortUaCountry(r.country) : "";
+          const countryShortRaw = r.country ? toShortUaCountry(r.country) : "";
           const variety = r.variety ?? "";
-          // Adaptive compaction: if combined left text is long, use short country alias.
           const fullLeftLen = r.product.length + countryFull.length + variety.length;
-          const country = fullLeftLen > 28 && countryShort ? countryShort : countryFull;
+          const useShortCountry =
+            fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
+          // Append a single trailing dot when the abbreviated alias is used so
+          // it reads as a normal abbreviation ("Ісп.") instead of a clipped word.
+          const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
           const tailParts: string[] = [];
           if (country) tailParts.push(country);
           if (variety) tailParts.push(variety);
           const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
+
+          // Adaptive manager shortening: only when the combined meta line is
+          // wide enough to risk clipping. Keeps full name when it fits.
+          const rawMgr = r.manager_name ?? "";
+          const metaApproxLen =
+            4 + fmtEtaShort(r.eta).length +
+            (r.code ? 3 + r.code.length : 0) +
+            (rawMgr ? 3 + rawMgr.length : 0);
+          const mgr = rawMgr && metaApproxLen > 34 ? shortenManager(rawMgr) : rawMgr;
+
           return (
             <li key={r.key}>
               <button
@@ -121,17 +147,25 @@ function BranchFlatList({
                 className="w-full py-2 text-left text-sm active:opacity-70"
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <div className="min-w-0 flex-1 truncate text-sm text-foreground">
+                  <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
                     <span className="font-bold">{r.product}</span>
                     {tail ? <span>{tail}</span> : null}
                   </div>
                   <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{r.pallets}п</span>
                 </div>
                 <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
-                  <div className="min-w-0 flex-1 truncate">
-                    <span className="font-mono text-sky-700 dark:text-sky-400">ETA {fmtEtaShort(r.eta)}</span>
-                    {r.code ? <span> · <span className="font-mono">{r.code}</span></span> : null}
-                    {r.manager_name ? <span> · {r.manager_name}</span> : null}
+                  <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                    <span className="font-mono font-semibold text-sky-600 dark:text-sky-300">
+                      {"ETA\u202F"}{fmtEtaShort(r.eta)}
+                    </span>
+                    {r.code ? (
+                      <span className="text-foreground/80">
+                        {SEP_TIGHT}<span className="font-mono">{r.code}</span>
+                      </span>
+                    ) : null}
+                    {mgr ? (
+                      <span className="text-foreground/80"> · {mgr}</span>
+                    ) : null}
                   </div>
                   <span className="shrink-0">
                     <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
