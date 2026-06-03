@@ -905,6 +905,53 @@ function BranchDashboard() {
     [filteredRows],
   );
 
+  // Filter option pools — product options from full view; country options narrow
+  // to the currently selected product (so the two dropdowns compose naturally).
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of viewRows) if (r.product) set.add(r.product);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"))
+      .map((v) => ({ value: v, label: v }));
+  }, [viewRows]);
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of viewRows) {
+      if (productFilter !== "__all__" && r.product !== productFilter) continue;
+      if (r.country) set.add(toUaCountry(r.country));
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"))
+      .map((v) => ({ value: v, label: v }));
+  }, [viewRows, productFilter]);
+  // If the selected country becomes invalid after product change, reset safely.
+  useEffect(() => {
+    if (countryFilter === "__all__") return;
+    if (!countryOptions.some((o) => o.value === countryFilter)) {
+      setCountryFilter("__all__");
+    }
+  }, [countryOptions, countryFilter]);
+
+  // Top summary: shipments · unique products / product-country positions · pallets.
+  const summary = useMemo(() => {
+    const shipSet = new Set<string>();
+    const productSet = new Set<string>();
+    const posSet = new Set<string>();
+    let pallets = 0;
+    for (const r of filteredRows) {
+      if (r.code && r.is_real_shipment_code) shipSet.add(r.code);
+      const p = (r.product ?? "").trim().toLowerCase();
+      if (p) productSet.add(p);
+      const c = r.country ? toUaCountry(r.country).toLowerCase() : "";
+      if (p) posSet.add(`${p}|${c}`);
+      pallets += Number(r.pallets) || 0;
+    }
+    return {
+      shipments: shipSet.size,
+      products: productSet.size,
+      positions: posSet.size,
+      pallets,
+    };
+  }, [filteredRows]);
+
   const sortOptions: { value: SortKey; label: string }[] = [
     { value: "last_event", label: "Остання подія" },
     { value: "eta", label: "Дата заходу" },
@@ -930,7 +977,7 @@ function BranchDashboard() {
       )}
 
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
@@ -944,21 +991,47 @@ function BranchDashboard() {
               </option>
             ))}
           </select>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук: товар, країна, менеджер…"
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            aria-label="Фільтр товару"
             className={cn(controlBaseClass, controlFocusClass)}
-            data-active={search ? "true" : undefined}
-          />
+            data-active={productFilter !== "__all__" ? "true" : undefined}
+          >
+            <option value="__all__">Товар: всі</option>
+            {productOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                Товар: {o.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            aria-label="Фільтр країни"
+            className={cn(controlBaseClass, controlFocusClass)}
+            data-active={countryFilter !== "__all__" ? "true" : undefined}
+          >
+            <option value="__all__">Країна: всі</option>
+            {countryOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                Країна: {o.label}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
       {rows.length > 0 && (
         <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
           <span>Активний товар вашої філії</span>
-          <span className="font-bold tabular-nums text-destructive">{totalConfirmedPallets}п</span>
+          <span className="font-bold tabular-nums text-destructive">
+            {summary.shipments} пост.
+            <span className="text-muted-foreground font-normal"> · </span>
+            {summary.products} / {summary.positions} поз.
+            <span className="text-muted-foreground font-normal"> · </span>
+            {summary.pallets}п
+          </span>
         </div>
       )}
 
@@ -968,8 +1041,9 @@ function BranchDashboard() {
         </div>
       ) : !filteredRows.length ? (
         <EmptyState
-          title={search ? "Немає товару за пошуком" : "Поки немає підтвердженого товару"}
+          title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
+
       ) : (
         <BranchCardList
           rows={filteredRows}
