@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/lib/auth";
+import { SuperAdminTabs } from "./-super-admin-tabs";
 
 export const Route = createFileRoute("/_authenticated/super-admin/users")({
   component: UsersAdmin,
@@ -55,6 +57,10 @@ async function callAdmin<T = unknown>(body: Record<string, unknown>): Promise<T>
 
 function UsersAdmin() {
   const qc = useQueryClient();
+  const { hasRole, loading } = useAuth();
+
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/" />;
 
   const { data: branches } = useQuery({
     queryKey: ["sa", "branches"],
@@ -153,6 +159,7 @@ function UsersAdmin() {
 
   return (
     <div className="space-y-4">
+      <SuperAdminTabs />
       <PageHeader title="Користувачі" subtitle="Управління всіма обліковими записами" />
 
       <SectionCard title="Створити користувача" action={<UserPlus className="h-4 w-4 text-muted-foreground" />}>
