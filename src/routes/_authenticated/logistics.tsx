@@ -529,35 +529,49 @@ function EditDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm">
-            <span className="font-mono">{row.code}</span>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                LOGISTICS_STATUS_CLASS[row.logistics_status],
-              )}
-            >
-              {LOGISTICS_STATUS_LABEL[row.logistics_status]}
-            </span>
-            {managerName ? (
-              <span className="ml-auto text-[11px] font-normal text-muted-foreground">{managerName}</span>
-            ) : null}
-          </DialogTitle>
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-sm font-mono">{row.code}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-3 py-2">
-          <div className="rounded-md border border-border bg-muted/30 p-2 text-[11px]">
+          {/* Summary block — manager, supplier, dates, pallets, products.
+              Sits below the title so the dialog close (X) cannot overlap any data. */}
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  LOGISTICS_STATUS_CLASS[row.logistics_status],
+                )}
+              >
+                {LOGISTICS_STATUS_LABEL[row.logistics_status]}
+              </span>
+              {managerName ? (
+                <span className="text-[11px] font-semibold text-foreground">
+                  Менеджер: <span className="font-normal">{managerName}</span>
+                </span>
+              ) : null}
+              <span className="ml-auto text-[11px] font-semibold tabular-nums text-foreground">
+                {totalPallets || 0}п
+                {totalWeight ? ` · ${Math.round(totalWeight)} кг` : ""}
+              </span>
+            </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <div><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
-              <div><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
-              <div><span className="text-muted-foreground">Завантаження: </span>{row.loading_date ?? "—"}</div>
-              <div><span className="text-muted-foreground">Палет / вага: </span>{totalPallets || "—"} / {totalWeight ? Math.round(totalWeight) + " кг" : "—"}</div>
+              <div className="truncate"><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
+              <div className="truncate"><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
+              <div className="truncate">
+                <span className="font-semibold text-sky-600 dark:text-sky-300">ETD </span>
+                <span className="text-foreground">{row.loading_date ?? "—"}</span>
+              </div>
+              <div className="truncate">
+                <span className="font-semibold text-sky-600 dark:text-sky-300">ETA </span>
+                <span className="text-foreground">{row.eta ?? "—"}</span>
+              </div>
             </div>
             {row.items.length > 0 && (
-              <div className="mt-1.5 border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
+              <div className="border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
                 {row.items.map((it, i) => (
-                  <div key={i}>
+                  <div key={i} className="truncate">
                     • {it.product_name}
                     {it.pallet_count ? ` — ${it.pallet_count} пал.` : ""}
                     {it.origin_country ? ` · ${it.origin_country}` : ""}
@@ -566,6 +580,7 @@ function EditDialog({
               </div>
             )}
           </div>
+
 
           <section>
             <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
