@@ -151,7 +151,7 @@ function resolveManagerName(
 function LogisticsPage() {
   const { user, hasRole } = useAuth();
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
-  const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [sortBy, setSortBy] = useState<SortKey>("last_event");
 
   // Manager-only visibility scope: an import_manager (without admin/logistics)
   // must only see vehicles that belong to him.
