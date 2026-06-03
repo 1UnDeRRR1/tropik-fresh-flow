@@ -6,7 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { toUaCountry } from "@/lib/countries";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+
+// Abbreviate manager name when row is tight: "Назар Лукач" → "Назар Л.".
+// Mirrors the helper used in branch "Головна" so visual shape matches.
+const shortenManagerName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -298,7 +306,21 @@ function BranchFreeList() {
         <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <ul className="divide-y divide-border">
             {rows.map((r) => {
-              const country = r.country ?? "";
+              const countryFull = r.country ? toUaCountry(r.country) : "";
+              const countryShortRaw = r.country ? toShortUaCountry(r.country) : "";
+              const variety = r.variety ?? "";
+              const fullLeftLen = r.product.length + countryFull.length + variety.length;
+              const useShortCountry =
+                fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
+              const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
+              const tailParts: string[] = [];
+              if (country) tailParts.push(country);
+              if (variety) tailParts.push(variety);
+              const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
+              const rawMgr = r.managerName ?? "";
+              const metaApproxLen =
+                (r.code ? r.code.length : 0) + (rawMgr ? 3 + rawMgr.length : 0);
+              const mgr = rawMgr && metaApproxLen > 34 ? shortenManagerName(rawMgr) : rawMgr;
               return (
                 <li key={r.itemId}>
                   <button
@@ -306,21 +328,25 @@ function BranchFreeList() {
                     onClick={() => openOffer(r)}
                     className="w-full py-2 text-left text-sm active:opacity-70"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
-                        <span className="shrink-0 font-bold">{r.product}</span>
-                        {country ? (
-                          <span className="min-w-0 truncate"> · {country}{r.variety ? ` · ${r.variety}` : ""}</span>
-                        ) : r.variety ? (
-                          <span className="min-w-0 truncate"> · {r.variety}</span>
-                        ) : null}
-                        <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{r.free}п</span></span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                        <span className="font-bold">{r.product}</span>
+                        {tail ? <span>{tail}</span> : null}
                       </div>
-                      <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                      <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{r.free}п</span>
                     </div>
-                    <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
-                      <span className="font-mono">{r.code}</span>
-                      {r.managerName ? <span> · {r.managerName}</span> : null}
+                    <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                        {r.code ? (
+                          <span className="font-mono text-foreground/80">{r.code}</span>
+                        ) : null}
+                        {mgr ? (
+                          <span className="text-foreground/80">{r.code ? " · " : ""}{mgr}</span>
+                        ) : null}
+                      </div>
+                      <span className="shrink-0">
+                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                      </span>
                     </div>
                   </button>
                 </li>
