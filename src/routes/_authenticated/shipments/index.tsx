@@ -131,7 +131,7 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, pipeline_status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at, updated_at,
+          id, code, status, pipeline_status, eta, loading_date, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at, updated_at,
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
