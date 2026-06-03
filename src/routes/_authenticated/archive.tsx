@@ -92,7 +92,7 @@ function ArchivePage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Архів" subtitle="Read-only" />
+      <PageHeader title="Архів" />
 
       <div className="flex gap-2">
         {(["unloaded", "cancelled"] as Tab[]).map((t) => (
