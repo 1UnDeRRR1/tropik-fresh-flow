@@ -440,12 +440,13 @@ function ShipmentRow({
           </div>
         </div>
 
-        {/* Line 2: ETA (blue accent) + net kg (reliable only) */}
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs">
-          <span className="font-semibold text-brand tabular-nums">ETA {etaStr}</span>
-          <span className="tabular-nums text-muted-foreground">
-            {netKg > 0 ? `${Math.round(netKg)} кг (нетто)` : "—"}
-          </span>
+        {/* Line 2: ETD / ETA — labels blue, dates dark. Net/gross deferred. */}
+        <div className="mt-1 text-xs tabular-nums">
+          <span className="font-semibold text-brand">ETD</span>
+          <span className="text-foreground"> {etdStr}</span>
+          <span className="text-foreground"> / </span>
+          <span className="font-semibold text-brand">ETA</span>
+          <span className="text-foreground"> {etaStr}</span>
         </div>
 
         {/* Line 3: distribution marker + logistics/documents marker */}
