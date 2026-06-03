@@ -16,6 +16,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
