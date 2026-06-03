@@ -602,15 +602,15 @@ function EditDialog({
               </span>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <div className="truncate"><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
-              <div className="truncate"><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
+              <div className="truncate"><span className="text-muted-foreground">Постачальник: </span><span className="font-semibold text-foreground">{row.supplier?.name ?? "—"}</span></div>
+              <div className="truncate"><span className="text-muted-foreground">Країна: </span><span className="font-semibold text-foreground">{row.country ?? "—"}</span></div>
               <div className="truncate">
                 <span className="font-semibold text-sky-600 dark:text-sky-300">ETD </span>
-                <span className="text-foreground">{row.loading_date ?? "—"}</span>
+                <span className="font-semibold text-foreground">{fmtShort(row.loading_date)}</span>
               </div>
               <div className="truncate">
                 <span className="font-semibold text-sky-600 dark:text-sky-300">ETA </span>
-                <span className="text-foreground">{row.eta ?? "—"}</span>
+                <span className="font-semibold text-foreground">{fmtShort(row.eta)}</span>
               </div>
             </div>
             {row.items.length > 0 && (
