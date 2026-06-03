@@ -83,243 +83,61 @@ type Row = {
   last_event_at: string | null;
 };
 
-const fmtEta = (eta: string | null) => {
+const fmtEtaShort = (eta: string | null) => {
   if (!eta) return "—";
   const d = new Date(eta);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${dd}.${mm}`;
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day} ${mo}.`;
 };
 
-const numNeq = (a: number | null | undefined, b: number | null | undefined) =>
-  Number(a ?? 0).toFixed(2) !== Number(b ?? 0).toFixed(2);
-const dateNeq = (a: string | null | undefined, b: string | null | undefined) =>
-  (a ?? "") !== (b ?? "");
-
-function ChangeBadge({
-  field,
-  oldVal,
-  newVal,
-  onAck,
-}: {
-  field: "ETA" | "Палети" | "Собівартість";
-  oldVal: string;
-  newVal: string;
-  onAck: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        if (!o) onAck();
-      }}
-    >
-      <PopoverTrigger asChild>
-        <button
-          onClick={(e) => e.stopPropagation()}
-          className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-900 dark:bg-yellow-500/20 dark:text-yellow-200"
-          aria-label="Зміни"
-        >
-          <AlertTriangle className="h-2.5 w-2.5" />
-          зміни
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56 p-3 text-xs" align="end" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-1 font-semibold">{field}</div>
-        <div className="text-muted-foreground">
-          Було: <span className="font-medium text-foreground">{oldVal}</span>
-        </div>
-        <div className="text-muted-foreground">
-          Стало: <span className="font-medium text-foreground">{newVal}</span>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground text-right">{value}</span>
-    </div>
-  );
-}
-
-const WEEKDAYS_UK = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "Пʼятниця", "Субота"];
-const MONTHS_UK = [
-  "січня", "лютого", "березня", "квітня", "травня", "червня",
-  "липня", "серпня", "вересня", "жовтня", "листопада", "грудня",
-];
-
-function BranchCardList({
+function BranchFlatList({
   rows,
-  sortBy,
-  statsFor,
   onOpen,
-  ackChange,
 }: {
   rows: Row[];
-  sortBy: SortKey;
-  statsFor: (r: { distribution_id: string; shipment_item_id: string; pallets: number }) => { pending: number; accepted: number; free: number };
   onOpen: (r: Row) => void;
-  ackChange: (distributionId: string, shipmentItemId: string) => void;
 }) {
-  // Group by ETA date only when sorted by date-like keys; otherwise flat list.
-  const groupByEta = sortBy === "eta" || sortBy === "last_event";
-  if (!groupByEta) {
-    return (
-      <SectionCard title="Товар">
-        <ul className="divide-y divide-border">
-          {rows.map((r) => (
-            <BranchCardRow
-              key={r.key}
-              r={r}
-              stats={statsFor(r)}
-              onOpen={() => onOpen(r)}
-              ackChange={ackChange}
-            />
-          ))}
-        </ul>
-      </SectionCard>
-    );
-  }
-  const groups = new Map<string, Row[]>();
-  for (const r of rows) {
-    const k = r.eta ?? "";
-    const arr = groups.get(k) ?? [];
-    arr.push(r);
-    groups.set(k, arr);
-  }
-  const ordered = Array.from(groups.entries()).sort(([a], [b]) => {
-    if (!a) return 1;
-    if (!b) return -1;
-    return a.localeCompare(b);
-  });
   return (
-    <div className="space-y-3">
-      {ordered.map(([iso, entries]) => {
-        let title = "Без дати";
-        if (iso) {
-          const [y, m, d] = iso.split("-").map(Number);
-          const dt = new Date(y, m - 1, d);
-          title = `${WEEKDAYS_UK[dt.getDay()]} · ${dt.getDate()} ${MONTHS_UK[dt.getMonth()]}`;
-        }
-        const totalP = entries.reduce((s, r) => s + r.pallets, 0);
-        return (
-          <SectionCard
-            key={iso || "no-date"}
-            title={title}
-            action={<span className="text-sm font-bold tabular-nums text-foreground">{totalP}п</span>}
-          >
-            <ul className="divide-y divide-border">
-              {entries.map((r) => (
-                <BranchCardRow
-                  key={r.key}
-                  r={r}
-                  stats={statsFor(r)}
-                  onOpen={() => onOpen(r)}
-                  ackChange={ackChange}
-                />
-              ))}
-            </ul>
-          </SectionCard>
-        );
-      })}
+    <div className="rounded-2xl border border-border bg-card shadow-card">
+      <ul className="divide-y divide-border px-3">
+        {rows.map((r) => {
+          const country = r.country ? toUaCountry(r.country) : "";
+          return (
+            <li key={r.key}>
+              <button
+                type="button"
+                onClick={() => onOpen(r)}
+                className="w-full py-2 text-left text-sm active:opacity-70"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
+                    <span className="shrink-0 font-bold">{r.product}</span>
+                    {country ? (
+                      <span className="min-w-0 truncate"> · {country}{r.variety ? ` · ${r.variety}` : ""}</span>
+                    ) : r.variety ? (
+                      <span className="min-w-0 truncate"> · {r.variety}</span>
+                    ) : null}
+                    <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{r.pallets}п</span></span>
+                  </div>
+                  <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
+                </div>
+                <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                  <span className="font-mono text-sky-500">ETA {fmtEtaShort(r.eta)}</span>
+                  {r.code ? <span> · <span className="font-mono">{r.code}</span></span> : null}
+                  {r.manager_name ? <span> · {r.manager_name}</span> : null}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
 
-function BranchCardRow({
-  r,
-  stats,
-  onOpen,
-  ackChange,
-}: {
-  r: Row;
-  stats: { pending: number; accepted: number; free: number };
-  onOpen: () => void;
-  ackChange: (distributionId: string, shipmentItemId: string) => void;
-}) {
-  const etaChanged = dateNeq(r.eta, r.seen_eta);
-  const palChanged = numNeq(r.pallets, r.seen_pallets);
-  const costChanged =
-    !!r.bvp_reason &&
-    (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
-    (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
-  const subLeft = [r.variety, r.caliber].filter(Boolean).join(" · ");
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="block w-full px-1 py-2 text-left text-sm hover:bg-muted/30 active:bg-muted/50"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 text-sm leading-tight">
-              <StatusIcon status={r.pipeline} size={16} />
-              <span className="font-medium text-foreground truncate">{r.product}</span>
-              {r.country && (
-                <span className="text-muted-foreground truncate">
-                  · {toUaCountry(r.country)}
-                </span>
-              )}
-              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
-                {stats.pending > 0 ? (
-                  <>
-                    {stats.free}п<span className="text-muted-foreground font-normal"> / </span>
-                    <span className="text-blue-600">{stats.pending}п</span>
-                  </>
-                ) : (
-                  <>{r.pallets}п</>
-                )}
-                {palChanged && (
-                  <ChangeBadge
-                    field="Палети"
-                    oldVal={`${Number(r.seen_pallets ?? 0)}п`}
-                    newVal={`${r.pallets}п`}
-                    onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-                  />
-                )}
-              </span>
-            </div>
-            {subLeft && (
-              <div className="mt-0.5 text-[11px] text-muted-foreground truncate">{subLeft}</div>
-            )}
-          </div>
-        </div>
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <span className="text-[11px] font-mono text-muted-foreground truncate">
-            {r.code || "—"}
-            {r.manager_name ? <span className="font-sans"> · {r.manager_name}</span> : null}
-            {etaChanged && (
-              <ChangeBadge
-                field="ETA"
-                oldVal={fmtEta(r.seen_eta)}
-                newVal={fmtEta(r.eta)}
-                onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-              />
-            )}
-          </span>
-          <span className="whitespace-nowrap">
-            <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
-            {costChanged && (
-              <ChangeBadge
-                field="Собівартість"
-                oldVal={`$${Number(r.seen_ind ?? 0).toFixed(2)} / $${Number(r.seen_inv ?? 0).toFixed(2)}`}
-                newVal={`$${Number(r.bvp_ind ?? 0).toFixed(2)} / $${Number(r.bvp_inv ?? 0).toFixed(2)}`}
-                onAck={() => ackChange(r.distribution_id, r.shipment_item_id)}
-              />
-            )}
-          </span>
-        </div>
-      </button>
-    </li>
-  );
-}
+
 
 
 function BranchDashboard() {
