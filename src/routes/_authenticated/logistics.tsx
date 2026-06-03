@@ -29,7 +29,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
   LOGISTICS_STATUS_LABEL,
-  LOGISTICS_STATUS_CLASS,
   type LogisticsStatus,
 } from "@/lib/logistics";
 
