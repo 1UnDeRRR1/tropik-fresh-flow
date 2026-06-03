@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -60,7 +60,14 @@ function BucketToggle({
   onChange: (v: "active" | "confirmed") => void;
 }) {
   return (
-    <div className="relative grid h-9 grid-cols-2 rounded-full bg-muted p-1 text-sm">
+    <div
+      className={cn(
+        "relative grid h-9 grid-cols-2 rounded-full border-2 bg-muted p-1 text-sm transition-colors",
+        value === "active"
+          ? "border-destructive"
+          : "border-emerald-600",
+      )}
+    >
       <span
         aria-hidden
         className={cn(
@@ -190,16 +197,6 @@ function BranchOffersPage() {
     return m;
   }, [managerNames]);
 
-  // Filter options derived ONLY from rows visible to this branch
-  const productOptions = useMemo(
-    () => Array.from(new Set(baseVisibleOffers.map((o) => o.product_name).filter(Boolean))).sort((a, b) => a.localeCompare(b, "uk")),
-    [baseVisibleOffers],
-  );
-  const countryOptions = useMemo(
-    () => Array.from(new Set(baseVisibleOffers.map((o) => o.origin_country).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "uk")),
-    [baseVisibleOffers],
-  );
-
   const shipmentById = useMemo(() => {
     const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
     for (const s of shipments ?? []) m[s.id] = { code: s.code, eta: s.eta, arrived_at: (s as { arrived_at: string | null }).arrived_at };
@@ -209,18 +206,17 @@ function BranchOffersPage() {
   const shipCodeOf = (o: ManagerOffer): string | null =>
     o.linked_shipment_id ? shipmentById[o.linked_shipment_id]?.code ?? null : null;
 
-  const visibleOffers = useMemo(() => {
+  // Bucket-base rows: branch-visible rows minus those that left the workflow
+  // (real shipment code). NO product/country filter applied yet — these feed
+  // both filter-option derivation and final row rendering.
+  const bucketBaseRows = useMemo(() => {
     const arrivalDate = (o: ManagerOffer): string | null => {
       const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
       return ship?.arrived_at || ship?.eta || o.expected_eta || null;
     };
-    const filtered = baseVisibleOffers.filter((o) => {
-      if (fProduct !== ALL && o.product_name !== fProduct) return false;
-      if (fCountry !== ALL && o.origin_country !== fCountry) return false;
-      // Real shipment code → row has left the active "Пропозиції ЗЕД" workflow.
-      if (isRealShipmentCode(shipCodeOf(o))) return false;
-      return true;
-    });
+    const filtered = baseVisibleOffers.filter(
+      (o) => !isRealShipmentCode(shipCodeOf(o)),
+    );
     return [...filtered].sort((a, b) => {
       const da = arrivalDate(a), db = arrivalDate(b);
       if (!da && !db) return 0;
@@ -228,20 +224,68 @@ function BranchOffersPage() {
       if (!db) return -1;
       return da.localeCompare(db);
     });
-    // shipCodeOf is a stable closure over shipmentById; deps below cover it.
-  }, [baseVisibleOffers, shipmentById, fProduct, fCountry]);
+  }, [baseVisibleOffers, shipmentById]);
 
-  const { activeRows, confirmedRows } = useMemo(() => {
+  // Split unfiltered bucket-base into active/confirmed by status kind.
+  const { activeBase, confirmedBase } = useMemo(() => {
     const a: ManagerOffer[] = [];
     const c: ManagerOffer[] = [];
-    for (const o of visibleOffers) {
+    for (const o of bucketBaseRows) {
       const r = responseByOffer[o.id] ?? null;
       const st = getBranchOfferStatus(o, r, shipCodeOf(o));
       if (st.kind === "confirmed") c.push(o);
       else a.push(o);
     }
-    return { activeRows: a, confirmedRows: c };
-  }, [visibleOffers, responseByOffer, shipmentById]);
+    return { activeBase: a, confirmedBase: c };
+  }, [bucketBaseRows, responseByOffer, shipmentById]);
+
+  // Filter options scoped to the currently selected bucket, with mutual
+  // cross-axis filtering (product options narrow by selected country, and
+  // vice versa) so the two dropdowns stay consistent with what is rendered.
+  const currentBase = bucket === "active" ? activeBase : confirmedBase;
+
+  const productOptions = useMemo(() => {
+    const src = fCountry === ALL
+      ? currentBase
+      : currentBase.filter((o) => o.origin_country === fCountry);
+    return Array.from(new Set(src.map((o) => o.product_name).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, "uk"));
+  }, [currentBase, fCountry]);
+
+  const countryOptions = useMemo(() => {
+    const src = fProduct === ALL
+      ? currentBase
+      : currentBase.filter((o) => o.product_name === fProduct);
+    return Array.from(
+      new Set(src.map((o) => o.origin_country).filter(Boolean) as string[]),
+    ).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [currentBase, fProduct]);
+
+  // If the previously selected filter value is no longer present in the
+  // current bucket (e.g. after switching Активні ↔ Підтверджені), reset
+  // it to "all" so the list never becomes silently empty.
+  useEffect(() => {
+    if (fProduct !== ALL && !productOptions.includes(fProduct)) {
+      setFProduct(ALL);
+    }
+  }, [productOptions, fProduct]);
+  useEffect(() => {
+    if (fCountry !== ALL && !countryOptions.includes(fCountry)) {
+      setFCountry(ALL);
+    }
+  }, [countryOptions, fCountry]);
+
+  // Final rendered rows per bucket, with product/country filters applied.
+  const { activeRows, confirmedRows } = useMemo(() => {
+    const apply = (list: ManagerOffer[]) =>
+      list.filter((o) => {
+        if (fProduct !== ALL && o.product_name !== fProduct) return false;
+        if (fCountry !== ALL && o.origin_country !== fCountry) return false;
+        return true;
+      });
+    return { activeRows: apply(activeBase), confirmedRows: apply(confirmedBase) };
+  }, [activeBase, confirmedBase, fProduct, fCountry]);
+
 
 
 
@@ -494,7 +538,7 @@ function BranchOffersPage() {
             <DialogTitle>Деталі пропозиції</DialogTitle>
           </DialogHeader>
           {(() => {
-            const o = visibleOffers.find((x) => x.id === selectedOfferId);
+            const o = bucketBaseRows.find((x) => x.id === selectedOfferId);
             if (!o) return null;
             const r = responseByOffer[o.id];
             const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
