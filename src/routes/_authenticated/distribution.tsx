@@ -16,7 +16,6 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
-import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
@@ -66,7 +65,6 @@ type FreeRow = {
 
 function BranchFreeList() {
   const { user, profile } = useAuth();
-  useKeyboardInset();
   const qc = useQueryClient();
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
@@ -335,12 +333,12 @@ function BranchFreeList() {
       <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
         <DialogContent
           className={cn(
-            "top-0 translate-y-0 max-h-[78vh] overflow-y-auto",
+            "top-0 translate-y-0 h-auto max-h-[78svh] overflow-y-auto overscroll-contain data-[state=open]:animate-none data-[state=closed]:animate-none",
             shake && "animate-shake",
           )}
           style={{
-            top: "calc(env(safe-area-inset-top) * 2)",
-            paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))",
+            top: "max(32px, calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-top, 0px)))",
+            paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
           }}
         >
           {pick ? (() => {
