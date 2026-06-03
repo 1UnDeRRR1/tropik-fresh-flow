@@ -8,13 +8,17 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { toUaCountry } from "@/lib/countries";
 import { cn } from "@/lib/utils";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CostPair } from "@/components/CostPair";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
+
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
-import { TableScroller } from "@/components/TableScroller";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
@@ -31,6 +35,10 @@ function Distribution() {
 
 // ============ Branch "Вільно" view ============
 
+const ALL = "__all";
+const NO_COUNTRY = "__no_country__";
+const NO_COUNTRY_LABEL = "— Без країни";
+
 const fmtEta = (eta: string | null) =>
   eta
     ? new Date(eta).toLocaleDateString("uk-UA", { day: "2-digit", month: "long" })
@@ -43,17 +51,25 @@ type FreeRow = {
   eta: string | null;
   product: string;
   country: string | null;
-  caliber: string;
+  variety: string | null;
+  caliber: string | null;
+  brand: string | null;
+  klass: string | null;
   palletWeight: number;
   free: number;
   weight: number;
   indicative: number | null;
   invoice: number | null;
+  managerName: string | null;
 };
 
 function BranchFreeList() {
   const { user, profile } = useAuth();
   const qc = useQueryClient();
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
+  const [productFilter, setProductFilter] = useState<string>(ALL);
+  const [countryFilter, setCountryFilter] = useState<string>(ALL);
   const [pick, setPick] = useState<FreeRow | null>(null);
   const [pallets, setPallets] = useState("");
   const [price, setPrice] = useState("");
@@ -74,13 +90,15 @@ function BranchFreeList() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
-        .select("id,shipment_id,product_name,caliber,origin_country,pallet_weight,final_cost_indicative,final_cost_invoice,free_pallets")
+        .select("id,shipment_id,product_name,variety,caliber,brand,class,origin_country,pallet_weight,final_cost_indicative,final_cost_invoice,free_pallets")
         .gt("free_pallets", 0)
         .limit(500);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; shipment_id: string; product_name: string;
-        caliber: string | null; origin_country: string | null;
+        variety: string | null; caliber: string | null;
+        brand: string | null; class: string | null;
+        origin_country: string | null;
         pallet_weight: number | null;
         final_cost_indicative: number | null; final_cost_invoice: number | null;
         free_pallets: number;
@@ -99,12 +117,13 @@ function BranchFreeList() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta,country,status")
+        .select("id,code,eta,country,status,import_manager_name")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null;
         country: string | null; status: string;
+        import_manager_name: string | null;
       }>;
     },
   });
@@ -121,7 +140,7 @@ function BranchFreeList() {
     },
   });
 
-  const rows: FreeRow[] = useMemo(() => {
+  const allRows: FreeRow[] = useMemo(() => {
     if (!items) return [];
     const sMap = new Map((ships ?? []).map((s) => [s.id, s]));
     const pendMap = new Map<string, number>();
@@ -144,17 +163,68 @@ function BranchFreeList() {
         eta: s.eta,
         product: it.product_name,
         country: it.origin_country ?? s.country ?? null,
-        caliber: it.caliber ?? "—",
+        variety: it.variety,
+        caliber: it.caliber,
+        brand: it.brand,
+        klass: it.class,
         palletWeight,
         free,
         weight: free * palletWeight,
         indicative: it.final_cost_indicative,
         invoice: it.final_cost_invoice,
+        managerName: s.import_manager_name ?? null,
       });
     });
     out.sort((a, b) => (a.eta ?? "9999").localeCompare(b.eta ?? "9999"));
     return out;
   }, [items, ships, pendingReqs]);
+
+  const passes = (r: FreeRow, excl: "product" | "country" | null) => {
+    if (excl !== "product" && productFilter !== ALL && r.product.trim() !== productFilter) return false;
+    if (excl !== "country" && countryFilter !== ALL) {
+      const c = (r.country ?? "").trim();
+      if (countryFilter === NO_COUNTRY ? c !== "" : c !== countryFilter) return false;
+    }
+    return true;
+  };
+
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of allRows) {
+      if (!passes(r, "product")) continue;
+      const name = r.product.trim();
+      if (name) set.add(name);
+    }
+    if (productFilter !== ALL) set.add(productFilter);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((n) => ({ value: n, label: n }));
+  }, [allRows, countryFilter, productFilter]);
+
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasMissing = false;
+    for (const r of allRows) {
+      if (!passes(r, "country")) continue;
+      const c = (r.country ?? "").trim();
+      if (c) set.add(c);
+      else hasMissing = true;
+    }
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b, "uk")).map((c) => ({ value: c, label: c }));
+    if (hasMissing || countryFilter === NO_COUNTRY) arr.push({ value: NO_COUNTRY, label: NO_COUNTRY_LABEL });
+    return arr;
+  }, [allRows, productFilter, countryFilter]);
+
+  const rows = useMemo(() => allRows.filter((r) => passes(r, null)), [allRows, productFilter, countryFilter]);
+
+  const totalPallets = useMemo(() => rows.reduce((s, r) => s + r.free, 0), [rows]);
+  const positionsCount = useMemo(() => {
+    const keys = new Map<string, string>();
+    for (const r of rows) {
+      const key = `${r.product.trim()}__${(r.country ?? "").trim()}`;
+      if (!keys.has(key)) keys.set(key, r.product.trim());
+    }
+    const groups = Array.from(keys.entries()).map(([, product]) => ({ product }));
+    return countPositionsFromGroups(groups, (g) => g.product);
+  }, [rows]);
 
   const openOffer = (r: FreeRow) => {
     setPick(r);
@@ -199,144 +269,177 @@ function BranchFreeList() {
     qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
   };
 
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PageHeader title="Вільно" subtitle="Нерозподілений товар усіх менеджерів" />
+
+      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+            <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+            <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <div className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-muted-foreground">
+            <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
+            <span className="font-bold tabular-nums text-brand">{totalPallets}п</span>
+          </div>
+        </div>
+      </div>
 
       {!rows.length ? (
         <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
       ) : (
-        <SectionCard title="Доступно для запиту">
-          <TableScroller className="-mx-2">
-            <table className="w-full min-w-[720px] text-xs">
-              <thead className="[&_th]:bg-table-head [&_th]:font-bold">
-                <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <th className="px-2 py-2 font-medium">Прибуття</th>
-                  <th className="px-2 py-2 font-medium">Поставка</th>
-                  <th className="px-2 py-2 font-medium">Товар</th>
-                  <th className="px-2 py-2 font-medium">Країна</th>
-                  <th className="px-2 py-2 font-medium">Калібр</th>
-                  <th className="px-2 py-2 text-right font-medium">Палет</th>
-
-                  <th className="px-2 py-2 text-right font-medium">Вага</th>
-                  <th className="px-2 py-2 text-right font-medium">Ціна</th>
-                  <th className="w-6" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((r) => (
-                  <tr
-                    key={r.itemId}
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+          <ul className="divide-y divide-border">
+            {rows.map((r) => {
+              const country = r.country ?? "";
+              return (
+                <li key={r.itemId}>
+                  <button
+                    type="button"
                     onClick={() => openOffer(r)}
-                    className="cursor-pointer hover:bg-muted/40 active:bg-muted/60"
+                    className="w-full py-2 text-left text-sm active:opacity-70"
                   >
-                    <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtEta(r.eta)}</td>
-                    <td className="px-2 py-2 font-mono text-[11px] font-semibold">{r.code}</td>
-                    <td className="px-2 py-2 font-medium">{r.product}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{r.country ? toUaCountry(r.country) : "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{r.caliber}</td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">{r.free}п</td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">
-                      {r.weight.toLocaleString("uk-UA")} кг
-                    </td>
-                    <td className="px-2 py-2 text-right">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
+                        <span className="shrink-0 font-bold">{r.product}</span>
+                        {country ? (
+                          <span className="min-w-0 truncate"> · {country}{r.variety ? ` · ${r.variety}` : ""}</span>
+                        ) : r.variety ? (
+                          <span className="min-w-0 truncate"> · {r.variety}</span>
+                        ) : null}
+                        <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{r.free}п</span></span>
+                      </div>
                       <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="xs" />
-                    </td>
-                    <td className="px-1 py-2 text-muted-foreground">
-                      <ChevronRight className="h-4 w-4" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableScroller>
-
-        </SectionCard>
+                    </div>
+                    <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                      <span className="font-mono">{r.code}</span>
+                      {r.managerName ? <span> · {r.managerName}</span> : null}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
-      <Sheet open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
-        <SheetContent side="bottom" className={cn("max-h-[85vh] overflow-y-auto rounded-t-2xl", shake && "animate-shake")}>
-          <SheetHeader className="text-left">
-            <SheetTitle className="pr-8">
-              <span>
-                {pick?.product}
-                {pick?.country && (
-                  <span className="text-muted-foreground"> · {toUaCountry(pick.country)}</span>
-                )}
-              </span>
-            </SheetTitle>
-          </SheetHeader>
+      <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
+        <DialogContent className={cn("max-h-[85vh] overflow-y-auto", shake && "animate-shake")}>
+          {pick ? (() => {
+            const country = pick.country ?? "";
+            const extras: Array<{ label: string; value: string }> = [];
+            if (pick.variety) extras.push({ label: "Сорт", value: pick.variety });
+            if (pick.caliber) extras.push({ label: "Калібр", value: pick.caliber });
+            if (pick.brand) extras.push({ label: "Бренд", value: pick.brand });
+            if (pick.klass) extras.push({ label: "Клас", value: pick.klass });
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base pr-8">
+                    {pick.product}
+                    {country ? <span> · {toUaCountry(country)}</span> : null}
+                    {pick.variety ? <span className="font-normal text-muted-foreground"> · {pick.variety}</span> : null}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-secondary px-2 py-1.5">
+                      <div className="text-[10px] text-muted-foreground">ETA</div>
+                      <div className="text-sm font-bold tabular-nums">{fmtEta(pick.eta)}</div>
+                      <div className="mt-1 text-[11px] font-mono text-muted-foreground">{pick.code}</div>
+                    </div>
+                    <div className="rounded-lg bg-secondary px-2 py-1.5 text-right">
+                      <div className="text-[10px] text-muted-foreground">Палети</div>
+                      <div className="text-sm font-bold tabular-nums text-brand">{pick.free}п</div>
+                      {pick.weight > 0 ? (
+                        <div className="mt-1 text-[11px] tabular-nums text-muted-foreground">{pick.weight.toLocaleString("uk-UA")} кг</div>
+                      ) : null}
+                    </div>
+                  </div>
 
-          {pick && (
-            <div className="mt-3 space-y-4">
-              <div className="rounded-xl border border-border bg-background/40 p-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Поставка</span>
-                  <span className="font-mono font-semibold">{pick.code}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Прибуття</span>
-                  <span>{fmtEta(pick.eta)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Калібр</span>
-                  <span>{pick.caliber}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Доступно</span>
-                  <span className="font-bold">{pick.free}п · {pick.weight.toLocaleString("uk-UA")} кг</span>
-                </div>
-              </div>
+                  {extras.length ? (
+                    <ul className="space-y-1 rounded-xl border border-border px-3 py-2 text-xs">
+                      {extras.map((x) => (
+                        <li key={x.label} className="flex justify-between gap-2">
+                          <span className="text-muted-foreground">{x.label}:</span>
+                          <span className="font-medium text-foreground">{x.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
 
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Кількість палет</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={pick.free}
-                  value={pallets}
-                  onChange={(e) => { setPallets(e.target.value); setInvalid((s) => ({ ...s, pallets: false })); }}
-                  inputMode="numeric"
-                  className={cn(invalid.pallets && "field-invalid")}
-                />
-                <div className="text-[11px] text-muted-foreground">
-                  ≈ {(Number(pallets || 0) * pick.palletWeight).toLocaleString("uk-UA")} кг
-                </div>
-              </div>
+                  {(pick.indicative != null || pick.invoice != null) ? (
+                    <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">Собівартість</span>
+                      <CostPair indicative={pick.indicative} invoice={pick.invoice} suffix=" кг" size="sm" />
+                    </div>
+                  ) : null}
 
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Ціна продажу за кг</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={price}
-                    onChange={(e) => { setPrice(e.target.value); setInvalid((s) => ({ ...s, price: false })); }}
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    className={cn("flex-1", invalid.price && "field-invalid")}
-                  />
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-                  >
-                    <option value="UAH">UAH</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </div>
-              </div>
+                  {pick.managerName ? (
+                    <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">Менеджер</span>
+                      <span className="font-medium text-foreground">{pick.managerName}</span>
+                    </div>
+                  ) : null}
 
-              <Button onClick={submit} disabled={submitting} className="w-full">
-                {submitting ? "Відправка…" : "Відправити пропозицію"}
-              </Button>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+                  <div className="rounded-xl border border-border px-3 py-2 text-xs">
+                    <div className="mb-1.5 text-[11px] font-semibold text-muted-foreground">Відправити пропозицію</div>
+                    <div className="grid grid-cols-[1fr_1.4fr_auto] gap-1.5 items-center">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={pick.free}
+                        value={pallets}
+                        onChange={(e) => { setPallets(e.target.value); setInvalid((s) => ({ ...s, pallets: false })); }}
+                        inputMode="numeric"
+                        placeholder="Палети"
+                        aria-label="Палети"
+                        className={cn("h-9 text-sm", invalid.pallets && "field-invalid")}
+                      />
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={price}
+                          onChange={(e) => { setPrice(e.target.value); setInvalid((s) => ({ ...s, price: false })); }}
+                          placeholder="Ціна"
+                          aria-label="Ціна"
+                          inputMode="decimal"
+                          className={cn("h-9 flex-1 text-sm", invalid.price && "field-invalid")}
+                        />
+                        <select
+                          value={currency}
+                          onChange={(e) => setCurrency(e.target.value)}
+                          className="h-9 rounded-md border border-input bg-transparent px-1.5 text-xs"
+                          aria-label="Валюта"
+                        >
+                          <option value="UAH">UAH</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                        </select>
+                      </div>
+                      <Button onClick={submit} disabled={submitting} size="sm" className="h-9 px-3">
+                        {submitting ? "…" : "Відправити"}
+                      </Button>
+                    </div>
+                    <div className="mt-1 text-[10px] text-muted-foreground">
+                      ≈ {(Number(pallets || 0) * pick.palletWeight).toLocaleString("uk-UA")} кг
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })() : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
