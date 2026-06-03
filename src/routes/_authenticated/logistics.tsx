@@ -688,22 +688,44 @@ function EditDialog({
                 )}
               </div>
               <Labeled label="Температура">
-                <Input
-                  value={form.temperature_mode}
-                  onChange={(e) => {
-                    // Allow only digits, leading +/-, and one decimal separator.
-                    const filtered = e.target.value.replace(/[^0-9+\-.,]/g, "");
-                    setForm({ ...form, temperature_mode: filtered });
-                  }}
-                  inputMode="decimal"
-                  disabled={!isManager}
-                  placeholder="+2…+6"
-                  aria-invalid={!tempValid}
-                  className={cn(!tempValid && "border-destructive focus-visible:ring-destructive")}
-                />
+                <div className="flex items-stretch gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = form.temperature_mode;
+                      let next: string;
+                      if (cur.startsWith("+")) next = "-" + cur.slice(1);
+                      else if (cur.startsWith("-")) next = "+" + cur.slice(1);
+                      else next = "+" + cur;
+                      setForm({ ...form, temperature_mode: next });
+                    }}
+                    disabled={!isManager}
+                    aria-label="Перемкнути знак"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-transparent text-base font-bold shadow-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    ±
+                  </button>
+                  <Input
+                    value={form.temperature_mode}
+                    onChange={(e) => {
+                      // Allow digits, +, -, '.', ',', and range separator '…'/'...'.
+                      const filtered = e.target.value.replace(/[^0-9+\-.,…]/g, "");
+                      setForm({ ...form, temperature_mode: filtered });
+                    }}
+                    type="text"
+                    inputMode="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={!isManager}
+                    placeholder="+2…+6"
+                    aria-invalid={!tempValid}
+                    className={cn("flex-1", !tempValid && "border-destructive focus-visible:ring-destructive")}
+                  />
+                </div>
                 {!tempValid && (
                   <p className="mt-1 text-[10px] font-medium text-destructive">
-                    Лише цифри, +, -, кома/крапка. Приклад: +4, -2, +6.5
+                    Лише цифри, +, -, кома/крапка. Приклад: +4, -2, +6.5, +2...+6
                   </p>
                 )}
               </Labeled>
