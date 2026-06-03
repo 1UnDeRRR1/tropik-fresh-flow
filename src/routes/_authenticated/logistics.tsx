@@ -689,10 +689,22 @@ function EditDialog({
               <Labeled label="Температура">
                 <Input
                   value={form.temperature_mode}
-                  onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
+                  onChange={(e) => {
+                    // Allow only digits, leading +/-, and one decimal separator.
+                    const filtered = e.target.value.replace(/[^0-9+\-.,]/g, "");
+                    setForm({ ...form, temperature_mode: filtered });
+                  }}
+                  inputMode="decimal"
                   disabled={!isManager}
-                  placeholder="+2…+6 °C"
+                  placeholder="+2…+6"
+                  aria-invalid={!tempValid}
+                  className={cn(!tempValid && "border-destructive focus-visible:ring-destructive")}
                 />
+                {!tempValid && (
+                  <p className="mt-1 text-[10px] font-medium text-destructive">
+                    Лише цифри, +, -, кома/крапка. Приклад: +4, -2, +6.5
+                  </p>
+                )}
               </Labeled>
               <Labeled label="Орієнтовний фрахт (від менеджера)">
                 <div className="rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5 text-xs">
