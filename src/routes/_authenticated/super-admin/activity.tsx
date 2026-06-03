@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
+import { SuperAdminTabs } from "./-super-admin-tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -270,6 +271,7 @@ function ActivityPage() {
 
   return (
     <div className="space-y-4">
+      <SuperAdminTabs />
       <PageHeader
         title="Журнал активності"
         subtitle="Сесії користувачів — лише для Супер-адміна"
