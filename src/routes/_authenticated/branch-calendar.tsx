@@ -127,7 +127,6 @@ function BranchCalendarPage() {
     },
   });
 
-  type Entry = { ship: Ship; item: Item; pallets: number; arrival: string; key: string };
 
   const allEntries: Entry[] = useMemo(() => {
     if (!dists || !items || !ships) return [];
