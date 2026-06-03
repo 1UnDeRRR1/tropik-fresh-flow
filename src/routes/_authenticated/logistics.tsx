@@ -451,8 +451,15 @@ function EditDialog({
     return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
   }, 0);
 
+  // Temperature: digits, '+', '-', '.' or ',' only.
+  const TEMP_RE = /^[+\-]?\d*([.,]\d*)?$/;
+  const tempValid = form.temperature_mode.trim() === "" || TEMP_RE.test(form.temperature_mode.trim());
+
   const save = useMutation({
     mutationFn: async () => {
+      if (!tempValid) {
+        throw new Error("Невірний формат температури (приклади: +4, -2, +6.5)");
+      }
       const patch: Record<string, unknown> = {};
       const cleanPickups = pickups.map((p) => ({ address: p.address.trim(), reference: p.reference.trim() }));
       const joinedAddress = cleanPickups.map((p) => p.address).filter(Boolean).join("\n");
