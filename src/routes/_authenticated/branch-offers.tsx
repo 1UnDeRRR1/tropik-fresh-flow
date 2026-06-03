@@ -8,14 +8,6 @@ import { EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -24,22 +16,81 @@ import {
   type ManagerOffer,
   type ManagerOfferResponse,
 } from "@/lib/manager-offers";
-import { SortByMenu, type SortKey } from "@/components/SortByMenu";
 import {
   getBranchOfferStatus,
   toneClass,
   isRealShipmentCode,
-  type BranchOfferStatusKind,
 } from "@/lib/branch-offer-status";
+import { CostPair } from "@/components/CostPair";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 
-const STATUS_SORT_PRIORITY: Record<BranchOfferStatusKind, number> = {
-  waiting: 0,
-  confirmed: 1,
-  rejected: 2,
-  cancelled: 3,
-  shipped: 4,
-  none: 5,
+const ALL = "__all";
+
+// Short ETA formatter mirrored from branch "Вільно" / "Головна".
+// Narrow no-break space (U+202F) tightens day + month inline without
+// touching font-size, font-family, letter-spacing or line-height.
+const fmtEtaShort = (eta: string | null | undefined): string => {
+  if (!eta) return "—";
+  const d = new Date(eta);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day}\u202F${mo}.`;
 };
+
+// Abbreviate manager name when row is tight: "Назар Лукач" → "Назар Л.".
+// Mirrors the helper used in branch "Головна" / "Вільно".
+const shortenManagerName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
+
+// Local sliding segmented toggle, embedded into the same top control card
+// as the two filters. One shared rounded body + one absolutely-positioned
+// sliding plate. Kept local on purpose (no shared extraction in Stage 1).
+function BucketToggle({
+  value,
+  onChange,
+}: {
+  value: "active" | "confirmed";
+  onChange: (v: "active" | "confirmed") => void;
+}) {
+  return (
+    <div className="relative grid h-9 grid-cols-2 rounded-full bg-muted p-1 text-sm">
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-background shadow-sm transition-transform duration-200 ease-out",
+          value === "confirmed" && "translate-x-full",
+        )}
+      />
+      <button
+        type="button"
+        onClick={() => onChange("active")}
+        className={cn(
+          "relative z-10 rounded-full text-center transition-colors",
+          value === "active" ? "font-semibold text-foreground" : "text-muted-foreground",
+        )}
+      >
+        Активні
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("confirmed")}
+        className={cn(
+          "relative z-10 rounded-full text-center transition-colors",
+          value === "confirmed" ? "font-semibold text-foreground" : "text-muted-foreground",
+        )}
+      >
+        Підтверджені
+      </button>
+    </div>
+  );
+}
 
 type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
 
@@ -55,11 +106,12 @@ function BranchOffersPage() {
   const branchId = profile?.branch_id ?? null;
   const qc = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [sortBy, setSortBy] = useState<SortKey>("date");
-  const [fProduct, setFProduct] = useState<string>("");
-  const [fCountry, setFCountry] = useState<string>("");
-  const [fManager, setFManager] = useState<string>("");
+  const [fProduct, setFProduct] = useState<string>(ALL);
+  const [fCountry, setFCountry] = useState<string>(ALL);
+  const [bucket, setBucket] = useState<"active" | "confirmed">("active");
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
 
 
 
@@ -147,13 +199,6 @@ function BranchOffersPage() {
     () => Array.from(new Set(baseVisibleOffers.map((o) => o.origin_country).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "uk")),
     [baseVisibleOffers],
   );
-  const managerOptions = useMemo(() => {
-    const ids = Array.from(new Set(baseVisibleOffers.map((o) => o.created_by).filter(Boolean)));
-    return ids
-      .map((id) => ({ id, name: managerNameById[id] ?? "" }))
-      .filter((m) => m.name)
-      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
-  }, [baseVisibleOffers, managerNameById]);
 
   const shipmentById = useMemo(() => {
     const m: Record<string, { code: string; eta: string | null; arrived_at: string | null }> = {};
@@ -161,46 +206,42 @@ function BranchOffersPage() {
     return m;
   }, [shipments]);
 
+  const shipCodeOf = (o: ManagerOffer): string | null =>
+    o.linked_shipment_id ? shipmentById[o.linked_shipment_id]?.code ?? null : null;
+
   const visibleOffers = useMemo(() => {
     const arrivalDate = (o: ManagerOffer): string | null => {
       const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
       return ship?.arrived_at || ship?.eta || o.expected_eta || null;
     };
-    const eventTs = (o: ManagerOffer): number =>
-      new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
-    const shipCodeOf = (o: ManagerOffer): string | null =>
-      o.linked_shipment_id ? shipmentById[o.linked_shipment_id]?.code ?? null : null;
-
     const filtered = baseVisibleOffers.filter((o) => {
-      if (fProduct && o.product_name !== fProduct) return false;
-      if (fCountry && o.origin_country !== fCountry) return false;
-      if (fManager && o.created_by !== fManager) return false;
+      if (fProduct !== ALL && o.product_name !== fProduct) return false;
+      if (fCountry !== ALL && o.origin_country !== fCountry) return false;
       // Real shipment code → row has left the active "Пропозиції ЗЕД" workflow.
       if (isRealShipmentCode(shipCodeOf(o))) return false;
       return true;
     });
-    const sorted = [...filtered];
-    if (sortBy === "date") {
-      sorted.sort((a, b) => {
-        const da = arrivalDate(a), db = arrivalDate(b);
-        if (!da && !db) return 0;
-        if (!da) return 1;
-        if (!db) return -1;
-        return da.localeCompare(db);
-      });
-    } else if (sortBy === "name") {
-      sorted.sort((a, b) => (a.product_name ?? "").localeCompare(b.product_name ?? "", "uk"));
-    } else if (sortBy === "status") {
-      sorted.sort((a, b) => {
-        const sa = getBranchOfferStatus(a, responseByOffer[a.id] ?? null, shipCodeOf(a));
-        const sb = getBranchOfferStatus(b, responseByOffer[b.id] ?? null, shipCodeOf(b));
-        return STATUS_SORT_PRIORITY[sa.kind] - STATUS_SORT_PRIORITY[sb.kind];
-      });
-    } else if (sortBy === "last_event") {
-      sorted.sort((a, b) => eventTs(b) - eventTs(a));
+    return [...filtered].sort((a, b) => {
+      const da = arrivalDate(a), db = arrivalDate(b);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.localeCompare(db);
+    });
+    // shipCodeOf is a stable closure over shipmentById; deps below cover it.
+  }, [baseVisibleOffers, shipmentById, fProduct, fCountry]);
+
+  const { activeRows, confirmedRows } = useMemo(() => {
+    const a: ManagerOffer[] = [];
+    const c: ManagerOffer[] = [];
+    for (const o of visibleOffers) {
+      const r = responseByOffer[o.id] ?? null;
+      const st = getBranchOfferStatus(o, r, shipCodeOf(o));
+      if (st.kind === "confirmed") c.push(o);
+      else a.push(o);
     }
-    return sorted;
-  }, [baseVisibleOffers, shipmentById, sortBy, fProduct, fCountry, fManager, responseByOffer]);
+    return { activeRows: a, confirmedRows: c };
+  }, [visibleOffers, responseByOffer, shipmentById]);
 
 
 
@@ -267,133 +308,168 @@ function BranchOffersPage() {
       <PageHeader
         title="Пропозиції ЗЕД"
       />
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          {productOptions.length > 1 && (
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+      <div className="mb-3 rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+              Товар
+            </label>
+            <CompactFilterSelect
               value={fProduct}
-              onChange={(e) => setFProduct(e.target.value)}
-            >
-              <option value="">Усі товари</option>
-              {productOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          )}
-          {countryOptions.length > 1 && (
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              onChange={setFProduct}
+              options={productOptions.map((p) => ({ value: p, label: p }))}
+              allLabel="Усі товари"
+              allValue={ALL}
+              aliases={productAliases}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+              Країна походження
+            </label>
+            <CompactFilterSelect
               value={fCountry}
-              onChange={(e) => setFCountry(e.target.value)}
-            >
-              <option value="">Усі країни</option>
-              {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          )}
-          {managerOptions.length > 1 && (
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              value={fManager}
-              onChange={(e) => setFManager(e.target.value)}
-            >
-              <option value="">Усі менеджери</option>
-              {managerOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          )}
-          {(fProduct || fCountry || fManager) && (
-            <Button size="sm" variant="ghost" onClick={() => { setFProduct(""); setFCountry(""); setFManager(""); }}>
-              Скинути
-            </Button>
-          )}
+              onChange={setFCountry}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+              allLabel="Усі країни"
+              allValue={ALL}
+              aliases={countryAliases}
+            />
+          </div>
         </div>
-        <SortByMenu value={sortBy} onChange={setSortBy} />
+        <BucketToggle value={bucket} onChange={setBucket} />
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
-      {!isLoading && visibleOffers.length === 0 && (
-        <EmptyState title="Немає активних пропозицій" />
-      )}
-      {/*
-        Block 2 — Branch "Пропозиції" compact table.
-        Primary list = airport-board table; one row per manager offer.
-        Each row carries the existing position_id (manager_offers.position_id),
-        already fetched via select("*"). No new lifecycle anchors, no text
-        matching. Row click opens the existing big offer card in a dialog.
-      */}
-      <div className="rounded-2xl border border-border bg-card p-1 shadow-sm sm:p-2">
-        <Table className="text-xs">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[34%] sm:w-[28%]">Товар</TableHead>
-              <TableHead className="hidden sm:table-cell">Країна</TableHead>
-              <TableHead className="hidden md:table-cell">Сорт / спец.</TableHead>
-              <TableHead className="hidden sm:table-cell">Менеджер</TableHead>
-              <TableHead className="text-right">Палет</TableHead>
-              <TableHead className="hidden md:table-cell text-right">Ціна</TableHead>
-              <TableHead className="hidden sm:table-cell tabular-nums">ETA</TableHead>
-              <TableHead>Статус</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleOffers.map((o) => {
-              const r = responseByOffer[o.id];
-              const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
-              const etaIso = ship?.arrived_at ?? ship?.eta ?? o.expected_eta ?? null;
-              const etaStr = etaIso ? new Date(etaIso).toLocaleDateString("uk-UA") : "—";
 
-              // SINGLE source of truth — same helper drives the detail badge.
-              const st = getBranchOfferStatus(o, r ?? null, ship?.code ?? null);
-              const qtyLabel =
-                st.kind === "confirmed" && st.apprQty != null
-                  ? `${st.apprQty}п`
-                  : st.kind === "waiting" || st.kind === "rejected"
-                  ? `${st.reqQty}п`
-                  : o.offered_pallets != null
-                  ? `${o.offered_pallets}п`
-                  : "—";
-              const toneCls = toneClass(st.tone);
+      {(() => {
+        const rows = bucket === "active" ? activeRows : confirmedRows;
+        if (!isLoading && rows.length === 0) {
+          return (
+            <EmptyState
+              title={
+                bucket === "active"
+                  ? "Немає активних пропозицій"
+                  : "Немає підтверджених пропозицій"
+              }
+            />
+          );
+        }
+        if (rows.length === 0) return null;
 
+        return (
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+            <ul className="divide-y divide-border">
+              {rows.map((o) => {
+                const r = responseByOffer[o.id];
+                const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
+                const etaIso = ship?.arrived_at ?? ship?.eta ?? o.expected_eta ?? null;
+                const mgrRaw = managerNameById[o.created_by] ?? "";
 
-              return (
-                <TableRow
-                  key={o.id}
-                  onClick={() => setSelectedOfferId(o.id)}
-                  className="cursor-pointer"
-                >
-                  <TableCell className="font-medium">
-                    <div className="truncate" title={o.product_name}>{o.product_name}</div>
-                    <div className="sm:hidden text-[10px] text-muted-foreground truncate">
-                      {[o.origin_country, o.variety, o.caliber].filter(Boolean).join(" · ") || "—"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-foreground/80">
-                    {o.origin_country ?? "—"}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-foreground/80 max-w-[180px]">
-                    <div className="truncate">
-                      {[o.variety, o.caliber, o.packaging].filter(Boolean).join(" · ") || "—"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-foreground/80">
-                    {managerNameById[o.created_by] ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{qtyLabel}</TableCell>
-                  <TableCell className="hidden md:table-cell text-right tabular-nums">
-                    {o.indicative_cost_usd != null
-                      ? `$${Number(o.indicative_cost_usd).toFixed(2)}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell tabular-nums">{etaStr}</TableCell>
-                  <TableCell>
-                    <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold", toneCls)}>
-                      {st.label}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+                // Left-line width budget mirrored from "Вільно".
+                const countryFull = o.origin_country ? toUaCountry(o.origin_country) : "";
+                const countryShortRaw = o.origin_country ? toShortUaCountry(o.origin_country) : "";
+                const variety = o.variety ?? "";
+                const fullLeftLen = (o.product_name?.length ?? 0) + countryFull.length + variety.length;
+                const useShortCountry =
+                  fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
+                const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
+                const tailParts: string[] = [];
+                if (country) tailParts.push(country);
+                if (variety) tailParts.push(variety);
+                const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
+
+                // Meta line width budget for manager shortening.
+                const etaStr = fmtEtaShort(etaIso);
+                const metaApproxLen = 4 + etaStr.length + (mgrRaw ? 3 + mgrRaw.length : 0);
+                const mgr = mgrRaw && metaApproxLen > 34 ? shortenManagerName(mgrRaw) : mgrRaw;
+
+                // Pallet area — Stage 1 rules.
+                const apprQty = r?.approved_pallets != null ? Number(r.approved_pallets) : null;
+                const reqQty = r?.requested_pallets != null ? Number(r.requested_pallets) : 0;
+                const offered = o.offered_pallets != null ? Number(o.offered_pallets) : null;
+
+                let palletNode: React.ReactNode = null;
+                if (bucket === "confirmed") {
+                  if (apprQty != null && apprQty > 0) {
+                    palletNode = (
+                      <span className="text-sm font-bold tabular-nums text-foreground">
+                        {apprQty}п
+                      </span>
+                    );
+                  }
+                } else {
+                  // Active bucket
+                  const showApproved = apprQty != null && apprQty > 0; // rare safety case
+                  const showRequested = !showApproved && reqQty > 0;
+                  if (showApproved) {
+                    palletNode = (
+                      <span className="text-sm font-bold tabular-nums text-foreground">
+                        {apprQty}п
+                      </span>
+                    );
+                  } else if (offered != null && showRequested) {
+                    palletNode = (
+                      <span className="text-sm font-bold tabular-nums">
+                        <span className="text-foreground">{offered}п</span>
+                        <span className="ml-1 text-warning">·{reqQty}п</span>
+                      </span>
+                    );
+                  } else if (showRequested) {
+                    palletNode = (
+                      <span className="text-sm font-bold tabular-nums text-warning">
+                        {reqQty}п
+                      </span>
+                    );
+                  } else if (offered != null) {
+                    palletNode = (
+                      <span className="text-sm font-bold tabular-nums text-foreground">
+                        {offered}п
+                      </span>
+                    );
+                  }
+                }
+
+                return (
+                  <li key={o.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOfferId(o.id)}
+                      className="w-full py-2 text-left text-sm active:opacity-70"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                          <span className="font-bold">{o.product_name}</span>
+                          {tail ? <span>{tail}</span> : null}
+                        </div>
+                        {palletNode ? <span className="shrink-0">{palletNode}</span> : null}
+                      </div>
+                      <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                        <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                          <span className="font-mono font-semibold text-sky-600 dark:text-sky-300">
+                            {"ETA\u202F"}{etaStr}
+                          </span>
+                          {mgr ? (
+                            <span className="text-foreground/80"> · {mgr}</span>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0">
+                          <CostPair
+                            indicative={o.indicative_cost_usd}
+                            invoice={o.invoice_cost_usd}
+                            size="xs"
+                          />
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })()}
+
 
       {/*
         Detail dialog — reuses the EXISTING big offer card in full
