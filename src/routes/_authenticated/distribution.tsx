@@ -16,6 +16,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
@@ -65,6 +66,7 @@ type FreeRow = {
 
 function BranchFreeList() {
   const { user, profile } = useAuth();
+  useKeyboardInset();
   const qc = useQueryClient();
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
@@ -331,7 +333,13 @@ function BranchFreeList() {
       )}
 
       <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
-        <DialogContent className={cn("max-h-[85vh] overflow-y-auto", shake && "animate-shake")}>
+        <DialogContent
+          className={cn(
+            "top-[44%] max-h-[78vh] overflow-y-auto",
+            shake && "animate-shake",
+          )}
+          style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))" }}
+        >
           {pick ? (() => {
             const country = pick.country ?? "";
             const extras: Array<{ label: string; value: string }> = [];
@@ -343,9 +351,8 @@ function BranchFreeList() {
               <>
                 <DialogHeader>
                   <DialogTitle className="text-base pr-8">
-                    {pick.product}
-                    {country ? <span> · {toUaCountry(country)}</span> : null}
-                    {pick.variety ? <span className="font-normal text-muted-foreground"> · {pick.variety}</span> : null}
+                    <span className="font-bold">{pick.product}</span>
+                    {country ? <span className="font-normal text-muted-foreground"> · {toUaCountry(country)}</span> : null}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3">
