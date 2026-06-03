@@ -5,7 +5,7 @@ import { Plus, MoreVertical, Trash2, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { shipmentCodeTextTone } from "@/components/StatusChip";
+
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -131,7 +131,7 @@ function ShipmentsList() {
       const { data, error } = await supabase
         .from("shipments")
         .select(`
-          id, code, status, pipeline_status, eta, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at, updated_at,
+          id, code, status, pipeline_status, eta, loading_date, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at, updated_at,
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
           suppliers(name, country),
           import_managers(full_name),
@@ -308,6 +308,7 @@ function ShipmentsList() {
                     code={s.code}
                     status={s.status}
                     eta={s.eta}
+                    etd={(s as { loading_date?: string | null }).loading_date ?? null}
                     pallets={s.fact}
                     netKg={s.netKg}
                     dist={s.dist}
@@ -339,6 +340,7 @@ function ShipmentRow({
   code,
   status,
   eta,
+  etd,
   pallets,
   netKg,
   dist,
@@ -358,6 +360,7 @@ function ShipmentRow({
   code: string;
   status: string;
   eta: string | null;
+  etd: string | null;
   pallets: number;
   netKg: number;
   dist: number;
@@ -403,6 +406,7 @@ function ShipmentRow({
   }[distTone];
 
   const etaStr = fmtEtaShort(eta);
+  const etdStr = etd ? fmtEtaShort(etd) : "—";
 
   return (
     <li data-focus-id={`ship:${shipmentId} mgr:${importManagerId ?? ""}`} className="relative">
@@ -418,7 +422,7 @@ function ShipmentRow({
         {/* Line 1: code · supplier · supplier country  |  pallets [+ admin menu] */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 text-sm leading-snug">
-            <span className={cn("font-bold", shipmentCodeTextTone(status))}>{code}</span>
+            <span className="font-bold text-foreground">{code}</span>
             <span className="text-muted-foreground"> · </span>
             <span className="text-foreground">{supplierName}</span>
             <span className="text-muted-foreground"> · </span>
@@ -436,12 +440,13 @@ function ShipmentRow({
           </div>
         </div>
 
-        {/* Line 2: ETA (blue accent) + net kg (reliable only) */}
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs">
-          <span className="font-semibold text-brand tabular-nums">ETA {etaStr}</span>
-          <span className="tabular-nums text-muted-foreground">
-            {netKg > 0 ? `${Math.round(netKg)} кг (нетто)` : "—"}
-          </span>
+        {/* Line 2: ETD / ETA — labels blue, dates dark. Net/gross deferred. */}
+        <div className="mt-1 text-xs tabular-nums">
+          <span className="font-semibold text-brand">ETD</span>
+          <span className="text-foreground"> {etdStr}</span>
+          <span className="text-foreground"> / </span>
+          <span className="font-semibold text-brand">ETA</span>
+          <span className="text-foreground"> {etaStr}</span>
         </div>
 
         {/* Line 3: distribution marker + logistics/documents marker */}
