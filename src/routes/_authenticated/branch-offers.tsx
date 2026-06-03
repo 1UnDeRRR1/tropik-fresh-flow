@@ -8,14 +8,6 @@ import { EmptyState } from "@/components/cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -24,22 +16,81 @@ import {
   type ManagerOffer,
   type ManagerOfferResponse,
 } from "@/lib/manager-offers";
-import { SortByMenu, type SortKey } from "@/components/SortByMenu";
 import {
   getBranchOfferStatus,
   toneClass,
   isRealShipmentCode,
-  type BranchOfferStatusKind,
 } from "@/lib/branch-offer-status";
+import { CostPair } from "@/components/CostPair";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 
-const STATUS_SORT_PRIORITY: Record<BranchOfferStatusKind, number> = {
-  waiting: 0,
-  confirmed: 1,
-  rejected: 2,
-  cancelled: 3,
-  shipped: 4,
-  none: 5,
+const ALL = "__all";
+
+// Short ETA formatter mirrored from branch "Вільно" / "Головна".
+// Narrow no-break space (U+202F) tightens day + month inline without
+// touching font-size, font-family, letter-spacing or line-height.
+const fmtEtaShort = (eta: string | null | undefined): string => {
+  if (!eta) return "—";
+  const d = new Date(eta);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day}\u202F${mo}.`;
 };
+
+// Abbreviate manager name when row is tight: "Назар Лукач" → "Назар Л.".
+// Mirrors the helper used in branch "Головна" / "Вільно".
+const shortenManagerName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
+
+// Local sliding segmented toggle, embedded into the same top control card
+// as the two filters. One shared rounded body + one absolutely-positioned
+// sliding plate. Kept local on purpose (no shared extraction in Stage 1).
+function BucketToggle({
+  value,
+  onChange,
+}: {
+  value: "active" | "confirmed";
+  onChange: (v: "active" | "confirmed") => void;
+}) {
+  return (
+    <div className="relative grid h-9 grid-cols-2 rounded-full bg-muted p-1 text-sm">
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-background shadow-sm transition-transform duration-200 ease-out",
+          value === "confirmed" && "translate-x-full",
+        )}
+      />
+      <button
+        type="button"
+        onClick={() => onChange("active")}
+        className={cn(
+          "relative z-10 rounded-full text-center transition-colors",
+          value === "active" ? "font-semibold text-foreground" : "text-muted-foreground",
+        )}
+      >
+        Активні
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("confirmed")}
+        className={cn(
+          "relative z-10 rounded-full text-center transition-colors",
+          value === "confirmed" ? "font-semibold text-foreground" : "text-muted-foreground",
+        )}
+      >
+        Підтверджені
+      </button>
+    </div>
+  );
+}
 
 type OfferWithEtaPrev = ManagerOffer & { prev_expected_eta?: string | null };
 
