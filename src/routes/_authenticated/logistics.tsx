@@ -29,7 +29,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
   LOGISTICS_STATUS_LABEL,
-  LOGISTICS_STATUS_CLASS,
   type LogisticsStatus,
 } from "@/lib/logistics";
 
@@ -451,8 +450,10 @@ function EditDialog({
     return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
   }, 0);
 
-  // Temperature: digits, '+', '-', '.' or ',' only.
-  const TEMP_RE = /^[+\-]?\d*([.,]\d*)?$/;
+  // Temperature: a signed decimal, optionally followed by a range to a second signed decimal.
+  // Accepts '+' / '-' anywhere a number begins, '.' or ',' as decimal, and '...' or '…' as range.
+  const TEMP_NUM = "[+\\-]?\\d+(?:[.,]\\d+)?";
+  const TEMP_RE = new RegExp(`^${TEMP_NUM}(?:(?:\\.{3}|…)${TEMP_NUM})?$`);
   const tempValid = form.temperature_mode.trim() === "" || TEMP_RE.test(form.temperature_mode.trim());
 
   const save = useMutation({
@@ -523,6 +524,9 @@ function EditDialog({
           }
         }
         patch.logistics_status = nextStatus;
+      } else if (isManager) {
+        // Manager (without logistics role) may also change status. No auto-status logic.
+        patch.logistics_status = form.logistics_status;
       }
 
       if (Object.keys(patch).length > 0) {
@@ -582,24 +586,17 @@ function EditDialog({
           {/* Summary block — manager, supplier, dates, pallets, products.
               Sits below the title so the dialog close (X) cannot overlap any data. */}
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                  LOGISTICS_STATUS_CLASS[row.logistics_status],
-                )}
-              >
-                {LOGISTICS_STATUS_LABEL[row.logistics_status]}
-              </span>
-              {managerName ? (
-                <span className="text-[11px] text-muted-foreground">
-                  Менеджер: <span className="font-semibold text-foreground">{managerName}</span>
-                </span>
-              ) : null}
-              <span className="ml-auto text-[11px] font-semibold tabular-nums text-foreground">
+            {/* Top-left status chip removed by design: status lives lower in the form
+                as a reserved control. Top row shows manager + pallets/weight only. */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 text-[11px]">
+                <span className="text-muted-foreground">Менеджер: </span>
+                <span className="font-bold text-foreground">{managerName ?? "—"}</span>
+              </div>
+              <div className="shrink-0 text-right text-[11px] font-bold tabular-nums text-foreground">
                 {totalPallets || 0}п
                 {totalWeight ? ` · ${Math.round(totalWeight)} кг` : ""}
-              </span>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
               <div className="truncate"><span className="text-muted-foreground">Постачальник: </span><span className="font-semibold text-foreground">{row.supplier?.name ?? "—"}</span></div>
@@ -615,13 +612,18 @@ function EditDialog({
             </div>
             {row.items.length > 0 && (
               <div className="border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
-                {row.items.map((it, i) => (
-                  <div key={i} className="truncate">
-                    • {it.product_name}
-                    {it.pallet_count ? ` — ${it.pallet_count} пал.` : ""}
-                    {it.origin_country ? ` · ${it.origin_country}` : ""}
-                  </div>
-                ))}
+                {row.items.map((it, i) => {
+                  const gross = Number(it.gross_weight_kg);
+                  const showGross = Number.isFinite(gross) && gross > 0;
+                  return (
+                    <div key={i} className="truncate">
+                      • {it.product_name}
+                      {it.pallet_count ? ` — ${it.pallet_count} пал.` : ""}
+                      {showGross ? ` · ${Math.round(gross)} кг` : ""}
+                      {it.origin_country ? ` · ${it.origin_country}` : ""}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -688,22 +690,44 @@ function EditDialog({
                 )}
               </div>
               <Labeled label="Температура">
-                <Input
-                  value={form.temperature_mode}
-                  onChange={(e) => {
-                    // Allow only digits, leading +/-, and one decimal separator.
-                    const filtered = e.target.value.replace(/[^0-9+\-.,]/g, "");
-                    setForm({ ...form, temperature_mode: filtered });
-                  }}
-                  inputMode="decimal"
-                  disabled={!isManager}
-                  placeholder="+2…+6"
-                  aria-invalid={!tempValid}
-                  className={cn(!tempValid && "border-destructive focus-visible:ring-destructive")}
-                />
+                <div className="flex items-stretch gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = form.temperature_mode;
+                      let next: string;
+                      if (cur.startsWith("+")) next = "-" + cur.slice(1);
+                      else if (cur.startsWith("-")) next = "+" + cur.slice(1);
+                      else next = "+" + cur;
+                      setForm({ ...form, temperature_mode: next });
+                    }}
+                    disabled={!isManager}
+                    aria-label="Перемкнути знак"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input bg-transparent text-base font-bold shadow-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    ±
+                  </button>
+                  <Input
+                    value={form.temperature_mode}
+                    onChange={(e) => {
+                      // Allow digits, +, -, '.', ',', and range separator '…'/'...'.
+                      const filtered = e.target.value.replace(/[^0-9+\-.,…]/g, "");
+                      setForm({ ...form, temperature_mode: filtered });
+                    }}
+                    type="text"
+                    inputMode="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={!isManager}
+                    placeholder="+2…+6"
+                    aria-invalid={!tempValid}
+                    className={cn("flex-1", !tempValid && "border-destructive focus-visible:ring-destructive")}
+                  />
+                </div>
                 {!tempValid && (
                   <p className="mt-1 text-[10px] font-medium text-destructive">
-                    Лише цифри, +, -, кома/крапка. Приклад: +4, -2, +6.5
+                    Лише цифри, +, -, кома/крапка. Приклад: +4, -2, +6.5, +2...+6
                   </p>
                 )}
               </Labeled>
@@ -821,7 +845,7 @@ function EditDialog({
                 <Select
                   value={form.logistics_status}
                   onValueChange={(v) => setForm({ ...form, logistics_status: v as LogisticsStatus })}
-                  disabled={!isLogistics}
+                  disabled={!isLogistics && !isManager}
                 >
                   <SelectTrigger>
                     <SelectValue />
