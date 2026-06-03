@@ -230,7 +230,7 @@ function OffersPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Переміщення між філіями" subtitle="Передача між філіями" />
+      <PageHeader title="Переміщення між філіями" />
 
       <Tabs defaultValue="received">
         <TabsList className="grid w-full grid-cols-2">
