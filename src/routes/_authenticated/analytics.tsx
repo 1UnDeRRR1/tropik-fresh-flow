@@ -428,9 +428,9 @@ export function Analytics() {
                         onClick={() => setOpenItem(f)}
                         className="flex w-full flex-col gap-1.5 py-2.5 text-left active:opacity-70"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 rounded-md border border-border bg-secondary px-3 py-2 text-center leading-tight">
-                            <div className="text-xl font-bold tabular-nums">{tile.day}</div>
+                        <div className="flex items-start gap-2">
+                          <div className="shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
+                            <div className="text-sm font-bold tabular-nums">{tile.day}</div>
                             <div className="text-[10px] text-muted-foreground">{tile.mon}</div>
                           </div>
                           <div className="min-w-0 flex-1 text-center">
@@ -446,7 +446,7 @@ export function Analytics() {
                             ) : null}
                           </div>
                           <div className="shrink-0 text-right leading-tight">
-                            <div className="text-xl font-bold tabular-nums text-brand">{visiblePallets}п</div>
+                            <div className="text-base font-bold tabular-nums text-brand">{visiblePallets}п</div>
                             <div className="text-[11px] font-normal text-muted-foreground">{Math.round(weight)} кг</div>
                           </div>
                         </div>
