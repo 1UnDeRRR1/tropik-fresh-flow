@@ -335,10 +335,13 @@ function BranchFreeList() {
       <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
         <DialogContent
           className={cn(
-            "top-[44%] max-h-[78vh] overflow-y-auto",
+            "top-0 translate-y-0 max-h-[78vh] overflow-y-auto",
             shake && "animate-shake",
           )}
-          style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))" }}
+          style={{
+            top: "calc(env(safe-area-inset-top) * 2)",
+            paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))",
+          }}
         >
           {pick ? (() => {
             const country = pick.country ?? "";
