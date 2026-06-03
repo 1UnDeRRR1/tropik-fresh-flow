@@ -291,7 +291,7 @@ function BranchFreeList() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Вільно" subtitle="Нерозподілений товар усіх менеджерів" />
+      <PageHeader title="Вільно" />
 
       <div className="rounded-xl border border-border bg-card p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
