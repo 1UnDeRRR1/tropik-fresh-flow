@@ -849,7 +849,14 @@ function EditDialog({
         </div>
 
         <DialogFooter>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button
+            onClick={() => {
+              // Dirty-save guard: never call mutation on no-op.
+              if (!isDirty || save.isPending) return;
+              save.mutate();
+            }}
+            disabled={!isDirty || !tempValid || save.isPending}
+          >
             <Save className="mr-1 h-4 w-4" /> Зберегти
           </Button>
         </DialogFooter>
