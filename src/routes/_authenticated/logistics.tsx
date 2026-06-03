@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Truck, FileText, Save, AlertTriangle, Search, User, MapPin, Hash, Thermometer, Banknote } from "lucide-react";
+import { Truck, FileText, Save, AlertTriangle, User, MapPin, Hash, Thermometer, ArrowDownUp, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -23,23 +23,73 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TableScroller } from "@/components/TableScroller";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
   LOGISTICS_STATUS_LABEL,
   LOGISTICS_STATUS_CLASS,
-  LOGISTICS_FILTER_LABEL,
-  LOGISTICS_FILTER_STATUSES,
   type LogisticsStatus,
-  type LogisticsFilter,
 } from "@/lib/logistics";
-import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/logistics")({
   component: LogisticsGate,
 });
+
+// Short date formatter mirrored from accepted "Поставки" row.
+const fmtShort = (iso: string | null | undefined): string => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day}\u202F${mo}.`;
+};
+
+type SortKey = "date" | "etd" | "eta" | "status";
+const SORT_LABEL: Record<SortKey, string> = {
+  date: "датою",
+  etd: "ETD",
+  eta: "ETA",
+  status: "статусом",
+};
+
+function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const keys: SortKey[] = ["date", "etd", "eta", "status"];
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1 rounded-full px-3 text-[11px] font-semibold"
+        >
+          <ArrowDownUp className="h-3.5 w-3.5" />
+          Сортувати за: <span className="font-bold">{SORT_LABEL[value]}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1">
+        {keys.map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => { onChange(k); setOpen(false); }}
+            className={cn(
+              "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent",
+              value === k && "font-semibold",
+            )}
+          >
+            <span>{SORT_LABEL[k]}</span>
+            {value === k && <Check className="h-4 w-4 text-primary" />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function LogisticsGate() {
   const { loading, dataLoaded, hasRole } = useAuth();
