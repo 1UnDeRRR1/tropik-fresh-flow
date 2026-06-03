@@ -1,21 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useState, useMemo, useEffect } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { cn } from "@/lib/utils";
-import { EmptyState, SectionCard } from "@/components/cards";
-import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+import { EmptyState } from "@/components/cards";
+import { toUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
-import { OfferDialog } from "@/components/OfferDialog";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-
-import { StatusIcon } from "@/components/StatusIcon";
-import { STATUS_TEXT_COLOR } from "@/lib/status-icon-map";
-import { PIPELINE_LABEL } from "@/lib/pipeline-status";
+import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 import type { PipelineStatus } from "@/lib/pipeline-status";
 
 import { useFirstScreenGate } from "@/routes/_authenticated";
