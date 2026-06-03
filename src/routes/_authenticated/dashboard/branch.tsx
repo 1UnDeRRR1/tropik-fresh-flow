@@ -773,14 +773,40 @@ function BranchDashboard() {
     { value: "manager", label: "Менеджер" },
   ];
 
-  const controlBaseClass =
-    "h-10 w-full rounded-lg border border-input bg-card/80 px-3 text-sm font-normal leading-none text-foreground shadow-sm appearance-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground";
-  const controlFocusClass =
-    "focus:outline-none focus:border-destructive focus:ring-1 focus:ring-destructive data-[active=true]:border-destructive data-[active=true]:ring-1 data-[active=true]:ring-destructive";
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
+  const drillRow = drillRows[0] ?? null;
+  const drillCountry = drillRow ? (drillRow.country ? toUaCountry(drillRow.country) : "") : "";
+  const drillExtras = useMemo(() => {
+    if (!drillRow) return [] as Array<{ label: string; value: string }>;
+    const xs: Array<{ label: string; value: string }> = [];
+    if (drillRow.variety) xs.push({ label: "Сорт", value: drillRow.variety });
+    if (drillRow.caliber) xs.push({ label: "Калібр", value: drillRow.caliber });
+    if (drillRow.brand) xs.push({ label: "Бренд", value: drillRow.brand });
+    if (drillRow.class) xs.push({ label: "Клас", value: drillRow.class });
+    if (drillRow.packaging) xs.push({ label: "Упаковка", value: drillRow.packaging });
+    return xs;
+  }, [drillRow]);
+
+  const positionsCount = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of filteredRows) {
+      const product = (r.product ?? "").trim();
+      if (!product) continue;
+      const country = r.country ? toUaCountry(r.country) : "";
+      const key = `${product}__${country}`;
+      if (!seen.has(key)) seen.set(key, product);
+    }
+    const groups = Array.from(seen.entries()).map(([, product]) => ({ product }));
+    return countPositionsFromGroups(groups, (g) => g.product);
+  }, [filteredRows]);
+
+  // Silence unused-state lint (kept to avoid touching data/handler logic).
+  void sortBy; void setSortBy; void offerRow; void setOfferRow; void statsFor; void ackChange;
 
   return (
     <div
-      className="space-y-3"
+      className="space-y-4"
       data-branch-test={isMalekhiv ? "malekhiv" : undefined}
     >
       {!branchId && (
@@ -790,61 +816,38 @@ function BranchDashboard() {
       )}
 
       {rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortKey)}
-            aria-label="Сортувати за"
-            className={cn(controlBaseClass, controlFocusClass)}
-            data-active={sortBy !== "last_event" ? "true" : undefined}
-          >
-            {sortOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                Сортувати: {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={productFilter}
-            onChange={(e) => setProductFilter(e.target.value)}
-            aria-label="Фільтр товару"
-            className={cn(controlBaseClass, controlFocusClass)}
-            data-active={productFilter !== "__all__" ? "true" : undefined}
-          >
-            <option value="__all__">Товар: всі</option>
-            {productOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                Товар: {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
-            aria-label="Фільтр країни"
-            className={cn(controlBaseClass, controlFocusClass)}
-            data-active={countryFilter !== "__all__" ? "true" : undefined}
-          >
-            <option value="__all__">Країна: всі</option>
-            {countryOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                Країна: {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {rows.length > 0 && (
-        <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
-          <span>Активний товар вашої філії</span>
-          <span className="font-bold tabular-nums text-destructive">
-            {summary.shipments} пост.
-            <span className="text-muted-foreground font-normal"> · </span>
-            {summary.products} / {summary.positions} поз.
-            <span className="text-muted-foreground font-normal"> · </span>
-            {summary.pallets}п
-          </span>
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
+              <CompactFilterSelect
+                value={productFilter}
+                onChange={setProductFilter}
+                options={productOptions}
+                allLabel="Всі товари"
+                allValue="__all__"
+                aliases={productAliases}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
+              <CompactFilterSelect
+                value={countryFilter}
+                onChange={setCountryFilter}
+                options={countryOptions}
+                allLabel="Всі країни"
+                allValue="__all__"
+                aliases={countryAliases}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <div className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-muted-foreground">
+              <span className="font-bold tabular-nums text-foreground">{summary.shipments}</span> пост. ·{" "}
+              <span className="font-bold tabular-nums text-foreground">{formatPositions(positionsCount)}</span> поз. ·{" "}
+              <span className="font-bold tabular-nums text-brand">{summary.pallets}п</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -856,170 +859,69 @@ function BranchDashboard() {
         <EmptyState
           title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
-
       ) : (
-        <BranchCardList
+        <BranchFlatList
           rows={filteredRows}
-          sortBy={sortBy}
-          statsFor={statsFor}
           onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
-          ackChange={ackChange}
         />
       )}
 
-
-      {/* Product detail card — clean mobile detail view, not a label/value dump.
-          Top: status icon + label (centered). Bottom: pallet counter + "Запропонувати"
-          as a balanced counterweight. Middle: product as primary, then ordered
-          spec list matching the table column order. */}
       <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
-        <DialogContent className="top-[calc(env(safe-area-inset-top)+88px)] translate-y-0 sm:top-1/2 sm:-translate-y-1/2 max-h-[85vh] overflow-y-auto w-[calc(100vw-1.5rem)] sm:max-w-md p-5 sm:p-6">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{drill?.product}</DialogTitle>
-          </DialogHeader>
-
-          {drillRows[0] && (() => {
-            const r = drillRows[0];
-            const s = statsFor(r);
-            // Counter state per spec:
-            //   pending > 0 → red "free/pending" (offer awaiting answer)
-            //   else accepted > 0 → green "free/accepted" (confirmed to other branch)
-            //   else → plain black total pallets
-            const counterMode =
-              s.pending > 0 ? "pending" : s.accepted > 0 ? "accepted" : "idle";
-            const etaDate = r.eta ? new Date(r.eta) : null;
-            const etaDay = etaDate
-              ? etaDate.toLocaleDateString("uk-UA", { day: "2-digit" })
-              : "—";
-            const etaMonth = etaDate
-              ? etaDate.toLocaleDateString("uk-UA", { month: "short" }).replace(".", "")
-              : "";
-            return (
-              <>
-                {/* Top centerpiece: status icon + label */}
-                <div className="flex flex-col items-center gap-2 pt-1">
-                  <div className="flex items-center gap-3">
-                    <StatusIcon status={r.pipeline} size={40} />
-                    <div
-                      className="text-xl font-semibold leading-none"
-                      style={{ color: STATUS_TEXT_COLOR[r.pipeline] }}
-                    >
-                      {PIPELINE_LABEL[r.pipeline]}
-                    </div>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          {drillRow ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">
+                  {drillRow.product}
+                  {drillCountry ? <span> · {drillCountry}</span> : null}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-secondary px-2 py-1.5">
+                    <div className="text-[10px] text-muted-foreground">ETA</div>
+                    <div className="text-sm font-bold tabular-nums">{drillRow.eta ?? "—"}</div>
+                    <div className="mt-1 text-[11px] font-mono text-muted-foreground">{drillRow.code}</div>
+                  </div>
+                  <div className="rounded-lg bg-secondary px-2 py-1.5 text-right">
+                    <div className="text-[10px] text-muted-foreground">Палети</div>
+                    <div className="text-sm font-bold tabular-nums text-brand">{drillRow.pallets}п</div>
+                    {drillRow.weight > 0 ? (
+                      <div className="mt-1 text-[11px] tabular-nums text-muted-foreground">{drillRow.weight.toFixed(0)} кг</div>
+                    ) : null}
                   </div>
                 </div>
 
-                {/* Primary subject: product (big) + country */}
-                <div className="mt-5 text-center">
-                  <div className="text-2xl font-bold leading-tight tracking-tight text-foreground">
-                    {r.product}
-                  </div>
-                  {r.country && (
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      {toUaCountry(r.country)}
-                    </div>
-                  )}
-                </div>
+                {drillExtras.length ? (
+                  <ul className="space-y-1 rounded-xl border border-border px-3 py-2 text-xs">
+                    {drillExtras.map((x) => (
+                      <li key={x.label} className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">{x.label}:</span>
+                        <span className="font-medium text-foreground">{x.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-                {/* Ordered spec — same business order as the table */}
-                <div className="mt-5 rounded-2xl border border-border bg-card/70 divide-y divide-border/70">
-                  <DetailRow label="Палет" value={`${r.pallets}п`} />
-                  <DetailRow label="Сорт" value={r.variety ?? "—"} />
-                  <DetailRow label="Калібр" value={r.caliber ?? "—"} />
-                  <DetailRow
-                    label="Собівартість"
-                    value={
-                      r.indicative != null || r.invoice != null ? (
-                        <CostPair indicative={r.indicative} invoice={r.invoice} suffix=" кг" size="sm" />
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )
-                    }
-                  />
-                  <DetailRow
-                    label="Поставка"
-                    value={
-                      r.distribution_id.startsWith("mor-") ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span className="font-mono text-xs font-semibold">{r.code}</span>
-                      )
-                    }
-                  />
-                  {/* ETA as a small visual "tear-off" calendar */}
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Дата приходу
-                    </span>
-                    <div className="inline-flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-                      <div className="w-full bg-destructive py-[2px] text-center text-[8px] font-bold uppercase tracking-wider text-destructive-foreground">
-                        {etaMonth || "—"}
-                      </div>
-                      <div className="flex-1 w-full flex items-center justify-center text-base font-bold leading-none tabular-nums text-foreground">
-                        {etaDay}
-                      </div>
-                    </div>
+                {(drillRow.indicative != null || drillRow.invoice != null) ? (
+                  <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">Собівартість</span>
+                    <CostPair indicative={drillRow.indicative} invoice={drillRow.invoice} suffix=" кг" size="sm" />
                   </div>
-                </div>
+                ) : null}
 
-                {/* Bottom counterweight: counter + Запропонувати */}
-                <div className="mt-6 flex items-center justify-between gap-4">
-                  <div className="flex flex-col items-start">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Палет
-                    </span>
-                    <span className="text-2xl font-bold leading-none tabular-nums">
-                      {counterMode === "pending" ? (
-                        <>
-                          <span className="text-foreground">{s.free}</span>
-                          <span className="text-muted-foreground font-normal">/</span>
-                          <span className="text-destructive">{s.pending}</span>
-                        </>
-                      ) : counterMode === "accepted" ? (
-                        <>
-                          <span className="text-foreground">{s.free}</span>
-                          <span className="text-muted-foreground font-normal">/</span>
-                          <span className="text-success">{s.accepted}</span>
-                        </>
-                      ) : (
-                        <span className="text-foreground">{r.pallets}</span>
-                      )}
-                    </span>
+                {drillRow.manager_name ? (
+                  <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
+                    <span className="text-muted-foreground">Менеджер</span>
+                    <span className="font-medium text-foreground">{drillRow.manager_name}</span>
                   </div>
-                  <Button
-                    size="lg"
-                    className="h-12 flex-1 max-w-[60%] text-sm font-semibold"
-                    disabled={s.free <= 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOfferRow({ ...r, pallets: s.free });
-                    }}
-                  >
-                    Запропонувати
-                  </Button>
-                </div>
-              </>
-            );
-          })()}
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
-
-      <OfferDialog
-        open={!!offerRow}
-        onClose={() => setOfferRow(null)}
-        item={
-          offerRow
-            ? {
-                shipment_item_id: offerRow.shipment_item_id,
-                distribution_id: offerRow.distribution_id,
-                product_name: offerRow.product,
-                caliber: offerRow.caliber ?? "—",
-                available_pallets: offerRow.pallets,
-                shipment_code: offerRow.code,
-              }
-            : null
-        }
-      />
     </div>
   );
 }
+
