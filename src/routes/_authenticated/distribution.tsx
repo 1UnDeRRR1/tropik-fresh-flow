@@ -66,6 +66,7 @@ type FreeRow = {
 
 function BranchFreeList() {
   const { user, profile } = useAuth();
+  useKeyboardInset();
   const qc = useQueryClient();
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
