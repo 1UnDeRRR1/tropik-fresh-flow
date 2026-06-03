@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Truck, FileText, Save, AlertTriangle, Search, User, MapPin, Hash, Thermometer, Banknote } from "lucide-react";
+import { Truck, FileText, Save, AlertTriangle, User, MapPin, Hash, Thermometer, ArrowDownUp, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -23,23 +23,73 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TableScroller } from "@/components/TableScroller";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
   LOGISTICS_STATUS_LABEL,
   LOGISTICS_STATUS_CLASS,
-  LOGISTICS_FILTER_LABEL,
-  LOGISTICS_FILTER_STATUSES,
   type LogisticsStatus,
-  type LogisticsFilter,
 } from "@/lib/logistics";
-import { MainBoardToggle, type BoardView } from "@/components/MainBoardToggle";
 
 export const Route = createFileRoute("/_authenticated/logistics")({
   component: LogisticsGate,
 });
+
+// Short date formatter mirrored from accepted "Поставки" row.
+const fmtShort = (iso: string | null | undefined): string => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day}\u202F${mo}.`;
+};
+
+type SortKey = "date" | "etd" | "eta" | "status";
+const SORT_LABEL: Record<SortKey, string> = {
+  date: "датою",
+  etd: "ETD",
+  eta: "ETA",
+  status: "статусом",
+};
+
+function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const keys: SortKey[] = ["date", "etd", "eta", "status"];
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1 rounded-full px-3 text-[11px] font-semibold"
+        >
+          <ArrowDownUp className="h-3.5 w-3.5" />
+          Сортувати за: <span className="font-bold">{SORT_LABEL[value]}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1">
+        {keys.map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => { onChange(k); setOpen(false); }}
+            className={cn(
+              "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent",
+              value === k && "font-semibold",
+            )}
+          >
+            <span>{SORT_LABEL[k]}</span>
+            {value === k && <Check className="h-4 w-4 text-primary" />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function LogisticsGate() {
   const { loading, dataLoaded, hasRole } = useAuth();
@@ -100,14 +150,11 @@ function resolveManagerName(
 
 function LogisticsPage() {
   const { user, hasRole } = useAuth();
-  const [filter, setFilter] = useState<LogisticsFilter>("all");
-  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
-  const [board, setBoard] = useState<BoardView>("active");
+  const [sortBy, setSortBy] = useState<SortKey>("date");
 
   // Manager-only visibility scope: an import_manager (without admin/logistics)
-  // must only see vehicles that belong to him (own import_manager_id on
-  // shipment or its supplier). Admin / super_admin / logistics see everything.
+  // must only see vehicles that belong to him.
   const isPrivileged = hasRole(["super_admin", "admin", "logistics"]);
   const isManagerOnly = !isPrivileged && hasRole("import_manager");
 
@@ -163,8 +210,7 @@ function LogisticsPage() {
     staleTime: 5 * 60_000,
   });
 
-  // Manager-only ownership filter — applied as early as possible so chужі
-  // машини never appear in the list, counts, search, or summary.
+  // Manager-only ownership filter.
   const ownedRows = useMemo(() => {
     if (!isManagerOnly) return rows;
     if (!myImId) return [];
@@ -173,114 +219,109 @@ function LogisticsPage() {
     );
   }, [rows, isManagerOnly, myImId]);
 
-  const counts = useMemo(() => {
-    const c: Record<LogisticsFilter, number> = {
-      all: ownedRows.length,
-      incoming: 0,
-      assigned: 0,
-      loading: 0,
-      transit: 0,
-    };
-    for (const r of ownedRows) {
-      for (const f of ["incoming", "assigned", "loading", "transit"] as LogisticsFilter[]) {
-        const list = LOGISTICS_FILTER_STATUSES[f];
-        if (list && list.includes(r.logistics_status)) c[f]++;
-      }
-    }
-    return c;
-  }, [ownedRows]);
+  // Active only: exclude unloaded / archived / cancelled.
+  const activeRows = useMemo(
+    () =>
+      ownedRows.filter(
+        (r) => !r.archived_at && !r.unloaded_at && r.status !== "cancelled",
+      ),
+    [ownedRows],
+  );
 
-  const filtered = useMemo(() => {
-    const list = LOGISTICS_FILTER_STATUSES[filter];
-    let out = list ? ownedRows.filter((r) => list.includes(r.logistics_status)) : ownedRows;
-    out = out.filter((r) => {
-      if (r.archived_at) return false;
-      if (board === "unloaded") return !!r.unloaded_at && r.status !== "cancelled";
-      return !r.unloaded_at && r.status !== "cancelled";
+  const sorted = useMemo(() => {
+    const arr = [...activeRows];
+    const cmpStr = (a: string | null | undefined, b: string | null | undefined) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      return a.localeCompare(b);
+    };
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case "etd":
+          return cmpStr(a.loading_date, b.loading_date);
+        case "eta":
+          return cmpStr(a.eta, b.eta);
+        case "status":
+          return cmpStr(a.logistics_status, b.logistics_status);
+        case "date":
+        default:
+          return cmpStr(a.loading_date, b.loading_date);
+      }
     });
-    const q = search.trim().toLowerCase();
-    if (q) {
-      out = out.filter((r) =>
-        [
-          r.code,
-          r.supplier?.name ?? "",
-          r.country ?? "",
-          r.vehicle_plate ?? "",
-          r.tractor_plate ?? "",
-          r.trailer_plate ?? "",
-          r.driver_name ?? "",
-          resolveManagerName(r, managerMap) ?? "",
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
-    }
-    return out;
-  }, [ownedRows, filter, search, managerMap]);
+    return arr;
+  }, [activeRows, sortBy]);
 
   return (
     <div>
-      <PageHeader
-        title="Логістика"
-        subtitle="Єдине табло поставок з номером, постачальником та позиціями. Клікніть рядок для деталей."
-      />
-
-      <div className="mb-3"><MainBoardToggle value={board} onChange={setBoard} showSummary /></div>
-
-      {board !== "summary" && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {board === "active" && (Object.keys(LOGISTICS_FILTER_LABEL) as LogisticsFilter[]).map((f) => {
-            const active = filter === f;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {LOGISTICS_FILTER_LABEL[f]}
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 text-[10px]",
-                    active ? "bg-primary-foreground/20" : "bg-secondary",
-                  )}
-                >
-                  {counts[f]}
-                </span>
-              </button>
-            );
-          })}
-
-          <div className="relative ml-auto">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Пошук: код, постачальник, авто, водій…"
-              className="h-8 w-64 pl-7 text-xs"
-            />
-          </div>
-        </div>
-      )}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <PageHeader title="Логістика" />
+        <SortMenu value={sortBy} onChange={setSortBy} />
+      </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
-      ) : board === "summary" ? (
-        <SummaryTable rows={ownedRows.filter((r) => !r.archived_at && r.status !== "cancelled")} />
-      ) : filtered.length === 0 ? (
-        <EmptyState title="Порожньо" hint="Немає поставок для обраного фільтру." />
+      ) : sorted.length === 0 ? (
+        <EmptyState title="Порожньо" hint="Немає активних поставок." />
       ) : (
-        <BoardTable
-          rows={filtered}
-          managerMap={managerMap}
-          onOpen={(r) => setEditing(r)}
-        />
+        <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border shadow-sm">
+          {sorted.map((r) => {
+            const totalPallets = r.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
+            const vehicle = r.tractor_plate ?? r.vehicle_plate ?? null;
+            const indicators = [
+              { icon: Truck, label: "Авто", ok: !!vehicle },
+              { icon: User, label: "Водій", ok: !!r.driver_name },
+              { icon: MapPin, label: "Адреса завантаження", ok: !!r.loading_address },
+              { icon: Hash, label: "Номер завантаження", ok: !!r.loading_reference },
+              { icon: Thermometer, label: "Температура", ok: !!r.temperature_mode },
+            ];
+            return (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => setEditing(r)}
+                  className="block w-full text-left p-3 transition-colors hover:bg-accent/30 active:bg-accent/40"
+                >
+                  {/* Line 1: code · supplier · country | pallets */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 text-sm leading-snug">
+                      <span className="font-bold text-foreground">{r.code}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-foreground">{r.supplier?.name ?? "—"}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="text-muted-foreground">{r.country ?? "—"}</span>
+                    </div>
+                    <div className="shrink-0 pl-2 text-sm font-bold tabular-nums text-foreground">
+                      {totalPallets || 0}п
+                    </div>
+                  </div>
+
+                  {/* Line 2: ETD / ETA — labels sky, dates dark. */}
+                  <div className="mt-1 text-xs tabular-nums">
+                    <span className="font-semibold text-sky-600 dark:text-sky-300">ETD</span>
+                    <span className="text-foreground"> {fmtShort(r.loading_date)}</span>
+                    <span className="text-foreground"> / </span>
+                    <span className="font-semibold text-sky-600 dark:text-sky-300">ETA</span>
+                    <span className="text-foreground"> {fmtShort(r.eta)}</span>
+                  </div>
+
+                  {/* Line 3: five red/green logistics indicators. */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {indicators.map((i) => (
+                      <StatusDot
+                        key={i.label}
+                        icon={i.icon}
+                        ok={i.ok}
+                        labelOk={i.label}
+                        labelMissing={i.label + " — не вказано"}
+                      />
+                    ))}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {editing && (
@@ -293,154 +334,9 @@ function LogisticsPage() {
       )}
     </div>
   );
+
 }
 
-function BoardTable({
-  rows,
-  managerMap,
-  onOpen,
-}: {
-  rows: LogisticsRow[];
-  managerMap: Record<string, string>;
-  onOpen: (r: LogisticsRow) => void;
-}) {
-  return (
-    <TableScroller className="rounded-lg border border-border bg-card">
-      <table className="w-full min-w-[1100px] caption-bottom text-sm">
-          <TableHeader className="[&_th]:bg-table-head [&_th]:font-bold shadow-[0_1px_0_0_hsl(var(--border))]">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="text-xs">Код</TableHead>
-              <TableHead className="text-xs">Статус</TableHead>
-              <TableHead className="text-xs">Завантаження</TableHead>
-              <TableHead className="text-xs">ETA</TableHead>
-              <TableHead className="text-xs">Постачальник</TableHead>
-              <TableHead className="text-xs">Країна</TableHead>
-              <TableHead className="text-xs">Темп.</TableHead>
-              <TableHead className="text-xs text-right">Палет</TableHead>
-              <TableHead className="text-xs text-right">Вага, кг</TableHead>
-              <TableHead className="text-xs">Авто</TableHead>
-              <TableHead className="text-xs">Водій</TableHead>
-              <TableHead className="text-xs">Менеджер</TableHead>
-              <TableHead className="text-xs">Freight</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r) => {
-              const totalPallets = r.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
-              const totalWeight = r.items.reduce((s, i) => {
-                const g = Number(i.gross_weight_kg) || 0;
-                return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
-              }, 0);
-              const missingAddress = !r.loading_address;
-              const missingRef = !r.loading_reference;
-              const missingVehicle = !r.tractor_plate && !r.vehicle_plate;
-              const missingDriver = !r.driver_name;
-              const missingTemperature = !r.temperature_mode;
-              const missingFreight = r.final_freight_amount == null;
-              const hasWarnings =
-                missingVehicle || missingDriver || missingAddress || missingRef || missingTemperature || missingFreight;
-              const tractor = r.tractor_plate ?? r.vehicle_plate ?? null;
-              const trailer = r.trailer_plate ?? null;
-              const managerLabel = resolveManagerName(r, managerMap);
-              return (
-                <Fragment key={r.id}>
-                  {hasWarnings && (
-                    <TableRow
-                      className="cursor-pointer border-b-0 hover:bg-muted/40"
-                      onClick={() => onOpen(r)}
-                    >
-                      <TableCell colSpan={13} className="px-2 py-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <StatusDot icon={Truck} ok={!missingVehicle} labelOk="Авто вказано" labelMissing="Без авто" />
-                          <StatusDot icon={User} ok={!missingDriver} labelOk="Водій вказано" labelMissing="Без водія" />
-                          <StatusDot icon={Banknote} ok={!missingFreight} labelOk="Фрахт вказано" labelMissing="Без фрахту" />
-                          <StatusDot icon={MapPin} ok={!missingAddress} labelOk="Адресу вказано" labelMissing="Без адреси" />
-                          <StatusDot icon={Hash} ok={!missingRef} labelOk="Reference вказано" labelMissing="Без reference" />
-                          <StatusDot icon={Thermometer} ok={!missingTemperature} labelOk="Температуру вказано" labelMissing="Без температури" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow
-                    className="cursor-pointer [&_td]:py-1"
-                    onClick={() => onOpen(r)}
-                  >
-                    <TableCell className="font-mono text-xs font-bold">{r.code}</TableCell>
-                    <TableCell>
-                      {r.logistics_status === "pending_planning" ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        <span
-                          className={cn(
-                            "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                            LOGISTICS_STATUS_CLASS[r.logistics_status],
-                          )}
-                        >
-                          {LOGISTICS_STATUS_LABEL[r.logistics_status]}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs">{r.loading_date ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{r.eta ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{r.supplier?.name ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{r.country ?? "—"}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">
-                      {r.temperature_mode ? (
-                        <span className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900 dark:bg-sky-900/40 dark:text-sky-200">
-                          {r.temperature_mode}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-xs">{totalPallets || "—"}</TableCell>
-                    <TableCell className="text-right text-xs">
-                      {totalWeight ? Math.round(totalWeight) : "—"}
-                    </TableCell>
-                    <TableCell className="text-xs font-mono whitespace-nowrap">
-                      {tractor ? (
-                        <span>
-                          {tractor}
-                          {trailer ? <span className="text-muted-foreground"> / {trailer}</span> : null}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs">{r.driver_name ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{managerLabel ?? "—"}</TableCell>
-                    <TableCell className="text-xs">
-                      {r.final_freight_amount != null ? (
-                        <span className="font-semibold text-foreground">
-                          {Number(r.final_freight_amount).toFixed(0)}{" "}
-                          {r.final_freight_currency ?? "EUR"}
-                        </span>
-                      ) : r.logistics_cost ? (
-                        <span className="text-muted-foreground">
-                          ~{Number(r.logistics_cost).toFixed(0)} {r.logistics_cost_currency ?? "EUR"}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </table>
-    </TableScroller>
-  );
-}
-
-function Warning({ text }: { text: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-      <AlertTriangle className="h-2.5 w-2.5" />
-      {text}
-    </span>
-  );
-}
 
 function StatusDot({
   icon: Icon,
@@ -633,35 +529,49 @@ function EditDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm">
-            <span className="font-mono">{row.code}</span>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                LOGISTICS_STATUS_CLASS[row.logistics_status],
-              )}
-            >
-              {LOGISTICS_STATUS_LABEL[row.logistics_status]}
-            </span>
-            {managerName ? (
-              <span className="ml-auto text-[11px] font-normal text-muted-foreground">{managerName}</span>
-            ) : null}
-          </DialogTitle>
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-sm font-mono">{row.code}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-3 py-2">
-          <div className="rounded-md border border-border bg-muted/30 p-2 text-[11px]">
+          {/* Summary block — manager, supplier, dates, pallets, products.
+              Sits below the title so the dialog close (X) cannot overlap any data. */}
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  LOGISTICS_STATUS_CLASS[row.logistics_status],
+                )}
+              >
+                {LOGISTICS_STATUS_LABEL[row.logistics_status]}
+              </span>
+              {managerName ? (
+                <span className="text-[11px] font-semibold text-foreground">
+                  Менеджер: <span className="font-normal">{managerName}</span>
+                </span>
+              ) : null}
+              <span className="ml-auto text-[11px] font-semibold tabular-nums text-foreground">
+                {totalPallets || 0}п
+                {totalWeight ? ` · ${Math.round(totalWeight)} кг` : ""}
+              </span>
+            </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <div><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
-              <div><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
-              <div><span className="text-muted-foreground">Завантаження: </span>{row.loading_date ?? "—"}</div>
-              <div><span className="text-muted-foreground">Палет / вага: </span>{totalPallets || "—"} / {totalWeight ? Math.round(totalWeight) + " кг" : "—"}</div>
+              <div className="truncate"><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
+              <div className="truncate"><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
+              <div className="truncate">
+                <span className="font-semibold text-sky-600 dark:text-sky-300">ETD </span>
+                <span className="text-foreground">{row.loading_date ?? "—"}</span>
+              </div>
+              <div className="truncate">
+                <span className="font-semibold text-sky-600 dark:text-sky-300">ETA </span>
+                <span className="text-foreground">{row.eta ?? "—"}</span>
+              </div>
             </div>
             {row.items.length > 0 && (
-              <div className="mt-1.5 border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
+              <div className="border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
                 {row.items.map((it, i) => (
-                  <div key={i}>
+                  <div key={i} className="truncate">
                     • {it.product_name}
                     {it.pallet_count ? ` — ${it.pallet_count} пал.` : ""}
                     {it.origin_country ? ` · ${it.origin_country}` : ""}
@@ -670,6 +580,7 @@ function EditDialog({
               </div>
             )}
           </div>
+
 
           <section>
             <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
