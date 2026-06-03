@@ -538,7 +538,7 @@ function BranchOffersPage() {
             <DialogTitle>Деталі пропозиції</DialogTitle>
           </DialogHeader>
           {(() => {
-            const o = visibleOffers.find((x) => x.id === selectedOfferId);
+            const o = bucketBaseRows.find((x) => x.id === selectedOfferId);
             if (!o) return null;
             const r = responseByOffer[o.id];
             const draft = drafts[o.id] ?? (r ? String(r.requested_pallets) : "");
