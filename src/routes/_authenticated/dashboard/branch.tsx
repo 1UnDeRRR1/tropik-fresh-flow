@@ -254,7 +254,7 @@ function BranchCardRow({
     !!r.bvp_reason &&
     (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
     (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
-  const subLeft = [r.class, r.brand, r.caliber].filter(Boolean).join(" · ");
+  const subLeft = [r.variety, r.caliber].filter(Boolean).join(" · ");
   return (
     <li>
       <button
@@ -267,13 +267,12 @@ function BranchCardRow({
             <div className="flex items-center gap-1.5 text-sm leading-tight">
               <StatusIcon status={r.pipeline} size={16} />
               <span className="font-medium text-foreground truncate">{r.product}</span>
-              {(r.country || r.variety) && (
+              {r.country && (
                 <span className="text-muted-foreground truncate">
-                  {r.country ? `· ${toUaCountry(r.country)}` : ""}
-                  {r.variety ? ` · ${r.variety}` : ""}
+                  · {toUaCountry(r.country)}
                 </span>
               )}
-              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-brand">
+              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
                 {stats.pending > 0 ? (
                   <>
                     {stats.free}п<span className="text-muted-foreground font-normal"> / </span>
