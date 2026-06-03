@@ -47,9 +47,9 @@ const fmtShort = (iso: string | null | undefined): string => {
   return `${day}\u202F${mo}.`;
 };
 
-type SortKey = "date" | "etd" | "eta" | "status";
+type SortKey = "last_event" | "etd" | "eta" | "status";
 const SORT_LABEL: Record<SortKey, string> = {
-  date: "датою",
+  last_event: "останньою подією",
   etd: "ETD",
   eta: "ETA",
   status: "статусом",
@@ -57,7 +57,7 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
   const [open, setOpen] = useState(false);
-  const keys: SortKey[] = ["date", "etd", "eta", "status"];
+  const keys: SortKey[] = ["last_event", "etd", "eta", "status"];
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -71,7 +71,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
           Сортувати за: <span className="font-bold">{SORT_LABEL[value]}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-44 p-1">
+      <PopoverContent align="end" className="w-52 p-1">
         {keys.map((k) => (
           <button
             key={k}
@@ -130,6 +130,7 @@ type LogisticsRow = {
   import_manager_id: string | null;
   unloaded_at: string | null;
   archived_at: string | null;
+  updated_at: string | null;
   items: Array<{
     product_name: string;
     pallet_count: number | null;
@@ -151,7 +152,7 @@ function resolveManagerName(
 function LogisticsPage() {
   const { user, hasRole } = useAuth();
   const [editing, setEditing] = useState<LogisticsRow | null>(null);
-  const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [sortBy, setSortBy] = useState<SortKey>("last_event");
 
   // Manager-only visibility scope: an import_manager (without admin/logistics)
   // must only see vehicles that belong to him.
@@ -179,7 +180,7 @@ function LogisticsPage() {
         .from("shipments")
         .select(
           `id, code, status, logistics_status, loading_date, eta, country,
-           unloaded_at, archived_at,
+           unloaded_at, archived_at, updated_at,
            loading_address, loading_reference, driver_name, driver_phone,
            vehicle_plate, tractor_plate, trailer_plate,
            notes, logistics_comment, loading_started_at, loading_ended_at,
@@ -244,9 +245,12 @@ function LogisticsPage() {
           return cmpStr(a.eta, b.eta);
         case "status":
           return cmpStr(a.logistics_status, b.logistics_status);
-        case "date":
+        case "last_event":
         default:
-          return cmpStr(a.loading_date, b.loading_date);
+          // Last real saved data change. With dirty-save guard, updated_at
+          // only advances when a real field changed in the form.
+          // Most recent first.
+          return -cmpStr(a.updated_at, b.updated_at);
       }
     });
     return arr;
@@ -390,17 +394,17 @@ function EditDialog({
   const isManager = isAdmin || hasRole("import_manager");
   const isLogistics = isAdmin || hasRole("logistics");
 
-  const initialPickups = (() => {
+  const initialPickups = useMemo(() => {
     const addrs = (row.loading_address ?? "").split(/\n+/).map((s) => s.trim());
     const refs = (row.loading_reference ?? "").split(/\n+/).map((s) => s.trim());
     const n = Math.max(addrs.length, refs.length, 1);
     const out: Array<{ address: string; reference: string }> = [];
     for (let i = 0; i < n; i++) out.push({ address: addrs[i] ?? "", reference: refs[i] ?? "" });
     return out;
-  })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id]);
 
-  const [pickups, setPickups] = useState(initialPickups);
-  const [form, setForm] = useState({
+  const initialForm = useMemo(() => ({
     tractor_plate: row.tractor_plate ?? "",
     trailer_plate: row.trailer_plate ?? "",
     driver_name: row.driver_name ?? "",
@@ -413,7 +417,33 @@ function EditDialog({
     final_freight_currency: row.final_freight_currency ?? row.logistics_cost_currency ?? "EUR",
     final_freight_payment: row.final_freight_payment ?? "bank",
     logistics_comment: row.logistics_comment ?? "",
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [row.id]);
+
+  const [pickups, setPickups] = useState(initialPickups);
+  const [form, setForm] = useState(initialForm);
+
+  // Dirty-state: compare trimmed/normalized current values against the snapshot
+  // captured when the dialog opened. Save is enabled only when a real change exists.
+  // Reverting a field back to its initial value disables Save again.
+  const normPickups = (arr: Array<{ address: string; reference: string }>) =>
+    JSON.stringify(arr.map((p) => ({ a: p.address.trim(), r: p.reference.trim() })));
+  const normForm = (f: typeof initialForm) => ({
+    tractor_plate: f.tractor_plate.trim(),
+    trailer_plate: f.trailer_plate.trim(),
+    driver_name: f.driver_name.trim(),
+    driver_phone: f.driver_phone.trim(),
+    logistics_status: f.logistics_status,
+    temperature_mode: f.temperature_mode.trim(),
+    eta: f.eta.trim(),
+    final_freight_amount: f.final_freight_amount.trim(),
+    final_freight_currency: f.final_freight_currency,
+    final_freight_payment: f.final_freight_payment,
+    logistics_comment: f.logistics_comment.trim(),
   });
+  const isDirty =
+    JSON.stringify(normForm(form)) !== JSON.stringify(normForm(initialForm)) ||
+    normPickups(pickups) !== normPickups(initialPickups);
 
   const totalPallets = row.items.reduce((s, i) => s + (Number(i.pallet_count) || 0), 0);
   const totalWeight = row.items.reduce((s, i) => {
@@ -421,8 +451,15 @@ function EditDialog({
     return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
   }, 0);
 
+  // Temperature: digits, '+', '-', '.' or ',' only.
+  const TEMP_RE = /^[+\-]?\d*([.,]\d*)?$/;
+  const tempValid = form.temperature_mode.trim() === "" || TEMP_RE.test(form.temperature_mode.trim());
+
   const save = useMutation({
     mutationFn: async () => {
+      if (!tempValid) {
+        throw new Error("Невірний формат температури (приклади: +4, -2, +6.5)");
+      }
       const patch: Record<string, unknown> = {};
       const cleanPickups = pickups.map((p) => ({ address: p.address.trim(), reference: p.reference.trim() }));
       const joinedAddress = cleanPickups.map((p) => p.address).filter(Boolean).join("\n");
@@ -555,8 +592,8 @@ function EditDialog({
                 {LOGISTICS_STATUS_LABEL[row.logistics_status]}
               </span>
               {managerName ? (
-                <span className="text-[11px] font-semibold text-foreground">
-                  Менеджер: <span className="font-normal">{managerName}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Менеджер: <span className="font-semibold text-foreground">{managerName}</span>
                 </span>
               ) : null}
               <span className="ml-auto text-[11px] font-semibold tabular-nums text-foreground">
@@ -565,15 +602,15 @@ function EditDialog({
               </span>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <div className="truncate"><span className="text-muted-foreground">Постачальник: </span>{row.supplier?.name ?? "—"}</div>
-              <div className="truncate"><span className="text-muted-foreground">Країна: </span>{row.country ?? "—"}</div>
+              <div className="truncate"><span className="text-muted-foreground">Постачальник: </span><span className="font-semibold text-foreground">{row.supplier?.name ?? "—"}</span></div>
+              <div className="truncate"><span className="text-muted-foreground">Країна: </span><span className="font-semibold text-foreground">{row.country ?? "—"}</span></div>
               <div className="truncate">
                 <span className="font-semibold text-sky-600 dark:text-sky-300">ETD </span>
-                <span className="text-foreground">{row.loading_date ?? "—"}</span>
+                <span className="font-semibold text-foreground">{fmtShort(row.loading_date)}</span>
               </div>
               <div className="truncate">
                 <span className="font-semibold text-sky-600 dark:text-sky-300">ETA </span>
-                <span className="text-foreground">{row.eta ?? "—"}</span>
+                <span className="font-semibold text-foreground">{fmtShort(row.eta)}</span>
               </div>
             </div>
             {row.items.length > 0 && (
@@ -620,8 +657,9 @@ function EditDialog({
                           next[idx] = { ...next[idx], address: e.target.value };
                           setPickups(next);
                         }}
-                        rows={2}
+                        rows={3}
                         disabled={!isManager}
+                        className="min-h-[68px]"
                       />
                     </Labeled>
                     <Labeled label="Loading reference">
@@ -652,10 +690,22 @@ function EditDialog({
               <Labeled label="Температура">
                 <Input
                   value={form.temperature_mode}
-                  onChange={(e) => setForm({ ...form, temperature_mode: e.target.value })}
+                  onChange={(e) => {
+                    // Allow only digits, leading +/-, and one decimal separator.
+                    const filtered = e.target.value.replace(/[^0-9+\-.,]/g, "");
+                    setForm({ ...form, temperature_mode: filtered });
+                  }}
+                  inputMode="decimal"
                   disabled={!isManager}
-                  placeholder="+2…+6 °C"
+                  placeholder="+2…+6"
+                  aria-invalid={!tempValid}
+                  className={cn(!tempValid && "border-destructive focus-visible:ring-destructive")}
                 />
+                {!tempValid && (
+                  <p className="mt-1 text-[10px] font-medium text-destructive">
+                    Лише цифри, +, -, кома/крапка. Приклад: +4, -2, +6.5
+                  </p>
+                )}
               </Labeled>
               <Labeled label="Орієнтовний фрахт (від менеджера)">
                 <div className="rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5 text-xs">
@@ -704,8 +754,16 @@ function EditDialog({
               <Labeled label="Телефон">
                 <Input
                   value={form.driver_phone}
-                  onChange={(e) => setForm({ ...form, driver_phone: e.target.value })}
+                  onChange={(e) => {
+                    // Allow only digits and a leading '+'.
+                    const raw = e.target.value;
+                    const hasPlus = raw.trimStart().startsWith("+");
+                    const digits = raw.replace(/\D/g, "");
+                    setForm({ ...form, driver_phone: (hasPlus ? "+" : "") + digits });
+                  }}
+                  inputMode="tel"
                   disabled={!isLogistics}
+                  placeholder="+380…"
                 />
               </Labeled>
               <Labeled label="ETA (прибуття)">
@@ -781,8 +839,9 @@ function EditDialog({
                 <Textarea
                   value={form.logistics_comment}
                   onChange={(e) => setForm({ ...form, logistics_comment: e.target.value })}
-                  rows={2}
+                  rows={3}
                   disabled={!isLogistics}
+                  className="min-h-[68px]"
                 />
               </Labeled>
             </div>
@@ -790,7 +849,14 @@ function EditDialog({
         </div>
 
         <DialogFooter>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button
+            onClick={() => {
+              // Dirty-save guard: never call mutation on no-op.
+              if (!isDirty || save.isPending) return;
+              save.mutate();
+            }}
+            disabled={!isDirty || !tempValid || save.isPending}
+          >
             <Save className="mr-1 h-4 w-4" /> Зберегти
           </Button>
         </DialogFooter>
