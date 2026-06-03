@@ -592,8 +592,8 @@ function EditDialog({
                 {LOGISTICS_STATUS_LABEL[row.logistics_status]}
               </span>
               {managerName ? (
-                <span className="text-[11px] font-semibold text-foreground">
-                  Менеджер: <span className="font-normal">{managerName}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Менеджер: <span className="font-semibold text-foreground">{managerName}</span>
                 </span>
               ) : null}
               <span className="ml-auto text-[11px] font-semibold tabular-nums text-foreground">
