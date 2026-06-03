@@ -414,6 +414,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
 
+  // Branch / non-owner users with a personal header banner: pin the banner
+  // to the top of the viewport on mobile (fixed) so the picture cannot drift
+  // when the page scrolls or iOS rubber-bands. Desktop keeps `sticky top-0`
+  // so the wider nav layout behaves as before. Main content compensates with
+  // padding-top based on the mobile image aspect ratio so content lands just
+  // below the banner instead of disappearing underneath it.
+  const hasPersonalHeaderBanner =
+    !isOwner &&
+    !!personalAssets?.headerDesktopWebp &&
+    !!personalAssets?.headerMobileWidth &&
+    !!personalAssets?.headerMobileHeight;
+  const pinPersonalHeader = (isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
+  const personalHeaderMobilePadVw = hasPersonalHeaderBanner
+    ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
+    : null;
+
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
@@ -423,7 +439,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           // Owner mobile: hard-pin to viewport top so the status-bar safe area
           // is always covered by the banner. Desktop falls back to sticky so
           // the wider nav layout behaves as before.
-          isOwner && ownerMobileBanner
+          // Branch personal header: same fixed-on-mobile / sticky-on-desktop
+          // shape so the personal picture never drifts during scroll.
+          pinPersonalHeader
             ? "fixed inset-x-0 top-0 md:sticky md:top-0"
             : "sticky top-0",
         )}
