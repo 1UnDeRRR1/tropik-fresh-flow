@@ -330,9 +330,14 @@ function BranchFreeList() {
               if (variety) tailParts.push(variety);
               const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
               const rawMgr = r.managerName ?? "";
+              // ETA factored into width budget so manager shortens like in "Головна".
               const metaApproxLen =
-                (r.code ? r.code.length : 0) + (rawMgr ? 3 + rawMgr.length : 0);
+                4 + fmtEtaShort(r.eta).length +
+                (r.code ? 3 + r.code.length : 0) +
+                (rawMgr ? 3 + rawMgr.length : 0);
               const mgr = rawMgr && metaApproxLen > 34 ? shortenManagerName(rawMgr) : rawMgr;
+              // Tight middle-dot separator mirroring "Головна".
+              const SEP_TIGHT = "\u2009·\u2009";
               return (
                 <li key={r.itemId}>
                   <button
@@ -349,11 +354,16 @@ function BranchFreeList() {
                     </div>
                     <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
                       <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                        <span className="font-mono font-semibold text-sky-600 dark:text-sky-300">
+                          {"ETA\u202F"}{fmtEtaShort(r.eta)}
+                        </span>
                         {r.code ? (
-                          <span className="font-mono text-foreground/80">{r.code}</span>
+                          <span className="text-foreground/80">
+                            {SEP_TIGHT}<span className="font-mono">{r.code}</span>
+                          </span>
                         ) : null}
                         {mgr ? (
-                          <span className="text-foreground/80">{r.code ? " · " : ""}{mgr}</span>
+                          <span className="text-foreground/80"> · {mgr}</span>
                         ) : null}
                       </div>
                       <span className="shrink-0">
