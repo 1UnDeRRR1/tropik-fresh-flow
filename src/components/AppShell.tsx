@@ -636,7 +636,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         style={
           hasPersonalHeaderBanner && personalHeaderMobilePadVw != null
-            ? ({ ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` } as React.CSSProperties)
+            ? ({ ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` } as CSSProperties)
             : undefined
         }
       >
