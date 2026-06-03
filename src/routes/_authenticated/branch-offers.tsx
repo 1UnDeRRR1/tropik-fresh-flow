@@ -106,11 +106,12 @@ function BranchOffersPage() {
   const branchId = profile?.branch_id ?? null;
   const qc = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [sortBy, setSortBy] = useState<SortKey>("date");
-  const [fProduct, setFProduct] = useState<string>("");
-  const [fCountry, setFCountry] = useState<string>("");
-  const [fManager, setFManager] = useState<string>("");
+  const [fProduct, setFProduct] = useState<string>(ALL);
+  const [fCountry, setFCountry] = useState<string>(ALL);
+  const [bucket, setBucket] = useState<"active" | "confirmed">("active");
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const productAliases = useProductAliases();
+  const countryAliases = useCountryAliases();
 
 
 
