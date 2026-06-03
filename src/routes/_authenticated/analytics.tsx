@@ -421,64 +421,65 @@ export function Analytics() {
                   if (caliber) specPairs.push({ label: "Кал", value: caliber });
                   if (klass) specPairs.push({ label: "Клас", value: klass });
                   if (brand) specPairs.push({ label: "Бренд", value: brand });
-                  return (
-                    <li key={`${sh.id}-${it.id}`}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenItem(f)}
-                        className="flex w-full flex-col gap-1.5 py-2.5 text-left active:opacity-70"
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
-                            <div className="text-sm font-bold tabular-nums">{tile.day}</div>
-                            <div className="text-[10px] text-muted-foreground">{tile.mon}</div>
-                          </div>
-                          <div className="min-w-0 flex-1 text-center">
-                            {specPairs.length ? (
-                              <div className="text-[11px] text-muted-foreground">
-                                {specPairs.map((p, i) => (
-                                  <span key={p.label}>
-                                    {i > 0 ? "; " : ""}
-                                    {p.label}: <span className="text-foreground">{p.value}</span>
-                                  </span>
-                                ))}
+                    const countryLabel = (it.origin_country ?? "").trim();
+                    return (
+                      <li key={`${sh.id}-${it.id}`}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenItem(f)}
+                          className="flex w-full flex-col gap-2 px-3 py-2.5 text-left outline-none [-webkit-tap-highlight-color:transparent] focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 active:opacity-70"
+                        >
+                          <div className="grid grid-cols-[auto,1fr,auto] items-start gap-2.5">
+                            <div className="shrink-0 rounded-md border border-border bg-secondary px-2 py-1 text-center leading-tight">
+                              <div className="text-sm font-bold tabular-nums">{tile.day}</div>
+                              <div className="text-[10px] text-muted-foreground">{tile.mon}</div>
+                            </div>
+                            <div className="min-w-0 text-center leading-tight">
+                              <div className="truncate text-sm font-semibold text-foreground">
+                                {it.product_name}
+                                {countryLabel ? <span className="text-muted-foreground"> ({countryLabel})</span> : null}
                               </div>
-                            ) : null}
+                              {specPairs.length ? (
+                                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                  {specPairs.map((p, i) => (
+                                    <span key={p.label}>
+                                      {i > 0 ? "; " : ""}
+                                      {p.label}: <span className="text-foreground">{p.value}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="shrink-0 pt-0.5 text-right leading-tight">
+                              <div className="text-base font-bold tabular-nums text-brand">{visiblePallets}п</div>
+                              <div className="text-[11px] font-normal text-muted-foreground">{Math.round(weight)} кг</div>
+                            </div>
                           </div>
-                          <div className="shrink-0 text-right leading-tight">
-                            <div className="text-base font-bold tabular-nums text-brand">{visiblePallets}п</div>
-                            <div className="text-[11px] font-normal text-muted-foreground">{Math.round(weight)} кг</div>
-                          </div>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          <span className="font-mono text-foreground">{sh.code}</span>
-                          <span> (</span>
-                          <span className="font-semibold text-foreground">{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
-                          <span>)</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
-                          {branchScoped ? (
-                            <span className="text-muted-foreground">з {itemTotal}п усього</span>
-                          ) : (
-                            <>
+                          <div className="space-y-0.5 text-[11px]">
+                            <div className="text-muted-foreground">
+                              <span className="font-mono text-foreground">{sh.code}</span>
+                              <span> (</span>
+                              <span className="font-semibold text-foreground">{supMap.get(sh.supplier_id ?? "") ?? "—"}</span>
+                              <span>)</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                               <span className="text-success">розпод. {distributed}п</span>
                               <span className={remaining < 0 ? "text-destructive" : "text-warning"}>залиш. {remaining}п</span>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-2 text-[11px]">
-                          <span className="text-muted-foreground">
-                            закуп. {Number(it.unit_price ?? 0).toFixed(2)} {it.price_currency ?? ""}
-                          </span>
-                          <span className="text-foreground">собівартість:</span>
-                          <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Менеджер: {mgrMap.get(sh.import_manager_id ?? "") ?? "—"}
-                        </div>
-                      </button>
-                    </li>
-                  );
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span className="text-muted-foreground">
+                                закуп. {Number(it.unit_price ?? 0).toFixed(2)} {it.price_currency ?? ""}
+                              </span>
+                              <span className="text-foreground">собівартість:</span>
+                              <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
+                            </div>
+                            <div className="text-muted-foreground">
+                              Менеджер: {mgrMap.get(sh.import_manager_id ?? "") ?? "—"}
+                            </div>
+                          </div>
+                        </button>
+                      </li>
+                    );
                 })}
             </ul>
           ) : null}
