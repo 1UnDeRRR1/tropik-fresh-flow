@@ -522,6 +522,9 @@ function EditDialog({
           }
         }
         patch.logistics_status = nextStatus;
+      } else if (isManager) {
+        // Manager (without logistics role) may also change status. No auto-status logic.
+        patch.logistics_status = form.logistics_status;
       }
 
       if (Object.keys(patch).length > 0) {
