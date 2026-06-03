@@ -261,17 +261,39 @@ function BranchCalendarPage() {
         <div className="space-y-3">
           {grouped.map((d) => {
             const dayPallets = d.entries.reduce((s, e) => s + e.pallets, 0);
+            const headerTitle = `${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`;
             return (
-              <SectionCard
-                key={d.iso}
-                title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
-                action={hasAnyFilter ? (
-                  <span className="text-sm font-bold tabular-nums text-brand">{dayPallets}п</span>
-                ) : null}
-              >
+              // Inlined SectionCard markup so only the date header text color
+              // changes (sky like "Головна" ETA). All other classes — section
+              // wrapper, header layout, h2 font/size/weight/tracking/spacing —
+              // copied verbatim from SectionCard.
+              <section key={d.iso} className="rounded-2xl border border-border bg-card p-4 shadow-card">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
+                    {headerTitle}
+                  </h2>
+                  {hasAnyFilter ? (
+                    <span className="text-sm font-bold tabular-nums text-brand">{dayPallets}п</span>
+                  ) : null}
+                </div>
                 <ul className="divide-y divide-border">
                   {d.entries.map((e) => {
-                    const country = e.item.origin_country || e.ship.country || "";
+                    const rawCountry = e.item.origin_country || e.ship.country || "";
+                    const countryFull = rawCountry ? toUaCountry(rawCountry) : "";
+                    const countryShortRaw = rawCountry ? toShortUaCountry(rawCountry) : "";
+                    const variety = e.item.variety ?? "";
+                    const fullLeftLen = e.item.product_name.length + countryFull.length + variety.length;
+                    const useShortCountry =
+                      fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
+                    const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
+                    const tailParts: string[] = [];
+                    if (country) tailParts.push(country);
+                    if (variety) tailParts.push(variety);
+                    const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
+                    const rawMgr = e.ship.import_manager_name ?? "";
+                    const metaApproxLen =
+                      (e.ship.code ? e.ship.code.length : 0) + (rawMgr ? 3 + rawMgr.length : 0);
+                    const mgr = rawMgr && metaApproxLen > 34 ? shortenManagerName(rawMgr) : rawMgr;
                     return (
                       <li key={e.key}>
                         <button
@@ -279,28 +301,32 @@ function BranchCalendarPage() {
                           onClick={() => setOpenEntry(e)}
                           className="w-full py-2 text-left text-sm active:opacity-70"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 flex-1 items-baseline gap-0 text-sm text-foreground">
-                              <span className="shrink-0 font-bold">{e.item.product_name}</span>
-                              {country ? (
-                                <span className="min-w-0 truncate"> · {country}{e.item.variety ? ` · ${e.item.variety}` : ""}</span>
-                              ) : e.item.variety ? (
-                                <span className="min-w-0 truncate"> · {e.item.variety}</span>
-                              ) : null}
-                              <span className="shrink-0 font-bold">{" · "}<span className="tabular-nums text-brand">{e.pallets}п</span></span>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                              <span className="font-bold">{e.item.product_name}</span>
+                              {tail ? <span>{tail}</span> : null}
                             </div>
-                            <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="xs" />
+                            <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{e.pallets}п</span>
                           </div>
-                          <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
-                            <span className="font-mono">{e.ship.code}</span>
-                            {e.ship.import_manager_name ? <span> · {e.ship.import_manager_name}</span> : null}
+                          <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                            <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                              {e.ship.code ? (
+                                <span className="font-mono text-foreground/80">{e.ship.code}</span>
+                              ) : null}
+                              {mgr ? (
+                                <span className="text-foreground/80">{e.ship.code ? " · " : ""}{mgr}</span>
+                              ) : null}
+                            </div>
+                            <span className="shrink-0">
+                              <CostPair indicative={e.item.final_cost_indicative} invoice={e.item.final_cost_invoice} suffix=" кг" size="xs" />
+                            </span>
                           </div>
                         </button>
                       </li>
                     );
                   })}
                 </ul>
-              </SectionCard>
+              </section>
             );
           })}
         </div>
