@@ -11,6 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+
+// Abbreviate manager name when row is tight. Mirrors branch "Головна".
+const shortenManagerName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
 
 export const Route = createFileRoute("/_authenticated/branch-calendar")({
   component: BranchCalendarPage,
