@@ -217,7 +217,7 @@ function BranchCardList({
           <SectionCard
             key={iso || "no-date"}
             title={title}
-            action={<span className="text-sm font-bold tabular-nums text-brand">{totalP}п</span>}
+            action={<span className="text-sm font-bold tabular-nums text-foreground">{totalP}п</span>}
           >
             <ul className="divide-y divide-border">
               {entries.map((r) => (
@@ -254,7 +254,7 @@ function BranchCardRow({
     !!r.bvp_reason &&
     (r.bvp_reason === "final_freight_locked" || r.bvp_reason === "unit_price_increased") &&
     (numNeq(r.seen_ind, r.bvp_ind) || numNeq(r.seen_inv, r.bvp_inv));
-  const subLeft = [r.class, r.brand, r.caliber].filter(Boolean).join(" · ");
+  const subLeft = [r.variety, r.caliber].filter(Boolean).join(" · ");
   return (
     <li>
       <button
@@ -267,13 +267,12 @@ function BranchCardRow({
             <div className="flex items-center gap-1.5 text-sm leading-tight">
               <StatusIcon status={r.pipeline} size={16} />
               <span className="font-medium text-foreground truncate">{r.product}</span>
-              {(r.country || r.variety) && (
+              {r.country && (
                 <span className="text-muted-foreground truncate">
-                  {r.country ? `· ${toUaCountry(r.country)}` : ""}
-                  {r.variety ? ` · ${r.variety}` : ""}
+                  · {toUaCountry(r.country)}
                 </span>
               )}
-              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-brand">
+              <span className="ml-auto whitespace-nowrap text-sm font-bold tabular-nums text-foreground">
                 {stats.pending > 0 ? (
                   <>
                     {stats.free}п<span className="text-muted-foreground font-normal"> / </span>
@@ -335,7 +334,8 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("last_event");
-  const [search, setSearch] = useState<string>("");
+  const [productFilter, setProductFilter] = useState<string>("__all__");
+  const [countryFilter, setCountryFilter] = useState<string>("__all__");
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
   // Scope the transparency test to <body> so the bottom nav can pick it up too.
@@ -852,24 +852,14 @@ function BranchDashboard() {
 
   const filteredRows = useMemo(() => {
     const baseRows = viewRows;
-    const q = search.trim().toLocaleLowerCase("uk");
-    const matched = q
-      ? baseRows.filter((r) => {
-          const haystack = [
-            r.product,
-            r.manager_name,
-            r.country ? toUaCountry(r.country) : null,
-            r.country,
-            r.code,
-            r.eta ? new Date(r.eta).toLocaleDateString("uk-UA") : null,
-            r.eta,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLocaleLowerCase("uk");
-          return haystack.includes(q);
-        })
-      : baseRows;
+    const matched = baseRows.filter((r) => {
+      if (productFilter !== "__all__" && r.product !== productFilter) return false;
+      if (countryFilter !== "__all__") {
+        const c = r.country ? toUaCountry(r.country) : "";
+        if (c !== countryFilter) return false;
+      }
+      return true;
+    });
     const sorted = [...matched];
     const cmp = (a: Row, b: Row): number => {
       switch (sortBy) {
@@ -891,7 +881,7 @@ function BranchDashboard() {
       }
     };
     return sorted.sort(cmp);
-  }, [viewRows, search, sortBy]);
+  }, [viewRows, productFilter, countryFilter, sortBy]);
 
 
   const drillRows = useMemo(() => {
@@ -914,6 +904,53 @@ function BranchDashboard() {
     () => filteredRows.reduce((s, r) => s + (Number(r.pallets) || 0), 0),
     [filteredRows],
   );
+
+  // Filter option pools — product options from full view; country options narrow
+  // to the currently selected product (so the two dropdowns compose naturally).
+  const productOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of viewRows) if (r.product) set.add(r.product);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"))
+      .map((v) => ({ value: v, label: v }));
+  }, [viewRows]);
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of viewRows) {
+      if (productFilter !== "__all__" && r.product !== productFilter) continue;
+      if (r.country) set.add(toUaCountry(r.country));
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"))
+      .map((v) => ({ value: v, label: v }));
+  }, [viewRows, productFilter]);
+  // If the selected country becomes invalid after product change, reset safely.
+  useEffect(() => {
+    if (countryFilter === "__all__") return;
+    if (!countryOptions.some((o) => o.value === countryFilter)) {
+      setCountryFilter("__all__");
+    }
+  }, [countryOptions, countryFilter]);
+
+  // Top summary: shipments · unique products / product-country positions · pallets.
+  const summary = useMemo(() => {
+    const shipSet = new Set<string>();
+    const productSet = new Set<string>();
+    const posSet = new Set<string>();
+    let pallets = 0;
+    for (const r of filteredRows) {
+      if (r.code && r.is_real_shipment_code) shipSet.add(r.code);
+      const p = (r.product ?? "").trim().toLowerCase();
+      if (p) productSet.add(p);
+      const c = r.country ? toUaCountry(r.country).toLowerCase() : "";
+      if (p) posSet.add(`${p}|${c}`);
+      pallets += Number(r.pallets) || 0;
+    }
+    return {
+      shipments: shipSet.size,
+      products: productSet.size,
+      positions: posSet.size,
+      pallets,
+    };
+  }, [filteredRows]);
 
   const sortOptions: { value: SortKey; label: string }[] = [
     { value: "last_event", label: "Остання подія" },
@@ -940,7 +977,7 @@ function BranchDashboard() {
       )}
 
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortKey)}
@@ -954,21 +991,47 @@ function BranchDashboard() {
               </option>
             ))}
           </select>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук: товар, країна, менеджер…"
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            aria-label="Фільтр товару"
             className={cn(controlBaseClass, controlFocusClass)}
-            data-active={search ? "true" : undefined}
-          />
+            data-active={productFilter !== "__all__" ? "true" : undefined}
+          >
+            <option value="__all__">Товар: всі</option>
+            {productOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                Товар: {o.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            aria-label="Фільтр країни"
+            className={cn(controlBaseClass, controlFocusClass)}
+            data-active={countryFilter !== "__all__" ? "true" : undefined}
+          >
+            <option value="__all__">Країна: всі</option>
+            {countryOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                Країна: {o.label}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
       {rows.length > 0 && (
         <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
           <span>Активний товар вашої філії</span>
-          <span className="font-bold tabular-nums text-destructive">{totalConfirmedPallets}п</span>
+          <span className="font-bold tabular-nums text-destructive">
+            {summary.shipments} пост.
+            <span className="text-muted-foreground font-normal"> · </span>
+            {summary.products} / {summary.positions} поз.
+            <span className="text-muted-foreground font-normal"> · </span>
+            {summary.pallets}п
+          </span>
         </div>
       )}
 
@@ -978,8 +1041,9 @@ function BranchDashboard() {
         </div>
       ) : !filteredRows.length ? (
         <EmptyState
-          title={search ? "Немає товару за пошуком" : "Поки немає підтвердженого товару"}
+          title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
+
       ) : (
         <BranchCardList
           rows={filteredRows}
