@@ -130,6 +130,7 @@ type LogisticsRow = {
   import_manager_id: string | null;
   unloaded_at: string | null;
   archived_at: string | null;
+  updated_at: string | null;
   items: Array<{
     product_name: string;
     pallet_count: number | null;
