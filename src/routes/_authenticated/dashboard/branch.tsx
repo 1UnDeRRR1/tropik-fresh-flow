@@ -334,7 +334,8 @@ function BranchDashboard() {
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("last_event");
-  const [search, setSearch] = useState<string>("");
+  const [productFilter, setProductFilter] = useState<string>("__all__");
+  const [countryFilter, setCountryFilter] = useState<string>("__all__");
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
   // Scope the transparency test to <body> so the bottom nav can pick it up too.
