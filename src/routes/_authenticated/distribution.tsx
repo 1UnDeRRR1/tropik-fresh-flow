@@ -6,7 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
-import { toUaCountry } from "@/lib/countries";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+
+// Abbreviate manager name when row is tight: "Назар Лукач" → "Назар Л.".
+// Mirrors the helper used in branch "Головна" so visual shape matches.
+const shortenManagerName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
