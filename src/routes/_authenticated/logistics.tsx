@@ -245,9 +245,12 @@ function LogisticsPage() {
           return cmpStr(a.eta, b.eta);
         case "status":
           return cmpStr(a.logistics_status, b.logistics_status);
-        case "date":
+        case "last_event":
         default:
-          return cmpStr(a.loading_date, b.loading_date);
+          // Last real saved data change. With dirty-save guard, updated_at
+          // only advances when a real field changed in the form.
+          // Most recent first.
+          return -cmpStr(a.updated_at, b.updated_at);
       }
     });
     return arr;
