@@ -52,6 +52,18 @@ const fmtEta = (eta: string | null) =>
     ? new Date(eta).toLocaleDateString("uk-UA", { day: "2-digit", month: "long" })
     : "Без дати";
 
+// Short ETA formatter mirrored from branch "Головна" so the visual shape
+// matches exactly. Narrow no-break space (U+202F) tightens day/month inline
+// without touching font-size, font-family, letter-spacing or line-height.
+const fmtEtaShort = (eta: string | null) => {
+  if (!eta) return "—";
+  const d = new Date(eta);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day}\u202F${mo}.`;
+};
+
 type FreeRow = {
   itemId: string;
   shipmentId: string;
