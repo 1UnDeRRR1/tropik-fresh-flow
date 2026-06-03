@@ -821,7 +821,7 @@ function EditDialog({
                 <Select
                   value={form.logistics_status}
                   onValueChange={(v) => setForm({ ...form, logistics_status: v as LogisticsStatus })}
-                  disabled={!isLogistics}
+                  disabled={!isLogistics && !isManager}
                 >
                   <SelectTrigger>
                     <SelectValue />
