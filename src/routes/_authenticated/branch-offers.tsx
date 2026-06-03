@@ -266,7 +266,6 @@ function BranchOffersPage() {
     <div>
       <PageHeader
         title="Пропозиції ЗЕД"
-        subtitle="Активні пропозиції менеджерів. Введіть бажану кількість палет."
       />
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div className="flex flex-wrap gap-2">
