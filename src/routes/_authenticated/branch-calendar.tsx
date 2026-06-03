@@ -64,6 +64,8 @@ type Ship = {
   import_manager_name: string | null;
 };
 
+type Entry = { ship: Ship; item: Item; pallets: number; arrival: string; key: string };
+
 function BranchCalendarPage() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id;
