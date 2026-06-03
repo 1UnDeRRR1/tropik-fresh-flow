@@ -217,7 +217,7 @@ function BranchCardList({
           <SectionCard
             key={iso || "no-date"}
             title={title}
-            action={<span className="text-sm font-bold tabular-nums text-brand">{totalP}п</span>}
+            action={<span className="text-sm font-bold tabular-nums text-foreground">{totalP}п</span>}
           >
             <ul className="divide-y divide-border">
               {entries.map((r) => (
