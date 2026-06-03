@@ -223,41 +223,42 @@ function ShipmentsList() {
 
   return (
     <div className="space-y-4">
-      {/* Line 1: title + "Нова поставка" on the same row. */}
-      <div className="flex items-center justify-between gap-2">
-        <PageHeader title="Поставки" />
-        <Link to="/shipments/new">
-          <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
-            <Plus className="mr-1 h-4 w-4" /> Нова поставка
-          </Button>
-        </Link>
-      </div>
+      {/* Title */}
+      <PageHeader title="Поставки" />
 
-      {/* Existing shipments | vehicles inner toggle — untouched. */}
+      {/* Top dual-action block: Нова поставка (red) | Відкриті авто (green).
+          Sized to visually match the BucketToggle below. */}
       {isStaff ? (
-        <div className="inline-flex rounded-full border border-border bg-card p-1 text-xs">
-          <button
+        <div className="grid grid-cols-2 gap-2">
+          <Link to="/shipments/new" className="block">
+            <Button
+              type="button"
+              onClick={() => setTab("shipments")}
+              className="w-full min-h-11 rounded-xl bg-brand text-brand-foreground hover:bg-brand/90 font-semibold text-sm shadow-sm"
+            >
+              <Plus className="mr-1 h-4 w-4" /> Нова поставка
+            </Button>
+          </Link>
+          <Button
             type="button"
-            onClick={() => setTab("shipments")}
+            onClick={() => setTab(tab === "vehicles" ? "shipments" : "vehicles")}
+            aria-pressed={tab === "vehicles"}
             className={cn(
-              "rounded-full px-3 py-1.5 font-semibold transition",
-              tab === "shipments" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Поставки
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("vehicles")}
-            className={cn(
-              "rounded-full px-3 py-1.5 font-semibold transition",
-              tab === "vehicles" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              "w-full min-h-11 rounded-xl font-semibold text-sm shadow-sm",
+              "bg-emerald-600 text-white hover:bg-emerald-700",
+              tab === "vehicles" && "ring-2 ring-emerald-300",
             )}
           >
             Відкриті авто
-          </button>
+          </Button>
         </div>
-      ) : null}
+      ) : (
+        <Link to="/shipments/new" className="block">
+          <Button className="w-full min-h-11 rounded-xl bg-brand text-brand-foreground hover:bg-brand/90 font-semibold text-sm shadow-sm">
+            <Plus className="mr-1 h-4 w-4" /> Нова поставка
+          </Button>
+        </Link>
+      )}
 
       {tab === "vehicles" && isStaff ? (
         <OpenVehiclesBlock currentManagerId={currentManagerId} />
