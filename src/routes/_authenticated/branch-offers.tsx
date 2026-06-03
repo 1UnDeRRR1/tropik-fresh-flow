@@ -60,7 +60,14 @@ function BucketToggle({
   onChange: (v: "active" | "confirmed") => void;
 }) {
   return (
-    <div className="relative grid h-9 grid-cols-2 rounded-full bg-muted p-1 text-sm">
+    <div
+      className={cn(
+        "relative grid h-9 grid-cols-2 rounded-full border-2 bg-muted p-1 text-sm transition-colors",
+        value === "active"
+          ? "border-destructive"
+          : "border-emerald-600",
+      )}
+    >
       <span
         aria-hidden
         className={cn(
