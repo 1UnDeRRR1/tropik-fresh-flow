@@ -753,8 +753,16 @@ function EditDialog({
               <Labeled label="Телефон">
                 <Input
                   value={form.driver_phone}
-                  onChange={(e) => setForm({ ...form, driver_phone: e.target.value })}
+                  onChange={(e) => {
+                    // Allow only digits and a leading '+'.
+                    const raw = e.target.value;
+                    const hasPlus = raw.trimStart().startsWith("+");
+                    const digits = raw.replace(/\D/g, "");
+                    setForm({ ...form, driver_phone: (hasPlus ? "+" : "") + digits });
+                  }}
+                  inputMode="tel"
                   disabled={!isLogistics}
+                  placeholder="+380…"
                 />
               </Labeled>
               <Labeled label="ETA (прибуття)">
