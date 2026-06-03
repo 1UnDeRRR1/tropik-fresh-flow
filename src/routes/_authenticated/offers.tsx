@@ -176,12 +176,12 @@ function OffersPage() {
 
   // Group sent offers by shipment+product
   const sentGroups = useMemo(() => {
-    const map = new Map<string, { code: string; product: string; caliber?: string | null; origin_country?: string | null; rows: OfferRow[] }>();
+    const map = new Map<string, { code: string; product: string; caliber?: string | null; origin_country?: string | null; final_cost_indicative?: number | null; final_cost_invoice?: number | null; shipment_eta?: string | null; rows: OfferRow[] }>();
     for (const o of sent) {
       const code = o.shipment_code ?? "—";
       const product = o.product_name ?? "—";
       const key = `${code}::${product}::${o.shipment_item_id}`;
-      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, origin_country: o.origin_country ?? null, rows: [] });
+      if (!map.has(key)) map.set(key, { code, product, caliber: o.caliber, origin_country: o.origin_country ?? null, final_cost_indicative: o.final_cost_indicative ?? null, final_cost_invoice: o.final_cost_invoice ?? null, shipment_eta: o.shipment_eta ?? null, rows: [] });
       map.get(key)!.rows.push(o);
     }
     return [...map.values()];
@@ -317,6 +317,21 @@ function OffersPage() {
                   <div className="text-sm font-semibold">
                     {g.code} · {g.product}{g.origin_country ? ` (${g.origin_country})` : ""}
                     {g.caliber ? ` · ${g.caliber}` : ""}
+                  </div>
+                  {(g.final_cost_indicative != null || g.final_cost_invoice != null) && (
+                    <div className="mt-1 text-xs">
+                      <span className="text-success font-semibold tabular-nums">
+                        ${Number(g.final_cost_indicative ?? 0).toFixed(2)}
+                      </span>
+                      <span className="mx-1 text-muted-foreground">/</span>
+                      <span className="text-destructive font-semibold tabular-nums">
+                        ${Number(g.final_cost_invoice ?? 0).toFixed(2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground">собівартість</span>
+                    </div>
+                  )}
+                  <div className="text-[11px] text-muted-foreground">
+                    ETA {fmtEta(g.shipment_eta)}
                   </div>
                   <ul className="mt-2 space-y-1">
                     {g.rows.map((r) => (
