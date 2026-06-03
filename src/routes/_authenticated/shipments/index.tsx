@@ -308,6 +308,7 @@ function ShipmentsList() {
                     code={s.code}
                     status={s.status}
                     eta={s.eta}
+                    etd={(s as { loading_date?: string | null }).loading_date ?? null}
                     pallets={s.fact}
                     netKg={s.netKg}
                     dist={s.dist}
