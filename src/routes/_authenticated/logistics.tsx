@@ -450,8 +450,10 @@ function EditDialog({
     return s + (g > 0 ? g : (Number(i.pallet_count) || 0) * (Number(i.pallet_weight) || 0));
   }, 0);
 
-  // Temperature: digits, '+', '-', '.' or ',' only.
-  const TEMP_RE = /^[+\-]?\d*([.,]\d*)?$/;
+  // Temperature: a signed decimal, optionally followed by a range to a second signed decimal.
+  // Accepts '+' / '-' anywhere a number begins, '.' or ',' as decimal, and '...' or '…' as range.
+  const TEMP_NUM = "[+\\-]?\\d+(?:[.,]\\d+)?";
+  const TEMP_RE = new RegExp(`^${TEMP_NUM}(?:(?:\\.{3}|…)${TEMP_NUM})?$`);
   const tempValid = form.temperature_mode.trim() === "" || TEMP_RE.test(form.temperature_mode.trim());
 
   const save = useMutation({
