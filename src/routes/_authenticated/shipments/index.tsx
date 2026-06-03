@@ -422,7 +422,7 @@ function ShipmentRow({
         {/* Line 1: code · supplier · supplier country  |  pallets [+ admin menu] */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 text-sm leading-snug">
-            <span className={cn("font-bold", shipmentCodeTextTone(status))}>{code}</span>
+            <span className="font-bold text-foreground">{code}</span>
             <span className="text-muted-foreground"> · </span>
             <span className="text-foreground">{supplierName}</span>
             <span className="text-muted-foreground"> · </span>
