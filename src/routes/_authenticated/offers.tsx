@@ -318,6 +318,21 @@ function OffersPage() {
                     {g.code} · {g.product}{g.origin_country ? ` (${g.origin_country})` : ""}
                     {g.caliber ? ` · ${g.caliber}` : ""}
                   </div>
+                  {(g.final_cost_indicative != null || g.final_cost_invoice != null) && (
+                    <div className="mt-1 text-xs">
+                      <span className="text-success font-semibold tabular-nums">
+                        ${Number(g.final_cost_indicative ?? 0).toFixed(2)}
+                      </span>
+                      <span className="mx-1 text-muted-foreground">/</span>
+                      <span className="text-destructive font-semibold tabular-nums">
+                        ${Number(g.final_cost_invoice ?? 0).toFixed(2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground">собівартість</span>
+                    </div>
+                  )}
+                  <div className="text-[11px] text-muted-foreground">
+                    ETA {fmtEta(g.shipment_eta)}
+                  </div>
                   <ul className="mt-2 space-y-1">
                     {g.rows.map((r) => (
                       <li key={r.id} className="flex items-center justify-between text-sm">
