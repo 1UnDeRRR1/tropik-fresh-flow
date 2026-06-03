@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, StatCard, EmptyState } from "@/components/cards";
+import { SuperAdminTabs } from "../super-admin/-super-admin-tabs";
 
 export const Route = createFileRoute("/_authenticated/dashboard/super-admin")({
   component: SuperAdminDashboard,
@@ -39,7 +40,7 @@ function SuperAdminDashboard() {
   return (
     <div className="space-y-5">
       <PageHeader title="Головна SA" subtitle="Повний контроль системи" />
-
+      <SuperAdminTabs />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link to="/super-admin/users" className="block">
