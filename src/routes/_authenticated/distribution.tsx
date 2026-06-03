@@ -327,7 +327,7 @@ function BranchFreeList() {
               );
             })}
           </ul>
-        </SectionCard>
+        </section>
       )}
 
       <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
