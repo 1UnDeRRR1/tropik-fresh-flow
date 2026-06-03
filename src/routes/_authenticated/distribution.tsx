@@ -295,7 +295,7 @@ function BranchFreeList() {
       {!rows.length ? (
         <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
       ) : (
-        <SectionCard>
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <ul className="divide-y divide-border">
             {rows.map((r) => {
               const country = r.country ?? "";
