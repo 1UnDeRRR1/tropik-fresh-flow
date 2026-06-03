@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/lib/auth";
+import { SuperAdminTabs } from "./-super-admin-tabs";
 
 export const Route = createFileRoute("/_authenticated/super-admin/logs")({
   component: SystemLogsPage,
@@ -41,6 +43,10 @@ interface LogRow {
 function SystemLogsPage() {
   const qc = useQueryClient();
   const [level, setLevel] = useState<Level>("all");
+  const { hasRole, loading } = useAuth();
+
+  if (loading) return null;
+  if (!hasRole("super_admin")) return <Navigate to="/" />;
 
   const { data, isLoading } = useQuery({
     queryKey: ["sa", "logs", level],
@@ -78,6 +84,7 @@ function SystemLogsPage() {
 
   return (
     <div className="space-y-4">
+      <SuperAdminTabs />
       <PageHeader
         title="Системні логи"
         subtitle="Помилки, попередження та збої — лише для Супер-адміна"
