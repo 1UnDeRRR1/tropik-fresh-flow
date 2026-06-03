@@ -231,7 +231,7 @@ function BranchCalendarPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Календар" subtitle="Активний товар вашої філії за датами прибуття" />
+      <PageHeader title="Календар" />
 
       <div className="rounded-xl border border-border bg-card p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">

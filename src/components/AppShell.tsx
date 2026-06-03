@@ -7,7 +7,7 @@ import { FxRateBadge } from "@/components/FxRateBadge";
 import { getOwnerBannerAssets, getPersonalAssets } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { tapVibrate } from "@/lib/nav-feedback";
 
@@ -414,6 +414,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
 
+  // Branch / non-owner users with a personal header banner: pin the banner
+  // to the top of the viewport on mobile (fixed) so the picture cannot drift
+  // when the page scrolls or iOS rubber-bands. Desktop keeps `sticky top-0`
+  // so the wider nav layout behaves as before. Main content compensates with
+  // padding-top based on the mobile image aspect ratio so content lands just
+  // below the banner instead of disappearing underneath it.
+  const hasPersonalHeaderBanner =
+    !isOwner &&
+    !!personalAssets?.headerDesktopWebp &&
+    !!personalAssets?.headerMobileWidth &&
+    !!personalAssets?.headerMobileHeight;
+  const pinPersonalHeader = (isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
+  const personalHeaderMobilePadVw = hasPersonalHeaderBanner
+    ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
+    : null;
+
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
@@ -423,7 +439,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           // Owner mobile: hard-pin to viewport top so the status-bar safe area
           // is always covered by the banner. Desktop falls back to sticky so
           // the wider nav layout behaves as before.
-          isOwner && ownerMobileBanner
+          // Branch personal header: same fixed-on-mobile / sticky-on-desktop
+          // shape so the personal picture never drifts during scroll.
+          pinPersonalHeader
             ? "fixed inset-x-0 top-0 md:sticky md:top-0"
             : "sticky top-0",
         )}
@@ -607,10 +625,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           // Desktop reverts to normal padding.
           isOwner && ownerMobileBanner
             ? "pt-[calc(env(safe-area-inset-top)+12rem+0.5rem)] md:pt-3"
-            : isOwner
-              ? "pt-3"
-              : "pt-4",
+            : hasPersonalHeaderBanner
+              // Branch fixed personal banner: derive mobile padding from the
+              // image aspect ratio (CSS var set inline). md:pt-3 overrides on
+              // desktop where the header reverts to sticky and reserves space.
+              ? "pt-[calc(env(safe-area-inset-top)+var(--ph-mobile-pad,0px)+0.5rem)] md:pt-3"
+              : isOwner
+                ? "pt-3"
+                : "pt-4",
         )}
+        style={
+          hasPersonalHeaderBanner && personalHeaderMobilePadVw != null
+            ? ({ ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` } as CSSProperties)
+            : undefined
+        }
       >
         {children}
       </main>
