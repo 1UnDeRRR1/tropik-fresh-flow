@@ -355,14 +355,14 @@ export function CalendarPage() {
                     const rawCountry = e.it.origin_country || "";
                     const countryFull = rawCountry ? toUaCountry(rawCountry) : "";
                     const countryShortRaw = rawCountry ? toShortUaCountry(rawCountry) : "";
-                    const caliber = e.it.caliber ?? "";
-                    const fullLeftLen = e.it.product_name.length + countryFull.length + caliber.length;
+                    const variety = (e.it.variety ?? "").trim();
+                    const fullLeftLen = e.it.product_name.length + countryFull.length + variety.length;
                     const useShortCountry =
                       fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
                     const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
                     const tailParts: string[] = [];
                     if (country) tailParts.push(country);
-                    if (caliber) tailParts.push(caliber);
+                    if (variety) tailParts.push(variety);
                     const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
                     const rawMgr = isStaffAll ? (mgrMap.get(e.sh.import_manager_id ?? "") ?? "") : "";
                     const metaApproxLen =
