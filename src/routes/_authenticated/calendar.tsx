@@ -477,7 +477,7 @@ export function CalendarPage() {
                       <div className="flex items-center justify-between">
                         <span>Закупка</span>
                         <span className="font-bold tabular-nums text-foreground">
-                          {curPrefix}{Number(it.unit_price).toFixed(2)}/{it.unit ?? "кг"}
+                          {curPrefix}{Number(it.unit_price).toFixed(2)}/кг
                         </span>
                       </div>
                     ) : null}
