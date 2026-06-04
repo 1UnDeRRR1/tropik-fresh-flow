@@ -110,7 +110,7 @@ export function CalendarPage() {
       let sq = supabase
         .from("shipments")
         .select(
-          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count,pallet_weight,caliber,final_cost_indicative,final_cost_invoice)",
+          "id,code,country,eta,arrived_at,import_manager_id, shipment_items(id,product_name,origin_country,unit_price,price_currency,pallet_count,pallet_weight,caliber,variety,brand,class,package_used,sku,indicative_price,invoice_price,final_cost_indicative,final_cost_invoice)",
         );
       if (!isStaffAll && managerId) sq = sq.eq("import_manager_id", managerId);
       const [shRes, mgrRes, brRes, distRes] = await Promise.all([
