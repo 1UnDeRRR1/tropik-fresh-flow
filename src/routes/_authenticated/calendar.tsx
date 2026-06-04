@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { SectionCard, EmptyState } from "@/components/cards";
+import { EmptyState } from "@/components/cards";
 import { useAuth } from "@/lib/auth";
 
 import { StaffOnly } from "@/components/StaffOnly";
@@ -14,6 +14,13 @@ import { useReadOnly } from "@/components/ReadOnlyShell";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+
+const shortenManagerName = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: () => <StaffOnly><CalendarPage /></StaffOnly>,
