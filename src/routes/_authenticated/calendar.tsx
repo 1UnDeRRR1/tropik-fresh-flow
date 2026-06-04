@@ -410,16 +410,29 @@ export function CalendarPage() {
       <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-base">
+            <DialogTitle className="text-base text-center pr-6">
               {openItem?.it.product_name}
-              {openItem?.it.caliber ? <span className="text-muted-foreground"> ·{openItem.it.caliber}</span> : null}
-              <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                {openItem?.sh.code} · {openItem?.it.origin_country ?? ""}
-                {openItem ? (() => {
-                  const mn = mgrMap.get(openItem.sh.import_manager_id ?? "");
-                  return mn ? <> · {surname(mn)}</> : null;
-                })() : null}
-              </div>
+              {openItem?.it.origin_country ? (
+                <span> ({toUaCountry(openItem.it.origin_country)})</span>
+              ) : null}
+              {openItem ? (() => {
+                const it = openItem.it;
+                const mn = mgrMap.get(openItem.sh.import_manager_id ?? "");
+                const details: string[] = [];
+                if (openItem.sh.code) details.push(openItem.sh.code);
+                if (mn) details.push(surname(mn));
+                if (it.variety) details.push(`Сорт: ${it.variety}`);
+                if (it.caliber) details.push(`Калібр: ${it.caliber}`);
+                if (it.brand) details.push(`Бренд: ${it.brand}`);
+                if (it.class) details.push(`Клас: ${it.class}`);
+                if (it.package_used) details.push(`Упаковка: ${it.package_used}`);
+                if (it.sku) details.push(`SKU: ${it.sku}`);
+                return details.length ? (
+                  <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                    {details.join(" · ")}
+                  </div>
+                ) : null;
+              })() : null}
             </DialogTitle>
           </DialogHeader>
           {openItem ? (() => {
@@ -433,6 +446,12 @@ export function CalendarPage() {
               : [];
             const distributed = rows.reduce((a, b) => a + b.pallets, 0);
             const remaining = total - distributed;
+            const it = openItem.it;
+            const cur = it.price_currency ?? "$";
+            const curPrefix = cur === "USD" ? "$" : cur === "EUR" ? "€" : cur + " ";
+            const showPurchase = isStaffAll && Number(it.unit_price ?? 0) > 0;
+            const showInd = isStaffAll && it.final_cost_indicative != null;
+            const showInv = isStaffAll && it.final_cost_invoice != null;
             return (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-2 text-center">
@@ -451,6 +470,25 @@ export function CalendarPage() {
                     </div>
                   </div>
                 </div>
+
+                {(showPurchase || showInd || showInv) ? (
+                  <div className="space-y-0.5 text-[11px] text-muted-foreground">
+                    {showPurchase ? (
+                      <div className="flex items-center justify-between">
+                        <span>Закупка</span>
+                        <span className="font-bold tabular-nums text-foreground">
+                          {curPrefix}{Number(it.unit_price).toFixed(2)}/{it.unit ?? "кг"}
+                        </span>
+                      </div>
+                    ) : null}
+                    {(showInd || showInv) ? (
+                      <div className="flex items-center justify-between">
+                        <span>Собівартість (інд. / інв.)</span>
+                        <CostPair indicative={it.final_cost_indicative} invoice={it.final_cost_invoice} suffix=" кг" size="xs" />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {rows.length ? (
                   <ul className="divide-y divide-border rounded-xl border border-border">
