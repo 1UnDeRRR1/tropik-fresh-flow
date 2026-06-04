@@ -95,6 +95,8 @@ export function CalendarPage() {
   const [managerFilter, setManagerFilter] = useState<string>(ALL);
   const [branchFilter, setBranchFilter] = useState<string>(ALL);
   const [openItem, setOpenItem] = useState<{ sh: ShipmentRow; it: ShipmentItem } | null>(null);
+  const navigate = useNavigate();
+  const tapStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
