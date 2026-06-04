@@ -331,19 +331,36 @@ export function CalendarPage() {
         <div className="space-y-3">
           {grouped.map((d) => {
             const totalPallets = d.entries.reduce((s, e) => s + getVisiblePallets(e), 0);
+            const headerTitle = `${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`;
             return (
-              <SectionCard
-                key={d.iso}
-                title={`${WEEKDAYS_UK[d.date.getDay()]} · ${d.date.getDate()} ${MONTHS_UK[d.date.getMonth()]}`}
-                action={
-                  hasAnyFilter ? (
+              <section key={d.iso} className="rounded-2xl border border-border bg-card p-4 shadow-card">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
+                    {headerTitle}
+                  </h2>
+                  {hasAnyFilter ? (
                     <span className="text-sm font-bold tabular-nums text-brand">{totalPallets}п</span>
-                  ) : null
-                }
-              >
+                  ) : null}
+                </div>
                 <ul className="divide-y divide-border">
                   {d.entries.map((e) => {
-                    const mgrName = mgrMap.get(e.sh.import_manager_id ?? "");
+                    const pallets = getVisiblePallets(e);
+                    const rawCountry = e.it.origin_country || "";
+                    const countryFull = rawCountry ? toUaCountry(rawCountry) : "";
+                    const countryShortRaw = rawCountry ? toShortUaCountry(rawCountry) : "";
+                    const caliber = e.it.caliber ?? "";
+                    const fullLeftLen = e.it.product_name.length + countryFull.length + caliber.length;
+                    const useShortCountry =
+                      fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
+                    const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
+                    const tailParts: string[] = [];
+                    if (country) tailParts.push(country);
+                    if (caliber) tailParts.push(caliber);
+                    const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
+                    const rawMgr = isStaffAll ? (mgrMap.get(e.sh.import_manager_id ?? "") ?? "") : "";
+                    const metaApproxLen =
+                      (e.sh.code ? e.sh.code.length : 0) + (rawMgr ? 3 + rawMgr.length : 0);
+                    const mgr = rawMgr && metaApproxLen > 34 ? shortenManagerName(rawMgr) : rawMgr;
                     return (
                       <li key={e.key}>
                         <button
@@ -351,32 +368,32 @@ export function CalendarPage() {
                           onClick={() => setOpenItem({ sh: e.sh, it: e.it })}
                           className="w-full py-2 text-left text-sm active:opacity-70"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-bold text-foreground">
-                              {e.it.product_name}
-                              {e.it.origin_country ? (
-                                <span> · {e.it.origin_country}</span>
-                              ) : null}
-                              {" · "}
-                              <span className="tabular-nums text-brand">{getVisiblePallets(e)}п</span>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                              <span className="font-bold">{e.it.product_name}</span>
+                              {tail ? <span>{tail}</span> : null}
                             </div>
-                            <CostPair indicative={e.it.final_cost_indicative} invoice={e.it.final_cost_invoice} suffix=" кг" size="xs" />
+                            <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{pallets}п</span>
                           </div>
-                          <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
-                            <span className="font-mono">{e.sh.code}</span>
-                            {isStaffAll && mgrName ? (
-                              <span>
-                                {" · "}
-                                <span>{surname(mgrName)}</span>
-                              </span>
-                            ) : null}
+                          <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                            <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                              {e.sh.code ? (
+                                <span className="font-mono text-foreground/80">{e.sh.code}</span>
+                              ) : null}
+                              {mgr ? (
+                                <span className="text-foreground/80">{e.sh.code ? " · " : ""}{surname(mgr)}</span>
+                              ) : null}
+                            </div>
+                            <span className="shrink-0">
+                              <CostPair indicative={e.it.final_cost_indicative} invoice={e.it.final_cost_invoice} suffix=" кг" size="xs" />
+                            </span>
                           </div>
                         </button>
                       </li>
                     );
                   })}
                 </ul>
-              </SectionCard>
+              </section>
             );
           })}
         </div>
