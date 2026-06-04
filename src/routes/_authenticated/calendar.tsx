@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -95,6 +95,8 @@ export function CalendarPage() {
   const [managerFilter, setManagerFilter] = useState<string>(ALL);
   const [branchFilter, setBranchFilter] = useState<string>(ALL);
   const [openItem, setOpenItem] = useState<{ sh: ShipmentRow; it: ShipmentItem } | null>(null);
+  const navigate = useNavigate();
+  const tapStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -452,8 +454,32 @@ export function CalendarPage() {
             const showPurchase = isStaffAll && Number(it.unit_price ?? 0) > 0;
             const showInd = isStaffAll && it.final_cost_indicative != null;
             const showInv = isStaffAll && it.final_cost_invoice != null;
+            const canDistribute = isStaffAll && !isReadOnly;
+            const onBodyPointerDown = (e: React.PointerEvent) => {
+              tapStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+            };
+            const onBodyClick = (e: React.MouseEvent) => {
+              if (!canDistribute) return;
+              const start = tapStartRef.current;
+              tapStartRef.current = null;
+              if (start) {
+                const dx = Math.abs(e.clientX - start.x);
+                const dy = Math.abs(e.clientY - start.y);
+                if (dx > 8 || dy > 8) return;
+              }
+              const target = e.target as HTMLElement | null;
+              if (target && target.closest("a,button,[role='button'],input,select,textarea,[data-no-nav]")) return;
+              const shipmentId = openItem?.sh.id;
+              if (!shipmentId) return;
+              setOpenItem(null);
+              navigate({ to: "/distribution/$shipmentId", params: { shipmentId } });
+            };
             return (
-              <div className="space-y-3">
+              <div
+                className="space-y-3"
+                onPointerDown={canDistribute ? onBodyPointerDown : undefined}
+                onClick={canDistribute ? onBodyClick : undefined}
+              >
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-secondary px-2 py-1.5">
                     <div className="text-[10px] text-muted-foreground">Всього</div>
