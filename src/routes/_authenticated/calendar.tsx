@@ -39,6 +39,13 @@ type ShipmentItem = {
   pallet_count: number | null;
   pallet_weight: number | null;
   caliber: string | null;
+  variety: string | null;
+  brand: string | null;
+  class: string | null;
+  package_used: string | null;
+  sku: string | null;
+  indicative_price: number | null;
+  invoice_price: number | null;
   final_cost_indicative: number | null;
   final_cost_invoice: number | null;
 };
