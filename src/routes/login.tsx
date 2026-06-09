@@ -43,7 +43,11 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Single source of truth for post-login destination.
-  if (user && ready) return <Navigate to={target} />;
+  if (user && ready) {
+    const pending = consumePendingShareRedirect();
+    if (pending) return <Navigate to={pending} />;
+    return <Navigate to={target} />;
+  }
   if (loading || (user && !dataLoaded)) {
     return (
       <div className="flex min-h-dvh items-center justify-center px-4 py-10" />
