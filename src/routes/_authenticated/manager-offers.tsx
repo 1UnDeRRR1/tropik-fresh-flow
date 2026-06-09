@@ -1224,6 +1224,11 @@ function ManagerOffersPage() {
                             const excluded = !inScope(r.branch_id);
                             const cancelledSupply = o.status === "deleted";
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
+                            const confirmed =
+                              !excluded &&
+                              !rejected &&
+                              r.approved_pallets != null &&
+                              r.approved_pallets > 0;
                             return (
                               <tr
                                 key={r.id}
@@ -1258,7 +1263,11 @@ function ManagerOffersPage() {
                                       ref={(el) => {
                                         approvedInputRefs.current[r.id] = el;
                                       }}
-                                      className="h-8 w-20"
+                                      className={cn(
+                                        "h-8 w-20",
+                                        confirmed &&
+                                          "border-success bg-success/10 text-success font-semibold",
+                                      )}
                                       type="number"
                                       min={0}
                                       disabled={excluded || rejected}
