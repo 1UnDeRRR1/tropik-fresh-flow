@@ -1224,6 +1224,11 @@ function ManagerOffersPage() {
                             const excluded = !inScope(r.branch_id);
                             const cancelledSupply = o.status === "deleted";
                             const rejected = !cancelledSupply && r.approved_pallets === 0;
+                            const confirmed =
+                              !excluded &&
+                              !rejected &&
+                              r.approved_pallets != null &&
+                              r.approved_pallets > 0;
                             return (
                               <tr
                                 key={r.id}
@@ -1258,7 +1263,11 @@ function ManagerOffersPage() {
                                       ref={(el) => {
                                         approvedInputRefs.current[r.id] = el;
                                       }}
-                                      className="h-8 w-20"
+                                      className={cn(
+                                        "h-8 w-20",
+                                        confirmed &&
+                                          "border-success bg-success/10 text-success font-semibold",
+                                      )}
                                       type="number"
                                       min={0}
                                       disabled={excluded || rejected}
@@ -1917,9 +1926,44 @@ function OfferEditor({
             {!offer && canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin }) && (
               <Button
                 variant="outline"
-                onClick={() =>
-                  publish.mutate({ mode: "all", branchIds: [], shareLink: true })
-                }
+                onClick={() => {
+                  // Prime the clipboard inside the user-gesture tick so mobile
+                  // Safari accepts the write that resolves later (after the
+                  // network round-trip creates the offer + share token).
+                  let resolveUrl: (s: string) => void = () => {};
+                  let rejectUrl: (e: unknown) => void = () => {};
+                  const urlPromise = new Promise<string>((res, rej) => {
+                    resolveUrl = res;
+                    rejectUrl = rej;
+                  });
+                  // Some browsers (e.g. Firefox) don't support ClipboardItem
+                  // with a promise. The mutation's writeText fallback still
+                  // runs after the offer is created.
+                  try {
+                    const CI = (window as unknown as { ClipboardItem?: typeof ClipboardItem })
+                      .ClipboardItem;
+                    if (CI && navigator.clipboard?.write) {
+                      const item = new CI({
+                        "text/plain": urlPromise.then(
+                          (t) => new Blob([t], { type: "text/plain" }),
+                        ),
+                      });
+                      navigator.clipboard.write([item]).catch(() => {});
+                    }
+                  } catch {
+                    /* fallback handled by mutation's writeText */
+                  }
+                  publish.mutate(
+                    { mode: "all", branchIds: [], shareLink: true },
+                    {
+                      onSuccess: (data) => {
+                        if (data?.shareUrl) resolveUrl(data.shareUrl);
+                        else rejectUrl(new Error("no-url"));
+                      },
+                      onError: (e) => rejectUrl(e),
+                    },
+                  );
+                }}
                 disabled={publish.isPending || !canPublish}
                 title="Створити пропозицію та одразу скопіювати посилання для Telegram"
               >

@@ -295,17 +295,16 @@
 
 /* Fruit emoji nav — stable color emoji, gentle tap feedback */
 .fruit-emoji {
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", emoji;
   font-style: normal;
   -webkit-font-smoothing: antialiased;
-  transform-origin: 50% 80%;
+  transform-origin: 50% 50%;
   transition: transform 180ms cubic-bezier(.34,1.56,.64,1), filter 180ms ease;
   will-change: transform;
 }
 
 .fruit-tap:active .fruit-emoji {
-  transform: scale(1.18);
-  filter: saturate(1.25) brightness(1.05);
+  transform: scale(1.08);
+  filter: saturate(1.2) brightness(1.04);
 }
 
 .fruit-active .fruit-emoji {
