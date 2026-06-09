@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as OTokenRouteImport } from './routes/o.$token'
 import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated/transfers'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedSuperAdminRouteImport } from './routes/_authenticated/super-admin'
@@ -81,6 +82,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const OTokenRoute = OTokenRouteImport.update({
+  id: '/o/$token',
+  path: '/o/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTransfersRoute = AuthenticatedTransfersRouteImport.update({
   id: '/transfers',
@@ -418,6 +424,7 @@ export interface FileRoutesByFullPath {
   '/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
+  '/o/$token': typeof OTokenRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
   '/admin/countries-master': typeof AuthenticatedAdminCountriesMasterRoute
@@ -473,6 +480,7 @@ export interface FileRoutesByTo {
   '/statistics': typeof AuthenticatedStatisticsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
+  '/o/$token': typeof OTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
@@ -534,6 +542,7 @@ export interface FileRoutesById {
   '/_authenticated/super-admin': typeof AuthenticatedSuperAdminRouteWithChildren
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
+  '/o/$token': typeof OTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/countries': typeof AuthenticatedAdminCountriesRoute
@@ -596,6 +605,7 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/suppliers'
     | '/transfers'
+    | '/o/$token'
     | '/admin/branches'
     | '/admin/countries'
     | '/admin/countries-master'
@@ -651,6 +661,7 @@ export interface FileRouteTypes {
     | '/statistics'
     | '/suppliers'
     | '/transfers'
+    | '/o/$token'
     | '/'
     | '/admin/branches'
     | '/admin/countries'
@@ -711,6 +722,7 @@ export interface FileRouteTypes {
     | '/_authenticated/super-admin'
     | '/_authenticated/suppliers'
     | '/_authenticated/transfers'
+    | '/o/$token'
     | '/_authenticated/'
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/countries'
@@ -752,6 +764,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  OTokenRoute: typeof OTokenRoute
   ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
   ApiPublicHooksShipmentsLifecycleRoute: typeof ApiPublicHooksShipmentsLifecycleRoute
 }
@@ -778,6 +791,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/o/$token': {
+      id: '/o/$token'
+      path: '/o/$token'
+      fullPath: '/o/$token'
+      preLoaderRoute: typeof OTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/transfers': {
       id: '/_authenticated/transfers'
@@ -1360,6 +1380,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  OTokenRoute: OTokenRoute,
   ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
   ApiPublicHooksShipmentsLifecycleRoute: ApiPublicHooksShipmentsLifecycleRoute,
 }
