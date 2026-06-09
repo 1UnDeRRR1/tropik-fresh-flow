@@ -3003,28 +3003,6 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const copyTelegram = useMutation({
-    mutationFn: async () => {
-      const token = await ensureToken();
-      const url = buildShareUrl(token);
-      const text = buildTelegramShareText({
-        url,
-        productName: offer.product_name,
-        originCountry: offer.origin_country,
-      });
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        /* ignore */
-      }
-      return text;
-    },
-    onSuccess: () => {
-      toast.success(`Текст для Telegram скопійовано: ${offer.product_name}`);
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const revoke = useMutation({
     mutationFn: async () => {
