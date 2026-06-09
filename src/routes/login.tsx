@@ -35,7 +35,8 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { user, loading, dataLoaded } = useAuth();
   const { ready, target } = usePostLoginTarget();
-  const navigate = useNavigate();
+  // Post-login navigation is handled entirely by the render-time <Navigate>
+  // branch below (which respects pending /o/<token> share redirects).
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
