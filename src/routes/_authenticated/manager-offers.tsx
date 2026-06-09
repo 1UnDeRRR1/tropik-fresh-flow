@@ -227,6 +227,7 @@ function ManagerOffersPage() {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
   const qc = useQueryClient();
+  const search = Route.useSearch();
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
