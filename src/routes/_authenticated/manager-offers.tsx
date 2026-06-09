@@ -1255,6 +1255,9 @@ function ManagerOffersPage() {
                                   <div className="flex items-center gap-1">
                                     <Input
                                       key={`${r.id}-${r.approved_pallets ?? "null"}`}
+                                      ref={(el) => {
+                                        approvedInputRefs.current[r.id] = el;
+                                      }}
                                       className="h-8 w-20"
                                       type="number"
                                       min={0}
@@ -1268,15 +1271,35 @@ function ManagerOffersPage() {
                                       }}
                                     />
                                     {!rejected && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                        disabled={excluded || updateApproved.isPending}
-                                        onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
-                                      >
-                                        Відмовити
-                                      </Button>
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-[11px] text-success hover:text-success"
+                                          disabled={excluded || updateApproved.isPending}
+                                          onClick={() => {
+                                            const el = approvedInputRefs.current[r.id];
+                                            const raw = el?.value ?? "";
+                                            const v = raw === "" ? null : Number(raw);
+                                            if (v == null || Number.isNaN(v) || v <= 0) {
+                                              toast.error("Вкажіть кількість палет більше 0");
+                                              return;
+                                            }
+                                            updateApproved.mutate({ id: r.id, approved: v });
+                                          }}
+                                        >
+                                          Підтвердити
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
+                                          disabled={excluded || updateApproved.isPending}
+                                          onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
+                                        >
+                                          Відмовити
+                                        </Button>
+                                      </>
                                     )}
                                   </div>
                                 </td>
