@@ -1217,7 +1217,7 @@ function ManagerOffersPage() {
                       Закрити
                     </Button>
                   )}
-                  {!["closed", "expired", "linked", "deleted"].includes(o.status) && (
+                  {o.status !== "deleted" && (
                     <ShareLinkButtons offer={o} />
                   )}
                   <Button
