@@ -1907,13 +1907,26 @@ function OfferEditor({
             </div>
           )}
 
-          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:flex-wrap">
             <Button
               onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
               disabled={publish.isPending || !canPublish}
             >
               Відправити всім{!offer && items.length > 1 ? ` (${items.length})` : ""}
             </Button>
+            {!offer && canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin }) && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  publish.mutate({ mode: "all", branchIds: [], shareLink: true })
+                }
+                disabled={publish.isPending || !canPublish}
+                title="Створити пропозицію та одразу скопіювати посилання для Telegram"
+              >
+                <LinkIcon className="mr-1 h-3.5 w-3.5" />
+                Створити посилання
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setSelectiveOpen(true)}
@@ -1925,6 +1938,7 @@ function OfferEditor({
               Скасувати
             </Button>
           </div>
+
 
         </div>
       </SheetContent>
