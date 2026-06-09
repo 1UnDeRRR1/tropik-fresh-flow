@@ -115,6 +115,7 @@ function BranchOffersPage() {
   const { profile } = useAuth();
   const branchId = profile?.branch_id ?? null;
   const qc = useQueryClient();
+  const search = Route.useSearch();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [fProduct, setFProduct] = useState<string>(ALL);
   const [fCountry, setFCountry] = useState<string>(ALL);
@@ -122,6 +123,16 @@ function BranchOffersPage() {
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
+
+  // Deep-link from /o/<token>: auto-open the targeted offer once on mount.
+  // RLS has already filtered out offers this branch cannot see, so an unknown
+  // id simply has no matching row and the dialog stays closed.
+  useEffect(() => {
+    if (search.openOffer && selectedOfferId !== search.openOffer) {
+      setSelectedOfferId(search.openOffer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.openOffer]);
 
 
 
