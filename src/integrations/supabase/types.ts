@@ -100,6 +100,7 @@ export type Database = {
           branch_id: string
           created_at: string
           decision_notes: string | null
+          from_offer_id: string | null
           id: string
           notes: string | null
           pallets: number | null
@@ -119,6 +120,7 @@ export type Database = {
           branch_id: string
           created_at?: string
           decision_notes?: string | null
+          from_offer_id?: string | null
           id?: string
           notes?: string | null
           pallets?: number | null
@@ -138,6 +140,7 @@ export type Database = {
           branch_id?: string
           created_at?: string
           decision_notes?: string | null
+          from_offer_id?: string | null
           id?: string
           notes?: string | null
           pallets?: number | null
@@ -152,7 +155,15 @@ export type Database = {
           to_branch_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "branch_requests_from_offer_id_fkey"
+            columns: ["from_offer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_offers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       branch_transfer_offers: {
         Row: {
@@ -1059,6 +1070,7 @@ export type Database = {
           price_currency: string
           price_per_kg: number | null
           product_name: string
+          share_token: string | null
           specification: string | null
           status: Database["public"]["Enums"]["manager_offer_status"]
           target_mode: Database["public"]["Enums"]["manager_offer_target_mode"]
@@ -1096,6 +1108,7 @@ export type Database = {
           price_currency?: string
           price_per_kg?: number | null
           product_name: string
+          share_token?: string | null
           specification?: string | null
           status?: Database["public"]["Enums"]["manager_offer_status"]
           target_mode?: Database["public"]["Enums"]["manager_offer_target_mode"]
@@ -1133,6 +1146,7 @@ export type Database = {
           price_currency?: string
           price_per_kg?: number | null
           product_name?: string
+          share_token?: string | null
           specification?: string | null
           status?: Database["public"]["Enums"]["manager_offer_status"]
           target_mode?: Database["public"]["Enums"]["manager_offer_target_mode"]
@@ -3146,6 +3160,7 @@ export type Database = {
           price_currency: string
           price_per_kg: number | null
           product_name: string
+          share_token: string | null
           specification: string | null
           status: Database["public"]["Enums"]["manager_offer_status"]
           target_mode: Database["public"]["Enums"]["manager_offer_target_mode"]

@@ -4,6 +4,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, usePostLoginTarget } from "@/lib/auth";
 import { getPersonalAssets } from "@/lib/branch-assets";
 import { getLastUserId } from "@/lib/last-user";
+import { PENDING_SHARE_REDIRECT_KEY } from "@/lib/share-link";
+
+// Consume a pending /o/<token> redirect saved before the login bounce.
+// Only forwards to whitelisted in-app paths to prevent open-redirect abuse.
+function consumePendingShareRedirect(): string | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_SHARE_REDIRECT_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(PENDING_SHARE_REDIRECT_KEY);
+    if (raw.startsWith("/o/") && !raw.includes("//") && raw.length < 200) {
+      return raw;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +43,11 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Single source of truth for post-login destination.
-  if (user && ready) return <Navigate to={target} />;
+  if (user && ready) {
+    const pending = consumePendingShareRedirect();
+    if (pending) return <Navigate to={pending} />;
+    return <Navigate to={target} />;
+  }
   if (loading || (user && !dataLoaded)) {
     return (
       <div className="flex min-h-dvh items-center justify-center px-4 py-10" />

@@ -42,6 +42,12 @@ import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/lib/customs-status";
 import { attachOfferToPosition, rollbackBirthPosition } from "@/lib/position-attach";
+import {
+  buildShareUrl,
+  canUseShareLinkPilot,
+  generateShareToken,
+} from "@/lib/share-link";
+import { Link as LinkIcon, Link2Off } from "lucide-react";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -198,6 +204,9 @@ function ValidatedAutocomplete({
 }
 
 export const Route = createFileRoute("/_authenticated/manager-offers")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    openOffer: typeof s.openOffer === "string" ? s.openOffer : undefined,
+  }),
   component: ManagerOffersPage,
 });
 
@@ -218,6 +227,7 @@ function ManagerOffersPage() {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
   const qc = useQueryClient();
+  const search = Route.useSearch();
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
@@ -305,6 +315,16 @@ function ManagerOffersPage() {
       return (data ?? []) as ManagerOffer[];
     },
   });
+
+  // Deep-link from /o/<token> for staff testing: auto-focus the offer once
+  // it appears in the loaded list. No-op for branch users (handled on the
+  // branch-offers page) or for offers the current user can't see.
+  useEffect(() => {
+    if (!search.openOffer || !offers) return;
+    const match = offers.find((o) => o.id === search.openOffer);
+    if (match) focusOffer(match.id, match.status);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.openOffer, offers]);
 
   const offerIds = useMemo(() => (offers ?? []).map((o) => o.id), [offers]);
 
@@ -1196,6 +1216,9 @@ function ManagerOffersPage() {
                     >
                       Закрити
                     </Button>
+                  )}
+                  {!["closed", "expired", "linked", "deleted"].includes(o.status) && (
+                    <ShareLinkButtons offer={o} />
                   )}
                   <Button
                     size="sm"
@@ -2934,5 +2957,87 @@ function CustomsInfoPopover({
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+// ── Pilot: "Створити посилання" / "Відкликати посилання" ────────────────────
+// Gated to a small allowlist (Назар Лукач + admin/super_admin) so this MVP
+// is not exposed to every import manager. The token alone does NOT grant
+// access — the existing `can_access_manager_offer` RLS continues to gate
+// who can SELECT the row when the link is opened.
+function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: string | null } }) {
+  const { user, hasRole } = useAuth();
+  const qc = useQueryClient();
+  const isAdmin = hasRole(["admin", "super_admin"]);
+  const allowed = canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin });
+
+  const createOrCopy = useMutation({
+    mutationFn: async () => {
+      let token = offer.share_token ?? null;
+      if (!token) {
+        token = generateShareToken();
+        const { error } = await supabase
+          .from("manager_offers")
+          .update({ share_token: token })
+          .eq("id", offer.id);
+        if (error) throw error;
+      }
+      const url = buildShareUrl(token);
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        /* ignore — toast still confirms */
+      }
+      return url;
+    },
+    onSuccess: () => {
+      toast.success("Посилання скопійовано");
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const revoke = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("manager_offers")
+        .update({ share_token: null })
+        .eq("id", offer.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Посилання відкликано");
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!allowed) return null;
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={createOrCopy.isPending}
+        onClick={() => createOrCopy.mutate()}
+        title={offer.share_token ? "Скопіювати наявне посилання" : "Згенерувати посилання"}
+      >
+        <LinkIcon className="mr-1 h-3.5 w-3.5" />
+        {offer.share_token ? "Скопіювати посилання" : "Створити посилання"}
+      </Button>
+      {offer.share_token && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={revoke.isPending}
+          onClick={() => revoke.mutate()}
+          title="Видалити посилання — стара URL перестане відкривати пропозицію"
+        >
+          <Link2Off className="mr-1 h-3.5 w-3.5" />
+          Відкликати
+        </Button>
+      )}
+    </>
   );
 }
