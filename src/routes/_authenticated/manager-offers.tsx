@@ -231,6 +231,10 @@ function ManagerOffersPage() {
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
+  // Per-row approved-pallets input refs for the offer detail dialog.
+  // Lets the new green "Підтвердити" button read the current input value
+  // without converting each row into a controlled component.
+  const approvedInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Targeted realtime — keep the screen fresh within ~1-2s without relying on
   // the 25s refetchInterval. Invalidates the queries used by this page.
