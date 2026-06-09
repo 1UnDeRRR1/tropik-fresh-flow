@@ -1639,9 +1639,14 @@ function OfferEditor({
     mutationFn: async ({
       mode,
       branchIds,
+      shareLink = false,
     }: {
       mode: "all" | "selected";
       branchIds: string[];
+      // Pilot only: after creating the offer(s), generate a share_token
+      // for the FIRST created offer and copy its /o/<token> URL. Ignored
+      // when editing an existing offer.
+      shareLink?: boolean;
     }) => {
       if (!user) throw new Error("Користувача не знайдено");
       if (!allValid) throw new Error("Заповніть усі товари");
@@ -1679,7 +1684,7 @@ function OfferEditor({
             .insert(branchIds.map((branch_id) => ({ offer_id: offer.id, branch_id })));
           if (targetError) throw targetError;
         }
-        return items.length;
+        return { count: items.length, shareUrl: null as string | null, shareProductName: null as string | null };
       }
 
       const createdIds: string[] = [];
@@ -1784,14 +1789,42 @@ function OfferEditor({
         }
         throw error;
       }
-      return items.length;
+
+      // Pilot: generate + copy share link for the FIRST created offer.
+      let shareUrl: string | null = null;
+      let shareProductName: string | null = null;
+      if (shareLink && createdIds.length > 0) {
+        const firstId = createdIds[0];
+        const firstPayload = items[0].payload as { product_name: string } | null;
+        const token = generateShareToken();
+        const { error: tokenError } = await supabase
+          .from("manager_offers")
+          .update({ share_token: token })
+          .eq("id", firstId);
+        if (tokenError) throw tokenError;
+        shareUrl = buildShareUrl(token);
+        shareProductName = firstPayload?.product_name ?? null;
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+        } catch {
+          /* clipboard may be blocked; toast still confirms */
+        }
+      }
+
+      return { count: items.length, shareUrl, shareProductName };
     },
-    onSuccess: (count, variables) => {
-      toast.success(
-        variables.mode === "all"
-          ? `Пропозицій відправлено всім філіям: ${count}`
-          : `Пропозицій відправлено вибраним філіям: ${count}`,
-      );
+    onSuccess: ({ count, shareUrl, shareProductName }, variables) => {
+      if (variables.shareLink && shareUrl) {
+        toast.success(
+          `Посилання скопійовано: ${shareProductName ?? "пропозиція"}`,
+        );
+      } else {
+        toast.success(
+          variables.mode === "all"
+            ? `Пропозицій відправлено всім філіям: ${count}`
+            : `Пропозицій відправлено вибраним філіям: ${count}`,
+        );
+      }
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       onSaved();
