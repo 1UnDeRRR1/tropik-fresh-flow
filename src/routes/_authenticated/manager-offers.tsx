@@ -47,7 +47,7 @@ import {
   canUseShareLinkPilot,
   generateShareToken,
 } from "@/lib/share-link";
-import { Link as LinkIcon, LinkOff } from "lucide-react";
+import { Link as LinkIcon, Link2Off } from "lucide-react";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
