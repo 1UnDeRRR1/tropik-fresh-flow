@@ -70,12 +70,18 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
   if (trimmedCountry) {
     const candidates = getCountryAliasTargets(trimmedCountry);
     const list = candidates.length > 0 ? candidates : [trimmedCountry];
+    // Case-insensitive country match: customs_reference rows are stored in
+    // UPPERCASE (e.g. "ЧИЛІ") while countries.name is mixed case ("Чилі").
+    // Using `.in()` would miss every row. Build an OR of ilike per candidate.
+    const orExpr = list
+      .map((c) => `country.ilike.${c.replace(/,/g, "")}`)
+      .join(",");
     const { data } = await supabase
       .from("customs_reference")
       .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
       .eq("active", true)
       .ilike("product_name", name)
-      .in("country", list)
+      .or(orExpr)
       .order("threshold_price_usd", { ascending: false })
       .limit(1)
       .maybeSingle();
