@@ -44,10 +44,11 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/
 import { attachOfferToPosition, rollbackBirthPosition } from "@/lib/position-attach";
 import {
   buildShareUrl,
+  buildTelegramShareText,
   canUseShareLinkPilot,
   generateShareToken,
 } from "@/lib/share-link";
-import { Link as LinkIcon, Link2Off } from "lucide-react";
+import { Link as LinkIcon, Link2Off, Send } from "lucide-react";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
