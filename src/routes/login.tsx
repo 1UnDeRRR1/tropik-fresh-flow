@@ -81,7 +81,11 @@ function LoginPage() {
         });
         if (error) throw error;
       }
-      navigate({ to: "/" });
+      // Do NOT navigate("/") here — the render-time <Navigate> branch
+      // above consumes any pending /o/<token> share redirect first, then
+      // falls back to the role-specific post-login target. Forcing "/"
+      // here would race the auth listener and drop /o/<token> deep-links
+      // back to branch home.
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Помилка входу";
       toast.error(msg);
