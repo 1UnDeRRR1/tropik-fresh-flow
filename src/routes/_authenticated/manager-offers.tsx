@@ -42,6 +42,12 @@ import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/lib/customs-status";
 import { attachOfferToPosition, rollbackBirthPosition } from "@/lib/position-attach";
+import {
+  buildShareUrl,
+  canUseShareLinkPilot,
+  generateShareToken,
+} from "@/lib/share-link";
+import { Link as LinkIcon, LinkOff } from "lucide-react";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
