@@ -1078,40 +1078,6 @@ function ManagerOffersPage() {
                       запит: {totalRequested}
                     </span>
                   </div>
-                  {totalApproved > 0 && (
-                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm space-y-1">
-                      <div>
-                        замовлення: <b>{totalApproved}п</b>
-                      </div>
-                      {totalLinked > 0 && (
-                        <div>
-                          завантажено: <b>{totalLinked}п</b>
-                          {ship && (
-                            <>
-                              {" ("}
-                              <Link
-                                to="/shipments"
-                                className="font-semibold text-primary underline-offset-2 hover:underline"
-                                onClick={() => setDetailOfferId(null)}
-                              >
-                                {ship.code}
-                              </Link>
-                              {")"}
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {pendingLinked > 0 && (
-                        <div>
-                          залишилось до завантаження:{" "}
-                          <b className="text-destructive">{pendingLinked}п</b>
-                        </div>
-                      )}
-                      {blockReason && (
-                        <div className="mt-1 text-xs text-warning">{blockReason}</div>
-                      )}
-                    </div>
-                  )}
                   {o.notes && (
                     <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
                       {o.notes}
