@@ -316,6 +316,16 @@ function ManagerOffersPage() {
     },
   });
 
+  // Deep-link from /o/<token> for staff testing: auto-focus the offer once
+  // it appears in the loaded list. No-op for branch users (handled on the
+  // branch-offers page) or for offers the current user can't see.
+  useEffect(() => {
+    if (!search.openOffer || !offers) return;
+    const match = offers.find((o) => o.id === search.openOffer);
+    if (match) focusOffer(match.id, match.status);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.openOffer, offers]);
+
   const offerIds = useMemo(() => (offers ?? []).map((o) => o.id), [offers]);
 
   const { data: responses } = useQuery({
