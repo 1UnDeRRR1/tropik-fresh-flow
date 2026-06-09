@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, usePostLoginTarget } from "@/lib/auth";
@@ -35,7 +35,8 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { user, loading, dataLoaded } = useAuth();
   const { ready, target } = usePostLoginTarget();
-  const navigate = useNavigate();
+  // Post-login navigation is handled entirely by the render-time <Navigate>
+  // branch below (which respects pending /o/<token> share redirects).
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,7 +82,11 @@ function LoginPage() {
         });
         if (error) throw error;
       }
-      navigate({ to: "/" });
+      // Do NOT navigate("/") here — the render-time <Navigate> branch
+      // above consumes any pending /o/<token> share redirect first, then
+      // falls back to the role-specific post-login target. Forcing "/"
+      // here would race the auth listener and drop /o/<token> deep-links
+      // back to branch home.
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Помилка входу";
       toast.error(msg);

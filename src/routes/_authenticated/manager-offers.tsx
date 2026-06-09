@@ -44,10 +44,11 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/
 import { attachOfferToPosition, rollbackBirthPosition } from "@/lib/position-attach";
 import {
   buildShareUrl,
+  buildTelegramShareText,
   canUseShareLinkPilot,
   generateShareToken,
 } from "@/lib/share-link";
-import { Link as LinkIcon, Link2Off } from "lucide-react";
+import { Link as LinkIcon, Link2Off, Send } from "lucide-react";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -2971,17 +2972,22 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
   const isAdmin = hasRole(["admin", "super_admin"]);
   const allowed = canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin });
 
+  const ensureToken = async (): Promise<string> => {
+    let token = offer.share_token ?? null;
+    if (!token) {
+      token = generateShareToken();
+      const { error } = await supabase
+        .from("manager_offers")
+        .update({ share_token: token })
+        .eq("id", offer.id);
+      if (error) throw error;
+    }
+    return token;
+  };
+
   const createOrCopy = useMutation({
     mutationFn: async () => {
-      let token = offer.share_token ?? null;
-      if (!token) {
-        token = generateShareToken();
-        const { error } = await supabase
-          .from("manager_offers")
-          .update({ share_token: token })
-          .eq("id", offer.id);
-        if (error) throw error;
-      }
+      const token = await ensureToken();
       const url = buildShareUrl(token);
       try {
         await navigator.clipboard.writeText(url);
@@ -2991,7 +2997,30 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
       return url;
     },
     onSuccess: () => {
-      toast.success("Посилання скопійовано");
+      toast.success(`Посилання скопійовано: ${offer.product_name}`);
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const copyTelegram = useMutation({
+    mutationFn: async () => {
+      const token = await ensureToken();
+      const url = buildShareUrl(token);
+      const text = buildTelegramShareText({
+        url,
+        productName: offer.product_name,
+        originCountry: offer.origin_country,
+      });
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        /* ignore */
+      }
+      return text;
+    },
+    onSuccess: () => {
+      toast.success(`Текст для Telegram скопійовано: ${offer.product_name}`);
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -3025,6 +3054,16 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
       >
         <LinkIcon className="mr-1 h-3.5 w-3.5" />
         {offer.share_token ? "Скопіювати посилання" : "Створити посилання"}
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={copyTelegram.isPending}
+        onClick={() => copyTelegram.mutate()}
+        title="Копіює готовий текст для вставки в Telegram (товар + ЗАМОВИТИ: <url>)"
+      >
+        <Send className="mr-1 h-3.5 w-3.5" />
+        Текст для Telegram
       </Button>
       {offer.share_token && (
         <Button

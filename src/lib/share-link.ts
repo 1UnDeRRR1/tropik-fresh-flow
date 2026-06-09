@@ -37,6 +37,23 @@ export function buildShareUrl(token: string): string {
   return `${window.location.origin}/o/${token}`;
 }
 
+// Plain-text message template intended for pasting into Telegram / WhatsApp.
+// Telegram mobile does not preserve rich-clipboard hyperlinks reliably, so we
+// keep it as readable two-line text: caption then raw URL (Telegram
+// auto-linkifies http(s) URLs into a tappable link).
+export function buildTelegramShareText(args: {
+  url: string;
+  productName?: string | null;
+  originCountry?: string | null;
+}): string {
+  const head = [args.productName, args.originCountry].filter(Boolean).join(" · ");
+  const lines: string[] = [];
+  if (head) lines.push(head);
+  lines.push("ЗАМОВИТИ:");
+  lines.push(args.url);
+  return lines.join("\n");
+}
+
 // sessionStorage key used to bounce an unauthenticated /o/<token> visitor
 // through /login and back to the offer link after they sign in.
 export const PENDING_SHARE_REDIRECT_KEY = "tropik.pendingShareRedirect";
