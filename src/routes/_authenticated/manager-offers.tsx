@@ -198,6 +198,9 @@ function ValidatedAutocomplete({
 }
 
 export const Route = createFileRoute("/_authenticated/manager-offers")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    openOffer: typeof s.openOffer === "string" ? s.openOffer : undefined,
+  }),
   component: ManagerOffersPage,
 });
 
