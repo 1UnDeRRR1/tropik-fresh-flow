@@ -105,6 +105,9 @@ const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString("uk-UA") : "—";
 
 export const Route = createFileRoute("/_authenticated/branch-offers")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    openOffer: typeof s.openOffer === "string" ? s.openOffer : undefined,
+  }),
   component: BranchOffersPage,
 });
 
