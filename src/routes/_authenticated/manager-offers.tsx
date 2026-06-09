@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Link2, Trash2, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -44,11 +44,10 @@ import { CUSTOMS_STRINGS, getCustomsStatusFromRef, type CustomsStatus } from "@/
 import { attachOfferToPosition, rollbackBirthPosition } from "@/lib/position-attach";
 import {
   buildShareUrl,
-  buildTelegramShareText,
   canUseShareLinkPilot,
   generateShareToken,
 } from "@/lib/share-link";
-import { Link as LinkIcon, Link2Off, Send } from "lucide-react";
+import { Link as LinkIcon, Link2Off } from "lucide-react";
 
 // Basic Ukrainian -> Latin transliteration so typing "Хі" matches "HELLENIC".
 const UA_LAT: Record<string, string> = {
@@ -232,6 +231,10 @@ function ManagerOffersPage() {
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<string>("active");
+  // Per-row approved-pallets input refs for the offer detail dialog.
+  // Lets the new green "Підтвердити" button read the current input value
+  // without converting each row into a controlled component.
+  const approvedInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Targeted realtime — keep the screen fresh within ~1-2s without relying on
   // the 25s refetchInterval. Invalidates the queries used by this page.
@@ -1079,40 +1082,6 @@ function ManagerOffersPage() {
                       запит: {totalRequested}
                     </span>
                   </div>
-                  {totalApproved > 0 && (
-                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-2 text-sm space-y-1">
-                      <div>
-                        замовлення: <b>{totalApproved}п</b>
-                      </div>
-                      {totalLinked > 0 && (
-                        <div>
-                          завантажено: <b>{totalLinked}п</b>
-                          {ship && (
-                            <>
-                              {" ("}
-                              <Link
-                                to="/shipments"
-                                className="font-semibold text-primary underline-offset-2 hover:underline"
-                                onClick={() => setDetailOfferId(null)}
-                              >
-                                {ship.code}
-                              </Link>
-                              {")"}
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {pendingLinked > 0 && (
-                        <div>
-                          залишилось до завантаження:{" "}
-                          <b className="text-destructive">{pendingLinked}п</b>
-                        </div>
-                      )}
-                      {blockReason && (
-                        <div className="mt-1 text-xs text-warning">{blockReason}</div>
-                      )}
-                    </div>
-                  )}
                   {o.notes && (
                     <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
                       {o.notes}
@@ -1286,6 +1255,9 @@ function ManagerOffersPage() {
                                   <div className="flex items-center gap-1">
                                     <Input
                                       key={`${r.id}-${r.approved_pallets ?? "null"}`}
+                                      ref={(el) => {
+                                        approvedInputRefs.current[r.id] = el;
+                                      }}
                                       className="h-8 w-20"
                                       type="number"
                                       min={0}
@@ -1299,15 +1271,35 @@ function ManagerOffersPage() {
                                       }}
                                     />
                                     {!rejected && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                        disabled={excluded || updateApproved.isPending}
-                                        onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
-                                      >
-                                        Відмовити
-                                      </Button>
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-[11px] text-success hover:text-success"
+                                          disabled={excluded || updateApproved.isPending}
+                                          onClick={() => {
+                                            const el = approvedInputRefs.current[r.id];
+                                            const raw = el?.value ?? "";
+                                            const v = raw === "" ? null : Number(raw);
+                                            if (v == null || Number.isNaN(v) || v <= 0) {
+                                              toast.error("Вкажіть кількість палет більше 0");
+                                              return;
+                                            }
+                                            updateApproved.mutate({ id: r.id, approved: v });
+                                          }}
+                                        >
+                                          Підтвердити
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
+                                          disabled={excluded || updateApproved.isPending}
+                                          onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
+                                        >
+                                          Відмовити
+                                        </Button>
+                                      </>
                                     )}
                                   </div>
                                 </td>
@@ -1647,9 +1639,14 @@ function OfferEditor({
     mutationFn: async ({
       mode,
       branchIds,
+      shareLink = false,
     }: {
       mode: "all" | "selected";
       branchIds: string[];
+      // Pilot only: after creating the offer(s), generate a share_token
+      // for the FIRST created offer and copy its /o/<token> URL. Ignored
+      // when editing an existing offer.
+      shareLink?: boolean;
     }) => {
       if (!user) throw new Error("Користувача не знайдено");
       if (!allValid) throw new Error("Заповніть усі товари");
@@ -1687,7 +1684,7 @@ function OfferEditor({
             .insert(branchIds.map((branch_id) => ({ offer_id: offer.id, branch_id })));
           if (targetError) throw targetError;
         }
-        return items.length;
+        return { count: items.length, shareUrl: null as string | null, shareProductName: null as string | null };
       }
 
       const createdIds: string[] = [];
@@ -1792,14 +1789,42 @@ function OfferEditor({
         }
         throw error;
       }
-      return items.length;
+
+      // Pilot: generate + copy share link for the FIRST created offer.
+      let shareUrl: string | null = null;
+      let shareProductName: string | null = null;
+      if (shareLink && createdIds.length > 0) {
+        const firstId = createdIds[0];
+        const firstPayload = items[0].payload as { product_name: string } | null;
+        const token = generateShareToken();
+        const { error: tokenError } = await supabase
+          .from("manager_offers")
+          .update({ share_token: token })
+          .eq("id", firstId);
+        if (tokenError) throw tokenError;
+        shareUrl = buildShareUrl(token);
+        shareProductName = firstPayload?.product_name ?? null;
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+        } catch {
+          /* clipboard may be blocked; toast still confirms */
+        }
+      }
+
+      return { count: items.length, shareUrl, shareProductName };
     },
-    onSuccess: (count, variables) => {
-      toast.success(
-        variables.mode === "all"
-          ? `Пропозицій відправлено всім філіям: ${count}`
-          : `Пропозицій відправлено вибраним філіям: ${count}`,
-      );
+    onSuccess: ({ count, shareUrl, shareProductName }, variables) => {
+      if (variables.shareLink && shareUrl) {
+        toast.success(
+          `Посилання скопійовано: ${shareProductName ?? "пропозиція"}`,
+        );
+      } else {
+        toast.success(
+          variables.mode === "all"
+            ? `Пропозицій відправлено всім філіям: ${count}`
+            : `Пропозицій відправлено вибраним філіям: ${count}`,
+        );
+      }
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       onSaved();
@@ -1882,13 +1907,26 @@ function OfferEditor({
             </div>
           )}
 
-          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:flex-wrap">
             <Button
               onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
               disabled={publish.isPending || !canPublish}
             >
               Відправити всім{!offer && items.length > 1 ? ` (${items.length})` : ""}
             </Button>
+            {!offer && canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin }) && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  publish.mutate({ mode: "all", branchIds: [], shareLink: true })
+                }
+                disabled={publish.isPending || !canPublish}
+                title="Створити пропозицію та одразу скопіювати посилання для Telegram"
+              >
+                <LinkIcon className="mr-1 h-3.5 w-3.5" />
+                Створити посилання
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setSelectiveOpen(true)}
@@ -1900,6 +1938,7 @@ function OfferEditor({
               Скасувати
             </Button>
           </div>
+
 
         </div>
       </SheetContent>
@@ -3003,28 +3042,6 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const copyTelegram = useMutation({
-    mutationFn: async () => {
-      const token = await ensureToken();
-      const url = buildShareUrl(token);
-      const text = buildTelegramShareText({
-        url,
-        productName: offer.product_name,
-        originCountry: offer.origin_country,
-      });
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        /* ignore */
-      }
-      return text;
-    },
-    onSuccess: () => {
-      toast.success(`Текст для Telegram скопійовано: ${offer.product_name}`);
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const revoke = useMutation({
     mutationFn: async () => {
@@ -3054,16 +3071,6 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
       >
         <LinkIcon className="mr-1 h-3.5 w-3.5" />
         {offer.share_token ? "Скопіювати посилання" : "Створити посилання"}
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={copyTelegram.isPending}
-        onClick={() => copyTelegram.mutate()}
-        title="Копіює готовий текст для вставки в Telegram (товар + ЗАМОВИТИ: <url>)"
-      >
-        <Send className="mr-1 h-3.5 w-3.5" />
-        Текст для Telegram
       </Button>
       {offer.share_token && (
         <Button
