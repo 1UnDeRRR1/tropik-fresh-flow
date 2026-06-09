@@ -67,17 +67,19 @@ type Props = {
   "aria-hidden"?: boolean;
 };
 
-export function FruitIcon({ name, className, ...rest }: Props) {
+export function FruitIcon({ name, className }: Props) {
   return (
     <span
-      role="img"
-      aria-label={name}
-      className={cn("fruit-emoji inline-flex items-center justify-center leading-none select-none", className)}
-      {...rest}
+      aria-hidden="true"
+      className={cn(
+        "fruit-emoji inline-flex items-center justify-center overflow-hidden leading-none select-none",
+        className,
+      )}
     >
       <img
         src={SRC[name]}
         alt=""
+        aria-hidden="true"
         draggable={false}
         className="h-full w-full object-contain"
       />
