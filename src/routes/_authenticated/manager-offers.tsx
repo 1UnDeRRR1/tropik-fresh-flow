@@ -3033,16 +3033,6 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
         <LinkIcon className="mr-1 h-3.5 w-3.5" />
         {offer.share_token ? "Скопіювати посилання" : "Створити посилання"}
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={copyTelegram.isPending}
-        onClick={() => copyTelegram.mutate()}
-        title="Копіює готовий текст для вставки в Telegram (товар + ЗАМОВИТИ: <url>)"
-      >
-        <Send className="mr-1 h-3.5 w-3.5" />
-        Текст для Telegram
-      </Button>
       {offer.share_token && (
         <Button
           size="sm"
