@@ -175,6 +175,43 @@ export function AppShell({ children }: { children: ReactNode }) {
     refetchInterval: 30000,
   });
 
+  // Correction 3 — "Про. ЗЕД" branch nav badge. Count manager offers
+  // visible to the current branch (RLS-scoped) where this branch hasn't
+  // answered yet (no response OR approved_pallets IS NULL) and offer is
+  // still active. Cache key includes branchId to avoid cross-branch leaks
+  // in the same browser session.
+  const { data: branchManagerOffersPending = 0 } = useQuery({
+    queryKey: ["nav-branch-manager-offers", branchId],
+    enabled: isBranch && !!branchId,
+    queryFn: async () => {
+      const { data: offers, error: oErr } = await supabase
+        .from("manager_offers")
+        .select("id")
+        .eq("status", "active");
+      if (oErr) throw oErr;
+      const ids = (offers ?? []).map((o: { id: string }) => o.id);
+      if (!ids.length) return 0;
+      const { data: responses, error: rErr } = await supabase
+        .from("manager_offer_responses")
+        .select("offer_id, approved_pallets")
+        .eq("branch_id", branchId!)
+        .in("offer_id", ids);
+      if (rErr) throw rErr;
+      const respMap = new Map<string, number | null>();
+      for (const r of (responses ?? []) as { offer_id: string; approved_pallets: number | null }[]) {
+        respMap.set(r.offer_id, r.approved_pallets);
+      }
+      let count = 0;
+      for (const id of ids) {
+        if (!respMap.has(id)) { count++; continue; }
+        if (respMap.get(id) == null) count++;
+      }
+      return count;
+    },
+    refetchInterval: 30000,
+  });
+
+
   const { data: pendingManagerResponses = 0 } = useQuery({
     queryKey: ["nav-pending-manager-responses", userId, isAdmin],
     enabled: (isManager || isAdmin) && !!userId,

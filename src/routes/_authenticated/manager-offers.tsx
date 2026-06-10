@@ -961,9 +961,10 @@ function ManagerOffersPage() {
               0,
             );
             const totalApproved = activeResponses.reduce(
-              (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+              (s, r) => s + (r.approved_pallets != null && Number(r.approved_pallets) > 0 ? Number(r.approved_pallets) : 0),
               0,
             );
+
             const totalLinked = activeResponses.reduce(
               (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
               0,
@@ -1297,6 +1298,13 @@ function ManagerOffersPage() {
                               !rejected &&
                               r.approved_pallets != null &&
                               r.approved_pallets > 0;
+                            // Correction 1 — lock row actions after manager answer
+                            // or once the offer leaves "Активні". Partial confirm,
+                            // full confirm, and refusal (approved=0) are all locked.
+                            const responseAnswered = r.approved_pallets != null;
+                            const offerLocked = o.status !== "active";
+                            const rowLocked =
+                              excluded || rejected || responseAnswered || offerLocked;
                             return (
                               <tr
                                 key={r.id}
@@ -1338,22 +1346,27 @@ function ManagerOffersPage() {
                                       )}
                                       type="number"
                                       min={0}
-                                      disabled={excluded || rejected}
-                                      defaultValue={r.approved_pallets ?? r.requested_pallets}
+                                      disabled={rowLocked}
+                                      defaultValue={
+                                        r.approved_pallets != null
+                                          ? r.approved_pallets
+                                          : r.requested_pallets
+                                      }
                                       onBlur={(e) => {
+                                        if (rowLocked) return;
                                         const v = e.target.value === "" ? null : Number(e.target.value);
                                         if (v !== r.approved_pallets) {
                                           updateApproved.mutate({ id: r.id, approved: v });
                                         }
                                       }}
                                     />
-                                    {!rejected && (
+                                    {!rowLocked && (
                                       <>
                                         <Button
                                           size="sm"
                                           variant="ghost"
                                           className="h-8 px-2 text-[11px] text-success hover:text-success"
-                                          disabled={excluded || updateApproved.isPending}
+                                          disabled={updateApproved.isPending}
                                           onClick={() => {
                                             const el = approvedInputRefs.current[r.id];
                                             const raw = el?.value ?? "";
@@ -1371,7 +1384,7 @@ function ManagerOffersPage() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                          disabled={excluded || updateApproved.isPending}
+                                          disabled={updateApproved.isPending}
                                           onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
                                         >
                                           Відмовити
@@ -1384,6 +1397,7 @@ function ManagerOffersPage() {
                               </tr>
                             );
                           })}
+
                         </tbody>
                       </table>
                     </div>
@@ -1710,6 +1724,23 @@ function OfferEditor({
   );
   const canPublish = allValid && !redBlocked;
 
+  // Correction 0 — ETA required.
+  // Per-item shake state when user attempts publish/share without ETA.
+  // ETA stays UI-only (column remains nullable); we never disable buttons
+  // for missing ETA so we can surface the required toast on click.
+  const [etaShakeIds, setEtaShakeIds] = useState<Set<number>>(new Set());
+  const validateEta = (): boolean => {
+    const missing = items.filter((it) => !it.form.expected_eta).map((it) => it.id);
+    if (missing.length) {
+      setEtaShakeIds(new Set(missing));
+      setTimeout(() => setEtaShakeIds(new Set()), 600);
+      toast.error("Вкажіть очікувану дату прибуття");
+      return false;
+    }
+    return true;
+  };
+
+
   const qc = useQueryClient();
 
   const publish = useMutation({
@@ -1958,12 +1989,14 @@ function OfferEditor({
               existingOffer={idx === 0 ? offer : null}
               confirmedDuty={it.confirmedDuty}
               pendingDuty={it.pendingDuty}
+              etaShake={etaShakeIds.has(it.id)}
               onFormChange={(f) => updateForm(it.id, f)}
               onPayloadChange={(p) => updatePayload(it.id, p)}
               onCustomsChange={(patch) => updateCustoms(it.id, patch)}
               onRemove={!offer && items.length > 1 ? () => removeItem(it.id) : undefined}
             />
           ))}
+
 
           {!offer && (
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -1986,16 +2019,22 @@ function OfferEditor({
 
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:flex-wrap">
             <Button
-              onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
+              onClick={() => {
+                if (!validateEta()) return;
+                publish.mutate({ mode: "all", branchIds: [] });
+              }}
               disabled={publish.isPending || !canPublish}
             >
               Відправити всім{!offer && items.length > 1 ? ` (${items.length})` : ""}
             </Button>
+
             {!offer && canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin }) && (
               <Button
                 variant="outline"
                 onClick={() => {
+                  if (!validateEta()) return;
                   // Prime the clipboard inside the user-gesture tick so mobile
+
                   // Safari accepts the write that resolves later (after the
                   // network round-trip creates the offer + share token).
                   let resolveUrl: (s: string) => void = () => {};
@@ -2082,19 +2121,21 @@ function OfferEditor({
                 Скасувати
               </Button>
               <Button
-                onClick={() =>
+                onClick={() => {
+                  if (!validateEta()) return;
                   publish.mutate({
                     mode: "selected",
                     branchIds: Object.entries(selectedBranches)
                       .filter(([, checked]) => checked)
                       .map(([branchId]) => branchId),
-                  })
-                }
+                  });
+                }}
                 disabled={publish.isPending}
               >
                 Відправити вибірково
                 {!offer && items.length > 1 ? ` (${items.length})` : ""}
               </Button>
+
             </div>
           </div>
         </DialogContent>
@@ -2115,6 +2156,7 @@ function OfferItemEditor({
   existingOffer,
   confirmedDuty,
   pendingDuty,
+  etaShake = false,
   onFormChange,
   onPayloadChange,
   onCustomsChange,
@@ -2131,6 +2173,7 @@ function OfferItemEditor({
   existingOffer: ManagerOffer | null;
   confirmedDuty: number | null;
   pendingDuty: number | null;
+  etaShake?: boolean;
   onFormChange: (f: FormState) => void;
   onPayloadChange: (p: Record<string, unknown> | null) => void;
   onCustomsChange: (patch: {
@@ -2140,6 +2183,7 @@ function OfferItemEditor({
   }) => void;
   onRemove?: () => void;
 }) {
+
   const qc = useQueryClient();
   // Active-offer branch-activity safe rule: when editing an active offer we
   // cannot confidently rule out branch activity from screen data alone, so
@@ -2532,16 +2576,23 @@ function OfferItemEditor({
         </label>
       </div>
       <label className="block text-sm">
-        <span className="mb-1 block text-muted-foreground">Очікувана дата прибуття (ETA)</span>
+        <span className="mb-1 block text-muted-foreground">
+          Очікувана дата прибуття (ETA) <span className="text-destructive">*</span>
+        </span>
         <Input
           type="date"
           value={form.expected_eta}
           onChange={(e) => update({ expected_eta: e.target.value })}
+          className={cn(
+            (!form.expected_eta || etaShake) && "border-destructive focus-visible:ring-destructive",
+            etaShake && "animate-shake",
+          )}
         />
         <span className="mt-1 block text-[11px] text-muted-foreground">
           Орієнтовна дата для філій. Після прив'язки до поставки використовується реальний ETA авто.
         </span>
       </label>
+
       <label className="block text-sm">
         <span className="mb-1 block text-muted-foreground">Примітки</span>
         <Textarea value={form.notes} onChange={(e) => update({ notes: e.target.value })} />
@@ -2609,7 +2660,7 @@ function LinkShipmentDialog({
       offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
     const active = offer.responses.filter((r) => inScope(r.branch_id));
     const totalApproved = active.reduce(
-      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+      (s, r) => s + (r.approved_pallets != null && Number(r.approved_pallets) > 0 ? Number(r.approved_pallets) : 0),
       0,
     );
     const totalLinked = active.reduce(
