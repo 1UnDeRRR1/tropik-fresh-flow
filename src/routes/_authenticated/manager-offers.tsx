@@ -2107,19 +2107,21 @@ function OfferEditor({
                 Скасувати
               </Button>
               <Button
-                onClick={() =>
+                onClick={() => {
+                  if (!validateEta()) return;
                   publish.mutate({
                     mode: "selected",
                     branchIds: Object.entries(selectedBranches)
                       .filter(([, checked]) => checked)
                       .map(([branchId]) => branchId),
-                  })
-                }
+                  });
+                }}
                 disabled={publish.isPending}
               >
                 Відправити вибірково
                 {!offer && items.length > 1 ? ` (${items.length})` : ""}
               </Button>
+
             </div>
           </div>
         </DialogContent>
