@@ -1443,8 +1443,7 @@ function ManagerOffersPage() {
           setEditing(null);
         }}
         onSaved={() => {
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
-          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+          void invalidateOfferWorkflowQueries();
         }}
       />
 
@@ -1453,7 +1452,7 @@ function ManagerOffersPage() {
         onClose={() => setLinkOffer(null)}
         onLinked={() => {
           setLinkOffer(null);
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
+          void invalidateOfferWorkflowQueries();
         }}
       />
 
@@ -1463,8 +1462,7 @@ function ManagerOffersPage() {
         onClose={() => setPublishOffer(null)}
         onPublished={() => {
           setPublishOffer(null);
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
-          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+          void invalidateOfferWorkflowQueries();
           qc.invalidateQueries({ queryKey: ["manager-offer-targets-edit"] });
         }}
       />
