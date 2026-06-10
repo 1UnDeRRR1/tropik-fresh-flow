@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Link2, Trash2, Bell } from "lucide-react";
@@ -227,6 +227,7 @@ function ManagerOffersPage() {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["admin", "super_admin"]);
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const search = Route.useSearch();
   const [editing, setEditing] = useState<ManagerOffer | null>(null);
   const [creating, setCreating] = useState(false);
@@ -266,16 +267,18 @@ function ManagerOffersPage() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
-    // Switch to the tab that contains this offer
-    if (["active", "in_work", "confirmed", "closed"].includes(offerStatus)) setTab("active");
-    else if (offerStatus === "draft") setTab("drafts");
-    else if (offerStatus === "linked") setTab("linked");
-    else if (offerStatus === "expired") setTab("archive");
-    
+    // Two-tab model: Active vs Confirmed. Anything that has been taken
+    // into work / linked goes to the confirmed tab. Drafts/expired are
+    // not surfaced in the tabs but we still allow deep-link to open the
+    // detail modal directly.
+    if (offerStatus === "active") setTab("active");
+    else setTab("confirmed");
+
     setHighlightedId(offerId);
     setDetailOfferId(offerId);
     setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
   }
+
 
   const { data: branches } = useQuery({
     queryKey: ["branches-min"],
@@ -289,6 +292,9 @@ function ManagerOffersPage() {
   const { data: offers, isLoading } = useQuery({
     queryKey: ["manager-offers", user?.id, isAdmin],
     enabled: !!user,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let q = supabase
         .from("manager_offers")
@@ -320,6 +326,7 @@ function ManagerOffersPage() {
     },
   });
 
+
   // Deep-link from /o/<token> for staff testing: auto-focus the offer once
   // it appears in the loaded list. No-op for branch users (handled on the
   // branch-offers page) or for offers the current user can't see.
@@ -338,6 +345,9 @@ function ManagerOffersPage() {
     // Auto-refresh: keep counters live (Запр./Очік./Підтв.) without manual reload.
     refetchInterval: 25_000,
     refetchIntervalInBackground: false,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("manager_offer_responses")
@@ -351,6 +361,9 @@ function ManagerOffersPage() {
   const { data: targets } = useQuery({
     queryKey: ["manager-offer-targets", offerIds],
     enabled: offerIds.length > 0,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("manager_offer_targets")
@@ -360,6 +373,7 @@ function ManagerOffersPage() {
       return (data ?? []) as ManagerOfferTarget[];
     },
   });
+
 
   const linkedShipmentIds = useMemo(
     () =>
@@ -523,27 +537,50 @@ function ManagerOffersPage() {
   const getPendingLinked = (offer: OfferWithResponses) =>
     Math.max(sumApproved(offer) - sumLinked(offer), 0);
 
+  // Two-tab business filter (spec v2):
+  //   Активні       = not yet taken-into-work / not linked / not shipped.
+  //   Підтверджені  = leftover confirmed pallets that aren't fully in a shipment.
+  // confirmedTotal uses approved_pallets ONLY (never requested_pallets) so
+  // partial confirmations (10 requested → 8 approved) stay at 8.
+  const confirmedTotalOf = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce((s, r) => {
+        const a = r.approved_pallets;
+        return s + (a != null && a > 0 ? Number(a) : 0);
+      }, 0);
+  };
+
   const filtered = useMemo(() => {
-    if (tab === "all") return merged;
-    if (tab === "drafts") return merged.filter((o) => o.status === "draft");
-    if (tab === "active")
-      // Working tab: keep offers that still have unlinked remainder.
-      // Fully linked (linked > 0 && pending == 0) moves to "Прив'язані".
+    if (tab === "active") {
       return merged.filter((o) => {
-        if (!["active", "in_work", "confirmed", "closed", "linked"].includes(o.status)) return false;
-        const linked = sumLinked(o);
-        const pending = getPendingLinked(o);
-        // Exclude fully linked offers from working tab.
-        if (linked > 0 && pending === 0) return false;
+        if (o.status !== "active") return false;
+        if (o.linked_shipment_id) return false;
+        if (sumLinked(o) > 0) return false;
         return true;
       });
-    if (tab === "linked")
-      // Fully linked = number-based, status-independent.
-      return merged.filter((o) => sumLinked(o) > 0 && getPendingLinked(o) === 0);
-    if (tab === "archive")
-      return merged.filter((o) => o.status === "expired");
+    }
+    if (tab === "confirmed") {
+      return merged.filter((o) => {
+        // Eligible non-active statuses + legacy in_work.
+        const eligibleStatus =
+          o.status === "confirmed" ||
+          o.status === "closed" ||
+          o.status === "in_work" ||
+          o.status === "linked";
+        if (!eligibleStatus && !o.linked_shipment_id && sumLinked(o) === 0) return false;
+        const confirmedTotal = confirmedTotalOf(o);
+        const linkedTotal = sumLinked(o);
+        const confirmedRemaining = confirmedTotal - linkedTotal;
+        // Hide cards with no remaining confirmed quantity — they belong to "Поставки".
+        return confirmedRemaining > 0;
+      });
+    }
     return merged;
   }, [merged, tab]);
+
 
   // Responses from branches while the offer is still open (not closed/linked/expired).
   // Yellow = new / changed and manager hasn't (re)confirmed (approved_pallets is null
@@ -674,6 +711,57 @@ function ManagerOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Strict guardrail (spec v2): auto-confirm ONLY rows where
+  //   requested_pallets > 0 AND approved_pallets IS NULL.
+  // Never overwrites partial approvals or refusals (approved_pallets = 0).
+  // Uses existing table/columns/RLS — no schema/RPC changes.
+  async function autoConfirmPendingForOffer(offerId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from("manager_offer_responses")
+      .select("id, requested_pallets, approved_pallets")
+      .eq("offer_id", offerId)
+      .is("approved_pallets", null)
+      .gt("requested_pallets", 0);
+    if (error) throw error;
+    const rows = (data ?? []) as Pick<ManagerOfferResponse, "id" | "requested_pallets" | "approved_pallets">[];
+    if (rows.length === 0) return 0;
+    for (const r of rows) {
+      // Defensive double-check: never overwrite an existing answer.
+      if (r.approved_pallets != null) continue;
+      const requested = Number(r.requested_pallets ?? 0);
+      if (!(requested > 0)) continue;
+      const { error: updErr } = await supabase
+        .from("manager_offer_responses")
+        .update({ approved_pallets: requested })
+        .eq("id", r.id)
+        .is("approved_pallets", null); // guardrail at the DB level
+      if (updErr) throw updErr;
+    }
+    return rows.length;
+  }
+
+  const takeIntoWork = useMutation({
+    mutationFn: async ({ offerId }: { offerId: string }) => {
+      const confirmed = await autoConfirmPendingForOffer(offerId);
+      const { error } = await supabase
+        .from("manager_offers")
+        .update({ status: "confirmed" })
+        .eq("id", offerId);
+      if (error) throw error;
+      return { confirmed };
+    },
+    onSuccess: ({ confirmed }) => {
+      if (confirmed > 0) toast.success(`Підтверджено очікувань: ${confirmed}`);
+      else toast.success("Пропозицію переведено у «Підтверджені»");
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      setTab("confirmed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const [showAllPending, setShowAllPending] = useState(false);
 
   const [detailOfferId, setDetailOfferId] = useState<string | null>(null);
@@ -746,8 +834,7 @@ function ManagerOffersPage() {
   return (
     <div>
       <PageHeader
-        title="Запропонувати"
-        subtitle="Пропозиції товарів для філій до створення поставки"
+        title="ЗАПРОПОНУВАТИ"
         action={
           <Button onClick={() => setCreating(true)}>
             <Plus className="mr-1 h-4 w-4" /> Створити
@@ -755,163 +842,109 @@ function ManagerOffersPage() {
         }
       />
 
-      {/* Cleanup Pack #2: верхній блок "Нові відгуки від філій" прибрано —
-          заявки тепер обробляються через таблицю (колонка "Очік." підсвічує
-          необроблені, клік по рядку відкриває detail з підтвердженням). */}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="active">Активні</TabsTrigger>
-          <TabsTrigger value="drafts">Чернетки</TabsTrigger>
-          <TabsTrigger value="linked">Прив'язані</TabsTrigger>
-          <TabsTrigger value="archive">Архів</TabsTrigger>
-          <TabsTrigger value="all">Усі</TabsTrigger>
+        <TabsList className="h-auto bg-transparent p-0 gap-2">
+          <TabsTrigger
+            value="active"
+            className={cn(
+              "rounded-lg border-2 bg-card px-4 py-1.5 text-sm shadow-none",
+              "data-[state=active]:bg-card data-[state=active]:shadow-none",
+              tab === "active"
+                ? "border-warning text-foreground font-bold"
+                : "border-border text-muted-foreground font-normal",
+            )}
+          >
+            Активні
+          </TabsTrigger>
+          <TabsTrigger
+            value="confirmed"
+            className={cn(
+              "rounded-lg border-2 bg-card px-4 py-1.5 text-sm shadow-none",
+              "data-[state=active]:bg-card data-[state=active]:shadow-none",
+              tab === "confirmed"
+                ? "border-success text-foreground font-bold"
+                : "border-border text-muted-foreground font-normal",
+            )}
+          >
+            Підтверджені
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value={tab} className="mt-4 space-y-3">
+        <TabsContent value={tab} className="mt-3 space-y-2">
           {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
           {!isLoading && filtered.length === 0 && (
             <EmptyState title="Немає пропозицій" hint="Натисніть «Створити», щоб додати першу" />
           )}
-          {filtered.length > 0 && (
-            <TableScroller className="rounded-2xl border border-border bg-card shadow-sm">
-              <table className="w-full min-w-[560px] text-sm">
-                <thead className="text-[11px] uppercase text-muted-foreground [&_th]:bg-table-head [&_th]:backdrop-blur [&_th]:font-bold">
-                  <tr>
-                    <th className="px-2 py-2 text-left">Товар</th>
-                    <th className="px-1 py-2 text-center w-10">Ст.</th>
-                    <th className="px-2 py-2 text-right w-14">Запр.</th>
-                    <th className="px-2 py-2 text-right w-14">Очік.</th>
-                    <th className="px-2 py-2 text-right w-14">Підтв.</th>
-                    <th className="px-2 py-2 text-right w-20">Собів.</th>
-                    {isAdmin && <th className="px-2 py-2 text-left">Менеджер</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((o) => {
-                    const inScope = (branchId: string) =>
-                      o.target_mode === "all" || o.targetBranchIds.includes(branchId);
-                    const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
-                    // Запр. — what manager offered to branches (null/0 → "—")
-                    const offered = o.offered_pallets;
-                    // Очік. — sum of branch requests not yet processed by manager
-                    const totalPending = activeResponses.reduce(
-                      (s, r) =>
-                        s + (r.approved_pallets == null ? Number(r.requested_pallets ?? 0) : 0),
-                      0,
-                    );
-                    // Підтв. — sum of manager-confirmed pallets
-                    const totalApproved = activeResponses.reduce(
-                      (s, r) => s + Number(r.approved_pallets ?? 0),
-                      0,
-                    );
-                    const totalLinked = activeResponses.reduce(
-                      (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
-                      0,
-                    );
-                    // Status-independent: use numbers, not status string.
-                    const pendingLinked = Math.max(totalApproved - totalLinked, 0);
-                    const hasLinked = totalLinked > 0;
-                    const hasPending = totalPending > 0;
-
-                    // Compact status: green Активно / yellow В роботі.
-                    // "Замовлено" is NOT used here — it belongs to the shipments table.
-                    let stColor = "bg-success";
-                    let stTitle = "Активно";
-                    if (
-                      o.status === "in_work" ||
-                      o.status === "confirmed" ||
-                      o.status === "closed" ||
-                      (hasLinked && pendingLinked > 0)
-                    ) {
-                      stColor = "bg-warning";
-                      stTitle = "В роботі";
-                    } else if (o.status === "draft") {
-                      stColor = "bg-muted-foreground";
-                      stTitle = "Чернетка";
-                    } else if (o.status === "expired") {
-                      stColor = "bg-destructive";
-                      stTitle = "Прострочено";
-                    }
-
-                    return (
-                      <tr
-                        key={o.id}
-                        id={`offer-${o.id}`}
-                        onClick={() => setDetailOfferId(o.id)}
-                        className={cn(
-                          "cursor-pointer border-t border-border transition hover:bg-accent/40",
-                          hasPending && "bg-amber-50/60 dark:bg-amber-500/5",
-                          highlightedId === o.id && "ring-2 ring-amber-400",
-                        )}
-                      >
-                        <td className="px-2 py-2 font-semibold">
-                          <div className="truncate">{o.product_name}</div>
-                          {(o.origin_country || o.caliber) && (
-                            <div className="truncate text-[11px] font-normal text-muted-foreground">
-                              {o.origin_country ?? ""}
-                              {o.origin_country && o.caliber ? " · " : ""}
-                              {o.caliber ?? ""}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-1 py-2 text-center">
-                          <span
-                            title={stTitle}
-                            className={cn(
-                              "inline-block h-2.5 w-2.5 rounded-full",
-                              stColor,
-                            )}
-                          />
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {offered != null && Number(offered) > 0 ? Number(offered) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {totalPending > 0 ? (
-                            <span className="font-semibold text-warning">{totalPending}</span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          {hasLinked && pendingLinked > 0 ? (
-                            <span>
-                              <span className="font-semibold text-warning">{pendingLinked}</span>
-                              <span className="ml-1 text-[10px] font-normal text-muted-foreground">з {totalApproved}</span>
-                            </span>
-                          ) : totalApproved > 0 ? (
-                            <span className="font-semibold text-success">{totalApproved}</span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums text-[12px]">
-                          <span className="text-success">${Number(o.indicative_cost_usd ?? 0).toFixed(2)}</span>
-                          <span className="text-muted-foreground"> · </span>
-                          <span className="text-destructive">${Number(o.invoice_cost_usd ?? 0).toFixed(2)}</span>
-                        </td>
-                        {isAdmin && (
-                          <td className="px-2 py-2 text-muted-foreground">
-                            {(() => {
-                              const r = getResponsible(o);
-                              return (
-                                <span className={r.pending ? "italic text-warning" : undefined}>
-                                  {r.label}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </TableScroller>
-          )}
+          {filtered.map((o) => {
+            const inScope = (branchId: string) =>
+              o.target_mode === "all" || o.targetBranchIds.includes(branchId);
+            const scoped = o.responses.filter((r) => inScope(r.branch_id));
+            // X1/X2 — pending unanswered (requested>0 AND approved IS NULL).
+            const pendingRows = scoped.filter(
+              (r) => r.approved_pallets == null && Number(r.requested_pallets ?? 0) > 0,
+            );
+            const X1 = pendingRows.length;
+            const X2 = pendingRows.reduce((s, r) => s + Number(r.requested_pallets ?? 0), 0);
+            // Y1/Y2 — confirmed (approved>0). Refusals (=0) excluded.
+            const confirmedRows = scoped.filter(
+              (r) => r.approved_pallets != null && Number(r.approved_pallets) > 0,
+            );
+            const Y1 = confirmedRows.length;
+            const Y2 = confirmedRows.reduce((s, r) => s + Number(r.approved_pallets ?? 0), 0);
+            const etaShort = o.expected_eta
+              ? (() => {
+                  const d = new Date(o.expected_eta!);
+                  if (Number.isNaN(d.getTime())) return null;
+                  const dd = String(d.getDate()).padStart(2, "0");
+                  const mm = String(d.getMonth() + 1).padStart(2, "0");
+                  return `${dd}.${mm}`;
+                })()
+              : null;
+            const subline: string[] = [];
+            if (o.variety) subline.push(`Сорт: ${o.variety}`);
+            if (o.caliber) subline.push(`Кал: ${o.caliber}`);
+            return (
+              <button
+                key={o.id}
+                id={`offer-${o.id}`}
+                type="button"
+                onClick={() => setDetailOfferId(o.id)}
+                className={cn(
+                  "w-full rounded-xl border border-border bg-card p-3 text-left shadow-sm transition hover:bg-accent/40",
+                  highlightedId === o.id && "ring-2 ring-amber-400",
+                )}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <div className="min-w-0 flex-1 truncate">
+                    <span className="font-bold text-foreground">{o.product_name}</span>
+                    {o.origin_country && (
+                      <span className="font-normal text-foreground"> ({o.origin_country})</span>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-baseline gap-2 text-sm tabular-nums">
+                    {X1 > 0 && (
+                      <span className="font-semibold text-warning">
+                        {X1}/{X2}
+                      </span>
+                    )}
+                    {Y1 > 0 && (
+                      <span className="font-semibold text-success">
+                        {Y1}/{Y2}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px] text-muted-foreground">
+                  <div className="min-w-0 flex-1 truncate">{subline.join(" • ")}</div>
+                  {etaShort && (
+                    <div className="shrink-0 font-medium text-info">ETA {etaShort}</div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </TabsContent>
       </Tabs>
+
 
       <Dialog open={!!detailOffer} onOpenChange={(v) => !v && setDetailOfferId(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -1096,7 +1129,11 @@ function ManagerOffersPage() {
                     </Button>
                   )}
                   {o.status === "active" && (
-                    <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: "in_work" })}>
+                    <Button
+                      size="sm"
+                      onClick={() => takeIntoWork.mutate({ offerId: o.id })}
+                      disabled={takeIntoWork.isPending}
+                    >
                       Взяти в роботу
                     </Button>
                   )}
@@ -1111,8 +1148,15 @@ function ManagerOffersPage() {
                               ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
                               : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
                           )}
-                          onClick={() => {
+                          onClick={async () => {
                             if (hasLinkable) {
+                              try {
+                                await autoConfirmPendingForOffer(o.id);
+                              } catch (e) {
+                                toast.error((e as Error).message);
+                                return;
+                              }
+                              qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
                               setLinkOffer(o);
                             } else {
                               toast.message("Немає підходящої поставки", {
@@ -1128,15 +1172,22 @@ function ManagerOffersPage() {
                         >
                           <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
                         </Button>
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await autoConfirmPendingForOffer(o.id);
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                              return;
+                            }
+                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            setDetailOfferId(null);
+                            navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
+                          }}
                         >
-                          <Button size="sm">
-                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
-                          </Button>
-                        </Link>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
+                        </Button>
                       </>
                     ) : blockReason ? (
                       <div className="text-xs text-warning">{blockReason}</div>
@@ -1149,30 +1200,45 @@ function ManagerOffersPage() {
                           size="sm"
                           variant="outline"
                           className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                          onClick={() => setLinkOffer(o)}
+                          onClick={async () => {
+                            try {
+                              await autoConfirmPendingForOffer(o.id);
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                              return;
+                            }
+                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            setLinkOffer(o);
+                          }}
                         >
                           <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
                         </Button>
                       ) : (
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
+                          title="Немає підходящої поставки — створіть нову"
+                          onClick={async () => {
+                            try {
+                              await autoConfirmPendingForOffer(o.id);
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                              return;
+                            }
+                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            setDetailOfferId(null);
+                            navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
+                          }}
                         >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
-                            title="Немає підходящої поставки — створіть нову"
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
-                          </Button>
-                        </Link>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
+                        </Button>
                       )
                     ) : blockReason ? (
                       <div className="text-xs text-warning">{blockReason}</div>
                     ) : null
                   )}
+
                   {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button size="sm" variant="outline" onClick={() => setEditing(o)}>
                       <Pencil className="mr-1 h-3.5 w-3.5" /> Редагувати

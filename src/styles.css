@@ -293,13 +293,22 @@
 }
 .anim-check-pop { animation: check-pop 1.8s ease-in-out infinite; }
 
-/* Fruit emoji nav — stable color emoji, gentle tap feedback */
+/* Fruit emoji nav — PNG illustrations. font-size:0 collapses any
+   inherited text baseline so the wrapper height matches the image and
+   leaves no glyph artifact next to the icon. */
 .fruit-emoji {
+  font-size: 0;
+  line-height: 0;
   font-style: normal;
   -webkit-font-smoothing: antialiased;
   transform-origin: 50% 50%;
   transition: transform 180ms cubic-bezier(.34,1.56,.64,1), filter 180ms ease;
   will-change: transform;
+}
+.fruit-emoji > img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .fruit-tap:active .fruit-emoji {
