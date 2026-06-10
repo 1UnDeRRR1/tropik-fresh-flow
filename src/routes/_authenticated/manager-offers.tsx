@@ -961,9 +961,10 @@ function ManagerOffersPage() {
               0,
             );
             const totalApproved = activeResponses.reduce(
-              (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+              (s, r) => s + (r.approved_pallets != null && Number(r.approved_pallets) > 0 ? Number(r.approved_pallets) : 0),
               0,
             );
+
             const totalLinked = activeResponses.reduce(
               (s, r) => s + Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0),
               0,
