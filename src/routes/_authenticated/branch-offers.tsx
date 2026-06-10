@@ -228,9 +228,19 @@ function BranchOffersPage() {
       const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
       return ship?.arrived_at || ship?.eta || o.expected_eta || null;
     };
-    const filtered = baseVisibleOffers.filter(
-      (o) => !isRealShipmentCode(shipCodeOf(o)),
-    );
+    const filtered = baseVisibleOffers.filter((o) => {
+      if (!isRealShipmentCode(shipCodeOf(o))) return true;
+      // Keep the row even when a real shipment code exists if this branch
+      // still has remaining confirmed quantity (approved − linked > 0).
+      const r = responseByOffer[o.id] ?? null;
+      const approved = r && r.approved_pallets != null && Number(r.approved_pallets) > 0
+        ? Number(r.approved_pallets)
+        : 0;
+      const linked = r
+        ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0)
+        : 0;
+      return Math.max(approved - linked, 0) > 0;
+    });
     return [...filtered].sort((a, b) => {
       const da = arrivalDate(a), db = arrivalDate(b);
       if (!da && !db) return 0;
