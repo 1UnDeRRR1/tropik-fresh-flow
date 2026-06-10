@@ -710,6 +710,57 @@ function ManagerOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Strict guardrail (spec v2): auto-confirm ONLY rows where
+  //   requested_pallets > 0 AND approved_pallets IS NULL.
+  // Never overwrites partial approvals or refusals (approved_pallets = 0).
+  // Uses existing table/columns/RLS — no schema/RPC changes.
+  async function autoConfirmPendingForOffer(offerId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from("manager_offer_responses")
+      .select("id, requested_pallets, approved_pallets")
+      .eq("offer_id", offerId)
+      .is("approved_pallets", null)
+      .gt("requested_pallets", 0);
+    if (error) throw error;
+    const rows = (data ?? []) as Pick<ManagerOfferResponse, "id" | "requested_pallets" | "approved_pallets">[];
+    if (rows.length === 0) return 0;
+    for (const r of rows) {
+      // Defensive double-check: never overwrite an existing answer.
+      if (r.approved_pallets != null) continue;
+      const requested = Number(r.requested_pallets ?? 0);
+      if (!(requested > 0)) continue;
+      const { error: updErr } = await supabase
+        .from("manager_offer_responses")
+        .update({ approved_pallets: requested })
+        .eq("id", r.id)
+        .is("approved_pallets", null); // guardrail at the DB level
+      if (updErr) throw updErr;
+    }
+    return rows.length;
+  }
+
+  const takeIntoWork = useMutation({
+    mutationFn: async ({ offerId }: { offerId: string }) => {
+      const confirmed = await autoConfirmPendingForOffer(offerId);
+      const { error } = await supabase
+        .from("manager_offers")
+        .update({ status: "confirmed" })
+        .eq("id", offerId);
+      if (error) throw error;
+      return { confirmed };
+    },
+    onSuccess: ({ confirmed }) => {
+      if (confirmed > 0) toast.success(`Підтверджено очікувань: ${confirmed}`);
+      else toast.success("Пропозицію переведено у «Підтверджені»");
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      setTab("confirmed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const [showAllPending, setShowAllPending] = useState(false);
 
   const [detailOfferId, setDetailOfferId] = useState<string | null>(null);
