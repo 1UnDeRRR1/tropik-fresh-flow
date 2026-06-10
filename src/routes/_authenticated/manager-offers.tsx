@@ -289,6 +289,9 @@ function ManagerOffersPage() {
   const { data: offers, isLoading } = useQuery({
     queryKey: ["manager-offers", user?.id, isAdmin],
     enabled: !!user,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let q = supabase
         .from("manager_offers")
@@ -319,6 +322,7 @@ function ManagerOffersPage() {
       return (data ?? []) as ManagerOffer[];
     },
   });
+
 
   // Deep-link from /o/<token> for staff testing: auto-focus the offer once
   // it appears in the loaded list. No-op for branch users (handled on the
