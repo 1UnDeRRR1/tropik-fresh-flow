@@ -17,7 +17,7 @@ export const Route = createFileRoute("/o/$token")({
 const GENERIC_UNAVAILABLE = "Пропозиція недоступна або неактивна";
 
 // Statuses where the offer is still meaningful to a branch.
-const OPEN_STATUSES = new Set(["active", "in_work", "confirmed"]);
+const OPEN_STATUSES = new Set(["active", "in_work", "confirmed", "linked"]);
 
 function ShareLinkLandingPage() {
   const { token } = Route.useParams();
