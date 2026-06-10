@@ -1136,8 +1136,8 @@ function ManagerOffersPage() {
                   </div>
                   <div className={cn("text-sm font-semibold", over && "text-destructive")}>
                     {o.offered_pallets != null
-                      ? `${o.offered_pallets} / ${totalApproved} палет`
-                      : `${totalApproved} палет`}
+                      ? `${o.offered_pallets} / ${pendingLinked} палет`
+                      : `${pendingLinked} палет`}
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
@@ -1164,7 +1164,7 @@ function ManagerOffersPage() {
                       Взяти в роботу
                     </Button>
                   )}
-                  {o.status === "closed" && (
+                  {(o.status === "closed" || o.status === "linked") && (
                     canLoad ? (
                       <>
                         <Button
@@ -1183,7 +1183,7 @@ function ManagerOffersPage() {
                                 toast.error((e as Error).message);
                                 return;
                               }
-                              qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                              await invalidateOfferWorkflowQueries();
                               setLinkOffer(o);
                             } else {
                               toast.message("Немає підходящої поставки", {
@@ -1208,7 +1208,7 @@ function ManagerOffersPage() {
                               toast.error((e as Error).message);
                               return;
                             }
-                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            await invalidateOfferWorkflowQueries();
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
@@ -1234,7 +1234,7 @@ function ManagerOffersPage() {
                               toast.error((e as Error).message);
                               return;
                             }
-                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            await invalidateOfferWorkflowQueries();
                             setLinkOffer(o);
                           }}
                         >
@@ -1253,7 +1253,7 @@ function ManagerOffersPage() {
                               toast.error((e as Error).message);
                               return;
                             }
-                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            await invalidateOfferWorkflowQueries();
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
