@@ -2142,6 +2142,7 @@ function OfferItemEditor({
   existingOffer,
   confirmedDuty,
   pendingDuty,
+  etaShake = false,
   onFormChange,
   onPayloadChange,
   onCustomsChange,
@@ -2158,6 +2159,7 @@ function OfferItemEditor({
   existingOffer: ManagerOffer | null;
   confirmedDuty: number | null;
   pendingDuty: number | null;
+  etaShake?: boolean;
   onFormChange: (f: FormState) => void;
   onPayloadChange: (p: Record<string, unknown> | null) => void;
   onCustomsChange: (patch: {
@@ -2167,6 +2169,7 @@ function OfferItemEditor({
   }) => void;
   onRemove?: () => void;
 }) {
+
   const qc = useQueryClient();
   // Active-offer branch-activity safe rule: when editing an active offer we
   // cannot confidently rule out branch activity from screen data alone, so
