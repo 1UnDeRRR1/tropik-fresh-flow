@@ -342,6 +342,9 @@ function ManagerOffersPage() {
     // Auto-refresh: keep counters live (Запр./Очік./Підтв.) without manual reload.
     refetchInterval: 25_000,
     refetchIntervalInBackground: false,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("manager_offer_responses")
@@ -355,6 +358,9 @@ function ManagerOffersPage() {
   const { data: targets } = useQuery({
     queryKey: ["manager-offer-targets", offerIds],
     enabled: offerIds.length > 0,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("manager_offer_targets")
@@ -364,6 +370,7 @@ function ManagerOffersPage() {
       return (data ?? []) as ManagerOfferTarget[];
     },
   });
+
 
   const linkedShipmentIds = useMemo(
     () =>
