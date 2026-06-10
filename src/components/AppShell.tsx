@@ -232,7 +232,24 @@ export function AppShell({ children }: { children: ReactNode }) {
         .from("manager_offers")
         .select("id")
         .in("status", ["active", "in_work", "confirmed"]);
-      if (!isAdmin) q = q.eq("created_by", userId!);
+      if (!isAdmin) {
+        // Mirror manager-offers screen visibility: created_by OR offers
+        // attached to positions owned by this manager (responsible-manager).
+        const { data: ownedPositions } = await (supabase as any)
+          .from("operational_positions")
+          .select("position_id")
+          .eq("owner_user_id", userId!);
+        const positionIds = (ownedPositions ?? [])
+          .map((p: any) => p.position_id)
+          .filter(Boolean);
+        if (positionIds.length > 0) {
+          q = q.or(
+            `created_by.eq.${userId!},position_id.in.(${positionIds.join(",")})`,
+          );
+        } else {
+          q = q.eq("created_by", userId!);
+        }
+      }
       const { data: offers } = await q;
       const ids = (offers ?? []).map((o: any) => o.id);
       if (!ids.length) return 0;
