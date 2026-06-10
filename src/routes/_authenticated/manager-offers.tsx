@@ -2647,7 +2647,7 @@ function LinkShipmentDialog({
       offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
     const active = offer.responses.filter((r) => inScope(r.branch_id));
     const totalApproved = active.reduce(
-      (s, r) => s + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+      (s, r) => s + (r.approved_pallets != null && Number(r.approved_pallets) > 0 ? Number(r.approved_pallets) : 0),
       0,
     );
     const totalLinked = active.reduce(
