@@ -26,6 +26,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 const ALL = "__all";
 
@@ -151,6 +152,18 @@ function BranchOffersPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.openOffer]);
+
+  useRealtimeInvalidate(
+    `branch-offers-${branchId ?? "none"}`,
+    ["manager_offers", "manager_offer_responses", "shipments", "shipment_items"],
+    [
+      ["branch-active-offers"],
+      ["my-branch-responses", branchId],
+      ["branch-offer-shipments"],
+      ["nav-branch-manager-offers", branchId],
+    ],
+    !!branchId,
+  );
 
 
 
