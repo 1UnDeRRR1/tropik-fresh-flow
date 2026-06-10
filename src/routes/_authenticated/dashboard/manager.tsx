@@ -528,7 +528,7 @@ function ActiveOverviewList({ rows }: { rows: ActiveOverviewRow[] }) {
                   <li key={r.shipment_item_id ?? `${r.shipment_id}-${r.product_name}`} className="py-2.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold truncate">
+                        <div className="text-sm font-semibold truncate text-info">
                           ETA {r.eta ?? "—"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">

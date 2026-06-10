@@ -407,8 +407,8 @@ function BranchFreeList() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-lg bg-secondary px-2 py-1.5">
-                      <div className="text-[10px] text-muted-foreground">ETA</div>
-                      <div className="text-sm font-bold tabular-nums">{fmtEta(pick.eta)}</div>
+                      <div className="text-[10px] text-info">ETA</div>
+                      <div className="text-sm font-bold tabular-nums text-info">{fmtEta(pick.eta)}</div>
                       <div className="mt-1 text-[11px] font-mono text-muted-foreground">{pick.code}</div>
                     </div>
                     <div className="rounded-lg bg-secondary px-2 py-1.5 text-right">

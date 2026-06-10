@@ -1082,8 +1082,8 @@ function ManagerOffersPage() {
                   </div>
                   {showEta && (
                     <div>
-                      <span className="text-muted-foreground">{isReal ? "ETA поставки:" : "Очікувана дата:"}</span>{" "}
-                      <b className={isReal ? "text-success" : ""}>
+                      <span className="text-info">{isReal ? "ETA поставки:" : "Очікувана дата:"}</span>{" "}
+                      <b className="text-info">
                         {new Date(showEta).toLocaleDateString("uk-UA")}
                       </b>
                       {!isReal && (
