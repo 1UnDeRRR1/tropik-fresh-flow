@@ -1975,12 +1975,14 @@ function OfferEditor({
               existingOffer={idx === 0 ? offer : null}
               confirmedDuty={it.confirmedDuty}
               pendingDuty={it.pendingDuty}
+              etaShake={etaShakeIds.has(it.id)}
               onFormChange={(f) => updateForm(it.id, f)}
               onPayloadChange={(p) => updatePayload(it.id, p)}
               onCustomsChange={(patch) => updateCustoms(it.id, patch)}
               onRemove={!offer && items.length > 1 ? () => removeItem(it.id) : undefined}
             />
           ))}
+
 
           {!offer && (
             <div className="flex flex-col gap-2 sm:flex-row">
