@@ -2562,16 +2562,23 @@ function OfferItemEditor({
         </label>
       </div>
       <label className="block text-sm">
-        <span className="mb-1 block text-muted-foreground">Очікувана дата прибуття (ETA)</span>
+        <span className="mb-1 block text-muted-foreground">
+          Очікувана дата прибуття (ETA) <span className="text-destructive">*</span>
+        </span>
         <Input
           type="date"
           value={form.expected_eta}
           onChange={(e) => update({ expected_eta: e.target.value })}
+          className={cn(
+            (!form.expected_eta || etaShake) && "border-destructive focus-visible:ring-destructive",
+            etaShake && "animate-shake",
+          )}
         />
         <span className="mt-1 block text-[11px] text-muted-foreground">
           Орієнтовна дата для філій. Після прив'язки до поставки використовується реальний ETA авто.
         </span>
       </label>
+
       <label className="block text-sm">
         <span className="mb-1 block text-muted-foreground">Примітки</span>
         <Textarea value={form.notes} onChange={(e) => update({ notes: e.target.value })} />
