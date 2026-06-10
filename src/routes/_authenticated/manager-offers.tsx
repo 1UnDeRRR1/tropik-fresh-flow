@@ -1710,6 +1710,23 @@ function OfferEditor({
   );
   const canPublish = allValid && !redBlocked;
 
+  // Correction 0 — ETA required.
+  // Per-item shake state when user attempts publish/share without ETA.
+  // ETA stays UI-only (column remains nullable); we never disable buttons
+  // for missing ETA so we can surface the required toast on click.
+  const [etaShakeIds, setEtaShakeIds] = useState<Set<number>>(new Set());
+  const validateEta = (): boolean => {
+    const missing = items.filter((it) => !it.form.expected_eta).map((it) => it.id);
+    if (missing.length) {
+      setEtaShakeIds(new Set(missing));
+      setTimeout(() => setEtaShakeIds(new Set()), 600);
+      toast.error("Вкажіть очікувану дату прибуття");
+      return false;
+    }
+    return true;
+  };
+
+
   const qc = useQueryClient();
 
   const publish = useMutation({
