@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { tapVibrate } from "@/lib/nav-feedback";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 import calendarNormal from "@/assets/nav-icons/owner/calendar-normal.png";
 import calendarPress from "@/assets/nav-icons/owner/calendar-press.png";
