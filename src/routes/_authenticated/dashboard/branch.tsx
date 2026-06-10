@@ -1021,17 +1021,6 @@ function BranchDashboard() {
                           </b>
                         </div>
                       ) : null}
-                      <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            ackChange(drillRow.distribution_id, drillRow.shipment_item_id)
-                          }
-                        >
-                          Прочитано
-                        </Button>
-                      </div>
                     </div>
                   );
                 })()}
