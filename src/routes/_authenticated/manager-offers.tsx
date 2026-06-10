@@ -536,27 +536,50 @@ function ManagerOffersPage() {
   const getPendingLinked = (offer: OfferWithResponses) =>
     Math.max(sumApproved(offer) - sumLinked(offer), 0);
 
+  // Two-tab business filter (spec v2):
+  //   Активні       = not yet taken-into-work / not linked / not shipped.
+  //   Підтверджені  = leftover confirmed pallets that aren't fully in a shipment.
+  // confirmedTotal uses approved_pallets ONLY (never requested_pallets) so
+  // partial confirmations (10 requested → 8 approved) stay at 8.
+  const confirmedTotalOf = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce((s, r) => {
+        const a = r.approved_pallets;
+        return s + (a != null && a > 0 ? Number(a) : 0);
+      }, 0);
+  };
+
   const filtered = useMemo(() => {
-    if (tab === "all") return merged;
-    if (tab === "drafts") return merged.filter((o) => o.status === "draft");
-    if (tab === "active")
-      // Working tab: keep offers that still have unlinked remainder.
-      // Fully linked (linked > 0 && pending == 0) moves to "Прив'язані".
+    if (tab === "active") {
       return merged.filter((o) => {
-        if (!["active", "in_work", "confirmed", "closed", "linked"].includes(o.status)) return false;
-        const linked = sumLinked(o);
-        const pending = getPendingLinked(o);
-        // Exclude fully linked offers from working tab.
-        if (linked > 0 && pending === 0) return false;
+        if (o.status !== "active") return false;
+        if (o.linked_shipment_id) return false;
+        if (sumLinked(o) > 0) return false;
         return true;
       });
-    if (tab === "linked")
-      // Fully linked = number-based, status-independent.
-      return merged.filter((o) => sumLinked(o) > 0 && getPendingLinked(o) === 0);
-    if (tab === "archive")
-      return merged.filter((o) => o.status === "expired");
+    }
+    if (tab === "confirmed") {
+      return merged.filter((o) => {
+        // Eligible non-active statuses + legacy in_work.
+        const eligibleStatus =
+          o.status === "confirmed" ||
+          o.status === "closed" ||
+          o.status === "in_work" ||
+          o.status === "linked";
+        if (!eligibleStatus && !o.linked_shipment_id && sumLinked(o) === 0) return false;
+        const confirmedTotal = confirmedTotalOf(o);
+        const linkedTotal = sumLinked(o);
+        const confirmedRemaining = confirmedTotal - linkedTotal;
+        // Hide cards with no remaining confirmed quantity — they belong to "Поставки".
+        return confirmedRemaining > 0;
+      });
+    }
     return merged;
   }, [merged, tab]);
+
 
   // Responses from branches while the offer is still open (not closed/linked/expired).
   // Yellow = new / changed and manager hasn't (re)confirmed (approved_pallets is null
