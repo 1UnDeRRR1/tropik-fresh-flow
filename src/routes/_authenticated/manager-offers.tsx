@@ -1792,6 +1792,9 @@ function OfferEditor({
       if (mode === "selected" && branchIds.length === 0) {
         throw new Error("Виберіть хоча б одну філію");
       }
+      if (!validateEta()) {
+        throw new Error("Вкажіть очікувану дату прибуття");
+      }
 
       if (offer) {
         // Existing offer: identity edit is locked for active offers (see
@@ -1958,7 +1961,17 @@ function OfferEditor({
         );
       }
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-linked-shipments"] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+      qc.invalidateQueries({ queryKey: ["link-dialog-offer"] });
+      qc.invalidateQueries({ queryKey: ["branch-active-offers"] });
+      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      qc.invalidateQueries({ queryKey: ["branch-offer-shipments"] });
+      qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
       onSaved();
       setSelectiveOpen(false);
       onClose();
