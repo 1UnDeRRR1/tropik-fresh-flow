@@ -2018,7 +2018,9 @@ function OfferEditor({
               <Button
                 variant="outline"
                 onClick={() => {
+                  if (!validateEta()) return;
                   // Prime the clipboard inside the user-gesture tick so mobile
+
                   // Safari accepts the write that resolves later (after the
                   // network round-trip creates the offer + share token).
                   let resolveUrl: (s: string) => void = () => {};
