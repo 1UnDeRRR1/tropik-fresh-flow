@@ -266,6 +266,24 @@ function ManagerOffersPage() {
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
+  const invalidateOfferWorkflowQueries = async () => {
+    const keys = [
+      ["manager-offers"],
+      ["manager-offer-responses"],
+      ["manager-offer-targets"],
+      ["manager-offer-linked-shipments"],
+      ["link-dialog-offer"],
+      ["shipments-link-options"],
+      ["branch-active-offers"],
+      ["my-branch-responses"],
+      ["branch-offer-shipments"],
+      ["nav-branch-manager-offers"],
+      ["nav-pending-manager-responses"],
+      ["dash-manager"],
+    ] as const;
+    await Promise.all(keys.map((queryKey) => qc.invalidateQueries({ queryKey })));
+  };
+
   function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
     // Two-tab model: Active vs Confirmed. Anything that has been taken
     // into work / linked goes to the confirmed tab. Drafts/expired are
@@ -639,9 +657,8 @@ function ManagerOffersPage() {
       const { error } = await supabase.from("manager_offers").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    onSuccess: async () => {
+      await invalidateOfferWorkflowQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -670,10 +687,8 @@ function ManagerOffersPage() {
       if (ctx?.prev) for (const [key, data] of ctx.prev) qc.setQueryData(key, data);
       toast.error(e.message);
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    onSettled: async () => {
+      await invalidateOfferWorkflowQueries();
     },
   });
 
@@ -701,12 +716,10 @@ function ManagerOffersPage() {
       const failed = results.filter((r) => r.error).length;
       return { ok: pending.length - failed, failed };
     },
-    onSuccess: ({ ok, failed }) => {
+    onSuccess: async ({ ok, failed }) => {
       if (ok > 0) toast.success(`Підтверджено відгуків: ${ok}`);
       if (failed > 0) toast.error(`Не вдалося підтвердити: ${failed}`);
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      await invalidateOfferWorkflowQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -750,12 +763,10 @@ function ManagerOffersPage() {
       if (error) throw error;
       return { confirmed };
     },
-    onSuccess: ({ confirmed }) => {
+    onSuccess: async ({ confirmed }) => {
       if (confirmed > 0) toast.success(`Підтверджено очікувань: ${confirmed}`);
       else toast.success("Пропозицію переведено у «Підтверджені»");
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      await invalidateOfferWorkflowQueries();
       setTab("confirmed");
     },
     onError: (e: Error) => toast.error(e.message),
