@@ -266,6 +266,24 @@ function ManagerOffersPage() {
   const [publishOffer, setPublishOffer] = useState<ManagerOffer | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
+  const invalidateOfferWorkflowQueries = async () => {
+    const keys = [
+      ["manager-offers"],
+      ["manager-offer-responses"],
+      ["manager-offer-targets"],
+      ["manager-offer-linked-shipments"],
+      ["link-dialog-offer"],
+      ["shipments-link-options"],
+      ["branch-active-offers"],
+      ["my-branch-responses"],
+      ["branch-offer-shipments"],
+      ["nav-branch-manager-offers"],
+      ["nav-pending-manager-responses"],
+      ["dash-manager"],
+    ] as const;
+    await Promise.all(keys.map((queryKey) => qc.invalidateQueries({ queryKey })));
+  };
+
   function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
     // Two-tab model: Active vs Confirmed. Anything that has been taken
     // into work / linked goes to the confirmed tab. Drafts/expired are
@@ -639,9 +657,8 @@ function ManagerOffersPage() {
       const { error } = await supabase.from("manager_offers").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    onSuccess: async () => {
+      await invalidateOfferWorkflowQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -670,10 +687,8 @@ function ManagerOffersPage() {
       if (ctx?.prev) for (const [key, data] of ctx.prev) qc.setQueryData(key, data);
       toast.error(e.message);
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+    onSettled: async () => {
+      await invalidateOfferWorkflowQueries();
     },
   });
 
@@ -701,12 +716,10 @@ function ManagerOffersPage() {
       const failed = results.filter((r) => r.error).length;
       return { ok: pending.length - failed, failed };
     },
-    onSuccess: ({ ok, failed }) => {
+    onSuccess: async ({ ok, failed }) => {
       if (ok > 0) toast.success(`Підтверджено відгуків: ${ok}`);
       if (failed > 0) toast.error(`Не вдалося підтвердити: ${failed}`);
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      await invalidateOfferWorkflowQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -750,12 +763,10 @@ function ManagerOffersPage() {
       if (error) throw error;
       return { confirmed };
     },
-    onSuccess: ({ confirmed }) => {
+    onSuccess: async ({ confirmed }) => {
       if (confirmed > 0) toast.success(`Підтверджено очікувань: ${confirmed}`);
       else toast.success("Пропозицію переведено у «Підтверджені»");
-      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      await invalidateOfferWorkflowQueries();
       setTab("confirmed");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1125,8 +1136,8 @@ function ManagerOffersPage() {
                   </div>
                   <div className={cn("text-sm font-semibold", over && "text-destructive")}>
                     {o.offered_pallets != null
-                      ? `${o.offered_pallets} / ${totalApproved} палет`
-                      : `${totalApproved} палет`}
+                      ? `${o.offered_pallets} / ${pendingLinked} палет`
+                      : `${pendingLinked} палет`}
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       запит: {totalRequested}
                     </span>
@@ -1153,7 +1164,7 @@ function ManagerOffersPage() {
                       Взяти в роботу
                     </Button>
                   )}
-                  {o.status === "closed" && (
+                  {(o.status === "closed" || o.status === "linked") && (
                     canLoad ? (
                       <>
                         <Button
@@ -1172,7 +1183,7 @@ function ManagerOffersPage() {
                                 toast.error((e as Error).message);
                                 return;
                               }
-                              qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                              await invalidateOfferWorkflowQueries();
                               setLinkOffer(o);
                             } else {
                               toast.message("Немає підходящої поставки", {
@@ -1197,7 +1208,7 @@ function ManagerOffersPage() {
                               toast.error((e as Error).message);
                               return;
                             }
-                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            await invalidateOfferWorkflowQueries();
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
@@ -1223,7 +1234,7 @@ function ManagerOffersPage() {
                               toast.error((e as Error).message);
                               return;
                             }
-                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            await invalidateOfferWorkflowQueries();
                             setLinkOffer(o);
                           }}
                         >
@@ -1242,7 +1253,7 @@ function ManagerOffersPage() {
                               toast.error((e as Error).message);
                               return;
                             }
-                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            await invalidateOfferWorkflowQueries();
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
@@ -1432,8 +1443,7 @@ function ManagerOffersPage() {
           setEditing(null);
         }}
         onSaved={() => {
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
-          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+          void invalidateOfferWorkflowQueries();
         }}
       />
 
@@ -1442,7 +1452,7 @@ function ManagerOffersPage() {
         onClose={() => setLinkOffer(null)}
         onLinked={() => {
           setLinkOffer(null);
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
+          void invalidateOfferWorkflowQueries();
         }}
       />
 
@@ -1452,8 +1462,7 @@ function ManagerOffersPage() {
         onClose={() => setPublishOffer(null)}
         onPublished={() => {
           setPublishOffer(null);
-          qc.invalidateQueries({ queryKey: ["manager-offers"] });
-          qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+          void invalidateOfferWorkflowQueries();
           qc.invalidateQueries({ queryKey: ["manager-offer-targets-edit"] });
         }}
       />
@@ -1781,6 +1790,9 @@ function OfferEditor({
       if (mode === "selected" && branchIds.length === 0) {
         throw new Error("Виберіть хоча б одну філію");
       }
+      if (!validateEta()) {
+        throw new Error("Вкажіть очікувану дату прибуття");
+      }
 
       if (offer) {
         // Existing offer: identity edit is locked for active offers (see
@@ -1947,7 +1959,17 @@ function OfferEditor({
         );
       }
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-linked-shipments"] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
+      qc.invalidateQueries({ queryKey: ["link-dialog-offer"] });
+      qc.invalidateQueries({ queryKey: ["branch-active-offers"] });
+      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      qc.invalidateQueries({ queryKey: ["branch-offer-shipments"] });
+      qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
+      qc.invalidateQueries({ queryKey: ["dash-manager"] });
       onSaved();
       setSelectiveOpen(false);
       onClose();
@@ -2794,7 +2816,14 @@ function LinkShipmentDialog({
       qc.invalidateQueries({ queryKey: ["link-dialog-offer", offerId] });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-linked-shipments"] });
+      qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
       qc.invalidateQueries({ queryKey: ["dash-manager"] });
+      qc.invalidateQueries({ queryKey: ["branch-active-offers"] });
+      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      qc.invalidateQueries({ queryKey: ["branch-offer-shipments"] });
+      qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
       qc.invalidateQueries({ queryKey: ["branch-requests-full"] });
       qc.invalidateQueries({ queryKey: ["branch-free"] });
       qc.invalidateQueries({ queryKey: ["distribution-list"] });
@@ -3187,7 +3216,14 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
   const isAdmin = hasRole(["admin", "super_admin"]);
   const allowed = canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin });
 
+  const guardEta = () => {
+    if (offer.expected_eta) return true;
+    toast.error("Вкажіть очікувану дату прибуття");
+    return false;
+  };
+
   const ensureToken = async (): Promise<string> => {
+    if (!guardEta()) throw new Error("Вкажіть очікувану дату прибуття");
     let token = offer.share_token ?? null;
     if (!token) {
       token = generateShareToken();
@@ -3214,6 +3250,7 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
     onSuccess: () => {
       toast.success(`Посилання скопійовано: ${offer.product_name}`);
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

@@ -26,6 +26,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 const ALL = "__all";
 
@@ -124,6 +125,24 @@ function BranchOffersPage() {
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
 
+  const invalidateOfferWorkflowQueries = async () => {
+    const keys = [
+      ["branch-active-offers"],
+      ["my-branch-responses"],
+      ["branch-offer-shipments"],
+      ["nav-branch-manager-offers"],
+      ["manager-offers"],
+      ["manager-offer-responses"],
+      ["manager-offer-targets"],
+      ["manager-offer-linked-shipments"],
+      ["link-dialog-offer"],
+      ["shipments-link-options"],
+      ["nav-pending-manager-responses"],
+      ["dash-manager"],
+    ] as const;
+    await Promise.all(keys.map((queryKey) => qc.invalidateQueries({ queryKey })));
+  };
+
   // Deep-link from /o/<token>: auto-open the targeted offer once on mount.
   // RLS has already filtered out offers this branch cannot see, so an unknown
   // id simply has no matching row and the dialog stays closed.
@@ -133,6 +152,18 @@ function BranchOffersPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.openOffer]);
+
+  useRealtimeInvalidate(
+    `branch-offers-${branchId ?? "none"}`,
+    ["manager_offers", "manager_offer_responses", "shipments", "shipment_items"],
+    [
+      ["branch-active-offers"],
+      ["my-branch-responses", branchId],
+      ["branch-offer-shipments"],
+      ["nav-branch-manager-offers", branchId],
+    ],
+    !!branchId,
+  );
 
 
 
@@ -351,9 +382,9 @@ function BranchOffersPage() {
         if (error) throw error;
       }
     },
-    onSuccess: (_, vars) => {
+    onSuccess: async (_, vars) => {
       toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
-      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      await invalidateOfferWorkflowQueries();
       // Block 2: auto-close the detail dialog after a successful request,
       // returning the user to the compact "Пропозиції" table.
       setSelectedOfferId(null);
@@ -369,9 +400,9 @@ function BranchOffersPage() {
         .eq("id", responseId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Запит скасовано", { duration: 1500 });
-      qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+      await invalidateOfferWorkflowQueries();
       setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),

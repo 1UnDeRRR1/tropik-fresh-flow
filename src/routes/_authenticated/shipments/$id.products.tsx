@@ -1433,8 +1433,17 @@ function ProductsFullscreen() {
         qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
         qc.invalidateQueries({ queryKey: ["shipment", id] });
         qc.invalidateQueries({ queryKey: ["manager-offers"] });
+        qc.invalidateQueries({ queryKey: ["manager-offer-linked-shipments"] });
+        qc.invalidateQueries({ queryKey: ["manager-offer-targets"] });
         qc.invalidateQueries({ queryKey: ["shipments-link-options"] });
-        qc.invalidateQueries({ queryKey: ["manager-offer-responses", offer.id] });
+        qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+        qc.invalidateQueries({ queryKey: ["link-dialog-offer"] });
+        qc.invalidateQueries({ queryKey: ["branch-active-offers"] });
+        qc.invalidateQueries({ queryKey: ["my-branch-responses"] });
+        qc.invalidateQueries({ queryKey: ["branch-offer-shipments"] });
+        qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"] });
+        qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
+        qc.invalidateQueries({ queryKey: ["dash-manager"] });
         invalidateVehicleAndShipmentCaches(qc);
       } catch {
         prefillRunRef.current = false;

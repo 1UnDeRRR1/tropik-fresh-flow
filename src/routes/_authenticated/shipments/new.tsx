@@ -552,7 +552,16 @@ function NewShipment() {
       qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["distribution-list"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["manager-offers"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["manager-offer-responses"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["manager-offer-linked-shipments"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["manager-offer-targets"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["link-dialog-offer"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["shipments-link-options"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["branch-active-offers"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["my-branch-responses"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["branch-offer-shipments"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"], refetchType: "all" });
+      qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["shipment-products"], refetchType: "all" });
       toast.success("Поставку створено. Додайте позиції товарів.");
       navigate({
