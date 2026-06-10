@@ -705,34 +705,47 @@ function BranchOffersPage() {
                 )}
 
                 {/* Desired quantity input + actions */}
+                {/* Correction 1 — branch lock after manager answer or once
+                    offer leaves "active": hide input + "Оновити"/"Запитати"
+                    so branch cannot correct, refuse, or reset a manager-set
+                    response. Read-only summary below stays visible. */}
                 <div className="mt-3 flex flex-wrap items-end gap-2">
-                  {!["linked", "closed", "expired"].includes(o.status) ? (
-                    <>
-                      <label className="text-sm">
-                        <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
-                        <Input
-                          type="number"
-                          min={0}
-                          className="h-9 w-32 font-bold tabular-nums"
-                          value={draft}
-                          onChange={(e) => setDrafts((p) => ({ ...p, [o.id]: e.target.value }))}
-                        />
-                      </label>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const n = Number(draft);
-                          if (!Number.isFinite(n) || n < 0) {
-                            toast.error("Введіть кількість");
-                            return;
-                          }
-                          submit.mutate({ offerId: o.id, pallets: n });
-                        }}
-                      >
-                        {r ? "Оновити" : "Запитати"}
-                      </Button>
-                    </>
-                  ) : null}
+                  {(() => {
+                    const responseLocked = !!r && r.approved_pallets != null;
+                    const offerInactive = o.status !== "active";
+                    if (responseLocked || offerInactive) return null;
+                    return (
+                      <>
+                        <label className="text-sm">
+                          <span className="mb-1 block text-muted-foreground">Бажана кількість, палет</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            className="h-9 w-32 font-bold tabular-nums"
+                            value={draft}
+                            onChange={(e) => setDrafts((p) => ({ ...p, [o.id]: e.target.value }))}
+                          />
+                        </label>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            // Client-side guard: refuse to submit if locked.
+                            if (!!r && r.approved_pallets != null) return;
+                            if (o.status !== "active") return;
+                            const n = Number(draft);
+                            if (!Number.isFinite(n) || n < 0) {
+                              toast.error("Введіть кількість");
+                              return;
+                            }
+                            submit.mutate({ offerId: o.id, pallets: n });
+                          }}
+                        >
+                          {r ? "Оновити" : "Запитати"}
+                        </Button>
+                      </>
+                    );
+                  })()}
+
 
                   {r && o.status === "active" && r.approved_pallets == null && (
                     <Button
