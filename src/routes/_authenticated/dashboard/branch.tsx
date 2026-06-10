@@ -847,7 +847,7 @@ function BranchDashboard() {
   }, [filteredRows]);
 
   // Silence unused-state lint (kept to avoid touching data/handler logic).
-  void sortBy; void setSortBy;
+  void sortBy; void setSortBy; void ackChange;
 
   return (
     <div
@@ -1021,17 +1021,6 @@ function BranchDashboard() {
                           </b>
                         </div>
                       ) : null}
-                      <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            ackChange(drillRow.distribution_id, drillRow.shipment_item_id)
-                          }
-                        >
-                          Прочитано
-                        </Button>
-                      </div>
                     </div>
                   );
                 })()}
