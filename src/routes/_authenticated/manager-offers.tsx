@@ -266,16 +266,18 @@ function ManagerOffersPage() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
-    // Switch to the tab that contains this offer
-    if (["active", "in_work", "confirmed", "closed"].includes(offerStatus)) setTab("active");
-    else if (offerStatus === "draft") setTab("drafts");
-    else if (offerStatus === "linked") setTab("linked");
-    else if (offerStatus === "expired") setTab("archive");
-    
+    // Two-tab model: Active vs Confirmed. Anything that has been taken
+    // into work / linked goes to the confirmed tab. Drafts/expired are
+    // not surfaced in the tabs but we still allow deep-link to open the
+    // detail modal directly.
+    if (offerStatus === "active") setTab("active");
+    else setTab("confirmed");
+
     setHighlightedId(offerId);
     setDetailOfferId(offerId);
     setTimeout(() => setHighlightedId((cur) => (cur === offerId ? null : cur)), 2600);
   }
+
 
   const { data: branches } = useQuery({
     queryKey: ["branches-min"],
