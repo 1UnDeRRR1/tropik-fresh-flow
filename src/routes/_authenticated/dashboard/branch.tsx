@@ -8,6 +8,8 @@ import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { Button } from "@/components/ui/button";
+import { OfferDialog } from "@/components/OfferDialog";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
@@ -845,7 +847,7 @@ function BranchDashboard() {
   }, [filteredRows]);
 
   // Silence unused-state lint (kept to avoid touching data/handler logic).
-  void sortBy; void setSortBy; void offerRow; void setOfferRow; void statsFor; void ackChange;
+  void sortBy; void setSortBy;
 
   return (
     <div
@@ -959,11 +961,127 @@ function BranchDashboard() {
                     <span className="font-medium text-foreground">{drillRow.manager_name}</span>
                   </div>
                 ) : null}
+
+                {(() => {
+                  const fmtD = (s: string | null) => {
+                    if (!s) return "—";
+                    const d = new Date(s);
+                    return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString("uk-UA");
+                  };
+                  const etaChanged =
+                    !!drillRow.baseline_eta && drillRow.baseline_eta !== drillRow.eta;
+                  const palletsChanged =
+                    drillRow.baseline_pallets != null &&
+                    Number(drillRow.baseline_pallets) !== Number(drillRow.pallets);
+                  const indChanged =
+                    drillRow.baseline_ind != null &&
+                    Number(drillRow.baseline_ind) !== Number(drillRow.indicative ?? 0);
+                  const invChanged =
+                    drillRow.baseline_inv != null &&
+                    Number(drillRow.baseline_inv) !== Number(drillRow.invoice ?? 0);
+                  const anyChange = etaChanged || palletsChanged || indChanged || invChanged;
+                  if (!anyChange) return null;
+                  return (
+                    <div className="space-y-1">
+                      {etaChanged ? (
+                        <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                          <b>Дата змінена:</b>{" "}
+                          <span className="line-through tabular-nums">{fmtD(drillRow.baseline_eta)}</span>{" "}
+                          → стало <b className="tabular-nums">{fmtD(drillRow.eta)}</b>
+                        </div>
+                      ) : null}
+                      {palletsChanged ? (
+                        <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                          <b>Кількість змінена:</b>{" "}
+                          <span className="line-through tabular-nums">{drillRow.baseline_pallets}п</span>{" "}
+                          → стало <b className="tabular-nums">{drillRow.pallets}п</b>
+                        </div>
+                      ) : null}
+                      {indChanged ? (
+                        <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                          <b>Собівартість індикативна:</b>{" "}
+                          <span className="line-through tabular-nums">
+                            {Number(drillRow.baseline_ind).toFixed(2)}
+                          </span>{" "}
+                          → стало{" "}
+                          <b className="tabular-nums">
+                            {Number(drillRow.indicative ?? 0).toFixed(2)}
+                          </b>
+                        </div>
+                      ) : null}
+                      {invChanged ? (
+                        <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                          <b>Собівартість інвойсна:</b>{" "}
+                          <span className="line-through tabular-nums">
+                            {Number(drillRow.baseline_inv).toFixed(2)}
+                          </span>{" "}
+                          → стало{" "}
+                          <b className="tabular-nums">
+                            {Number(drillRow.invoice ?? 0).toFixed(2)}
+                          </b>
+                        </div>
+                      ) : null}
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            ackChange(drillRow.distribution_id, drillRow.shipment_item_id)
+                          }
+                        >
+                          Прочитано
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  if (!drillRow.is_real_shipment_code) return null;
+                  const s = statsFor({
+                    distribution_id: drillRow.distribution_id,
+                    shipment_item_id: drillRow.shipment_item_id,
+                    pallets: drillRow.pallets,
+                  });
+                  if (s.free <= 0) return null;
+                  return (
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setOfferRow(drillRow)}
+                      >
+                        Запропонувати філії ({s.free}п)
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <OfferDialog
+        open={!!offerRow}
+        onClose={() => setOfferRow(null)}
+        item={
+          offerRow
+            ? {
+                shipment_item_id: offerRow.shipment_item_id,
+                distribution_id: offerRow.distribution_id,
+                product_name: offerRow.product,
+                caliber: offerRow.caliber,
+                available_pallets: statsFor({
+                  distribution_id: offerRow.distribution_id,
+                  shipment_item_id: offerRow.shipment_item_id,
+                  pallets: offerRow.pallets,
+                }).free,
+                shipment_code: offerRow.code,
+              }
+            : null
+        }
+      />
     </div>
   );
 }
