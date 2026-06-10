@@ -3211,7 +3211,14 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
   const isAdmin = hasRole(["admin", "super_admin"]);
   const allowed = canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin });
 
+  const guardEta = () => {
+    if (offer.expected_eta) return true;
+    toast.error("Вкажіть очікувану дату прибуття");
+    return false;
+  };
+
   const ensureToken = async (): Promise<string> => {
+    if (!guardEta()) throw new Error("Вкажіть очікувану дату прибуття");
     let token = offer.share_token ?? null;
     if (!token) {
       token = generateShareToken();
@@ -3238,6 +3245,7 @@ function ShareLinkButtons({ offer }: { offer: ManagerOffer & { share_token?: str
     onSuccess: () => {
       toast.success(`Посилання скопійовано: ${offer.product_name}`);
       qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
