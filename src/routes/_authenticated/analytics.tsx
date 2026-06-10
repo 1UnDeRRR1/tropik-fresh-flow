@@ -408,9 +408,9 @@ export function Analytics() {
                         className="flex w-full flex-col gap-1 py-2.5 text-left active:opacity-70"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-semibold">
-                            ETA {sh.eta ?? "—"}
-                          </span>
+                           <span className="truncate text-sm font-semibold text-info">
+                             ETA {sh.eta ?? "—"}
+                           </span>
                           <span className="shrink-0 text-sm font-bold tabular-nums text-brand">{visiblePallets}п</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
