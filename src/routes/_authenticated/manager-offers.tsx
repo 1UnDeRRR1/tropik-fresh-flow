@@ -516,7 +516,7 @@ function ManagerOffersPage() {
     return offer.responses
       .filter((r) => inScope(r.branch_id))
       .reduce(
-        (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+        (sum, r) => sum + (r.approved_pallets != null && Number(r.approved_pallets) > 0 ? Number(r.approved_pallets) : 0),
         0,
       );
   };
