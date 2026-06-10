@@ -248,7 +248,7 @@ function BranchOffersPage() {
       if (!db) return -1;
       return da.localeCompare(db);
     });
-  }, [baseVisibleOffers, shipmentById]);
+  }, [baseVisibleOffers, shipmentById, responseByOffer]);
 
   // Split unfiltered bucket-base into active/confirmed by status kind.
   const { activeBase, confirmedBase } = useMemo(() => {
