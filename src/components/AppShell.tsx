@@ -211,6 +211,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     refetchInterval: 30000,
   });
 
+  // Correction 3 — realtime invalidation for the branch nav badge only.
+  // Scope strictly to the per-branch query key; do not broaden visibility.
+  useRealtimeInvalidate(
+    `nav-branch-manager-offers-${branchId ?? "none"}`,
+    ["manager_offers", "manager_offer_responses"],
+    [["nav-branch-manager-offers", branchId]],
+    isBranch && !!branchId,
+  );
+
+
+
 
   const { data: pendingManagerResponses = 0 } = useQuery({
     queryKey: ["nav-pending-manager-responses", userId, isAdmin],
