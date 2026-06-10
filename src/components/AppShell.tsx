@@ -318,7 +318,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/distribution", label: "Вільно", icon: Package },
-        { to: "/branch-offers", label: "Про. ЗЕД", icon: Inbox },
+        { to: "/branch-offers", label: "Про. ЗЕД", icon: Inbox, badge: branchManagerOffersPending },
         { to: "/branch-calendar", label: "Календар", icon: CalendarDays },
         { to: "/offers", label: "Переміщення", icon: Send, badge: pendingOffers },
         { to: "/archive", label: "Архів", icon: Archive },
