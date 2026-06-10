@@ -847,7 +847,7 @@ function BranchDashboard() {
   }, [filteredRows]);
 
   // Silence unused-state lint (kept to avoid touching data/handler logic).
-  void sortBy; void setSortBy; void offerRow; void setOfferRow; void statsFor; void ackChange;
+  void sortBy; void setSortBy;
 
   return (
     <div
