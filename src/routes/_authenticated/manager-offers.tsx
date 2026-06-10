@@ -2005,11 +2005,15 @@ function OfferEditor({
 
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end sm:flex-wrap">
             <Button
-              onClick={() => publish.mutate({ mode: "all", branchIds: [] })}
+              onClick={() => {
+                if (!validateEta()) return;
+                publish.mutate({ mode: "all", branchIds: [] });
+              }}
               disabled={publish.isPending || !canPublish}
             >
               Відправити всім{!offer && items.length > 1 ? ` (${items.length})` : ""}
             </Button>
+
             {!offer && canUseShareLinkPilot({ profileId: user?.id ?? null, isAdmin }) && (
               <Button
                 variant="outline"
