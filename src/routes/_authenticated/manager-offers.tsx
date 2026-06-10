@@ -843,15 +843,18 @@ function ManagerOffersPage() {
       />
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-auto bg-transparent p-0 gap-2">
+        <TabsList
+          className={cn(
+            "h-auto w-full grid grid-cols-2 gap-0 rounded-full border-2 bg-card p-1",
+            tab === "active" ? "border-warning" : "border-success",
+          )}
+        >
           <TabsTrigger
             value="active"
             className={cn(
-              "rounded-lg border-2 bg-card px-4 py-1.5 text-sm shadow-none",
-              "data-[state=active]:bg-card data-[state=active]:shadow-none",
-              tab === "active"
-                ? "border-warning text-foreground font-bold"
-                : "border-border text-muted-foreground font-normal",
+              "rounded-full px-4 py-1.5 text-sm shadow-none bg-transparent",
+              "data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-foreground data-[state=active]:font-bold",
+              "data-[state=inactive]:text-muted-foreground data-[state=inactive]:font-normal",
             )}
           >
             Активні
@@ -859,16 +862,15 @@ function ManagerOffersPage() {
           <TabsTrigger
             value="confirmed"
             className={cn(
-              "rounded-lg border-2 bg-card px-4 py-1.5 text-sm shadow-none",
-              "data-[state=active]:bg-card data-[state=active]:shadow-none",
-              tab === "confirmed"
-                ? "border-success text-foreground font-bold"
-                : "border-border text-muted-foreground font-normal",
+              "rounded-full px-4 py-1.5 text-sm shadow-none bg-transparent",
+              "data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-foreground data-[state=active]:font-bold",
+              "data-[state=inactive]:text-muted-foreground data-[state=inactive]:font-normal",
             )}
           >
             Підтверджені
           </TabsTrigger>
         </TabsList>
+
         <TabsContent value={tab} className="mt-3 space-y-2">
           {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
           {!isLoading && filtered.length === 0 && (
