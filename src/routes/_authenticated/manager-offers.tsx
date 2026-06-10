@@ -1298,6 +1298,13 @@ function ManagerOffersPage() {
                               !rejected &&
                               r.approved_pallets != null &&
                               r.approved_pallets > 0;
+                            // Correction 1 — lock row actions after manager answer
+                            // or once the offer leaves "Активні". Partial confirm,
+                            // full confirm, and refusal (approved=0) are all locked.
+                            const responseAnswered = r.approved_pallets != null;
+                            const offerLocked = o.status !== "active";
+                            const rowLocked =
+                              excluded || rejected || responseAnswered || offerLocked;
                             return (
                               <tr
                                 key={r.id}
@@ -1339,22 +1346,27 @@ function ManagerOffersPage() {
                                       )}
                                       type="number"
                                       min={0}
-                                      disabled={excluded || rejected}
-                                      defaultValue={r.approved_pallets ?? r.requested_pallets}
+                                      disabled={rowLocked}
+                                      defaultValue={
+                                        r.approved_pallets != null
+                                          ? r.approved_pallets
+                                          : r.requested_pallets
+                                      }
                                       onBlur={(e) => {
+                                        if (rowLocked) return;
                                         const v = e.target.value === "" ? null : Number(e.target.value);
                                         if (v !== r.approved_pallets) {
                                           updateApproved.mutate({ id: r.id, approved: v });
                                         }
                                       }}
                                     />
-                                    {!rejected && (
+                                    {!rowLocked && (
                                       <>
                                         <Button
                                           size="sm"
                                           variant="ghost"
                                           className="h-8 px-2 text-[11px] text-success hover:text-success"
-                                          disabled={excluded || updateApproved.isPending}
+                                          disabled={updateApproved.isPending}
                                           onClick={() => {
                                             const el = approvedInputRefs.current[r.id];
                                             const raw = el?.value ?? "";
@@ -1372,7 +1384,7 @@ function ManagerOffersPage() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                          disabled={excluded || updateApproved.isPending}
+                                          disabled={updateApproved.isPending}
                                           onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
                                         >
                                           Відмовити
@@ -1385,6 +1397,7 @@ function ManagerOffersPage() {
                               </tr>
                             );
                           })}
+
                         </tbody>
                       </table>
                     </div>
