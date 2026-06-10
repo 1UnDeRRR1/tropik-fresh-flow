@@ -1128,7 +1128,11 @@ function ManagerOffersPage() {
                     </Button>
                   )}
                   {o.status === "active" && (
-                    <Button size="sm" onClick={() => setStatus.mutate({ id: o.id, status: "in_work" })}>
+                    <Button
+                      size="sm"
+                      onClick={() => takeIntoWork.mutate({ offerId: o.id })}
+                      disabled={takeIntoWork.isPending}
+                    >
                       Взяти в роботу
                     </Button>
                   )}
@@ -1143,8 +1147,15 @@ function ManagerOffersPage() {
                               ? "border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
                               : "border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive",
                           )}
-                          onClick={() => {
+                          onClick={async () => {
                             if (hasLinkable) {
+                              try {
+                                await autoConfirmPendingForOffer(o.id);
+                              } catch (e) {
+                                toast.error((e as Error).message);
+                                return;
+                              }
+                              qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
                               setLinkOffer(o);
                             } else {
                               toast.message("Немає підходящої поставки", {
@@ -1160,15 +1171,22 @@ function ManagerOffersPage() {
                         >
                           <Link2 className="mr-1 h-3.5 w-3.5" /> Підтягнути
                         </Button>
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await autoConfirmPendingForOffer(o.id);
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                              return;
+                            }
+                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            setDetailOfferId(null);
+                            navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
+                          }}
                         >
-                          <Button size="sm">
-                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
-                          </Button>
-                        </Link>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
+                        </Button>
                       </>
                     ) : blockReason ? (
                       <div className="text-xs text-warning">{blockReason}</div>
@@ -1181,30 +1199,45 @@ function ManagerOffersPage() {
                           size="sm"
                           variant="outline"
                           className="border-success/40 bg-success/15 text-success hover:bg-success/25 hover:text-success"
-                          onClick={() => setLinkOffer(o)}
+                          onClick={async () => {
+                            try {
+                              await autoConfirmPendingForOffer(o.id);
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                              return;
+                            }
+                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            setLinkOffer(o);
+                          }}
                         >
                           <Link2 className="mr-1 h-3.5 w-3.5" /> Прив'язати до поставки
                         </Button>
                       ) : (
-                        <Link
-                          to="/shipments/new"
-                          search={{ fromOffer: o.id } as never}
-                          onClick={() => setDetailOfferId(null)}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
+                          title="Немає підходящої поставки — створіть нову"
+                          onClick={async () => {
+                            try {
+                              await autoConfirmPendingForOffer(o.id);
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                              return;
+                            }
+                            qc.invalidateQueries({ queryKey: ["manager-offer-responses"] });
+                            setDetailOfferId(null);
+                            navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
+                          }}
                         >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
-                            title="Немає підходящої поставки — створіть нову"
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
-                          </Button>
-                        </Link>
+                          <Plus className="mr-1 h-3.5 w-3.5" /> {totalLinked > 0 ? "Створити поставку для решти" : "Створити поставку"}
+                        </Button>
                       )
                     ) : blockReason ? (
                       <div className="text-xs text-warning">{blockReason}</div>
                     ) : null
                   )}
+
                   {!["closed", "expired", "linked"].includes(o.status) && (
                     <Button size="sm" variant="outline" onClick={() => setEditing(o)}>
                       <Pencil className="mr-1 h-3.5 w-3.5" /> Редагувати
