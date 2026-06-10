@@ -475,10 +475,19 @@ function BranchOffersPage() {
 
                 let palletNode: React.ReactNode = null;
                 if (bucket === "confirmed") {
-                  if (apprQty != null && apprQty > 0) {
+                  // Show REMAINING confirmed pallets (approved − linked),
+                  // not original approved. Example: approved 8, linked 6 → 2п.
+                  const linkedQ = r
+                    ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0)
+                    : 0;
+                  const remainingQ = apprQty != null && apprQty > 0
+                    ? Math.max(apprQty - linkedQ, 0)
+                    : 0;
+                  const shown = remainingQ > 0 ? remainingQ : (apprQty != null && apprQty > 0 ? apprQty : 0);
+                  if (shown > 0) {
                     palletNode = (
                       <span className="text-sm font-bold tabular-nums text-foreground">
-                        {apprQty}п
+                        {shown}п
                       </span>
                     );
                   }
