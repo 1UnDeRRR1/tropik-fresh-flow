@@ -516,7 +516,7 @@ function ManagerOffersPage() {
     return offer.responses
       .filter((r) => inScope(r.branch_id))
       .reduce(
-        (sum, r) => sum + Number(r.approved_pallets ?? r.requested_pallets ?? 0),
+        (sum, r) => sum + (r.approved_pallets != null && Number(r.approved_pallets) > 0 ? Number(r.approved_pallets) : 0),
         0,
       );
   };
@@ -891,7 +891,20 @@ function ManagerOffersPage() {
               (r) => r.approved_pallets != null && Number(r.approved_pallets) > 0,
             );
             const Y1 = confirmedRows.length;
-            const Y2 = confirmedRows.reduce((s, r) => s + Number(r.approved_pallets ?? 0), 0);
+            // In "Активні" Y2 is the original confirmed total. In "Підтверджені"
+            // Y2 shows the REMAINING confirmed quantity (approved − linked),
+            // clamped to >=0 per row, so partially linked offers correctly
+            // display only what still needs a shipment.
+            const Y2 =
+              tab === "confirmed"
+                ? confirmedRows.reduce((s, r) => {
+                    const approved = Number(r.approved_pallets ?? 0);
+                    const linked = Number(
+                      (r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0,
+                    );
+                    return s + Math.max(approved - linked, 0);
+                  }, 0)
+                : confirmedRows.reduce((s, r) => s + Number(r.approved_pallets ?? 0), 0);
             const etaShort = o.expected_eta
               ? (() => {
                   const d = new Date(o.expected_eta!);

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { tapVibrate } from "@/lib/nav-feedback";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 import calendarNormal from "@/assets/nav-icons/owner/calendar-normal.png";
 import calendarPress from "@/assets/nav-icons/owner/calendar-press.png";
@@ -211,6 +212,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     refetchInterval: 30000,
   });
 
+  // Correction 3 — realtime invalidation for the branch nav badge only.
+  // Scope strictly to the per-branch query key; do not broaden visibility.
+  useRealtimeInvalidate(
+    `nav-branch-manager-offers-${branchId ?? "none"}`,
+    ["manager_offers", "manager_offer_responses"],
+    [["nav-branch-manager-offers", branchId]],
+    isBranch && !!branchId,
+  );
+
+
+
 
   const { data: pendingManagerResponses = 0 } = useQuery({
     queryKey: ["nav-pending-manager-responses", userId, isAdmin],
@@ -318,7 +330,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? [
         { to: dashHref, label: "Головна", icon: Home },
         { to: "/distribution", label: "Вільно", icon: Package },
-        { to: "/branch-offers", label: "Про. ЗЕД", icon: Inbox },
+        { to: "/branch-offers", label: "Про. ЗЕД", icon: Inbox, badge: branchManagerOffersPending },
         { to: "/branch-calendar", label: "Календар", icon: CalendarDays },
         { to: "/offers", label: "Переміщення", icon: Send, badge: pendingOffers },
         { to: "/archive", label: "Архів", icon: Archive },
