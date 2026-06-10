@@ -528,7 +528,7 @@ export function StatisticsPage() {
                 {supplierMap[sh.supplier_id ?? ""] ?? "—"}
               </div>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                <span>{dateBasis === "loading" ? "Завант." : "ETA"} {fmtDate(f.date)}</span>
+                <span className="text-info">{dateBasis === "loading" ? "Завант." : "ETA"} {fmtDate(f.date)}</span>
                 <span>·</span>
                 <span className="font-mono">{shipmentLabel(sh)}</span>
                 {net > 0 ? <><span>·</span><span>{Math.round(net)} кг</span></> : null}

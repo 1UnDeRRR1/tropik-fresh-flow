@@ -736,11 +736,11 @@ function BranchOffersPage() {
 
                 {/* Expected date */}
                 {etaDate && (
-                  <div className="mt-1 text-sm text-muted-foreground">
+                  <div className="mt-1 text-sm text-info">
                     {etaDate.label}:{" "}
-                    <b className="text-foreground tabular-nums">{etaDate.value}</b>
+                    <b className="text-info tabular-nums">{etaDate.value}</b>
                     {etaDate.plan && (
-                      <span className="ml-1 text-[10px] uppercase tracking-wide">(план)</span>
+                      <span className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground">(план)</span>
                     )}
                   </div>
                 )}

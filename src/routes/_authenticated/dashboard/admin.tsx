@@ -334,7 +334,7 @@ function AdminDashboard() {
                           <li key={r.code} className="flex items-center justify-between px-3 py-2 text-sm">
                             <div>
                               <div className="font-semibold">{r.code}</div>
-                              <div className="text-xs text-muted-foreground">ETA {r.eta ?? "—"}</div>
+                              <div className="text-xs text-info">ETA {r.eta ?? "—"}</div>
                             </div>
                             <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-bold text-destructive">
                               {r.pallets}п
