@@ -256,6 +256,22 @@ function BranchOffersPage() {
     const c: ManagerOffer[] = [];
     for (const o of bucketBaseRows) {
       const r = responseByOffer[o.id] ?? null;
+      // Local remaining: if this branch still has approved-but-not-yet-linked
+      // pallets, the row belongs in "Підтверджені" regardless of whether the
+      // offer already has a real shipment code for the linked part. Shared
+      // getBranchOfferStatus would classify this as "shipped" and push it
+      // into "Активні"; override locally without touching shared code.
+      const approved = r && r.approved_pallets != null && Number(r.approved_pallets) > 0
+        ? Number(r.approved_pallets)
+        : 0;
+      const linked = r
+        ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0)
+        : 0;
+      const remaining = Math.max(approved - linked, 0);
+      if (remaining > 0) {
+        c.push(o);
+        continue;
+      }
       const st = getBranchOfferStatus(o, r, shipCodeOf(o));
       if (st.kind === "confirmed") c.push(o);
       else a.push(o);
