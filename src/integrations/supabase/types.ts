@@ -4478,6 +4478,10 @@ export type Database = {
           remaining: number
         }[]
       }
+      recompute_pba_ordered_qty: {
+        Args: { p_branch_id: string; p_position_id: string }
+        Returns: undefined
+      }
       recompute_vehicle_item_costs: {
         Args: { _shipment_id: string; _vehicle_id: string }
         Returns: undefined
