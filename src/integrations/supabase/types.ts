@@ -4163,6 +4163,40 @@ export type Database = {
       archive_due_cancelled_shipments: { Args: never; Returns: number }
       archive_due_unloaded_shipments: { Args: never; Returns: number }
       auto_unload_shipments: { Args: never; Returns: number }
+      bae_assert_pba_in_sync: {
+        Args: {
+          p_branch_id: string
+          p_expected_pba_ordered: number
+          p_position_id: string
+          p_response_id: string
+        }
+        Returns: undefined
+      }
+      bae_record_cut_normal: {
+        Args: { p_response_id: string }
+        Returns: string
+      }
+      bae_record_cut_option_a: {
+        Args: { p_response_id: string }
+        Returns: string
+      }
+      bae_record_delivered: {
+        Args: { p_allocation_part_id: string }
+        Returns: string
+      }
+      bae_record_not_fulfilled: {
+        Args: { p_response_id: string }
+        Returns: string
+      }
+      bae_record_refusal_zero: {
+        Args: {
+          p_acting_manager_id: string
+          p_acting_user_id: string
+          p_action_at: string
+          p_response_id: string
+        }
+        Returns: string
+      }
       branch_ack_changes: {
         Args: { p_distribution_id: string; p_shipment_item_id: string }
         Returns: undefined
