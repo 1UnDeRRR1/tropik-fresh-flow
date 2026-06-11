@@ -14,6 +14,221 @@ export type Database = {
   }
   public: {
     Tables: {
+      archive_promise_snapshots: {
+        Row: {
+          branch_id: string
+          caliber: string | null
+          cost_indicative_usd_snapshot: number | null
+          cost_invoice_usd_snapshot: number | null
+          created_at: string
+          notes: string | null
+          packaging: string | null
+          pallet_qty: number | null
+          position_id: string
+          product_id: string | null
+          product_origin_country_id: string | null
+          promise_eta_snapshot: string | null
+          requested_qty: number
+          resolution:
+            | Database["public"]["Enums"]["archive_snapshot_resolution"]
+            | null
+          resolved_at: string | null
+          responsible_manager_id: string | null
+          snapshot_id: string
+          source: Database["public"]["Enums"]["archive_snapshot_source"]
+          source_offer_id: string | null
+          source_response_id: string | null
+          source_shipment_id: string | null
+          status: Database["public"]["Enums"]["archive_snapshot_status"]
+          variety_id: number | null
+          visible_archive_event_id: string | null
+        }
+        Insert: {
+          branch_id: string
+          caliber?: string | null
+          cost_indicative_usd_snapshot?: number | null
+          cost_invoice_usd_snapshot?: number | null
+          created_at?: string
+          notes?: string | null
+          packaging?: string | null
+          pallet_qty?: number | null
+          position_id: string
+          product_id?: string | null
+          product_origin_country_id?: string | null
+          promise_eta_snapshot?: string | null
+          requested_qty: number
+          resolution?:
+            | Database["public"]["Enums"]["archive_snapshot_resolution"]
+            | null
+          resolved_at?: string | null
+          responsible_manager_id?: string | null
+          snapshot_id?: string
+          source: Database["public"]["Enums"]["archive_snapshot_source"]
+          source_offer_id?: string | null
+          source_response_id?: string | null
+          source_shipment_id?: string | null
+          status?: Database["public"]["Enums"]["archive_snapshot_status"]
+          variety_id?: number | null
+          visible_archive_event_id?: string | null
+        }
+        Update: {
+          branch_id?: string
+          caliber?: string | null
+          cost_indicative_usd_snapshot?: number | null
+          cost_invoice_usd_snapshot?: number | null
+          created_at?: string
+          notes?: string | null
+          packaging?: string | null
+          pallet_qty?: number | null
+          position_id?: string
+          product_id?: string | null
+          product_origin_country_id?: string | null
+          promise_eta_snapshot?: string | null
+          requested_qty?: number
+          resolution?:
+            | Database["public"]["Enums"]["archive_snapshot_resolution"]
+            | null
+          resolved_at?: string | null
+          responsible_manager_id?: string | null
+          snapshot_id?: string
+          source?: Database["public"]["Enums"]["archive_snapshot_source"]
+          source_offer_id?: string | null
+          source_response_id?: string | null
+          source_shipment_id?: string | null
+          status?: Database["public"]["Enums"]["archive_snapshot_status"]
+          variety_id?: number | null
+          visible_archive_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archive_promise_snapshots_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "archive_promise_snapshots_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "archive_promise_snapshots_visible_archive_event_id_fkey"
+            columns: ["visible_archive_event_id"]
+            isOneToOne: false
+            referencedRelation: "branch_archive_results"
+            referencedColumns: ["result_id"]
+          },
+          {
+            foreignKeyName: "archive_promise_snapshots_visible_archive_event_id_fkey"
+            columns: ["visible_archive_event_id"]
+            isOneToOne: false
+            referencedRelation: "branch_archive_results_admin"
+            referencedColumns: ["result_id"]
+          },
+          {
+            foreignKeyName: "archive_promise_snapshots_visible_archive_event_id_fkey"
+            columns: ["visible_archive_event_id"]
+            isOneToOne: false
+            referencedRelation: "branch_archive_results_branch"
+            referencedColumns: ["result_id"]
+          },
+          {
+            foreignKeyName: "archive_promise_snapshots_visible_archive_event_id_fkey"
+            columns: ["visible_archive_event_id"]
+            isOneToOne: false
+            referencedRelation: "branch_archive_results_manager"
+            referencedColumns: ["result_id"]
+          },
+        ]
+      }
+      branch_archive_results: {
+        Row: {
+          actual_cost_indicative_usd: number | null
+          actual_cost_invoice_usd: number | null
+          actual_cost_landed_usd: number | null
+          actual_eta: string | null
+          branch_id: string
+          created_at: string
+          cut_qty: number | null
+          delivered_qty: number | null
+          event_type: Database["public"]["Enums"]["archive_visible_event_type"]
+          is_split_shipment: boolean
+          notes: string | null
+          occurred_at: string
+          position_id: string
+          responsible_manager_id: string | null
+          result_id: string
+          shared_qty: number | null
+          shipment_id: string | null
+          snapshot_id: string
+        }
+        Insert: {
+          actual_cost_indicative_usd?: number | null
+          actual_cost_invoice_usd?: number | null
+          actual_cost_landed_usd?: number | null
+          actual_eta?: string | null
+          branch_id: string
+          created_at?: string
+          cut_qty?: number | null
+          delivered_qty?: number | null
+          event_type: Database["public"]["Enums"]["archive_visible_event_type"]
+          is_split_shipment?: boolean
+          notes?: string | null
+          occurred_at?: string
+          position_id: string
+          responsible_manager_id?: string | null
+          result_id?: string
+          shared_qty?: number | null
+          shipment_id?: string | null
+          snapshot_id: string
+        }
+        Update: {
+          actual_cost_indicative_usd?: number | null
+          actual_cost_invoice_usd?: number | null
+          actual_cost_landed_usd?: number | null
+          actual_eta?: string | null
+          branch_id?: string
+          created_at?: string
+          cut_qty?: number | null
+          delivered_qty?: number | null
+          event_type?: Database["public"]["Enums"]["archive_visible_event_type"]
+          is_split_shipment?: boolean
+          notes?: string | null
+          occurred_at?: string
+          position_id?: string
+          responsible_manager_id?: string | null
+          result_id?: string
+          shared_qty?: number | null
+          shipment_id?: string | null
+          snapshot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_archive_results_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_archive_results_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+          {
+            foreignKeyName: "branch_archive_results_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "archive_promise_snapshots"
+            referencedColumns: ["snapshot_id"]
+          },
+        ]
+      }
       branch_distribution_baselines: {
         Row: {
           baseline_cost_ind: number | null
@@ -2975,6 +3190,159 @@ export type Database = {
       }
     }
     Views: {
+      branch_archive_results_admin: {
+        Row: {
+          actual_cost_indicative_usd: number | null
+          actual_cost_invoice_usd: number | null
+          actual_cost_landed_usd: number | null
+          actual_eta: string | null
+          branch_id: string | null
+          caliber: string | null
+          cost_indicative_usd_snapshot: number | null
+          cost_invoice_usd_snapshot: number | null
+          cut_qty: number | null
+          delivered_qty: number | null
+          event_type:
+            | Database["public"]["Enums"]["archive_visible_event_type"]
+            | null
+          is_split_shipment: boolean | null
+          notes: string | null
+          occurred_at: string | null
+          packaging: string | null
+          pallet_qty: number | null
+          position_id: string | null
+          product_id: string | null
+          product_origin_country_id: string | null
+          promise_eta_snapshot: string | null
+          promise_source:
+            | Database["public"]["Enums"]["archive_snapshot_source"]
+            | null
+          requested_qty: number | null
+          responsible_manager_id: string | null
+          result_id: string | null
+          shared_qty: number | null
+          shipment_id: string | null
+          variety_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_archive_results_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_archive_results_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
+      }
+      branch_archive_results_branch: {
+        Row: {
+          actual_cost_indicative_usd: number | null
+          actual_cost_invoice_usd: number | null
+          actual_cost_landed_usd: number | null
+          actual_eta: string | null
+          branch_id: string | null
+          caliber: string | null
+          cost_indicative_usd_snapshot: number | null
+          cost_invoice_usd_snapshot: number | null
+          cut_qty: number | null
+          delivered_qty: number | null
+          event_type:
+            | Database["public"]["Enums"]["archive_visible_event_type"]
+            | null
+          is_split_shipment: boolean | null
+          notes: string | null
+          occurred_at: string | null
+          packaging: string | null
+          pallet_qty: number | null
+          position_id: string | null
+          product_id: string | null
+          product_origin_country_id: string | null
+          promise_eta_snapshot: string | null
+          promise_source:
+            | Database["public"]["Enums"]["archive_snapshot_source"]
+            | null
+          requested_qty: number | null
+          responsible_manager_id: string | null
+          result_id: string | null
+          shared_qty: number | null
+          shipment_id: string | null
+          variety_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_archive_results_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_archive_results_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
+      }
+      branch_archive_results_manager: {
+        Row: {
+          actual_cost_indicative_usd: number | null
+          actual_cost_invoice_usd: number | null
+          actual_cost_landed_usd: number | null
+          actual_eta: string | null
+          branch_id: string | null
+          caliber: string | null
+          cost_indicative_usd_snapshot: number | null
+          cost_invoice_usd_snapshot: number | null
+          cut_qty: number | null
+          delivered_qty: number | null
+          event_type:
+            | Database["public"]["Enums"]["archive_visible_event_type"]
+            | null
+          is_split_shipment: boolean | null
+          notes: string | null
+          occurred_at: string | null
+          packaging: string | null
+          pallet_qty: number | null
+          position_id: string | null
+          product_id: string | null
+          product_origin_country_id: string | null
+          promise_eta_snapshot: string | null
+          promise_source:
+            | Database["public"]["Enums"]["archive_snapshot_source"]
+            | null
+          requested_qty: number | null
+          responsible_manager_id: string | null
+          result_id: string | null
+          shared_qty: number | null
+          shipment_id: string | null
+          variety_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_archive_results_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_archive_results_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "operational_positions"
+            referencedColumns: ["position_id"]
+          },
+        ]
+      }
       shipment_items_branch: {
         Row: {
           brand: string | null
@@ -3630,6 +3998,27 @@ export type Database = {
         | "logistics"
         | "broker"
         | "owner"
+      archive_snapshot_resolution:
+        | "delivered"
+        | "not_fulfilled"
+        | "cancelled"
+        | "superseded"
+        | "shared"
+      archive_snapshot_source:
+        | "branch_response"
+        | "manager_confirm"
+        | "shipment_link"
+      archive_snapshot_status:
+        | "pending"
+        | "resolved"
+        | "superseded"
+        | "cancelled"
+      archive_visible_event_type:
+        | "delivered"
+        | "not_fulfilled"
+        | "cancelled"
+        | "refused"
+        | "shared"
       branch_offer_status:
         | "pending"
         | "partially_accepted"
@@ -3831,6 +4220,31 @@ export const Constants = {
         "logistics",
         "broker",
         "owner",
+      ],
+      archive_snapshot_resolution: [
+        "delivered",
+        "not_fulfilled",
+        "cancelled",
+        "superseded",
+        "shared",
+      ],
+      archive_snapshot_source: [
+        "branch_response",
+        "manager_confirm",
+        "shipment_link",
+      ],
+      archive_snapshot_status: [
+        "pending",
+        "resolved",
+        "superseded",
+        "cancelled",
+      ],
+      archive_visible_event_type: [
+        "delivered",
+        "not_fulfilled",
+        "cancelled",
+        "refused",
+        "shared",
       ],
       branch_offer_status: [
         "pending",
