@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,11 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { fmtRate } from "@/lib/currency";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { refreshFxManual } from "@/lib/fx-refresh.functions";
+import { useAuth, type AppRole } from "@/lib/auth";
 
 type Rate = { rate: number; rate_date: string; source: string | null; created_at: string };
+const ALLOWED_REFRESH_ROLES: AppRole[] = ["super_admin", "admin", "import_manager", "logistics"];
 
 async function fetchLatestRate(): Promise<Rate | null> {
   const { data } = await supabase
