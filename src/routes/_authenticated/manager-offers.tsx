@@ -692,6 +692,25 @@ function ManagerOffersPage() {
     },
   });
 
+  const refuseResponse = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error("Сесія втрачена — увійдіть знову");
+      const { error } = await supabase
+        .from("manager_offer_responses")
+        .update({
+          refused_at: new Date().toISOString(),
+          refused_by: user.id,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSettled: async () => {
+      await invalidateOfferWorkflowQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const approveAllPending = useMutation({
     mutationFn: async () => {
       const pending: { id: string; requested: number }[] = [];
@@ -1316,7 +1335,7 @@ function ManagerOffersPage() {
                           {[...activeResponses, ...excludedResponses].map((r) => {
                             const excluded = !inScope(r.branch_id);
                             const cancelledSupply = o.status === "deleted";
-                            const rejected = !cancelledSupply && r.approved_pallets === 0;
+                            const rejected = !cancelledSupply && r.refused_at != null;
                             const confirmed =
                               !excluded &&
                               !rejected &&
@@ -1324,8 +1343,9 @@ function ManagerOffersPage() {
                               r.approved_pallets > 0;
                             // Correction 1 — lock row actions after manager answer
                             // or once the offer leaves "Активні". Partial confirm,
-                            // full confirm, and refusal (approved=0) are all locked.
-                            const responseAnswered = r.approved_pallets != null;
+                            // full confirm, and explicit refusal are all locked.
+                            const responseAnswered =
+                              r.approved_pallets != null || r.refused_at != null;
                             const offerLocked = o.status !== "active";
                             const rowLocked =
                               excluded || rejected || responseAnswered || offerLocked;
@@ -1408,8 +1428,8 @@ function ManagerOffersPage() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-8 px-2 text-[11px] text-destructive hover:text-destructive"
-                                          disabled={updateApproved.isPending}
-                                          onClick={() => updateApproved.mutate({ id: r.id, approved: 0 })}
+                                          disabled={refuseResponse.isPending}
+                                          onClick={() => refuseResponse.mutate({ id: r.id })}
                                         >
                                           Відмовити
                                         </Button>

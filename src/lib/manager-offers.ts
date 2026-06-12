@@ -68,6 +68,8 @@ export type ManagerOfferResponse = {
   requested_pallets: number;
   approved_pallets: number | null;
   prev_approved_pallets: number | null;
+  refused_at: string | null;
+  refused_by: string | null;
   created_at: string;
   updated_at: string;
 };

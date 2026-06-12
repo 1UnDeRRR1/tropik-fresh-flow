@@ -363,6 +363,9 @@ function BranchOffersPage() {
   const submit = useMutation({
     mutationFn: async ({ offerId, pallets }: { offerId: string; pallets: number }) => {
       if (!branchId) throw new Error("Філія не вказана у профілі");
+      if (!Number.isFinite(pallets) || pallets <= 0) {
+        throw new Error("Кількість палет має бути більше 0");
+      }
       const existing = responseByOffer[offerId];
       if (existing) {
         const changed = Number(existing.requested_pallets) !== pallets;
@@ -799,8 +802,8 @@ function BranchOffersPage() {
                             if (!!r && r.approved_pallets != null) return;
                             if (o.status !== "active") return;
                             const n = Number(draft);
-                            if (!Number.isFinite(n) || n < 0) {
-                              toast.error("Введіть кількість");
+                            if (!Number.isFinite(n) || n <= 0) {
+                              toast.error("Введіть кількість більше 0");
                               return;
                             }
                             submit.mutate({ offerId: o.id, pallets: n });
