@@ -750,23 +750,26 @@ function ManagerOffersPage() {
   async function autoConfirmPendingForOffer(offerId: string): Promise<number> {
     const { data, error } = await supabase
       .from("manager_offer_responses")
-      .select("id, requested_pallets, approved_pallets")
+      .select("id, requested_pallets, approved_pallets, refused_at")
       .eq("offer_id", offerId)
       .is("approved_pallets", null)
+      .is("refused_at", null)
       .gt("requested_pallets", 0);
     if (error) throw error;
-    const rows = (data ?? []) as Pick<ManagerOfferResponse, "id" | "requested_pallets" | "approved_pallets">[];
+    const rows = (data ?? []) as Pick<ManagerOfferResponse, "id" | "requested_pallets" | "approved_pallets" | "refused_at">[];
     if (rows.length === 0) return 0;
     for (const r of rows) {
-      // Defensive double-check: never overwrite an existing answer.
+      // Defensive double-check: never overwrite an existing answer or refusal.
       if (r.approved_pallets != null) continue;
+      if (r.refused_at != null) continue;
       const requested = Number(r.requested_pallets ?? 0);
       if (!(requested > 0)) continue;
       const { error: updErr } = await supabase
         .from("manager_offer_responses")
         .update({ approved_pallets: requested })
         .eq("id", r.id)
-        .is("approved_pallets", null); // guardrail at the DB level
+        .is("approved_pallets", null)
+        .is("refused_at", null); // guardrail at the DB level
       if (updErr) throw updErr;
     }
     return rows.length;
