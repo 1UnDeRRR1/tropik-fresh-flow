@@ -29,6 +29,8 @@ export type Database = {
           product_origin_country_id: string | null
           promise_eta_snapshot: string | null
           requested_qty: number
+          requested_sale_currency_snapshot: string | null
+          requested_sale_price_snapshot: number | null
           resolution:
             | Database["public"]["Enums"]["archive_snapshot_resolution"]
             | null
@@ -57,6 +59,8 @@ export type Database = {
           product_origin_country_id?: string | null
           promise_eta_snapshot?: string | null
           requested_qty: number
+          requested_sale_currency_snapshot?: string | null
+          requested_sale_price_snapshot?: number | null
           resolution?:
             | Database["public"]["Enums"]["archive_snapshot_resolution"]
             | null
@@ -85,6 +89,8 @@ export type Database = {
           product_origin_country_id?: string | null
           promise_eta_snapshot?: string | null
           requested_qty?: number
+          requested_sale_currency_snapshot?: string | null
+          requested_sale_price_snapshot?: number | null
           resolution?:
             | Database["public"]["Enums"]["archive_snapshot_resolution"]
             | null
@@ -154,6 +160,7 @@ export type Database = {
           created_at: string
           cut_qty: number | null
           delivered_qty: number | null
+          event_qty: number | null
           event_type: Database["public"]["Enums"]["archive_visible_event_type"]
           is_split_shipment: boolean
           notes: string | null
@@ -174,6 +181,7 @@ export type Database = {
           created_at?: string
           cut_qty?: number | null
           delivered_qty?: number | null
+          event_qty?: number | null
           event_type: Database["public"]["Enums"]["archive_visible_event_type"]
           is_split_shipment?: boolean
           notes?: string | null
@@ -194,6 +202,7 @@ export type Database = {
           created_at?: string
           cut_qty?: number | null
           delivered_qty?: number | null
+          event_qty?: number | null
           event_type?: Database["public"]["Enums"]["archive_visible_event_type"]
           is_split_shipment?: boolean
           notes?: string | null
@@ -1124,6 +1133,8 @@ export type Database = {
           linked_pallets: number
           offer_id: string
           prev_approved_pallets: number | null
+          refused_at: string | null
+          refused_by: string | null
           requested_pallets: number
           updated_at: string
         }
@@ -1135,6 +1146,8 @@ export type Database = {
           linked_pallets?: number
           offer_id: string
           prev_approved_pallets?: number | null
+          refused_at?: string | null
+          refused_by?: string | null
           requested_pallets?: number
           updated_at?: string
         }
@@ -1146,6 +1159,8 @@ export type Database = {
           linked_pallets?: number
           offer_id?: string
           prev_approved_pallets?: number | null
+          refused_at?: string | null
+          refused_by?: string | null
           requested_pallets?: number
           updated_at?: string
         }
@@ -3202,6 +3217,7 @@ export type Database = {
           cost_invoice_usd_snapshot: number | null
           cut_qty: number | null
           delivered_qty: number | null
+          event_qty: number | null
           event_type:
             | Database["public"]["Enums"]["archive_visible_event_type"]
             | null
@@ -3218,6 +3234,8 @@ export type Database = {
             | Database["public"]["Enums"]["archive_snapshot_source"]
             | null
           requested_qty: number | null
+          requested_sale_currency_snapshot: string | null
+          requested_sale_price_snapshot: number | null
           responsible_manager_id: string | null
           result_id: string | null
           shared_qty: number | null
@@ -3253,6 +3271,7 @@ export type Database = {
           cost_invoice_usd_snapshot: number | null
           cut_qty: number | null
           delivered_qty: number | null
+          event_qty: number | null
           event_type:
             | Database["public"]["Enums"]["archive_visible_event_type"]
             | null
@@ -3269,6 +3288,8 @@ export type Database = {
             | Database["public"]["Enums"]["archive_snapshot_source"]
             | null
           requested_qty: number | null
+          requested_sale_currency_snapshot: string | null
+          requested_sale_price_snapshot: number | null
           responsible_manager_id: string | null
           result_id: string | null
           shared_qty: number | null
@@ -3304,6 +3325,7 @@ export type Database = {
           cost_invoice_usd_snapshot: number | null
           cut_qty: number | null
           delivered_qty: number | null
+          event_qty: number | null
           event_type:
             | Database["public"]["Enums"]["archive_visible_event_type"]
             | null
@@ -3320,6 +3342,8 @@ export type Database = {
             | Database["public"]["Enums"]["archive_snapshot_source"]
             | null
           requested_qty: number | null
+          requested_sale_currency_snapshot: string | null
+          requested_sale_price_snapshot: number | null
           responsible_manager_id: string | null
           result_id: string | null
           shared_qty: number | null
@@ -4008,6 +4032,7 @@ export type Database = {
         | "branch_response"
         | "manager_confirm"
         | "shipment_link"
+        | "branch_stock_request"
       archive_snapshot_status:
         | "pending"
         | "resolved"
@@ -4232,6 +4257,7 @@ export const Constants = {
         "branch_response",
         "manager_confirm",
         "shipment_link",
+        "branch_stock_request",
       ],
       archive_snapshot_status: [
         "pending",
