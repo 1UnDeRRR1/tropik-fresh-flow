@@ -621,6 +621,9 @@ function ManagerOffersPage() {
         o.target_mode === "all" || o.targetBranchIds.includes(branchId);
       for (const r of o.responses) {
         if (!inScope(r.branch_id)) continue;
+        // Refused responses are archived — never count as pending here.
+        if (r.refused_at != null) continue;
+
         const requested = Number(r.requested_pallets ?? 0);
         const approved = r.approved_pallets;
         // Yellow only while manager has not yet responded. Any approved value
