@@ -121,17 +121,20 @@ export function FxRateBadge() {
           Цей курс застосовується для митниці, транспорту, індикативної та інвойсної собівартості й аналітики.
           Для конкретної поставки можна задати ручний курс на вкладці «Логістика».
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="w-full"
-          onClick={refreshNow}
-          disabled={refreshing}
-        >
-          <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", refreshing && "animate-spin")} />
-          Оновити зараз
-        </Button>
+        {canRefresh && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            onClick={refreshNow}
+            disabled={refreshing}
+          >
+            <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", refreshing && "animate-spin")} />
+            Оновити зараз
+          </Button>
+        )}
+
       </PopoverContent>
     </Popover>
   );
