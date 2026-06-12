@@ -115,7 +115,7 @@ function BranchFlatList({
   // just less air on each side. Keeps elements visually distinct.
   const SEP_TIGHT = "\u2009·\u2009";
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-card">
+    <div className="branch-table-wrap rounded-2xl border border-border bg-card shadow-card">
       <ul className="divide-y divide-border px-3">
         {rows.map((r) => {
           const countryFull = r.country ? toUaCountry(r.country) : "";
