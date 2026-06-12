@@ -123,9 +123,15 @@ function ArchivePage() {
     queryKey: ["tropik-archive", view],
     enabled: view !== "none",
     queryFn: async () => {
+      // P1 stabilization: server-side order by occurred_at desc + limit 300.
+      // Client-side filters/sorts in this component still apply on top.
       const { data, error } = await (supabase as unknown as {
         from: (v: string) => {
-          select: (s: string) => Promise<{ data: ArchiveRow[] | null; error: unknown }>;
+          select: (s: string) => {
+            order: (col: string, opts: { ascending: boolean; nullsFirst?: boolean }) => {
+              limit: (n: number) => Promise<{ data: ArchiveRow[] | null; error: unknown }>;
+            };
+          };
         };
       })
         .from(view)
@@ -136,7 +142,9 @@ function ArchivePage() {
             "caliber,packaging,pallet_qty,cost_indicative_usd_snapshot," +
             "cost_invoice_usd_snapshot,event_qty,product_name,origin_country_name," +
             "variety_name,responsible_manager_name,shipment_code",
-        );
+        )
+        .order("occurred_at", { ascending: false, nullsFirst: false })
+        .limit(300);
       if (error) throw error;
       return (data ?? []) as ArchiveRow[];
     },

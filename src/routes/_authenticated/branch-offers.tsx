@@ -172,11 +172,17 @@ function BranchOffersPage() {
   const { data: offers, isLoading } = useQuery({
     queryKey: ["branch-active-offers"],
     queryFn: async () => {
+      // P1 stabilization: limit to 300 newest offers and to last 30 days,
+      // so the branch screen does not process unbounded test history.
+      // Active workflow (status filter) and 7-day display cutoff are unchanged below.
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("manager_offers")
         .select("*")
         .in("status", ["active", "in_work", "confirmed", "linked", "closed", "expired", "deleted"])
-        .order("created_at", { ascending: false });
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(300);
       if (error) throw error;
       return (data ?? []) as ManagerOffer[];
     },
@@ -186,10 +192,13 @@ function BranchOffersPage() {
     queryKey: ["my-branch-responses", branchId],
     enabled: !!branchId,
     queryFn: async () => {
+      // P1 stabilization: cap to 500 most recent responses for this branch.
       const { data, error } = await supabase
         .from("manager_offer_responses")
         .select("*")
-        .eq("branch_id", branchId!);
+        .eq("branch_id", branchId!)
+        .order("created_at", { ascending: false })
+        .limit(500);
       if (error) throw error;
       return (data ?? []) as ManagerOfferResponse[];
     },
