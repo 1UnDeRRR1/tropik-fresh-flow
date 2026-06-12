@@ -1007,8 +1007,9 @@ function ManagerOffersPage() {
               (r) => inScope(r.branch_id) && r.refused_at == null,
             );
             const excludedResponses = o.responses.filter(
-              (r) => !inScope(r.branch_id) || r.refused_at != null,
+              (r) => !inScope(r.branch_id) && r.refused_at == null,
             );
+
 
             const totalRequested = activeResponses.reduce(
               (s, r) => s + Number(r.requested_pallets || 0),
