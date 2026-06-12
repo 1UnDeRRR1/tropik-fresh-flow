@@ -915,11 +915,16 @@ function ManagerOffersPage() {
           {filtered.map((o) => {
             const inScope = (branchId: string) =>
               o.target_mode === "all" || o.targetBranchIds.includes(branchId);
-            const scoped = o.responses.filter((r) => inScope(r.branch_id));
+            // Refused responses leave active workflow → exclude from card
+            // scope used for pending/confirmed badges.
+            const scoped = o.responses.filter(
+              (r) => inScope(r.branch_id) && r.refused_at == null,
+            );
             // X1/X2 — pending unanswered (requested>0 AND approved IS NULL).
             const pendingRows = scoped.filter(
               (r) => r.approved_pallets == null && Number(r.requested_pallets ?? 0) > 0,
             );
+
             const X1 = pendingRows.length;
             const X2 = pendingRows.reduce((s, r) => s + Number(r.requested_pallets ?? 0), 0);
             // Y1/Y2 — confirmed (approved>0). Refusals (=0) excluded.
