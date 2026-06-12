@@ -805,7 +805,7 @@ function BranchOffersPage() {
                           size="sm"
                           onClick={() => {
                             // Client-side guard: refuse to submit if locked.
-                            if (!!r && r.approved_pallets != null) return;
+                            if (!!r && (r.approved_pallets != null || (r as any).refused_at != null)) return;
                             if (o.status !== "active") return;
                             const n = Number(draft);
                             if (!Number.isFinite(n) || n <= 0) {
