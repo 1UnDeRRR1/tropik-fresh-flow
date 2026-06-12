@@ -718,7 +718,7 @@ function ManagerOffersPage() {
         const inScope = (branchId: string) =>
           o.target_mode === "all" || o.targetBranchIds.includes(branchId);
         for (const r of o.responses) {
-          if (r.approved_pallets == null && inScope(r.branch_id)) {
+          if (r.approved_pallets == null && r.refused_at == null && inScope(r.branch_id)) {
             pending.push({ id: r.id, requested: Number(r.requested_pallets ?? 0) });
           }
         }
