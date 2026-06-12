@@ -41,7 +41,7 @@
 - No cron. No archive UI. No link-RPC changes.
 
 ## Critical current risks
-- **Live-JWT QA of role-safe archive views** not yet performed — gates archive UI and pilot.
+- **Live-JWT QA of Tropik Archive role-safe views** not yet performed — gates Tropik Archive UI and pilot.
 - **S3 `branch_response` delivered/cut end-to-end smoke** still desirable.
 - **Split shipment resolver** not implemented.
 - **Transfer/share investigation detail** not implemented.
