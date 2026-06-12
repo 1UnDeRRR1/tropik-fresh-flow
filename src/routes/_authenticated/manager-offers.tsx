@@ -1808,6 +1808,14 @@ function OfferEditor({
       toast.error("Вкажіть очікувану дату прибуття");
       return false;
     }
+    const tomorrow = tomorrowYMD();
+    const tooEarly = items.filter((it) => it.form.expected_eta < tomorrow).map((it) => it.id);
+    if (tooEarly.length) {
+      setEtaShakeIds(new Set(tooEarly));
+      setTimeout(() => setEtaShakeIds(new Set()), 600);
+      toast.error("ETA має бути не раніше завтрашньої дати");
+      return false;
+    }
     return true;
   };
 
@@ -2665,10 +2673,14 @@ function OfferItemEditor({
         </span>
         <Input
           type="date"
+          min={tomorrowYMD()}
           value={form.expected_eta}
           onChange={(e) => update({ expected_eta: e.target.value })}
           className={cn(
-            (!form.expected_eta || etaShake) && "border-destructive focus-visible:ring-destructive",
+            (!form.expected_eta ||
+              etaShake ||
+              (form.expected_eta && form.expected_eta < tomorrowYMD())) &&
+              "border-destructive focus-visible:ring-destructive",
             etaShake && "animate-shake",
           )}
         />
