@@ -621,6 +621,9 @@ function ManagerOffersPage() {
         o.target_mode === "all" || o.targetBranchIds.includes(branchId);
       for (const r of o.responses) {
         if (!inScope(r.branch_id)) continue;
+        // Refused responses are archived — never count as pending here.
+        if (r.refused_at != null) continue;
+
         const requested = Number(r.requested_pallets ?? 0);
         const approved = r.approved_pallets;
         // Yellow only while manager has not yet responded. Any approved value
@@ -912,11 +915,16 @@ function ManagerOffersPage() {
           {filtered.map((o) => {
             const inScope = (branchId: string) =>
               o.target_mode === "all" || o.targetBranchIds.includes(branchId);
-            const scoped = o.responses.filter((r) => inScope(r.branch_id));
+            // Refused responses leave active workflow → exclude from card
+            // scope used for pending/confirmed badges.
+            const scoped = o.responses.filter(
+              (r) => inScope(r.branch_id) && r.refused_at == null,
+            );
             // X1/X2 — pending unanswered (requested>0 AND approved IS NULL).
             const pendingRows = scoped.filter(
               (r) => r.approved_pallets == null && Number(r.requested_pallets ?? 0) > 0,
             );
+
             const X1 = pendingRows.length;
             const X2 = pendingRows.reduce((s, r) => s + Number(r.requested_pallets ?? 0), 0);
             // Y1/Y2 — confirmed (approved>0). Refusals (=0) excluded.
@@ -1000,8 +1008,17 @@ function ManagerOffersPage() {
             const o = detailOffer;
             const inScope = (branchId: string) =>
               o.target_mode === "all" || o.targetBranchIds.includes(branchId);
-            const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
-            const excludedResponses = o.responses.filter((r) => !inScope(r.branch_id));
+            // Refused responses leave the active workflow — they're now
+            // visible in Tropik Archive only, and must not feed counts,
+            // pending math, or workflow gates.
+            const activeResponses = o.responses.filter(
+              (r) => inScope(r.branch_id) && r.refused_at == null,
+            );
+            const excludedResponses = o.responses.filter(
+              (r) => !inScope(r.branch_id) && r.refused_at == null,
+            );
+
+
             const totalRequested = activeResponses.reduce(
               (s, r) => s + Number(r.requested_pallets || 0),
               0,
