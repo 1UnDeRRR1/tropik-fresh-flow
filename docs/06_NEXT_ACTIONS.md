@@ -24,7 +24,7 @@ Other candidates (do NOT start without explicit approval):
 
 ## Backlog — P2 (important, not urgent)
 - S3 `branch_response` delivered/cut end-to-end smoke (fixture-based).
-- Validate `NOT VALID` CHECK on `branch_archive_results.requested_qty > 0` (requires explicit decision and backfill audit).
+- Validate `NOT VALID` CHECK `archive_promise_snapshots_requested_qty_positive` on `archive_promise_snapshots.requested_qty > 0` (requires explicit decision and backfill audit).
 - Cancelled-source design: explicit safe position-cancel source before resolver coverage.
 - Direct `manager_distribution` visible surface design.
 
