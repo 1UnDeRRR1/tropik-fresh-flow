@@ -1537,6 +1537,17 @@ type FormState = {
   notes: string;
 };
 
+// Local YYYY-MM-DD for tomorrow (business date, avoids UTC off-by-one).
+function tomorrowYMD(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 const emptyForm = (): FormState => ({
   product_name: "",
   origin_country: "",
@@ -1806,6 +1817,14 @@ function OfferEditor({
       setEtaShakeIds(new Set(missing));
       setTimeout(() => setEtaShakeIds(new Set()), 600);
       toast.error("Вкажіть очікувану дату прибуття");
+      return false;
+    }
+    const tomorrow = tomorrowYMD();
+    const tooEarly = items.filter((it) => it.form.expected_eta < tomorrow).map((it) => it.id);
+    if (tooEarly.length) {
+      setEtaShakeIds(new Set(tooEarly));
+      setTimeout(() => setEtaShakeIds(new Set()), 600);
+      toast.error("ETA має бути не раніше завтрашньої дати");
       return false;
     }
     return true;
@@ -2665,10 +2684,14 @@ function OfferItemEditor({
         </span>
         <Input
           type="date"
+          min={tomorrowYMD()}
           value={form.expected_eta}
           onChange={(e) => update({ expected_eta: e.target.value })}
           className={cn(
-            (!form.expected_eta || etaShake) && "border-destructive focus-visible:ring-destructive",
+            (!form.expected_eta ||
+              etaShake ||
+              (form.expected_eta && form.expected_eta < tomorrowYMD())) &&
+              "border-destructive focus-visible:ring-destructive",
             etaShake && "animate-shake",
           )}
         />
