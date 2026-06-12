@@ -33,3 +33,15 @@ Living list of structural risks. Each section captures the risk and the current 
 ## Activity / heartbeat / stale sessions
 - Risk: hardening RPC grants breaks heartbeat or super_admin activity view.
 - Mitigation: `EXECUTE` granted only to `authenticated` and `service_role`; smoke-test heartbeat + super_admin activity after any change.
+
+## Malekhiv Archive — resolver & snapshot integrity
+- Risk: resolver writes duplicates, misclassifies refusal, or leaks raw archive rows to non-staff roles; deferred surfaces (split / transfer / reallocation-to-0 / cancelled / direct `manager_distribution`) get added ad-hoc and bypass snapshot-first design.
+- Mitigation: partial unique indexes (`bar_unique_per_snapshot_no_shipment`, `bar_unique_per_snapshot_shipment`) enforce idempotency; resolver is `service_role`-only with no cron/UI; raw archive tables closed to `anon`/`authenticated`; role-safe views are the only access surface; deferred surfaces require explicit Plan/Preview before any code or SQL.
+
+## Malekhiv Archive — role-safe view exposure
+- Risk: role-safe archive views expose more columns or rows than intended under real (non-service-role) JWTs.
+- Mitigation: Live-JWT QA across all roles is the gate before any Archive UI Plan or pilot.
+
+## Malekhiv Archive — NOT VALID CHECKs
+- Risk: `requested_qty > 0` and similar `NOT VALID` constraints get validated prematurely and fail on legacy rows.
+- Mitigation: do not `VALIDATE CONSTRAINT` without an explicit decision and a backfill audit.
