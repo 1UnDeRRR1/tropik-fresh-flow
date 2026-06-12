@@ -718,7 +718,7 @@ function ManagerOffersPage() {
         const inScope = (branchId: string) =>
           o.target_mode === "all" || o.targetBranchIds.includes(branchId);
         for (const r of o.responses) {
-          if (r.approved_pallets == null && inScope(r.branch_id)) {
+          if (r.approved_pallets == null && r.refused_at == null && inScope(r.branch_id)) {
             pending.push({ id: r.id, requested: Number(r.requested_pallets ?? 0) });
           }
         }
@@ -1398,7 +1398,13 @@ function ManagerOffersPage() {
                                       }
                                       onBlur={(e) => {
                                         if (rowLocked) return;
-                                        const v = e.target.value === "" ? null : Number(e.target.value);
+                                        const raw = e.target.value;
+                                        if (raw === "" || raw == null) return;
+                                        const v = Number(raw);
+                                        if (!Number.isFinite(v) || v <= 0) {
+                                          toast.error("Вкажіть кількість палет більше 0");
+                                          return;
+                                        }
                                         if (v !== r.approved_pallets) {
                                           updateApproved.mutate({ id: r.id, approved: v });
                                         }

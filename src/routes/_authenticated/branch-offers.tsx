@@ -368,6 +368,12 @@ function BranchOffersPage() {
       }
       const existing = responseByOffer[offerId];
       if (existing) {
+        if ((existing as any).refused_at != null) {
+          throw new Error("Менеджер відмовив у цьому запиті — редагування недоступне");
+        }
+        if (existing.approved_pallets != null) {
+          throw new Error("Запит вже підтверджено менеджером — редагування недоступне");
+        }
         const changed = Number(existing.requested_pallets) !== pallets;
         const { error } = await supabase
           .from("manager_offer_responses")
@@ -780,7 +786,7 @@ function BranchOffersPage() {
                     response. Read-only summary below stays visible. */}
                 <div className="mt-3 flex flex-wrap items-end gap-2">
                   {(() => {
-                    const responseLocked = !!r && r.approved_pallets != null;
+                    const responseLocked = !!r && (r.approved_pallets != null || (r as any).refused_at != null);
                     const offerInactive = o.status !== "active";
                     if (responseLocked || offerInactive) return null;
                     return (
@@ -799,7 +805,7 @@ function BranchOffersPage() {
                           size="sm"
                           onClick={() => {
                             // Client-side guard: refuse to submit if locked.
-                            if (!!r && r.approved_pallets != null) return;
+                            if (!!r && (r.approved_pallets != null || (r as any).refused_at != null)) return;
                             if (o.status !== "active") return;
                             const n = Number(draft);
                             if (!Number.isFinite(n) || n <= 0) {
