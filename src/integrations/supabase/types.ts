@@ -3502,6 +3502,14 @@ export type Database = {
       }
       archive_due_cancelled_shipments: { Args: never; Returns: number }
       archive_due_unloaded_shipments: { Args: never; Returns: number }
+      archive_resolver_run: {
+        Args: { p_run_date: string; p_snapshot_id?: string }
+        Returns: {
+          action: string
+          detail: string
+          snapshot_id: string
+        }[]
+      }
       auto_unload_shipments: { Args: never; Returns: number }
       branch_ack_changes: {
         Args: { p_distribution_id: string; p_shipment_item_id: string }
