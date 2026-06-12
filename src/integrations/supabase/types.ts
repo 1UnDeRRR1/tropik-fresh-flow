@@ -3212,6 +3212,7 @@ export type Database = {
           actual_cost_landed_usd: number | null
           actual_eta: string | null
           branch_id: string | null
+          branch_name: string | null
           caliber: string | null
           cost_indicative_usd_snapshot: number | null
           cost_invoice_usd_snapshot: number | null
@@ -3224,10 +3225,12 @@ export type Database = {
           is_split_shipment: boolean | null
           notes: string | null
           occurred_at: string | null
+          origin_country_name: string | null
           packaging: string | null
           pallet_qty: number | null
           position_id: string | null
           product_id: string | null
+          product_name: string | null
           product_origin_country_id: string | null
           promise_eta_snapshot: string | null
           promise_source:
@@ -3237,10 +3240,13 @@ export type Database = {
           requested_sale_currency_snapshot: string | null
           requested_sale_price_snapshot: number | null
           responsible_manager_id: string | null
+          responsible_manager_name: string | null
           result_id: string | null
           shared_qty: number | null
+          shipment_code: string | null
           shipment_id: string | null
           variety_id: number | null
+          variety_name: string | null
         }
         Relationships: [
           {
@@ -3266,6 +3272,7 @@ export type Database = {
           actual_cost_landed_usd: number | null
           actual_eta: string | null
           branch_id: string | null
+          branch_name: string | null
           caliber: string | null
           cost_indicative_usd_snapshot: number | null
           cost_invoice_usd_snapshot: number | null
@@ -3278,10 +3285,12 @@ export type Database = {
           is_split_shipment: boolean | null
           notes: string | null
           occurred_at: string | null
+          origin_country_name: string | null
           packaging: string | null
           pallet_qty: number | null
           position_id: string | null
           product_id: string | null
+          product_name: string | null
           product_origin_country_id: string | null
           promise_eta_snapshot: string | null
           promise_source:
@@ -3291,10 +3300,13 @@ export type Database = {
           requested_sale_currency_snapshot: string | null
           requested_sale_price_snapshot: number | null
           responsible_manager_id: string | null
+          responsible_manager_name: string | null
           result_id: string | null
           shared_qty: number | null
+          shipment_code: string | null
           shipment_id: string | null
           variety_id: number | null
+          variety_name: string | null
         }
         Relationships: [
           {
@@ -3320,6 +3332,7 @@ export type Database = {
           actual_cost_landed_usd: number | null
           actual_eta: string | null
           branch_id: string | null
+          branch_name: string | null
           caliber: string | null
           cost_indicative_usd_snapshot: number | null
           cost_invoice_usd_snapshot: number | null
@@ -3332,10 +3345,12 @@ export type Database = {
           is_split_shipment: boolean | null
           notes: string | null
           occurred_at: string | null
+          origin_country_name: string | null
           packaging: string | null
           pallet_qty: number | null
           position_id: string | null
           product_id: string | null
+          product_name: string | null
           product_origin_country_id: string | null
           promise_eta_snapshot: string | null
           promise_source:
@@ -3345,10 +3360,13 @@ export type Database = {
           requested_sale_currency_snapshot: string | null
           requested_sale_price_snapshot: number | null
           responsible_manager_id: string | null
+          responsible_manager_name: string | null
           result_id: string | null
           shared_qty: number | null
+          shipment_code: string | null
           shipment_id: string | null
           variety_id: number | null
+          variety_name: string | null
         }
         Relationships: [
           {
