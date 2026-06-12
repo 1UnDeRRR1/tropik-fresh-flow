@@ -37,6 +37,9 @@ export function FxRateBadge() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { hasRole } = useAuth();
+  const canRefresh = hasRole(ALLOWED_REFRESH_ROLES);
+  const refreshFx = useServerFn(refreshFxManual);
 
   const { data: rate } = useQuery({
     queryKey: ["fx-eur-usd-latest"],
@@ -57,16 +60,23 @@ export function FxRateBadge() {
   const refreshNow = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/public/hooks/refresh-fx", { method: "POST" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshFx();
       await qc.invalidateQueries({ queryKey: ["fx-eur-usd-latest"] });
       toast.success("Курс EUR/USD оновлено");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не вдалося оновити курс");
+      // Server fn errors arrive as Response (manual throw) or generic Error.
+      let message = "Не вдалося оновити курс";
+      if (err instanceof Response) {
+        try { message = (await err.text()) || message; } catch { /* keep default */ }
+      } else if (err instanceof Error && err.message) {
+        message = err.message;
+      }
+      toast.error(message);
     } finally {
       setRefreshing(false);
     }
   };
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
