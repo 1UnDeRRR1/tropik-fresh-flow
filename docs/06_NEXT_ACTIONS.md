@@ -3,7 +3,7 @@
 > Single source of truth for what is in flight, what is next, and what is parked.
 
 ## Active request
-_(none — Malekhiv Archive S3 first-slice closed; awaiting next direction)_
+_(none — Tropik Archive S3 first-slice closed; awaiting next direction)_
 
 - Title:
 - Mode: Plan | Preview | Build | Apply | Audit | QA
@@ -12,10 +12,10 @@ _(none — Malekhiv Archive S3 first-slice closed; awaiting next direction)_
 - Acceptance criteria:
 
 ## Next safe action
-**Live-JWT QA of role-safe archive views** (mode: QA, read-only). Validate that each role (super_admin, admin, import_manager, branch, logistics, broker) sees only the columns/rows the role-safe archive views expose, using real JWTs — not service-role. This gates the Archive UI plan.
+**Live-JWT QA of Tropik Archive role-safe views** (mode: QA, read-only). Validate that each role (super_admin, admin, import_manager, branch, logistics, broker) sees only the columns/rows the role-safe archive views expose, using real JWTs — not service-role. This gates the Tropik Archive UI Plan.
 
 After QA passes:
-- **Archive UI Plan** (mode: Plan) — read-only archive surface backed by role-safe views.
+- **Tropik Archive UI Plan** (mode: Plan) — read-only archive surface backed by role-safe views.
 
 Other candidates (do NOT start without explicit approval):
 - **S3.2 Plan** — split / transfer / reallocation-to-0 / detail-table design.
@@ -24,7 +24,7 @@ Other candidates (do NOT start without explicit approval):
 
 ## Backlog — P2 (important, not urgent)
 - S3 `branch_response` delivered/cut end-to-end smoke (fixture-based).
-- Validate `NOT VALID` CHECK on `branch_archive_results.requested_qty > 0` (requires explicit decision and backfill audit).
+- Validate `NOT VALID` CHECK `archive_promise_snapshots_requested_qty_positive` on `archive_promise_snapshots.requested_qty > 0` (requires explicit decision and backfill audit).
 - Cancelled-source design: explicit safe position-cancel source before resolver coverage.
 - Direct `manager_distribution` visible surface design.
 
