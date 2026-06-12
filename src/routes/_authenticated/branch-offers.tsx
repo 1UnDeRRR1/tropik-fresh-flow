@@ -229,12 +229,18 @@ function BranchOffersPage() {
     const list = offers ?? [];
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return list.filter((o) => {
+      // Once this branch has been explicitly refused on this offer, the row
+      // belongs to Tropik Archive — not the active workflow. Hide it from
+      // both Активні and Підтверджені buckets.
+      const myR = responseByOffer[o.id];
+      if (myR?.refused_at) return false;
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
-      if (!responseByOffer[o.id]) return false;
+      if (!myR) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
       return ts >= cutoff;
     });
   }, [offers, responseByOffer]);
+
 
   const managerNameById = useMemo(() => {
     const m: Record<string, string> = {};
