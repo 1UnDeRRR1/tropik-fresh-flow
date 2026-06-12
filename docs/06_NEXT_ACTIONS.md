@@ -3,7 +3,7 @@
 > Single source of truth for what is in flight, what is next, and what is parked.
 
 ## Active request
-_(none — Malekhiv Archive S3 first-slice closed; awaiting next direction)_
+_(none — Tropik Archive S3 first-slice closed; awaiting next direction)_
 
 - Title:
 - Mode: Plan | Preview | Build | Apply | Audit | QA

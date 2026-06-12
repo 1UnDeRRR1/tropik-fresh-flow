@@ -10,7 +10,7 @@
 - Offers, shipments, branch allocations, costs, logistics, statuses, transfers, and documents attach around the product position.
 - Branch data is exposed through `SECURITY DEFINER` views (`shipments_branch`, `shipment_items_branch`) with column whitelists.
 
-## Malekhiv Archive — accepted state (S1.1 → S3 first slice)
+## Tropik Archive — accepted state (S1.1 → S3 first slice)
 
 **Direction:** Snapshot-first / "super archive". PBA-first is stopped. Legacy `branch_archive_events` / `bae_*` are NOT restored. Raw archive tables are closed to `anon` / `authenticated`; role-safe views remain the only access surface.
 
@@ -57,9 +57,9 @@
 - **Lovable rollback does not roll back Supabase artifacts** (migrations, RLS, data). Code revert ≠ DB revert.
 
 ## Recently closed
-- Malekhiv Archive S3 first-slice resolver + `actual_eta` hotfix + ambiguous-`snapshot_id` hotfix — smoke-passed.
-- Malekhiv Archive S2 Wave 1 + UI patch + Wave 2 snapshot writers — accepted, smoke-passed.
-- Malekhiv Archive S1.1 schema (event_qty, requested_sale_*_snapshot, branch_stock_request source, multi-row per snapshot).
+- Tropik Archive S3 first-slice resolver + `actual_eta` hotfix + ambiguous-`snapshot_id` hotfix — smoke-passed.
+- Tropik Archive S2 Wave 1 + UI patch + Wave 2 snapshot writers — accepted, smoke-passed.
+- Tropik Archive S1.1 schema (event_qty, requested_sale_*_snapshot, branch_stock_request source, multi-row per snapshot).
 - Security Finding #5 — anon/PUBLIC `EXECUTE` removed from 4 activity RPCs.
 - Security Finding #1 Stage 1A — branch-safe views created, branch UI switched to them; raw policies kept as safety net.
 

@@ -22,7 +22,7 @@ Append-only chronological log of accepted/rejected tasks. Newest at the top.
 
 ## Entries
 
-### 2026-06-12 — Malekhiv Archive S3 first-slice resolver + hotfixes
+### 2026-06-12 — Tropik Archive S3 first-slice resolver + hotfixes
 - Branch: main
 - Task: Build S3 first-slice resolver `public.archive_resolver_run(p_run_date, p_snapshot_id)` (manual, service_role only), with partial unique indexes on `branch_archive_results` for idempotency. Two hotfixes followed: (a) ambiguous `snapshot_id` in `ON CONFLICT` resolved by switching to `ON CONFLICT DO NOTHING` relying on the partial indexes; (b) `branch_response` `not_fulfilled` path now writes `actual_eta = v_live_eta` instead of hardcoded `NULL`.
 - Status: accepted (first slice; split/transfer/reallocation-to-0/cancelled/direct-MD deferred)
@@ -34,7 +34,7 @@ Append-only chronological log of accepted/rejected tasks. Newest at the top.
 - Notes / risks: `branch_response` delivered/cut end-to-end smoke still desirable; split/transfer/reallocation-to-0/cancelled/direct `manager_distribution` deferred; no cron; no archive UI; `NOT VALID` CHECKs remain unvalidated
 - Next step: Live-JWT QA of role-safe archive views, then Archive UI Plan
 
-### 2026-06-XX — Malekhiv Archive S2 Wave 1 + UI patch + Wave 2 (snapshot writers)
+### 2026-06-XX — Tropik Archive S2 Wave 1 + UI patch + Wave 2 (snapshot writers)
 - Branch: main
 - Task: Snapshot writers for `branch_response` (from `manager_offer_responses`) and `branch_stock_request` (from `branch_requests` where `request_type='free_offer'`). Immediate-refused recorded via `refused_at`/`refused_by` (branch_response) and `status='rejected'` (branch_stock_request). UI patch removed the "0-as-refusal" interpretation: `0 pallets`, `approved_pallets=0`, `approved_qty=0` are NOT refusal.
 - Status: accepted; `cancelled` source deferred
@@ -44,7 +44,7 @@ Append-only chronological log of accepted/rejected tasks. Newest at the top.
 - Checks: S2 targeted smoke passed
 - Notes / risks: cancelled-source requires explicit safe position-cancel design before resolver coverage
 
-### 2026-06-XX — Malekhiv Archive S1.1 schema
+### 2026-06-XX — Tropik Archive S1.1 schema
 - Branch: main
 - Task: `archive_snapshot_source` includes `branch_stock_request`; `manager_distribution` does NOT create a snapshot; one snapshot can produce multiple `branch_archive_results` rows; added `event_qty`, `requested_sale_price_snapshot`, `requested_sale_currency_snapshot`; `requested_qty > 0` CHECK added as `NOT VALID`.
 - Status: accepted
@@ -53,7 +53,7 @@ Append-only chronological log of accepted/rejected tasks. Newest at the top.
 - Auth touched: no
 - Notes / risks: validate NOT VALID CHECK only after explicit decision
 
-### Direction note — Malekhiv Archive
+### Direction note — Tropik Archive
 - Snapshot-first / "super archive" is the accepted direction.
 - PBA-first is stopped.
 - Legacy `branch_archive_events` / `bae_*` are NOT restored.
