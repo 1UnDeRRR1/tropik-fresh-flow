@@ -37,13 +37,19 @@ export type BranchOfferStatus = {
 
 export function getBranchOfferStatus(
   offer: Pick<ManagerOffer, "status">,
-  response: Pick<ManagerOfferResponse, "requested_pallets" | "approved_pallets"> | null | undefined,
+  response:
+    | (Pick<ManagerOfferResponse, "requested_pallets" | "approved_pallets"> &
+        Partial<Pick<ManagerOfferResponse, "refused_at">>)
+    | null
+    | undefined,
   shipmentCode: string | null | undefined,
 ): BranchOfferStatus {
   const reqQty = response ? Number(response.requested_pallets) : 0;
   const apprQty =
     response && response.approved_pallets != null ? Number(response.approved_pallets) : null;
+  const refusedAt = response?.refused_at ?? null;
   const hasRealShipment = isRealShipmentCode(shipmentCode);
+
 
   if (offer.status === "deleted") {
     return {
