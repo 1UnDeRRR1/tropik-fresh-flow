@@ -828,7 +828,7 @@ function BranchOffersPage() {
                   })()}
 
 
-                  {r && o.status === "active" && r.approved_pallets == null && (
+                  {r && o.status === "active" && r.approved_pallets == null && (r as any).refused_at == null && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -839,6 +839,7 @@ function BranchOffersPage() {
                       Скасувати запит
                     </Button>
                   )}
+
 
                   {r && (
                     <div className="ml-auto text-right text-sm">
