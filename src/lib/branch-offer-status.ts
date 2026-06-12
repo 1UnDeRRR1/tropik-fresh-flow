@@ -76,6 +76,20 @@ export function getBranchOfferStatus(
     };
   }
 
+  if (refusedAt) {
+    // Explicit manager refusal (refused_at/refused_by) — single source of truth.
+    // approved_pallets === 0 is NOT refusal anymore.
+    return {
+      kind: "rejected",
+      label: "Відмовлено",
+      tone: "red",
+      reqQty,
+      apprQty,
+      partial: false,
+      hasRealShipment,
+    };
+  }
+
   if (!response) {
     return {
       kind: "none",
@@ -88,17 +102,6 @@ export function getBranchOfferStatus(
     };
   }
 
-  if (apprQty === 0) {
-    return {
-      kind: "rejected",
-      label: "Відмовлено",
-      tone: "red",
-      reqQty,
-      apprQty,
-      partial: false,
-      hasRealShipment,
-    };
-  }
 
   if (apprQty != null && apprQty > 0) {
     const partial = apprQty !== reqQty;
