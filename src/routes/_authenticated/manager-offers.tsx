@@ -314,11 +314,14 @@ function ManagerOffersPage() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     queryFn: async () => {
+      // P1 stabilization: cap page to 300 newest non-deleted offers.
+      // Prevents loading unbounded historical test rows during QA.
       let q = supabase
         .from("manager_offers")
         .select("*")
         .neq("status", "deleted")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(300);
       if (!isAdmin) {
         // Position-anchor visibility: include rows the user created OR rows
         // attached to a position where the user is the responsible manager.
