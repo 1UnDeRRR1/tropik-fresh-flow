@@ -368,6 +368,12 @@ function BranchOffersPage() {
       }
       const existing = responseByOffer[offerId];
       if (existing) {
+        if ((existing as any).refused_at != null) {
+          throw new Error("Менеджер відмовив у цьому запиті — редагування недоступне");
+        }
+        if (existing.approved_pallets != null) {
+          throw new Error("Запит вже підтверджено менеджером — редагування недоступне");
+        }
         const changed = Number(existing.requested_pallets) !== pallets;
         const { error } = await supabase
           .from("manager_offer_responses")
