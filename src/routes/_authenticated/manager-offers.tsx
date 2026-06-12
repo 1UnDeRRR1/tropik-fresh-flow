@@ -1000,8 +1000,16 @@ function ManagerOffersPage() {
             const o = detailOffer;
             const inScope = (branchId: string) =>
               o.target_mode === "all" || o.targetBranchIds.includes(branchId);
-            const activeResponses = o.responses.filter((r) => inScope(r.branch_id));
-            const excludedResponses = o.responses.filter((r) => !inScope(r.branch_id));
+            // Refused responses leave the active workflow — they're now
+            // visible in Tropik Archive only, and must not feed counts,
+            // pending math, or workflow gates.
+            const activeResponses = o.responses.filter(
+              (r) => inScope(r.branch_id) && r.refused_at == null,
+            );
+            const excludedResponses = o.responses.filter(
+              (r) => !inScope(r.branch_id) || r.refused_at != null,
+            );
+
             const totalRequested = activeResponses.reduce(
               (s, r) => s + Number(r.requested_pallets || 0),
               0,
