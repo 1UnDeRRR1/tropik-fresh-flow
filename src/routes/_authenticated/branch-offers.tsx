@@ -786,7 +786,7 @@ function BranchOffersPage() {
                     response. Read-only summary below stays visible. */}
                 <div className="mt-3 flex flex-wrap items-end gap-2">
                   {(() => {
-                    const responseLocked = !!r && r.approved_pallets != null;
+                    const responseLocked = !!r && (r.approved_pallets != null || (r as any).refused_at != null);
                     const offerInactive = o.status !== "active";
                     if (responseLocked || offerInactive) return null;
                     return (
