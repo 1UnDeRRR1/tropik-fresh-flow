@@ -436,24 +436,17 @@ body[data-branch-test="malekhiv"] nav.fixed.bottom-0 {
 
 /* Malekhiv-only: shine border around the main table contour.
    Scoped strictly to body[data-branch-test="malekhiv"] .branch-table-wrap so
-   no other branch/route/table is affected. Uses an overlay pseudo-element
-   with mask-composite to render a thin animated gradient ring along the
-   wrapper's rounded contour. Non-interactive (pointer-events:none),
-   motion-safe only. */
-@property --malekhiv-shine-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes malekhiv-shine-spin {
-  to { --malekhiv-shine-angle: 360deg; }
-}
-@keyframes malekhiv-shine-spin-fallback {
-  to { transform: rotate(360deg); }
+   no other branch/route/table is affected. Mirrors the reference ruixen
+   shine-border: an overlay pseudo-element renders a radial gradient ring
+   inside the wrapper's rounded contour and animates background-position to
+   create a soft moving sheen. Non-interactive, motion-safe only. */
+@keyframes malekhiv-shine {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
 }
 body[data-branch-test="malekhiv"] .branch-table-wrap {
   position: relative;
-  border-radius: var(--radius-lg);
   isolation: isolate;
 }
 body[data-branch-test="malekhiv"] .branch-table-wrap::after {
@@ -462,32 +455,34 @@ body[data-branch-test="malekhiv"] .branch-table-wrap::after {
   inset: 0;
   border-radius: inherit;
   padding: 2px;
-  background: conic-gradient(
-    from var(--malekhiv-shine-angle, 0deg),
-    transparent 0deg,
-    #A07CFE 60deg,
-    #FE8FB5 120deg,
-    #FFBE7B 180deg,
-    transparent 240deg,
-    transparent 360deg
+  background-image: radial-gradient(
+    transparent,
+    transparent,
+    #A07CFE,
+    #FE8FB5,
+    #FFBE7B,
+    transparent,
+    transparent
   );
+  background-size: 300% 300%;
+  background-position: 0% 0%;
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
-  mask:
+          mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
   pointer-events: none;
   z-index: 5;
-  filter: drop-shadow(0 0 8px color-mix(in oklab, #FE8FB5 60%, transparent));
 }
 @media (prefers-reduced-motion: no-preference) {
   body[data-branch-test="malekhiv"] .branch-table-wrap::after {
-    animation: malekhiv-shine-spin 6s linear infinite;
+    animation: malekhiv-shine 14s linear infinite;
   }
 }
+
 
 
 
