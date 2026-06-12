@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,11 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { fmtRate } from "@/lib/currency";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { refreshFxManual } from "@/lib/fx-refresh.functions";
+import { useAuth, type AppRole } from "@/lib/auth";
 
 type Rate = { rate: number; rate_date: string; source: string | null; created_at: string };
+const ALLOWED_REFRESH_ROLES: AppRole[] = ["super_admin", "admin", "import_manager", "logistics"];
 
 async function fetchLatestRate(): Promise<Rate | null> {
   const { data } = await supabase
@@ -33,6 +37,9 @@ export function FxRateBadge() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { hasRole } = useAuth();
+  const canRefresh = hasRole(ALLOWED_REFRESH_ROLES);
+  const refreshFx = useServerFn(refreshFxManual);
 
   const { data: rate } = useQuery({
     queryKey: ["fx-eur-usd-latest"],
@@ -53,16 +60,23 @@ export function FxRateBadge() {
   const refreshNow = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/public/hooks/refresh-fx", { method: "POST" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshFx();
       await qc.invalidateQueries({ queryKey: ["fx-eur-usd-latest"] });
       toast.success("Курс EUR/USD оновлено");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не вдалося оновити курс");
+      // Server fn errors arrive as Response (manual throw) or generic Error.
+      let message = "Не вдалося оновити курс";
+      if (err instanceof Response) {
+        try { message = (await err.text()) || message; } catch { /* keep default */ }
+      } else if (err instanceof Error && err.message) {
+        message = err.message;
+      }
+      toast.error(message);
     } finally {
       setRefreshing(false);
     }
   };
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -107,17 +121,20 @@ export function FxRateBadge() {
           Цей курс застосовується для митниці, транспорту, індикативної та інвойсної собівартості й аналітики.
           Для конкретної поставки можна задати ручний курс на вкладці «Логістика».
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="w-full"
-          onClick={refreshNow}
-          disabled={refreshing}
-        >
-          <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", refreshing && "animate-spin")} />
-          Оновити зараз
-        </Button>
+        {canRefresh && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            onClick={refreshNow}
+            disabled={refreshing}
+          >
+            <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", refreshing && "animate-spin")} />
+            Оновити зараз
+          </Button>
+        )}
+
       </PopoverContent>
     </Popover>
   );
