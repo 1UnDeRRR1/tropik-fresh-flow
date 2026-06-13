@@ -1,138 +1,121 @@
 
-# Final UPDATE Preview — customs_reference (175 rows)
+# Plan-only: Evaluation of `etheral-shadow` as new day/night background
 
-NOTHING APPLIED. NO MIGRATION RUN. NO DB WRITE. Read-only artifacts only.
+Только оценка. Никаких изменений кода, зависимостей, БД, RLS, auth, формул, position_id, словарей, операционных строк.
 
-## A. Rows to update
-**175** rows (all uniquely matched by `id` in live `public.customs_reference`).
+## 1. Содержимое пакета
 
-## B. Fields that will be updated
-Per row, only these four columns + `updated_at`:
-- `threshold_price_usd` — changes in **109 / 175** rows
-- `customs_fee_percent` — changes in **3 / 175** rows
-- `euro1_percent` — changes in **50 / 175** rows
-- `euro1_markup_usd` — changes in **175 / 175** rows (this was the trigger field)
+`ruixen-etheral-shadow-files.zip` содержит:
 
-No other columns touched. No `active`, no `product_name`, no `country`, no `id`.
+- `etheral-shadow-package/src/components/ui/etheral-shadow.tsx` — единственный рабочий файл (~260 строк).
+- `etheral-shadow-package/src/examples/etheral-shadow-demo.tsx`, `app-page-example.tsx` — демо.
+- `README.md`, `package-dependencies.txt` (одна строка: `npm install framer-motion`).
 
-## C. Blank-protection rule (confirmed)
+Компонент использует:
+- `framer-motion` (`animate`, `useMotionValue`, `AnimationPlaybackControls`) — для hue-rotate анимации SVG-фильтра.
+- Inline SVG `<filter>` с `feTurbulence` + двойным `feDisplacementMap` + `feColorMatrix` + `blur(4px)`.
+- `mask-image` / `-webkit-mask-image` поверх цветной заливки.
+- Два **удалённых** изображения по умолчанию с `framerusercontent.com` (mask + noise). Можно переопределить через `maskImageUrl` / `noiseImageUrl`.
+- Директиву `'use client'` (no-op для нашего стека, не вредит).
 
-For every row the new value is computed as:
-```
-new_value = COALESCE(prep.upload_<field>, live.<field>)
-```
-If the prep cell is `NULL`/blank, the **live value is preserved** — never overwritten with NULL.
+## 2. Текущая схема фона приложения
 
-Prep blanks observed (kept from live):
-- `upload_threshold_price_usd` NULL: 0
-- `upload_customs_fee_percent` NULL: 21 → these 21 keep their current `customs_fee_percent`
-- `upload_euro1_percent` NULL: 49 → these 49 keep their current `euro1_percent` (this is the `B_flat` issue you flagged: 69 prep rows come from `B_flat`, which has no euro1_percent column; 49 of them are NULL and protected, 20 had a value carried in from `A_grouped` peer)
-- `upload_euro1_markup_usd` NULL: 0
+Глобальный фон задан в одном месте — `src/styles.css`:
 
-## D. Artifacts (review before approval)
+- строки ~396–410: `body { background-image: url("/page-backgrounds/global/bg_mobile.webp"); ... background-attachment: fixed; }` + `@media (min-width: 768px) { body { background-image: url(".../bg_desktop.webp"); } }`
+- строки ~160–165: `html.dark body { background-image: none !important; background-color: var(--color-background); }` — в тёмной теме фото-фон уже отключён, виден только flat surface.
 
-- `customs_update_preview_2026-06-09.csv` — full 175-row diff table with columns:
-  `id, product_name, country, old_threshold_price_usd, new_threshold_price_usd, old_customs_fee_percent, new_customs_fee_percent, old_euro1_percent, new_euro1_percent, old_euro1_markup_usd, new_euro1_markup_usd, delta_euro1_markup_usd, source_structure, current_source_row, new_file_row, fields_changed, comment`
-- `customs_update_preview_2026-06-09.sql` — full UPDATE preview (CTE/VALUES whitelist by `id`)
-- `customs_update_rollback_2026-06-09.sql` — rollback UPDATE built from current live values (snapshotted before any change)
-- `customs_update_targets_2026-06-09.csv` — original 175-id whitelist (unchanged from prior step)
+Файлы в `public/page-backgrounds/global/`: `bg_mobile.webp/png`, `bg_desktop.webp/png`.
 
-<presentation-artifact path="customs_update_preview_2026-06-09.csv" mime_type="text/csv"></presentation-artifact>
-<presentation-artifact path="customs_update_preview_2026-06-09.sql" mime_type="application/sql"></presentation-artifact>
-<presentation-artifact path="customs_update_rollback_2026-06-09.sql" mime_type="application/sql"></presentation-artifact>
+Дополнительно (НЕ глобальные, трогать не нужно):
+- `src/routes/login.tsx` — splash последнего пользователя как backdrop логина.
+- `src/routes/_authenticated.tsx` + `src/routes/_authenticated/index.tsx` — splash-overlay при загрузке (personal/owner assets).
+- `src/components/AppShell.tsx`, `src/routes/_authenticated/settings.tsx` — персональные header/profile-bg для отдельных пользователей.
+- Owner banners в `src/lib/branch-assets.ts`.
 
-## E. SQL/migration preview (shape)
+Эти слои **поверх** body-фона и завязаны на конкретных пользователей — план их не затрагивает. Заменяется только глобальный body-фон в `styles.css` и файлы в `public/page-backgrounds/global/`.
 
-```sql
--- Pre-checks (run manually before apply, expect 175/175/175):
-SELECT count(*) FROM public.customs_reference
- WHERE id IN ( /* 175 whitelisted ids */ );                -- expected 175
-SELECT count(*) FROM public.customs_reference
- WHERE id IN ( /* 175 whitelisted ids */ ) AND active;      -- expected 175
+## 3. Зависимость framer-motion
 
--- Apply (full SQL with all 175 tuples is in the .sql artifact):
-WITH whitelist(id, new_threshold_price_usd, new_customs_fee_percent,
-               new_euro1_percent, new_euro1_markup_usd) AS (VALUES
-  ('a5e9a3a9-4bea-4d97-92bd-3fd282b5b133'::uuid, 4.5, 3.0, 3.0, 0.925),
-  ('fae77276-7dea-4223-a58c-33fae757be6e'::uuid, 2.02, 5.0, 3.0, 0.502),
-  -- … 173 more rows, one per id …
-)
-UPDATE public.customs_reference c
-SET threshold_price_usd = w.new_threshold_price_usd,
-    customs_fee_percent = w.new_customs_fee_percent,
-    euro1_percent       = w.new_euro1_percent,
-    euro1_markup_usd    = w.new_euro1_markup_usd,
-    updated_at          = now()
-FROM whitelist w
-WHERE c.id = w.id;
-```
+В `package.json` `framer-motion` **отсутствует**. Установка добавит ~50–60 KB gzip к бандлу. Сам компонент использует только `animate`/`useMotionValue` — это поддерживает tree-shaking, но всё равно дополнительный рантайм. Установка зависимостей — отдельный шаг, в Plan не выполняется.
 
-Properties:
-- UPDATE only, by `id`.
-- Exactly 175 ids, all from the approved whitelist.
-- No `INSERT`, no `DELETE`, no `active=false`.
-- No `ALTER TABLE`, no RLS / RPC / trigger / GRANT / schema changes.
-- No new columns, no rename, no index changes.
-- Blank prep cells produce identity assignments (new=old) — value-safe.
+## 4. Риски анимированной версии
 
-## F. Control SELECTs (text-only, run before apply; stop if any mismatch)
+- **CPU/GPU**: `feTurbulence` + двойной `feDisplacementMap` + `blur` под `hueRotate` на 360° бесконечно — один из самых тяжёлых паттернов в SVG. На фоне `body` это перерисовывается под каждым скроллом/перерисовкой страницы. На слабых Android / старых iPad возможны заметные просадки FPS и тротлинг батареи.
+- **Safari / iOS**: `mask-image` + `feDisplacementMap` исторически работают, но `filter: url(#...)` на больших областях даёт фризы и баги отрисовки в iOS Safari.
+- **Удалённые ассеты**: `framerusercontent.com` — внешний CDN Framer, без SLA для нас. Любой сбой = пропадает mask и фон становится сплошным цветом. Это нарушает `STOP` условие «требует ненадёжных внешних ассетов».
+- **Noise overlay**: `opacity` до 1.0 заметно снижает читаемость текста в гуттерах вокруг карточек.
+- **Reduced motion**: компонент не уважает `prefers-reduced-motion`.
+- **Тяжёлые экраны** (`manager-offers`, `branch-offers`, архив, distribution) — там и так много DOM/таблиц; дополнительный постоянный фильтр на body может усугубить лаг при скролле.
 
-```sql
--- 1) Whitelist count
-SELECT 175 AS expected, count(*) AS actual
-FROM (VALUES /* 175 ids */) v(id);
--- expected = actual = 175, else STOP
+## 5. Совместимость с существующей архитектурой
 
--- 2) Live rows matched
-SELECT count(*) FROM public.customs_reference
-WHERE id IN (/* 175 ids */);
--- expected 175, else STOP
+- Body имеет `background-attachment: fixed` — текущий подход дешёвый (один растровый слой). Замена на компонент потребует фиксированного слоя `<div className="fixed inset-0 -z-10">` где-то в `__root.tsx` или `_authenticated.tsx`. Это **редизайн слоёв layout**, выходит за рамки «точечной замены».
+- Splash overlay (`z-50`) и owner/personal backgrounds останутся выше — конфликта по z-index нет, но нужно убедиться, что новый слой строго `-z-10`/`z-0` и `pointer-events-none`, иначе перехватит клики на пустых экранах.
+- Dark mode уже гасит body-image. Нужно либо: (a) расширить ту же логику на новый компонент (рендерить только в light), либо (b) сделать вторую конфигурацию для dark.
 
--- 3) Active live rows matched
-SELECT count(*) FROM public.customs_reference
-WHERE id IN (/* 175 ids */) AND active = true;
--- expected 175, else STOP
+## 6. Рекомендация
 
--- 4) Post-apply verification
-SELECT count(*) FROM public.customs_reference c
-JOIN whitelist w ON w.id = c.id
-WHERE c.euro1_markup_usd = w.new_euro1_markup_usd
-  AND c.threshold_price_usd = w.new_threshold_price_usd
-  AND c.customs_fee_percent = w.new_customs_fee_percent
-  AND c.euro1_percent       = w.new_euro1_percent;
--- expected 175
-```
+**B — Static-first.** Анимированная версия как глобальный body-фон даёт нетривиальный риск производительности и зависит от внешнего Framer CDN. Установка `framer-motion` ради глобального фонового эффекта — диспропорционально.
 
-## G. Rollback plan
+Минимум, что нужно сделать до любого Build:
+1. Залить локально mask-изображение (и при желании noise) в `public/page-backgrounds/global/` — никаких ссылок на `framerusercontent.com`.
+2. Сгенерировать **один статичный кадр** желаемого вида (либо средствами компонента в браузере с `animation.scale=0`, либо просто экспорт PNG/WebP под мобайл/десктоп) — это и есть продакшен-фон. По сути возвращаемся к той же модели, что сейчас (две картинки day/night), только с новой эстетикой.
 
-A full reverse-UPDATE is pre-built from the current live snapshot in
-`customs_update_rollback_2026-06-09.sql` — same shape, same 175 ids, but
-values are the **current** (pre-apply) `threshold_price_usd`,
-`customs_fee_percent`, `euro1_percent`, `euro1_markup_usd`. Running it
-restores all 175 rows byte-for-byte. Snapshot taken from the same live
-data the preview is built against, so rollback is exact as long as no
-other writer touches these ids between preview and apply.
+Анимированный компонент можно держать как опцию для одного экрана (например, login backdrop) позже, отдельной задачей — но **не** как глобальный body-фон.
 
-If extra safety is wanted, we can also dump the 175 affected rows to a
-pre-apply CSV during the apply turn (no schema change, audit-only).
+## 7. Day/Night конфигурация (для static-first)
 
-## H. What is explicitly NOT in this preview
+- Day: `public/page-backgrounds/global/bg_mobile.webp` + `bg_desktop.webp` — заменить файлы новыми статичными кадрами (светлая палитра, низкая насыщенность шумa).
+- Night: либо оставить текущее поведение (`html.dark body { background-image: none }` = flat dark surface), либо завести параллельный набор `bg_mobile_dark.webp`/`bg_desktop_dark.webp` и подключить через `html.dark body { background-image: url(...dark.webp); }`.
+- Переключение темы — через уже существующий `ThemeProvider`; флика нет, потому что меняется только CSS-правило `html.dark body`.
 
-- DUP_KEY_SUMMARY / DUP_REVIEW_ROWS — untouched
-- NEW_ONLY_ADD — not inserted
-- CURRENT_MISSING — not deactivated
-- Manual review pairs (Капуста Білоголова/Білокачанна, Молода, Ківі/Ківі(фас)) — untouched
-- No RLS / RPC / trigger / GRANT / schema / index / enum / migration-structure changes
-- No code, UI, formulas, `position_id` lifecycle, cost roll-up changes
+## 8. Читаемость
 
-## I. Confirmation
+Карточки/таблицы/диалоги в проекте используют `--card`/`--popover` (непрозрачные), поэтому фон виден только в гуттерах. Тем не менее у нового статичного фона надо проверить контраст бордюров `--border` (`oklch(0.92 0.008 250)`) и текста на пустых экранах (`Settings`, splash, login). Если фон визуально шумный — добавить `body::before` полупрозрачный wash (например, `bg-background/40`) глобально, без правок компонентов.
 
-**Nothing has been applied.** The three artifacts above are the entire
-deliverable of this turn. The migration will only be created and submitted
-for approval after your explicit OK on this preview.
+## 9. План тестирования (до Build)
 
-## Next step
+После принятия static-варианта прогнать вручную в preview:
+- main dashboards (manager, branch, owner), `manager-offers`, `branch-offers`, archive, distribution, login, splash.
+- mobile 390×844 и desktop 1440+.
+- light/dark переключение из Settings.
+- скролл больших таблиц (FPS на глаз).
+- проверка, что splash и personal/owner assets не перекрыты и не перекрывают новый фон.
 
-Reply with either `OK apply` (I will then create the migration with the
-full 175-row CTE in a single Build/Apply turn, exactly matching the SQL
-artifact) or send edits.
+## 10. Предлагаемый узкий Build scope (если позже одобрите вариант B)
+
+Затрагиваемые файлы — **только**:
+- `public/page-backgrounds/global/bg_mobile.{webp,png}` — заменить файлами.
+- `public/page-backgrounds/global/bg_desktop.{webp,png}` — заменить файлами.
+- (опционально) `public/page-backgrounds/global/bg_mobile_dark.webp`, `bg_desktop_dark.webp` — новые.
+- `src/styles.css`: при необходимости добавить правило `html.dark body { background-image: url(...dark.webp); }` вместо текущего `none`. Иначе CSS не меняется (URL остаётся прежним).
+
+Никаких новых зависимостей. Никаких новых React-компонентов. `framer-motion` **не ставится**. Никаких правок `AppShell`, `__root.tsx`, `_authenticated.tsx`, splash, personal/owner assets, login.
+
+## 11. STOP-флаги, которые сейчас сработали против анимированной версии
+
+- Требует внешних ассетов (`framerusercontent.com`) — нестабильность.
+- Нетривиальный риск лага на мобиле без статичного fallback из коробки.
+- Чтобы стать глобальным фоном корректно — нужно вмешательство в layout-слой (`__root`/`_authenticated`), это редизайн AppShell-окружения.
+- Требует добавления `framer-motion` ради декоративного эффекта.
+
+## 12. Risk confirmations
+
+- DB touched? no
+- RLS touched? no
+- Auth touched? no
+- RPC/functions/triggers/migrations touched? no
+- Roles / role visibility touched? no
+- Branch/logistics/broker visibility touched? no
+- Cost/customs/transport/FX formulas touched? no
+- Net/gross/pallet formulas touched? no
+- position_id lifecycle touched? no
+- Reference dictionaries touched? no
+- Old operational rows touched? no
+- UI/code touched? no
+- Dependency installed? no
+
+## Итоговая рекомендация
+
+**B — Static-first.** Не устанавливать `framer-motion`, не подключать компонент `EtheralShadow` как глобальный body-фон. Если эстетика etheral-shadow желательна — сгенерировать статичные кадры (light + опционально dark), положить в `public/page-backgrounds/global/`, заменить текущие файлы. Анимированный вариант — отдельной поздней задачей и максимум на одном экране (например, login), не глобально.
