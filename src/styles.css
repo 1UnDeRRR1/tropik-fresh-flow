@@ -158,12 +158,11 @@
 }
 
 /* Dark mode: dark variant of the global background. */
-html.dark body {
+html.dark body::before {
   background-image: url("/page-backgrounds/global/bg_mobile_dark.webp");
-  background-color: var(--color-background);
 }
 @media (min-width: 768px) {
-  html.dark body {
+  html.dark body::before {
     background-image: url("/page-backgrounds/global/bg_desktop_dark.webp");
   }
 }
