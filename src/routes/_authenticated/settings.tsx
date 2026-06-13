@@ -80,6 +80,7 @@ function Settings() {
         </div>
 
         <div className="relative z-10 space-y-4 pt-16 md:hidden">
+          {ThemeToggle}
           <Button
             variant="outline"
             className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
