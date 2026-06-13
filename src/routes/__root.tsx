@@ -11,6 +11,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
+import { ThemeProvider } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
 // PreviewRoleSwitcher removed — no Pilot/mock users in user-facing UI.
 import { useEffect } from "react";
@@ -129,9 +130,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
+  // No-flash inline script: applies the persisted/system theme before paint.
+  const noFlash = `(function(){try{var k='tropik.theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var r=document.documentElement;if(t==='dark')r.classList.add('dark');else r.classList.remove('dark');r.style.colorScheme=t;}catch(e){}})();`;
   return (
     <html lang="uk">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: noFlash }} />
         <HeadContent />
       </head>
       <body>
@@ -149,11 +153,13 @@ function RootComponent() {
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        {/* PreviewRoleSwitcher removed */}
-        <Toaster position="top-center" />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Outlet />
+          {/* PreviewRoleSwitcher removed */}
+          <Toaster position="top-center" />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

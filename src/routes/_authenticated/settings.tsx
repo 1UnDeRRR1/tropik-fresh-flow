@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { getPersonalAssets } from "@/lib/branch-assets";
 import ownerSettingsBg from "@/assets/owner-settings-bg.png";
+import { useTheme, type ThemeMode } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
@@ -20,6 +22,41 @@ function Settings() {
     await signOut();
     navigate({ to: "/login" });
   };
+
+  const { theme, setTheme } = useTheme();
+  const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+    { value: "light", label: "Світла", icon: Sun },
+    { value: "dark", label: "Темна", icon: Moon },
+    { value: "system", label: "Системна", icon: Monitor },
+  ];
+  const ThemeToggle = (
+    <div className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur">
+      <div className="mb-2 text-xs font-medium text-muted-foreground">Тема</div>
+      <div className="grid grid-cols-3 gap-2">
+        {themeOptions.map((opt) => {
+          const Icon = opt.icon;
+          const active = theme === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setTheme(opt.value)}
+              aria-pressed={active}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-accent",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   // Owner exit: mobile = same proven mechanism as Lukach's profile background
   // (fixed inset-0 layer, object-cover object-center, no slot math, no
@@ -43,6 +80,7 @@ function Settings() {
         </div>
 
         <div className="relative z-10 space-y-4 pt-16 md:hidden">
+          {ThemeToggle}
           <Button
             variant="outline"
             className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
@@ -54,6 +92,7 @@ function Settings() {
 
         {/* Desktop owner: plain button only, no artwork. */}
         <div className="relative hidden space-y-4 md:block md:pt-3">
+          {ThemeToggle}
           <Button
             variant="outline"
             className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
@@ -92,6 +131,7 @@ function Settings() {
         </div>
       )}
       <div className="relative z-10 space-y-4 pt-16">
+        {ThemeToggle}
         <Button
           variant="outline"
           className="relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
