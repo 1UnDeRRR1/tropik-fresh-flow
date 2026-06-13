@@ -1,16 +1,21 @@
 import { useEffect } from "react";
 
 /**
- * Pointer-tracking layer for Malekhiv "spotlight / glow" on contours.
+ * Pointer-tracking layer for Malekhiv spotlight effect.
  *
- * Writes the current pointer position (in CSS pixels, viewport coords) into
- * `--mlk-x` / `--mlk-y` on <html>. The actual glow is drawn purely via CSS
- * (see `body[data-branch-test="malekhiv"]` block in `src/styles.css`) using
- * `background-attachment: fixed`, so the gradient is positioned in viewport
- * space without re-querying per-element rects on each move.
+ * Mirrors the reference 21st.dev GlowCard: writes pointer position AND its
+ * normalised viewport ratio into CSS vars on <html>. The ratio (--xp / --yp)
+ * is what drives the hue shift across the colour spectrum, so the spotlight
+ * walks through blue → purple → red → orange as the cursor moves horizontally.
  *
- * One listener for the whole app — much cheaper than per-card listeners from
- * the reference `spotlight-card.tsx`. Respects `prefers-reduced-motion`.
+ *   --mlk-x  : pointer X in CSS pixels (viewport coords)
+ *   --mlk-y  : pointer Y in CSS pixels
+ *   --mlk-xp : pointer X as 0..1 ratio of viewport width
+ *   --mlk-yp : pointer Y as 0..1 ratio of viewport height
+ *
+ * One global listener (cheap), rAF-throttled. The glow itself is drawn
+ * purely in CSS — see body[data-branch-test="malekhiv"] block in styles.css.
+ * Respects prefers-reduced-motion.
  */
 export function MalekhivSpotlightLayer() {
   useEffect(() => {
@@ -23,8 +28,12 @@ export function MalekhivSpotlightLayer() {
     let ny = 0;
 
     const flush = () => {
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
       root.style.setProperty("--mlk-x", nx.toFixed(0));
       root.style.setProperty("--mlk-y", ny.toFixed(0));
+      root.style.setProperty("--mlk-xp", (nx / w).toFixed(3));
+      root.style.setProperty("--mlk-yp", (ny / h).toFixed(3));
       raf = 0;
     };
 
@@ -44,6 +53,8 @@ export function MalekhivSpotlightLayer() {
       if (raf) window.cancelAnimationFrame(raf);
       root.style.removeProperty("--mlk-x");
       root.style.removeProperty("--mlk-y");
+      root.style.removeProperty("--mlk-xp");
+      root.style.removeProperty("--mlk-yp");
     };
   }, []);
 
