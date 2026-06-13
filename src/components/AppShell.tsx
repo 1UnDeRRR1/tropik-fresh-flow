@@ -760,17 +760,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 : "pt-4",
         )}
         style={
-          hasPersonalHeaderBanner
+          hasPersonalHeaderBanner && headerH != null
             ? ({
                 // Inline padding-top: Tailwind arbitrary values with nested
-                // commas inside calc()/var() fallbacks don't get generated.
-                // Browser parses this directly, so it always applies.
-                paddingTop:
-                  headerH != null
-                    ? `calc(${headerH}px + 0.5rem)`
-                    : personalHeaderMobilePadVw != null
-                      ? `calc(env(safe-area-inset-top) + ${personalHeaderMobilePadVw}vw + 0.5rem)`
-                      : undefined,
+                // commas inside calc()/var() fallbacks don't reliably get
+                // generated. Browser parses inline style directly.
+                // Only applied on mobile (headerH is null on desktop / when
+                // the personal banner isn't pinned-fixed).
+                paddingTop: `calc(${headerH}px + 0.5rem)`,
               } as CSSProperties)
             : undefined
         }
