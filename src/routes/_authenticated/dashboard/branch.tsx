@@ -189,12 +189,7 @@ function BranchDashboard() {
   const { profile, primaryRole, hasRole, dataLoaded } = useAuth();
   const qc = useQueryClient();
   const branchId = profile?.branch_id;
-  // Non-branch роли не должны попадать на branch dashboard — отправляем их на
-  // их собственную home (см. defaultRoutePerRole). Branch fallback запрещён.
   const isBranchRole = hasRole("branch");
-  if (dataLoaded && !isBranchRole) {
-    return <Navigate to={defaultRoutePerRole(primaryRole)} replace />;
-  }
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("last_event");
