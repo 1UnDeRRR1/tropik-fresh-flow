@@ -37,10 +37,11 @@ function LoginPage() {
   const { ready, target } = usePostLoginTarget();
   // Post-login navigation is handled entirely by the render-time <Navigate>
   // branch below (which respects pending /o/<token> share redirects).
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  // Public self-registration is disabled — accounts are created by an admin
+  // via supabase/functions/admin-users (super-admin → Users screen).
+  const mode = "signin" as const;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Single source of truth for post-login destination.
