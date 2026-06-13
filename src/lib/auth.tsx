@@ -370,6 +370,7 @@ export const ROLE_LABEL_UK: Record<AppRole, string> = {
   admin: "Адміністратор",
   import_manager: "Менеджер ЗЕД",
   logistics: "Логіст",
+  broker: "Брокер",
   branch: "Філія",
   calendar_branch: "Календар філії",
   calendar_tropik: "Календар Tropik",
@@ -386,6 +387,8 @@ export function defaultRoutePerRole(role: AppRole | null): string {
       return "/dashboard/manager";
     case "logistics":
       return "/logistics";
+    case "broker":
+      return "/shipments";
     case "branch":
       return "/dashboard/branch";
     case "owner":
@@ -393,9 +396,10 @@ export function defaultRoutePerRole(role: AppRole | null): string {
     case "calendar_branch":
     case "calendar_tropik":
       // External calendar UI is disabled — send to safe landing page.
-      return "/";
+      return "/settings";
     default:
-      return "/dashboard/branch";
+      // Unknown / unmapped role: send to a neutral page that does not depend on branch_id.
+      return "/settings";
   }
 }
 
