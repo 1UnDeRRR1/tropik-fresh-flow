@@ -39,7 +39,7 @@ function LoginPage() {
   // branch below (which respects pending /o/<token> share redirects).
   // Public self-registration is disabled — accounts are created by an admin
   // via supabase/functions/admin-users (super-admin → Users screen).
-  const mode = "signin" as const;
+  // (signup mode removed; admins create accounts via super-admin → Users)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
