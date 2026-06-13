@@ -39,15 +39,25 @@ const FirstScreenContext = createContext<FirstScreenCtx | null>(null);
 
 export function useFirstScreenGate(key: string, pending: boolean) {
   const ctx = useContext(FirstScreenContext);
+  // One-shot: once this gate has released for the lifetime of this mounted
+  // screen, later refetches / pending toggles must NOT re-show the global
+  // splash. The splash is for the initial first-screen load only.
+  const hasReleasedRef = useRef(false);
   useEffect(() => {
     if (!ctx) return;
-    ctx.requireGate(key);
+    if (!hasReleasedRef.current) ctx.requireGate(key);
     return () => ctx.markReady(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx, key]);
   useEffect(() => {
     if (!ctx) return;
-    if (!pending) ctx.markReady(key);
-    else ctx.requireGate(key);
+    if (hasReleasedRef.current) return;
+    if (!pending) {
+      hasReleasedRef.current = true;
+      ctx.markReady(key);
+    } else {
+      ctx.requireGate(key);
+    }
   }, [ctx, key, pending]);
 }
 
