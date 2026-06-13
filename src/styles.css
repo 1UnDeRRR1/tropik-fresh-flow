@@ -455,22 +455,18 @@ body::before {
    level; body cells sit ~10% more transparent so the page background
    gently shows through. No other branches/routes are affected. */
 body[data-branch-test="malekhiv"] .branch-table-wrap {
-  background-color: color-mix(in oklab, var(--color-card) 55%, transparent);
+  background-color: color-mix(in oklab, var(--color-card) 50%, transparent);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
-  background-color: color-mix(in oklab, var(--color-table-head) 70%, transparent) !important;
+  background-color: color-mix(in oklab, var(--color-table-head) 50%, transparent) !important;
 }
 body[data-branch-test="malekhiv"] .branch-table-wrap tbody td {
   background-color: transparent;
 }
 /* Sticky left columns (Status + Product) must be a fully opaque mask so
-   horizontally scrolled cells slide UNDER them without bleed-through.
-   The right-edge shadow lives ONLY on the rightmost sticky cell (Product,
-   left:56px) — that's the seam between the frozen zone and the scroll zone.
-   The Status column (left:0) sits inside the frozen zone and should not
-   draw an internal divider. */
+   horizontally scrolled cells slide UNDER them without bleed-through. */
 body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky,
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
   background-color: var(--color-card) !important;
@@ -479,15 +475,11 @@ body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky.left-\[52px
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky.left-\[52px\] {
   box-shadow: 2px 0 0 0 hsl(var(--border));
 }
-/* Kill iOS horizontal rubber-band inside the table scroller — vertical
-   page scroll is untouched. Applies to the wrapper TableScroller renders. */
 body[data-branch-test="malekhiv"] .branch-table-wrap > div {
   overscroll-behavior-x: none;
   -webkit-overflow-scrolling: auto;
   touch-action: pan-x pan-y;
 }
-/* Slightly darker text (~10% closer to black) without making it heavier.
-   Scoped to light mode only — in dark mode, inherit from tokens. */
 html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap,
 html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap td,
 html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap th {
@@ -497,59 +489,14 @@ html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap th {
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
   font-weight: 500;
 }
+
 /* Bottom navigation: match header-level transparency */
 body[data-branch-test="malekhiv"] nav.fixed.bottom-0 {
   background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
 }
 
-/* Malekhiv-only: shine border around the main table contour.
-   Scoped strictly to body[data-branch-test="malekhiv"] .branch-table-wrap so
-   no other branch/route/table is affected. Mirrors the reference ruixen
-   shine-border: an overlay pseudo-element renders a radial gradient ring
-   inside the wrapper's rounded contour and animates background-position to
-   create a soft moving sheen. Non-interactive, motion-safe only. */
-@keyframes malekhiv-shine {
-  0%   { background-position: 0% 0%; }
-  50%  { background-position: 100% 100%; }
-  100% { background-position: 0% 0%; }
-}
-body[data-branch-test="malekhiv"] .branch-table-wrap {
-  position: relative;
-  isolation: isolate;
-}
-body[data-branch-test="malekhiv"] .branch-table-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 2px;
-  background-image: radial-gradient(
-    transparent,
-    transparent,
-    #A07CFE,
-    #FE8FB5,
-    #FFBE7B,
-    transparent,
-    transparent
-  );
-  background-size: 300% 300%;
-  background-position: 0% 0%;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-          mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-  z-index: 5;
-}
-@media (prefers-reduced-motion: no-preference) {
-  body[data-branch-test="malekhiv"] .branch-table-wrap::after {
-    animation: malekhiv-shine 14s linear infinite;
-  }
-}
+
+
 
 
 
@@ -700,12 +647,15 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
      contour of any card it passes over. Uses mask trick to confine the
      glow to a thin ring. background-attachment: fixed keeps the radial
      anchored to the viewport so it walks continuously between cards. */
-  body[data-branch-test="malekhiv"] .branch-table-wrap,
-  body[data-branch-test="malekhiv"] .bg-card {
+  body[data-branch-test="malekhiv"] .bg-card,
+  body[data-branch-test="malekhiv"] [class*="bg-card/"],
+  body[data-branch-test="malekhiv"] [class*="bg-card\\/"] {
     position: relative;
   }
-  body[data-branch-test="malekhiv"] .branch-table-wrap::before,
-  body[data-branch-test="malekhiv"] .bg-card::before {
+  body[data-branch-test="malekhiv"] .bg-card::before,
+  body[data-branch-test="malekhiv"] [class*="bg-card/"]::before,
+  body[data-branch-test="malekhiv"] [class*="bg-card\\/"]::before {
+
     content: "";
     position: absolute;
     inset: -3px;
@@ -737,10 +687,98 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
     filter: brightness(1.35)
       drop-shadow(0 0 14px hsl(var(--mlk-hue, 220) 100% 55% / 0.55));
   }
-  html.dark body[data-branch-test="malekhiv"] .branch-table-wrap::before,
-  html.dark body[data-branch-test="malekhiv"] .bg-card::before {
+  html.dark body[data-branch-test="malekhiv"] .bg-card::before,
+
+  html.dark body[data-branch-test="malekhiv"] [class*="bg-card/"]::before,
+  html.dark body[data-branch-test="malekhiv"] [class*="bg-card\\/"]::before {
     filter: brightness(1.6)
       drop-shadow(0 0 18px hsl(var(--mlk-hue, 220) 100% 60% / 0.75));
   }
 }
 
+
+/* ============================================================
+   ShinyButton (ruixen-style, CSS-only port).
+   Used in place of a plain outline button when a moving sheen
+   is desired. Self-contained — uses --primary / --destructive
+   so it themes correctly in both light and dark modes.
+   ============================================================ */
+@keyframes shiny-btn-x {
+  0%   { --x: 100%; }
+  100% { --x: -100%; }
+}
+.shiny-btn {
+  --x: 100%;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 1.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  background: transparent;
+  color: var(--destructive);
+  border: 1px solid color-mix(in oklab, var(--destructive) 60%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: box-shadow .3s ease-in-out, background-color .15s ease;
+  cursor: pointer;
+  animation: shiny-btn-x 3s linear infinite;
+}
+.shiny-btn:hover {
+  box-shadow: 0 0 18px color-mix(in oklab, var(--destructive) 25%, transparent);
+  background-color: color-mix(in oklab, var(--destructive) 8%, transparent);
+}
+.shiny-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.shiny-btn-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 1;
+  -webkit-mask-image: linear-gradient(
+    -75deg,
+    var(--destructive) calc(var(--x) + 20%),
+    transparent calc(var(--x) + 30%),
+    var(--destructive) calc(var(--x) + 100%)
+  );
+  mask-image: linear-gradient(
+    -75deg,
+    var(--destructive) calc(var(--x) + 20%),
+    transparent calc(var(--x) + 30%),
+    var(--destructive) calc(var(--x) + 100%)
+  );
+}
+.shiny-btn-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    -75deg,
+    color-mix(in oklab, var(--destructive) 10%, transparent) calc(var(--x) + 20%),
+    color-mix(in oklab, var(--destructive) 50%, transparent) calc(var(--x) + 25%),
+    color-mix(in oklab, var(--destructive) 10%, transparent) calc(var(--x) + 100%)
+  );
+  -webkit-mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+          mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+@property --x {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
