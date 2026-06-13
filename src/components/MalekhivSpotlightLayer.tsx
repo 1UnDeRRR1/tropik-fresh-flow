@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "@/lib/theme";
 
 /**
  * Pointer-tracking spotlight for Malekhiv.
@@ -20,6 +21,7 @@ import { useEffect, useState } from "react";
  */
 export function MalekhivSpotlightLayer() {
   const [mounted, setMounted] = useState(false);
+  const { resolved } = useTheme();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -128,5 +130,5 @@ export function MalekhivSpotlightLayer() {
   if (!mounted) return null;
 
   // Global overlay — draws the spotlight at the pointer on every page.
-  return <div aria-hidden="true" className="malekhiv-spotlight-overlay" />;
+  return <div aria-hidden="true" className="malekhiv-spotlight-overlay" data-mlk-theme={resolved} />;
 }

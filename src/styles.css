@@ -621,7 +621,7 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
      1/(1-blend): already-bright pixels (text ≈ 1.0) stay max, mid-tone
      borders get a clear lift, near-black surfaces barely move. Light
      mode is untouched — it keeps the original `screen` blend above. */
-  html.dark body[data-branch-test="malekhiv"] .malekhiv-spotlight-overlay {
+  body[data-branch-test="malekhiv"] .malekhiv-spotlight-overlay[data-mlk-theme="dark"] {
     mix-blend-mode: normal;
     background: transparent;
     filter: none;
