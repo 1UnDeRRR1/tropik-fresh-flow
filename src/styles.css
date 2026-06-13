@@ -621,8 +621,40 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
      1/(1-blend): already-bright pixels (text ≈ 1.0) stay max, mid-tone
      borders get a clear lift, near-black surfaces barely move. Light
      mode is untouched — it keeps the original `screen` blend above. */
-  html.dark body[data-branch-test="malekhiv"] .malekhiv-spotlight-overlay {
-    mix-blend-mode: color-dodge;
+  body[data-branch-test="malekhiv"] .malekhiv-spotlight-overlay[data-mlk-theme="dark"] {
+    mix-blend-mode: normal;
+    background: transparent;
+    filter: none;
+    -webkit-backdrop-filter: brightness(2.5) saturate(1.35) contrast(1.08);
+    backdrop-filter: brightness(2.5) saturate(1.35) contrast(1.08);
+    -webkit-mask-image:
+      radial-gradient(
+        120px 120px at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        rgba(0, 0, 0, 1),
+        rgba(0, 0, 0, 0.5) 40%,
+        transparent 72%
+      ),
+      radial-gradient(
+        300px 300px at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        rgba(0, 0, 0, 0.95),
+        rgba(0, 0, 0, 0.3) 42%,
+        transparent 78%
+      );
+    mask-image:
+      radial-gradient(
+        120px 120px at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        rgba(0, 0, 0, 1),
+        rgba(0, 0, 0, 0.5) 40%,
+        transparent 72%
+      ),
+      radial-gradient(
+        300px 300px at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        rgba(0, 0, 0, 0.95),
+        rgba(0, 0, 0, 0.3) 42%,
+        transparent 78%
+      );
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
   }
 
   /* ---------- Card border ring: the same light source ALSO lights up the
