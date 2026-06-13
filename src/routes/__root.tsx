@@ -130,9 +130,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
+  // No-flash inline script: applies the persisted/system theme before paint.
+  const noFlash = `(function(){try{var k='tropik.theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var r=document.documentElement;if(t==='dark')r.classList.add('dark');else r.classList.remove('dark');r.style.colorScheme=t;}catch(e){}})();`;
   return (
     <html lang="uk">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: noFlash }} />
         <HeadContent />
       </head>
       <body>
@@ -144,6 +147,22 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    installGlobalErrorLogger();
+  }, []);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <Outlet />
+          {/* PreviewRoleSwitcher removed */}
+          <Toaster position="top-center" />
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
     installGlobalErrorLogger();
