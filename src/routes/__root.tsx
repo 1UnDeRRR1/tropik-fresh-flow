@@ -11,6 +11,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
+import { ThemeProvider } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
 // PreviewRoleSwitcher removed — no Pilot/mock users in user-facing UI.
 import { useEffect } from "react";
