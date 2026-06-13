@@ -140,13 +140,13 @@ function Settings() {
       )}
       <div className="relative z-10 space-y-4 pt-16">
         {ThemeToggle}
-        <Button
-          variant="outline"
-          className="relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
+        <ShinyButton
+          className="relative z-10 flex w-full justify-center h-9 py-0"
           onClick={handleSignOut}
         >
-          <LogOut className="mr-2 h-4 w-4" /> Вийти
-        </Button>
+          <LogOut className="h-4 w-4" /> Вийти
+        </ShinyButton>
+
       </div>
     </div>
   );
