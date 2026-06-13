@@ -11,6 +11,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { tapVibrate } from "@/lib/nav-feedback";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
+import { MalekhivBottomNav } from "@/components/MalekhivBottomNav";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
 import calendarNormal from "@/assets/nav-icons/owner/calendar-normal.png";
 import calendarPress from "@/assets/nav-icons/owner/calendar-press.png";
