@@ -131,6 +131,7 @@ function Settings() {
         </div>
       )}
       <div className="relative z-10 space-y-4 pt-16">
+        {ThemeToggle}
         <Button
           variant="outline"
           className="relative z-10 w-full bg-background/90 backdrop-blur border-red-500"
