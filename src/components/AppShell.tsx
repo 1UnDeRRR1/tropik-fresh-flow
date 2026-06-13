@@ -446,7 +446,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     lastScrollYRef.current = typeof window !== "undefined" ? window.scrollY : 0;
   }, [pathname]);
 
+  const disableMobileNavAutoHide = isBranch;
+
   useEffect(() => {
+    if (disableMobileNavAutoHide) {
+      setNavHidden(false);
+      return;
+    }
     if (typeof window === "undefined") return;
     lastScrollYRef.current = window.scrollY;
     const onScroll = () => {
@@ -489,7 +495,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [disableMobileNavAutoHide]);
 
   // Any tap inside the nav extends the visible window so the fruit
   // animation gets to finish before auto-hide can re-engage.
@@ -504,18 +510,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
 
-  // Branch / non-owner users with a personal header banner: pin the banner
-  // to the top of the viewport on mobile (fixed) so the picture cannot drift
-  // when the page scrolls or iOS rubber-bands. Desktop keeps `sticky top-0`
-  // so the wider nav layout behaves as before. Main content compensates with
-  // padding-top based on the mobile image aspect ratio so content lands just
-  // below the banner instead of disappearing underneath it.
+  // Keep the fixed mobile header only for the owner banner. Reusing that
+  // pattern for branch personal headers pushed content into a bad scroll/
+  // safe-area state on mobile, which is what showed up on Malekhiv.
   const hasPersonalHeaderBanner =
     !isOwner &&
     !!personalAssets?.headerDesktopWebp &&
     !!personalAssets?.headerMobileWidth &&
     !!personalAssets?.headerMobileHeight;
-  const pinPersonalHeader = (isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
+  const pinPersonalHeader = !!(isOwner && ownerMobileBanner);
   const personalHeaderMobilePadVw = hasPersonalHeaderBanner
     ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
     : null;
