@@ -197,18 +197,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (!ids.length) return 0;
       const { data: responses, error: rErr } = await supabase
         .from("manager_offer_responses")
-        .select("offer_id, approved_pallets")
+        .select("offer_id, approved_pallets, refused_at")
         .eq("branch_id", branchId!)
         .in("offer_id", ids);
       if (rErr) throw rErr;
-      const respMap = new Map<string, number | null>();
-      for (const r of (responses ?? []) as { offer_id: string; approved_pallets: number | null }[]) {
-        respMap.set(r.offer_id, r.approved_pallets);
+      type Resp = { offer_id: string; approved_pallets: number | null; refused_at: string | null };
+      const respMap = new Map<string, Resp>();
+      for (const r of (responses ?? []) as Resp[]) {
+        respMap.set(r.offer_id, r);
       }
       let count = 0;
       for (const id of ids) {
-        if (!respMap.has(id)) { count++; continue; }
-        if (respMap.get(id) == null) count++;
+        const r = respMap.get(id);
+        if (!r) { count++; continue; }
+        // A refused response is a decision — do not count as pending.
+        if (r.refused_at) continue;
+        if (r.approved_pallets == null) count++;
       }
       return count;
     },
