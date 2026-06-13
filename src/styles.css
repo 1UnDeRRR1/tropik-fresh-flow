@@ -133,7 +133,30 @@
   --input: oklch(1 0 0 / 0.12);
   --ring: oklch(0.65 0.22 25);
 
+  --success: oklch(0.72 0.16 152);
+  --warning: oklch(0.82 0.16 75);
+  --info: oklch(0.72 0.13 240);
+
+  --chart-1: oklch(0.72 0.20 25);
+  --chart-2: oklch(0.85 0.04 250);
+  --chart-3: oklch(0.72 0.13 240);
+  --chart-4: oklch(0.80 0.15 75);
+  --chart-5: oklch(0.72 0.16 152);
+
+  --sidebar: oklch(0.22 0.05 265);
+  --sidebar-foreground: oklch(0.98 0.003 250);
+  --sidebar-accent: oklch(0.30 0.05 265);
+  --sidebar-accent-foreground: oklch(0.98 0.003 250);
+  --sidebar-border: oklch(1 0 0 / 0.08);
+
   --table-head: oklch(0.42 0.08 25 / 0.5);
+}
+
+/* Dark mode: replace decorative photographic body background with a flat
+   dark surface so cards/dialogs read cleanly. */
+html.dark body {
+  background-image: none !important;
+  background-color: var(--color-background);
 }
 
 @layer base {
