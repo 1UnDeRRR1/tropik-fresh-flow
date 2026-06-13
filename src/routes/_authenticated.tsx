@@ -66,8 +66,8 @@ export function useFirstScreenGate(key: string, pending: boolean) {
  * detects a hydration mismatch (#418). After mount we can swap in the
  * personal full-bleed picture when a package is resolved for this user.
  */
-function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
-  const ownerAssets = getOwnerBannerAssets();
+function SplashOverlay({ personal, isOwner }: { personal: PersonalAssets | null; isOwner: boolean }) {
+  const ownerAssets = isOwner ? getOwnerBannerAssets() : null;
   const splashMobileWebp = ownerAssets?.splashMobile ?? personal?.splashMobileWebp;
   const splashMobilePng = ownerAssets?.splashDesktop ?? personal?.splashMobilePng;
   const splashDesktopPng = ownerAssets?.splashDesktop ?? personal?.splashDesktopPng;
@@ -144,6 +144,7 @@ function AuthenticatedLayout() {
   const firstScreenReady = pendingCount === 0;
   const splashVisible = !(mounted && minElapsed && authReady && firstScreenReady);
   const splashPersonal = useMemo(() => getPersonalAssets(user?.id, profile?.branch_id), [user?.id, profile?.branch_id]);
+  const isOwner = primaryRole === "owner";
 
   // Pre-auth: send unauthenticated visitors to /login as soon as auth resolves.
   if (mounted && authReady && !user) return <Navigate to="/login" />;
@@ -167,8 +168,7 @@ function AuthenticatedLayout() {
           <Outlet />
         </AppShell>
       ) : null}
-      {ENABLE_MALEKHIV_VISUAL_EXPERIMENTS && isMalekhivBranch ? null : null}
-      {splashVisible ? <SplashOverlay personal={splashPersonal} /> : null}
+      {splashVisible ? <SplashOverlay personal={splashPersonal} isOwner={isOwner} /> : null}
     </FirstScreenContext.Provider>
   );
 }

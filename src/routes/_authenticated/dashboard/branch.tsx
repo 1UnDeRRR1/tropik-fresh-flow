@@ -39,6 +39,7 @@ function isRealShipmentCode(code: string | null | undefined): boolean {
 
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+const ENABLE_MALEKHIV_VISUAL_EXPERIMENTS = false;
 type SortKey = "last_event" | "eta" | "product" | "country" | "manager";
 
 export const Route = createFileRoute("/_authenticated/dashboard/branch")({
@@ -197,11 +198,13 @@ function BranchDashboard() {
   const [countryFilter, setCountryFilter] = useState<string>("__all__");
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
-  // Scope the transparency test to <body> so the bottom nav can pick it up too.
   useEffect(() => {
-    if (!isMalekhiv) return;
-    document.body.setAttribute("data-branch-test", "malekhiv");
-    return () => { document.body.removeAttribute("data-branch-test"); };
+    if (ENABLE_MALEKHIV_VISUAL_EXPERIMENTS && isMalekhiv) {
+      document.body.setAttribute("data-branch-test", "malekhiv");
+      return () => { document.body.removeAttribute("data-branch-test"); };
+    }
+    document.body.removeAttribute("data-branch-test");
+    return undefined;
   }, [isMalekhiv]);
 
   const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
@@ -859,7 +862,7 @@ function BranchDashboard() {
   return (
     <div
       className="space-y-4"
-      data-branch-test={isMalekhiv ? "malekhiv" : undefined}
+      data-branch-test={ENABLE_MALEKHIV_VISUAL_EXPERIMENTS && isMalekhiv ? "malekhiv" : undefined}
     >
       {isBranchRole && !branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
