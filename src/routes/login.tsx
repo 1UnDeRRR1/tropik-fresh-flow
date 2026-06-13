@@ -37,10 +37,11 @@ function LoginPage() {
   const { ready, target } = usePostLoginTarget();
   // Post-login navigation is handled entirely by the render-time <Navigate>
   // branch below (which respects pending /o/<token> share redirects).
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  // Public self-registration is disabled — accounts are created by an admin
+  // via supabase/functions/admin-users (super-admin → Users screen).
+  // (signup mode removed; admins create accounts via super-admin → Users)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Single source of truth for post-login destination.
@@ -64,24 +65,11 @@ function LoginPage() {
       const loginEmail = email.includes("@")
         ? email.trim()
         : `${email.trim().toLowerCase()}@calendar.tropik.local`;
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email: loginEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { full_name: fullName },
-          },
-        });
-        if (error) throw error;
-        toast.success("Акаунт створено. Вхід…");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: loginEmail,
-          password,
-        });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password,
+      });
+      if (error) throw error;
       // Do NOT navigate("/") here — the render-time <Navigate> branch
       // above consumes any pending /o/<token> share redirect first, then
       // falls back to the role-specific post-login target. Forcing "/"
@@ -122,28 +110,12 @@ function LoginPage() {
       <div className="relative w-full max-w-sm">
         <div className="rounded-2xl border border-border bg-card/95 p-6 text-card-foreground shadow-xl backdrop-blur">
 
-          <h1 className="text-xl font-bold">
-            {mode === "signin" ? "Вхід в систему" : "Створити акаунт"}
-          </h1>
+          <h1 className="text-xl font-bold">Вхід в систему</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin"
-              ? "Внутрішній доступ"
-              : "Нові користувачі отримують роль «Філія»"}
+            Обліковий запис створює адміністратор
           </p>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
-            {mode === "signup" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Ім'я та прізвище</Label>
-                <Input
-                  id="name"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Іван Петренко"
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="email">Логін</Label>
               <Input
@@ -175,24 +147,13 @@ function LoginPage() {
               disabled={submitting}
               className="h-11 w-full bg-brand text-brand-foreground hover:bg-brand/90"
             >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : mode === "signin" ? (
-                "Увійти"
-              ) : (
-                "Зареєструватись"
-              )}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Увійти"}
             </Button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => setMode((m) => (m === "signin" ? "signup" : "signin"))}
-            className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
-          >
-            {mode === "signin" ? "Немає акаунту? Створити" : "Вже є акаунт? Увійти"}
-          </button>
+
         </div>
+
 
         <p className="mt-6 text-center text-xs text-white/80 drop-shadow">
           © {new Date().getFullYear()} Внутрішня система.

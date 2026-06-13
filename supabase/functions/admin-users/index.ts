@@ -167,6 +167,7 @@ Deno.serve(async (req) => {
         return json({ error: "unknown_action" }, 400);
     }
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : String(e) }, 500);
+    console.error("[admin-users] internal error:", e);
+    return json({ error: "internal_server_error" }, 500);
   }
 });
