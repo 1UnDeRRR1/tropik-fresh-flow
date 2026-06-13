@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { EmptyState } from "@/components/cards";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -186,9 +186,10 @@ function BranchFlatList({
 
 
 function BranchDashboard() {
-  const { profile } = useAuth();
+  const { profile, primaryRole, hasRole, dataLoaded } = useAuth();
   const qc = useQueryClient();
   const branchId = profile?.branch_id;
+  const isBranchRole = hasRole("branch");
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("last_event");
@@ -849,16 +850,23 @@ function BranchDashboard() {
   // Silence unused-state lint (kept to avoid touching data/handler logic).
   void sortBy; void setSortBy; void ackChange;
 
+  // Non-branch роли не должны видеть branch dashboard — отправляем их на
+  // role-appropriate home (см. defaultRoutePerRole). Branch fallback запрещён.
+  if (dataLoaded && !isBranchRole) {
+    return <Navigate to={defaultRoutePerRole(primaryRole)} replace />;
+  }
+
   return (
     <div
       className="space-y-4"
       data-branch-test={isMalekhiv ? "malekhiv" : undefined}
     >
-      {!branchId && (
+      {isBranchRole && !branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
-          Вам ще не призначено філію. Зверніться до адміністратора.
+          Доступ не налаштовано. Зверніться до адміністратора.
         </div>
       )}
+
 
       {rows.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-3 space-y-2">
