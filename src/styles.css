@@ -495,54 +495,8 @@ body[data-branch-test="malekhiv"] nav.fixed.bottom-0 {
   background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
 }
 
-/* Malekhiv-only: shine border around the main table contour.
-   Scoped strictly to body[data-branch-test="malekhiv"] .branch-table-wrap so
-   no other branch/route/table is affected. Mirrors the reference ruixen
-   shine-border: an overlay pseudo-element renders a radial gradient ring
-   inside the wrapper's rounded contour and animates background-position to
-   create a soft moving sheen. Non-interactive, motion-safe only. */
-@keyframes malekhiv-shine {
-  0%   { background-position: 0% 0%; }
-  50%  { background-position: 100% 100%; }
-  100% { background-position: 0% 0%; }
-}
-body[data-branch-test="malekhiv"] .branch-table-wrap {
-  position: relative;
-  isolation: isolate;
-}
-body[data-branch-test="malekhiv"] .branch-table-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 2px;
-  background-image: radial-gradient(
-    transparent,
-    transparent,
-    #A07CFE,
-    #FE8FB5,
-    #FFBE7B,
-    transparent,
-    transparent
-  );
-  background-size: 300% 300%;
-  background-position: 0% 0%;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-          mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-  z-index: 5;
-}
-@media (prefers-reduced-motion: no-preference) {
-  body[data-branch-test="malekhiv"] .branch-table-wrap::after {
-    animation: malekhiv-shine 14s linear infinite;
-  }
-}
+
+
 
 
 
