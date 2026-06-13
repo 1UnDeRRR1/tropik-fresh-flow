@@ -92,6 +92,7 @@ function Settings() {
 
         {/* Desktop owner: plain button only, no artwork. */}
         <div className="relative hidden space-y-4 md:block md:pt-3">
+          {ThemeToggle}
           <Button
             variant="outline"
             className="w-full bg-transparent border-red-500/70 text-red-700 shadow-none hover:bg-red-500/10 hover:text-red-700"
