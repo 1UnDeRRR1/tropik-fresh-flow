@@ -429,9 +429,6 @@ body::before {
 :where(thead th) {
   background-color: color-mix(in oklab, var(--color-table-head) 50%, transparent);
 }
-:where(button:not([data-state]):not(.no-bg-tint)) {
-  background-color: color-mix(in oklab, currentColor 0%, transparent);
-}
 :where(.bg-primary) {
   background-color: color-mix(in oklab, var(--color-primary) 50%, transparent) !important;
 }
