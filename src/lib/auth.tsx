@@ -46,6 +46,7 @@ const ROLE_PRIORITY: AppRole[] = [
   "admin",
   "import_manager",
   "logistics",
+  "broker",
   "owner",
   "calendar_branch",
   "calendar_tropik",
