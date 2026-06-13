@@ -796,7 +796,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             : "bg-card/95",
         )}
       >
-        {isBranch ? (
+        {isBranch && branchId === MALEKHIV_BRANCH_ID ? (
+          <MalekhivBottomNav items={items} isActive={isActive} />
+        ) : isBranch ? (
           <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
             {items.map((it) => {
               const active = isActive(it.to, it.label);
