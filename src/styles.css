@@ -442,10 +442,11 @@ body[data-branch-test="malekhiv"] .branch-table-wrap > div {
   -webkit-overflow-scrolling: auto;
   touch-action: pan-x pan-y;
 }
-/* Slightly darker text (~10% closer to black) without making it heavier */
-body[data-branch-test="malekhiv"] .branch-table-wrap,
-body[data-branch-test="malekhiv"] .branch-table-wrap td,
-body[data-branch-test="malekhiv"] .branch-table-wrap th {
+/* Slightly darker text (~10% closer to black) without making it heavier.
+   Scoped to light mode only — in dark mode, inherit from tokens. */
+html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap,
+html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap td,
+html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap th {
   color: oklch(0.12 0.04 265);
   font-weight: 400;
 }
