@@ -10,7 +10,7 @@ import { FxRateBadge } from "@/components/FxRateBadge";
 import { getOwnerBannerAssets, getPersonalAssets } from "@/lib/branch-assets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { tapVibrate } from "@/lib/nav-feedback";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
@@ -450,6 +450,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     lastScrollYRef.current = window.scrollY;
     const onScroll = () => {
+      // Guard: on pages that don't meaningfully scroll, never hide the nav.
+      // iOS rubber-band and tiny deltas were causing the nav to disappear on
+      // short Malekhiv screens.
+      if (
+        document.documentElement.scrollHeight <=
+        window.innerHeight + 1
+      ) {
+        setNavHidden(false);
+        lastScrollYRef.current = window.scrollY;
+        return;
+      }
       // Don't auto-hide while the soft keyboard is open — avoids flicker
       // around focused inputs / selects / dropdowns.
       const kb = parseFloat(
@@ -509,10 +520,51 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
     : null;
 
+  // Deterministic header-height compensation: measure the real <header>
+  // height on mobile and expose it as a CSS var so <main> can reserve the
+  // exact space, regardless of how env(safe-area-inset-top) + image aspect
+  // calc() resolves in a given engine/preview.
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerH, setHeaderH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = headerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      // Desktop uses sticky header (already reserves space in flow), so we
+      // don't need to compensate <main> there.
+      if (!isMobile || !pinPersonalHeader) {
+        setHeaderH(null);
+        return;
+      }
+      const h = Math.round(el.getBoundingClientRect().height);
+      setHeaderH((prev) => (prev === h ? prev : h));
+    };
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(measure);
+    };
+    measure();
+    const ro = new ResizeObserver(schedule);
+    ro.observe(el);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [pinPersonalHeader, pathname, personalAssets?.headerMobileWebp]);
+
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
       <header
+        ref={headerRef}
         className={cn(
           "z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70",
           // Owner mobile: hard-pin to viewport top so the status-bar safe area
@@ -705,17 +757,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           isOwner && ownerMobileBanner
             ? "pt-[calc(env(safe-area-inset-top)+12rem+0.5rem)] md:pt-3"
             : hasPersonalHeaderBanner
-              // Branch fixed personal banner: derive mobile padding from the
-              // image aspect ratio (CSS var set inline). md:pt-3 overrides on
-              // desktop where the header reverts to sticky and reserves space.
-              ? "pt-[calc(env(safe-area-inset-top)+var(--ph-mobile-pad,0px)+0.5rem)] md:pt-3"
+              // Branch fixed personal banner: padding is driven by the real
+              // measured header height (--app-header-h) written by the
+              // ResizeObserver above. Aspect-ratio formula remains as a
+              // safe fallback for the very first paint before measurement.
+              ? "pt-[var(--app-header-pt,calc(env(safe-area-inset-top)+var(--ph-mobile-pad,0px)+0.5rem))] md:pt-3"
               : isOwner
                 ? "pt-3"
                 : "pt-4",
         )}
         style={
-          hasPersonalHeaderBanner && personalHeaderMobilePadVw != null
-            ? ({ ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` } as CSSProperties)
+          hasPersonalHeaderBanner
+            ? ({
+                ...(personalHeaderMobilePadVw != null
+                  ? { ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` }
+                  : {}),
+                ...(headerH != null
+                  ? { ["--app-header-pt" as string]: `calc(${headerH}px + 0.5rem)` }
+                  : {}),
+              } as CSSProperties)
             : undefined
         }
       >
