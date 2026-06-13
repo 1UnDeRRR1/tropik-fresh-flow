@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "shipments_broker_update" ON public.shipments;
