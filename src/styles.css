@@ -158,12 +158,11 @@
 }
 
 /* Dark mode: dark variant of the global background. */
-html.dark body {
+html.dark body::before {
   background-image: url("/page-backgrounds/global/bg_mobile_dark.webp");
-  background-color: var(--color-background);
 }
 @media (min-width: 768px) {
-  html.dark body {
+  html.dark body::before {
     background-image: url("/page-backgrounds/global/bg_desktop_dark.webp");
   }
 }
@@ -400,17 +399,53 @@ html, body {
    visible in the surrounding gutters. The splash overlay renders above
    this layer with its own background, so personalised splash assets are
    not replaced. */
-body {
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background-image: url("/page-backgrounds/global/bg_mobile.webp");
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
-  background-attachment: fixed;
+  pointer-events: none;
 }
 @media (min-width: 768px) {
-  body {
+  body::before {
     background-image: url("/page-backgrounds/global/bg_desktop.webp");
   }
+}
+
+/* Global 50% transparency for table backgrounds, buttons, switches, inputs.
+   Keeps text/borders intact; only the surface fill is softened so the page
+   background shows through. Scoped via :where() to keep specificity at 0
+   so component-specific overrides still win. */
+:where(table) {
+  background-color: color-mix(in oklab, var(--color-card) 50%, transparent);
+}
+:where(thead, tbody, tfoot, tr) {
+  background-color: transparent;
+}
+:where(thead th) {
+  background-color: color-mix(in oklab, var(--color-table-head) 50%, transparent);
+}
+:where(.bg-primary) {
+  background-color: color-mix(in oklab, var(--color-primary) 50%, transparent) !important;
+}
+:where(.bg-secondary) {
+  background-color: color-mix(in oklab, var(--color-secondary) 50%, transparent) !important;
+}
+:where(.bg-muted) {
+  background-color: color-mix(in oklab, var(--color-muted) 50%, transparent) !important;
+}
+:where(.bg-card) {
+  background-color: color-mix(in oklab, var(--color-card) 50%, transparent) !important;
+}
+:where(.bg-accent) {
+  background-color: color-mix(in oklab, var(--color-accent) 50%, transparent) !important;
+}
+:where(input, textarea, select) {
+  background-color: color-mix(in oklab, var(--color-input) 50%, transparent);
 }
 
 /* ============================================================
