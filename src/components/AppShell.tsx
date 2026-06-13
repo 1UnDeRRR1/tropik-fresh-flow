@@ -757,17 +757,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           isOwner && ownerMobileBanner
             ? "pt-[calc(env(safe-area-inset-top)+12rem+0.5rem)] md:pt-3"
             : hasPersonalHeaderBanner
-              // Branch fixed personal banner: derive mobile padding from the
-              // image aspect ratio (CSS var set inline). md:pt-3 overrides on
-              // desktop where the header reverts to sticky and reserves space.
-              ? "pt-[calc(env(safe-area-inset-top)+var(--ph-mobile-pad,0px)+0.5rem)] md:pt-3"
+              // Branch fixed personal banner: padding is driven by the real
+              // measured header height (--app-header-h) written by the
+              // ResizeObserver above. Aspect-ratio formula remains as a
+              // safe fallback for the very first paint before measurement.
+              ? "pt-[var(--app-header-pt,calc(env(safe-area-inset-top)+var(--ph-mobile-pad,0px)+0.5rem))] md:pt-3"
               : isOwner
                 ? "pt-3"
                 : "pt-4",
         )}
         style={
-          hasPersonalHeaderBanner && personalHeaderMobilePadVw != null
-            ? ({ ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` } as CSSProperties)
+          hasPersonalHeaderBanner
+            ? ({
+                ...(personalHeaderMobilePadVw != null
+                  ? { ["--ph-mobile-pad" as string]: `${personalHeaderMobilePadVw}vw` }
+                  : {}),
+                ...(headerH != null
+                  ? { ["--app-header-pt" as string]: `calc(${headerH}px + 0.5rem)` }
+                  : {}),
+              } as CSSProperties)
             : undefined
         }
       >
