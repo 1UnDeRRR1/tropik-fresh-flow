@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated")({
 // Minimum visible splash duration (ms). Splash will not disappear before this
 // elapses even if data loads instantly. Prevents the "flash-and-gone" effect
 // where the user still perceives a white/half-loaded screen.
-const MIN_SPLASH_MS = 5000;
+const MIN_SPLASH_MS = 1200;
 
 // ----- First-screen readiness gate ---------------------------------------
 // Routes that own a first-screen data query (e.g. branch dashboard) call
@@ -59,7 +59,7 @@ export function useFirstScreenGate(key: string, pending: boolean) {
  */
 function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
   return (
-    <div className="fixed inset-0 z-[100] h-dvh w-screen overflow-hidden bg-background">
+    <div className="pointer-events-none fixed inset-0 z-[100] h-dvh w-screen overflow-hidden bg-background">
       {personal ? (
         <picture>
           <source media="(max-width: 767px)" type="image/webp" srcSet={personal.splashMobileWebp} />
