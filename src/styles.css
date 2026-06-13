@@ -615,8 +615,14 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
       );
     filter: blur(2px);
   }
+  /* Dark mode: spotlight must illuminate ONLY light pixels (text, digits,
+     borders, icons) and leave dark backgrounds of tabs/buttons/page bg
+     visually unchanged. `color-dodge` brightens each pixel by
+     1/(1-blend): already-bright pixels (text ≈ 1.0) stay max, mid-tone
+     borders get a clear lift, near-black surfaces barely move. Light
+     mode is untouched — it keeps the original `screen` blend above. */
   html.dark body[data-branch-test="malekhiv"] .malekhiv-spotlight-overlay {
-    mix-blend-mode: screen;
+    mix-blend-mode: color-dodge;
   }
 
   /* ---------- Card border ring: the same light source ALSO lights up the
