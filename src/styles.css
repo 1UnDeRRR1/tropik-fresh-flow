@@ -687,8 +687,8 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
     filter: brightness(1.35)
       drop-shadow(0 0 14px hsl(var(--mlk-hue, 220) 100% 55% / 0.55));
   }
-  html.dark body[data-branch-test="malekhiv"] .branch-table-wrap::before,
   html.dark body[data-branch-test="malekhiv"] .bg-card::before,
+
   html.dark body[data-branch-test="malekhiv"] [class*="bg-card/"]::before,
   html.dark body[data-branch-test="malekhiv"] [class*="bg-card\\/"]::before {
     filter: brightness(1.6)
