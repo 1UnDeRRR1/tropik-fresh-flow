@@ -264,7 +264,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         .from("manager_offer_responses")
         .select("id", { count: "exact", head: true })
         .in("offer_id", ids)
-        .is("approved_pallets", null);
+        .is("approved_pallets", null)
+        .is("refused_at", null);
       return count ?? 0;
     },
     refetchInterval: 30000,
