@@ -583,12 +583,13 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
     border-radius: inherit;
     pointer-events: none;
     z-index: 1;
-    padding: 1.5px;
+    padding: 2px;
     background:
       radial-gradient(
-        240px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
-        hsl(0 0% 0% / 0.10),
-        transparent 62%
+        320px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(35 95% 50% / 0.95),
+        hsl(35 95% 55% / 0.40) 35%,
+        transparent 72%
       );
     background-attachment: fixed;
     -webkit-mask:
@@ -599,6 +600,7 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
       linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
             mask-composite: exclude;
+    filter: drop-shadow(0 0 14px hsl(35 95% 55% / 0.65));
   }
   /* Dark mode: brighter halo on graphite surfaces. */
   html.dark body[data-branch-test="malekhiv"] .branch-table-wrap::before,
@@ -607,11 +609,13 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   html.dark body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
     background:
       radial-gradient(
-        260px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
-        hsl(0 0% 100% / 0.18),
-        transparent 62%
+        360px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(40 100% 60% / 1),
+        hsl(40 100% 55% / 0.50) 35%,
+        transparent 72%
       );
     background-attachment: fixed;
+    filter: drop-shadow(0 0 18px hsl(40 100% 55% / 0.8));
   }
   /* Subtle outer halo just past the contour (drop-shadow that follows the
      same fixed radial via filter on a 2nd pseudo would be expensive; we
