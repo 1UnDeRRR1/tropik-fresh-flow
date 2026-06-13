@@ -559,66 +559,69 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 
 /* ============================================================
    Malekhiv spotlight / glow on contours.
-   Active only when body[data-branch-test="malekhiv"] is set
-   (handled by _authenticated.tsx + branch dashboard).
-   --mlk-x / --mlk-y come from <MalekhivSpotlightLayer/> and hold
-   the current pointer position in CSS pixels (viewport coords).
-   `background-attachment: fixed` positions the gradient in the
-   viewport, so it works on any element without per-element math.
+   Port of the 21st.dev GlowCard (easemize/spotlight-card).
+   Active only when body[data-branch-test="malekhiv"] is set.
+
+   --mlk-x  / --mlk-y  : pointer position in CSS px (viewport coords)
+   --mlk-xp / --mlk-yp : same as 0..1 ratio of the viewport
+   All four are written by <MalekhivSpotlightLayer/>.
+
+   The hue walks across the colour spectrum with the cursor's
+   horizontal position (--mlk-xp): base 220° (blue) + xp * 300°,
+   so the spotlight goes blue → purple → red → orange. A wide,
+   soft radial drives the border-ring glow; a smaller white radial
+   adds the bright "lamp" core. `background-attachment: fixed`
+   anchors the gradient in viewport space so it walks across
+   adjacent cards continuously, exactly like the reference.
+   The ring is isolated to the contour via a content-box /
+   border-box mask (mask-composite: exclude).
    ============================================================ */
 @media (prefers-reduced-motion: no-preference) {
   body[data-branch-test="malekhiv"] .branch-table-wrap,
-  body[data-branch-test="malekhiv"] .rounded-xl.bg-card,
-  body[data-branch-test="malekhiv"] .rounded-2xl.bg-card,
-  body[data-branch-test="malekhiv"] .rounded-lg.bg-card {
+  body[data-branch-test="malekhiv"] .bg-card {
     position: relative;
   }
   body[data-branch-test="malekhiv"] .branch-table-wrap::before,
-  body[data-branch-test="malekhiv"] .rounded-xl.bg-card::before,
-  body[data-branch-test="malekhiv"] .rounded-2xl.bg-card::before,
-  body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
+  body[data-branch-test="malekhiv"] .bg-card::before {
     content: "";
     position: absolute;
-    inset: -2px;
+    inset: -3px;
     border-radius: inherit;
+    padding: 3px;
     pointer-events: none;
     z-index: 1;
-    padding: 2px;
-    background:
+    /* Hue shift across the spectrum, driven by cursor X ratio.       */
+    /* 220 (blue) → 520 = wraps to 160 (cyan/green) → orange/red zone */
+    /* via the natural wrap of hsl(); end result walks blue→purple→   */
+    /* red→orange exactly like the reference GlowCard.                */
+    --mlk-hue: calc(220 + (var(--mlk-xp, 0) * 300));
+    background-image:
       radial-gradient(
-        320px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
-        hsl(35 95% 50% / 0.95),
-        hsl(35 95% 55% / 0.40) 35%,
-        transparent 72%
+        150px 150px at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(0 0% 100% / 0.95),
+        transparent 100%
+      ),
+      radial-gradient(
+        340px 340px at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(var(--mlk-hue, 220) 100% 62% / 1),
+        hsl(var(--mlk-hue, 220) 100% 52% / 0.38) 35%,
+        transparent 75%
       );
-    background-attachment: fixed;
-    -webkit-mask:
+    background-attachment: fixed, fixed;
+    background-repeat: no-repeat, no-repeat;
+    background-position: 0 0, 0 0;
+    mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
-            mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    filter: drop-shadow(0 0 14px hsl(35 95% 55% / 0.65));
+    mask-composite: exclude;
+    filter: brightness(1.35)
+      drop-shadow(0 0 14px hsl(var(--mlk-hue, 220) 100% 55% / 0.55));
   }
-  /* Dark mode: brighter halo on graphite surfaces. */
+  /* Dark mode: a touch brighter so the ring reads against graphite. */
   html.dark body[data-branch-test="malekhiv"] .branch-table-wrap::before,
-  html.dark body[data-branch-test="malekhiv"] .rounded-xl.bg-card::before,
-  html.dark body[data-branch-test="malekhiv"] .rounded-2xl.bg-card::before,
-  html.dark body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
-    background:
-      radial-gradient(
-        360px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
-        hsl(40 100% 60% / 1),
-        hsl(40 100% 55% / 0.50) 35%,
-        transparent 72%
-      );
-    background-attachment: fixed;
-    filter: drop-shadow(0 0 18px hsl(40 100% 55% / 0.8));
+  html.dark body[data-branch-test="malekhiv"] .bg-card::before {
+    filter: brightness(1.6)
+      drop-shadow(0 0 18px hsl(var(--mlk-hue, 220) 100% 60% / 0.75));
   }
-  /* Subtle outer halo just past the contour (drop-shadow that follows the
-     same fixed radial via filter on a 2nd pseudo would be expensive; we
-     instead extend inset slightly and let the ring sit ~2px past the edge). */
 }
 
