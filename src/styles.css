@@ -518,8 +518,8 @@ body[data-branch-test="malekhiv"] .branch-table-wrap::after {
    background and background image stay untouched.
    Rollback: remove this block, or remove the wrapper class.
    ============================================================ */
-.owner-warm-theme,
-body:has(.owner-warm-theme) {
+html:not(.dark) .owner-warm-theme,
+html:not(.dark) body:has(.owner-warm-theme) {
   --card:        oklch(0.955 0.018 75);
   --popover:     oklch(0.955 0.018 75);
   --muted:       oklch(0.925 0.022 72);
