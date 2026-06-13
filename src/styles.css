@@ -157,11 +157,15 @@
   --table-head: oklch(0.30 0 0 / 0.55);
 }
 
-/* Dark mode: replace decorative photographic body background with a flat
-   dark surface so cards/dialogs read cleanly. */
+/* Dark mode: dark variant of the global background. */
 html.dark body {
-  background-image: none !important;
+  background-image: url("/page-backgrounds/global/bg_mobile_dark.webp");
   background-color: var(--color-background);
+}
+@media (min-width: 768px) {
+  html.dark body {
+    background-image: url("/page-backgrounds/global/bg_desktop_dark.webp");
+  }
 }
 
 @layer base {
