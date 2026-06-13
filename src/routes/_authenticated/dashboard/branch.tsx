@@ -186,9 +186,17 @@ function BranchFlatList({
 
 
 function BranchDashboard() {
-  const { profile } = useAuth();
+  const { profile, primaryRole, hasRole, dataLoaded } = useAuth();
   const qc = useQueryClient();
   const branchId = profile?.branch_id;
+  // Non-branch роли не должны попадать на branch dashboard — отправляем их на
+  // их собственную home (см. defaultRoutePerRole). Без редиректа на /dashboard/branch как fallback.
+  const isBranchRole = hasRole("branch");
+  if (dataLoaded && !isBranchRole) {
+    const { Navigate } = require("@tanstack/react-router") as typeof import("@tanstack/react-router");
+    const { defaultRoutePerRole } = require("@/lib/auth") as typeof import("@/lib/auth");
+    return <Navigate to={defaultRoutePerRole(primaryRole)} replace />;
+  }
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("last_event");
