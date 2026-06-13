@@ -1,31 +1,37 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /**
- * Pointer-tracking layer for Malekhiv spotlight effect.
+ * Pointer-tracking spotlight for Malekhiv.
  *
- * Mirrors the reference 21st.dev GlowCard: writes pointer position AND its
- * normalised viewport ratio into CSS vars on <html>. The ratio (--xp / --yp)
- * is what drives the hue shift across the colour spectrum, so the spotlight
- * walks through blue → purple → red → orange as the cursor moves horizontally.
+ * Behaviour (mirrors the reference GlowCard / user video):
+ *  - Spotlight follows the pointer/finger continuously while it is moving
+ *    OR while a touch is held — not only on initial tap.
+ *  - Visible on every tab, even pages without `.bg-card` / `.branch-table-wrap`,
+ *    because we render a global fixed overlay that draws the glow at the
+ *    pointer position.
+ *  - Card borders additionally light up via the CSS ring (see styles.css),
+ *    so the same light source illuminates both the area around the finger
+ *    and any contour it passes over.
  *
- *   --mlk-x  : pointer X in CSS pixels (viewport coords)
- *   --mlk-y  : pointer Y in CSS pixels
- *   --mlk-xp : pointer X as 0..1 ratio of viewport width
- *   --mlk-yp : pointer Y as 0..1 ratio of viewport height
- *
- * One global listener (cheap), rAF-throttled. The glow itself is drawn
- * purely in CSS — see body[data-branch-test="malekhiv"] block in styles.css.
- * Respects prefers-reduced-motion.
+ * CSS vars written on <html>:
+ *   --mlk-x / --mlk-y     pointer position in CSS px (viewport coords)
+ *   --mlk-xp / --mlk-yp   same as 0..1 ratio of viewport
+ *   --mlk-on              1 while active (pointer down on touch, or hovering on mouse), else 0
  */
 export function MalekhivSpotlightLayer() {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    setMounted(true);
 
     const root = document.documentElement;
     let raf = 0;
-    let nx = 0;
-    let ny = 0;
+    let nx = window.innerWidth / 2;
+    let ny = window.innerHeight / 2;
+    let touchActive = false;
+    let hasMouse = false;
 
     const flush = () => {
       const w = window.innerWidth || 1;
@@ -37,26 +43,90 @@ export function MalekhivSpotlightLayer() {
       raf = 0;
     };
 
-    const handle = (e: PointerEvent) => {
-      nx = e.clientX;
-      ny = e.clientY;
-      if (raf) return;
-      raf = window.requestAnimationFrame(flush);
+    const setOn = (on: boolean) => {
+      root.style.setProperty("--mlk-on", on ? "1" : "0");
     };
 
-    document.addEventListener("pointermove", handle, { passive: true });
-    document.addEventListener("pointerdown", handle, { passive: true });
+    const updateFromEvent = (clientX: number, clientY: number) => {
+      nx = clientX;
+      ny = clientY;
+      if (!raf) raf = window.requestAnimationFrame(flush);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") {
+        hasMouse = true;
+        setOn(true);
+      }
+      updateFromEvent(e.clientX, e.clientY);
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") {
+        touchActive = true;
+        setOn(true);
+      }
+      updateFromEvent(e.clientX, e.clientY);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") {
+        touchActive = false;
+        setOn(false);
+      }
+    };
+
+    // Touch fallback for iOS where pointermove can be throttled during scroll.
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      touchActive = true;
+      setOn(true);
+      updateFromEvent(t.clientX, t.clientY);
+    };
+    const onTouchEnd = () => {
+      touchActive = false;
+      setOn(false);
+    };
+
+    const onPointerLeave = () => {
+      if (hasMouse && !touchActive) setOn(false);
+    };
+
+    document.addEventListener("pointermove", onPointerMove, { passive: true });
+    document.addEventListener("pointerdown", onPointerDown, { passive: true });
+    document.addEventListener("pointerup", onPointerUp, { passive: true });
+    document.addEventListener("pointercancel", onPointerUp, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
+    document.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    window.addEventListener("blur", onPointerLeave);
+    document.addEventListener("mouseleave", onPointerLeave);
+
+    flush();
+    setOn(false);
 
     return () => {
-      document.removeEventListener("pointermove", handle);
-      document.removeEventListener("pointerdown", handle);
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerUp);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("blur", onPointerLeave);
+      document.removeEventListener("mouseleave", onPointerLeave);
       if (raf) window.cancelAnimationFrame(raf);
       root.style.removeProperty("--mlk-x");
       root.style.removeProperty("--mlk-y");
       root.style.removeProperty("--mlk-xp");
       root.style.removeProperty("--mlk-yp");
+      root.style.removeProperty("--mlk-on");
     };
   }, []);
 
-  return null;
+  if (!mounted) return null;
+
+  // Global overlay — draws the spotlight at the pointer on every page.
+  return <div aria-hidden="true" className="malekhiv-spotlight-overlay" />;
 }
