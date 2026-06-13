@@ -446,7 +446,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     lastScrollYRef.current = typeof window !== "undefined" ? window.scrollY : 0;
   }, [pathname]);
 
-  const disableMobileNavAutoHide = isBranch;
+  // Mobile auto-hide is currently the shared source of the “nav fell below
+  // the screen / page sticks and barely scrolls” regression across pages, so
+  // keep the bottom nav always visible until a separate approved redesign.
+  const disableMobileNavAutoHide = true;
 
   useEffect(() => {
     if (disableMobileNavAutoHide) {
