@@ -850,16 +850,23 @@ function BranchDashboard() {
   // Silence unused-state lint (kept to avoid touching data/handler logic).
   void sortBy; void setSortBy; void ackChange;
 
+  // Non-branch роли не должны видеть branch dashboard — отправляем их на
+  // role-appropriate home (см. defaultRoutePerRole). Branch fallback запрещён.
+  if (dataLoaded && !isBranchRole) {
+    return <Navigate to={defaultRoutePerRole(primaryRole)} replace />;
+  }
+
   return (
     <div
       className="space-y-4"
       data-branch-test={isMalekhiv ? "malekhiv" : undefined}
     >
-      {!branchId && (
+      {isBranchRole && !branchId && (
         <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
-          Вам ще не призначено філію. Зверніться до адміністратора.
+          Доступ не налаштовано. Зверніться до адміністратора.
         </div>
       )}
+
 
       {rows.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-3 space-y-2">
