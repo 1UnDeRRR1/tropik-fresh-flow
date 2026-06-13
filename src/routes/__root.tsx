@@ -163,17 +163,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-  const { queryClient } = Route.useRouteContext();
-  useEffect(() => {
-    installGlobalErrorLogger();
-  }, []);
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        {/* PreviewRoleSwitcher removed */}
-        <Toaster position="top-center" />
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}
