@@ -446,7 +446,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     lastScrollYRef.current = typeof window !== "undefined" ? window.scrollY : 0;
   }, [pathname]);
 
+  // Mobile auto-hide is currently the shared source of the “nav fell below
+  // the screen / page sticks and barely scrolls” regression across pages, so
+  // keep the bottom nav always visible until a separate approved redesign.
+  const disableMobileNavAutoHide = true;
+
   useEffect(() => {
+    if (disableMobileNavAutoHide) {
+      setNavHidden(false);
+      return;
+    }
     if (typeof window === "undefined") return;
     lastScrollYRef.current = window.scrollY;
     const onScroll = () => {
@@ -489,7 +498,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [disableMobileNavAutoHide]);
 
   // Any tap inside the nav extends the visible window so the fruit
   // animation gets to finish before auto-hide can re-engage.
@@ -504,18 +513,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
 
-  // Branch / non-owner users with a personal header banner: pin the banner
-  // to the top of the viewport on mobile (fixed) so the picture cannot drift
-  // when the page scrolls or iOS rubber-bands. Desktop keeps `sticky top-0`
-  // so the wider nav layout behaves as before. Main content compensates with
-  // padding-top based on the mobile image aspect ratio so content lands just
-  // below the banner instead of disappearing underneath it.
+  // Keep the fixed mobile header only for the owner banner. Reusing that
+  // pattern for branch personal headers pushed content into a bad scroll/
+  // safe-area state on mobile, which is what showed up on Malekhiv.
   const hasPersonalHeaderBanner =
     !isOwner &&
     !!personalAssets?.headerDesktopWebp &&
     !!personalAssets?.headerMobileWidth &&
     !!personalAssets?.headerMobileHeight;
-  const pinPersonalHeader = (isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
+  const pinPersonalHeader = !!(isOwner && ownerMobileBanner);
   const personalHeaderMobilePadVw = hasPersonalHeaderBanner
     ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
     : null;
@@ -785,7 +791,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={cn(
           "fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
           "transition-transform duration-300 ease-out will-change-transform",
-          navHidden ? "translate-y-full" : "translate-y-0",
+          navHidden && !disableMobileNavAutoHide ? "translate-y-full" : "translate-y-0",
           isOwner && pathname.startsWith("/settings")
             ? "bg-[#f3eadc]/85"
             : "bg-card/95",
@@ -928,7 +934,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           "rounded-t-xl border border-b-0 border-border bg-card/90 backdrop-blur",
           "px-7 py-1.5 shadow-sm",
           "transition-opacity duration-200",
-          navHidden ? "opacity-100" : "pointer-events-none opacity-0",
+          navHidden && !disableMobileNavAutoHide ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom) + 0.25rem)",
