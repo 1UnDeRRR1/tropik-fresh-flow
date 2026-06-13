@@ -564,6 +564,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
       <header
+        ref={headerRef}
         className={cn(
           "z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70",
           // Owner mobile: hard-pin to viewport top so the status-bar safe area
