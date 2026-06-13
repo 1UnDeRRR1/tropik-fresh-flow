@@ -32,13 +32,24 @@ function Settings() {
     { value: "system", label: "Системна", icon: Monitor },
   ];
   const ThemeToggle = (
-    <div className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur">
-      <div className="mb-2 text-xs font-medium text-muted-foreground">Тема</div>
+    <div className="rounded-xl border border-border bg-card/90 px-2 py-1.5 backdrop-blur">
+      <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Тема
+      </div>
       <div
         role="radiogroup"
         aria-label="Тема"
-        className="grid h-10 grid-cols-3 gap-1 rounded-full border border-border bg-muted p-1"
+        className="relative grid h-8 grid-cols-3 rounded-full border border-border bg-muted p-1"
       >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-full bg-card shadow-sm ring-1 ring-border transition-transform duration-300 ease-out"
+          style={{
+            transform: `translateX(${
+              theme === "light" ? "0%" : theme === "dark" ? "100%" : "200%"
+            })`,
+          }}
+        />
         {themeOptions.map((opt) => {
           const Icon = opt.icon;
           const active = theme === opt.value;
@@ -48,16 +59,15 @@ function Settings() {
               type="button"
               role="radio"
               aria-checked={active}
+              aria-label={opt.label}
+              title={opt.label}
               onClick={() => setTheme(opt.value)}
               className={cn(
-                "flex items-center justify-center gap-1 whitespace-nowrap rounded-full px-1 text-[11px] font-medium leading-none transition-colors",
-                active
-                  ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-                  : "text-muted-foreground hover:text-foreground",
+                "relative z-10 flex items-center justify-center rounded-full transition-colors",
+                active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{opt.label}</span>
+              <Icon className="h-4 w-4" />
             </button>
           );
         })}
