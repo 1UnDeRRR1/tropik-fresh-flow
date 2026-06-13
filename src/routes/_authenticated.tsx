@@ -2,8 +2,6 @@ import { createFileRoute, Outlet, Navigate, Link, useRouter, useRouterState } fr
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
-import { type PersonalAssets } from "@/lib/branch-assets";
-import { getLastUserId } from "@/lib/last-user";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
@@ -67,7 +65,7 @@ export function useFirstScreenGate(key: string, pending: boolean) {
  * detects a hydration mismatch (#418). After mount we swap in the personal
  * full-bleed picture if a package is resolved for this user.
  */
-function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
+function SplashOverlay() {
   return (
     <div className="pointer-events-none fixed inset-0 z-[100] h-dvh w-screen overflow-hidden bg-background">
       <div className="flex h-full w-full items-center justify-center">
@@ -124,14 +122,7 @@ function AuthenticatedLayout() {
   }, []);
   const gateCtx = useMemo<FirstScreenCtx>(() => ({ requireGate, markReady }), [requireGate, markReady]);
 
-  const [hardTimeout, setHardTimeout] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setHardTimeout(true), 8000);
-    return () => clearTimeout(t);
-  }, []);
-
   const authReady = !loading && (!user || dataLoaded);
-  const firstScreenReady = pendingCount === 0 || hardTimeout;
   const splashVisible = !(mounted && minElapsed && authReady);
 
   // Pre-auth: send unauthenticated visitors to /login as soon as auth resolves.
@@ -157,7 +148,7 @@ function AuthenticatedLayout() {
         </AppShell>
       ) : null}
       {isMalekhivBranch ? <MalekhivSpotlightLayer /> : null}
-      {splashVisible ? <SplashOverlay personal={null} /> : null}
+      {splashVisible ? <SplashOverlay /> : null}
     </FirstScreenContext.Provider>
   );
 }
