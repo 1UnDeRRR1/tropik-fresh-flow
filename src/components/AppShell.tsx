@@ -520,6 +520,46 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
     : null;
 
+  // Deterministic header-height compensation: measure the real <header>
+  // height on mobile and expose it as a CSS var so <main> can reserve the
+  // exact space, regardless of how env(safe-area-inset-top) + image aspect
+  // calc() resolves in a given engine/preview.
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerH, setHeaderH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = headerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      // Desktop uses sticky header (already reserves space in flow), so we
+      // don't need to compensate <main> there.
+      if (!isMobile || !pinPersonalHeader) {
+        setHeaderH(null);
+        return;
+      }
+      const h = Math.round(el.getBoundingClientRect().height);
+      setHeaderH((prev) => (prev === h ? prev : h));
+    };
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(measure);
+    };
+    measure();
+    const ro = new ResizeObserver(schedule);
+    ro.observe(el);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [pinPersonalHeader, pathname, personalAssets?.headerMobileWebp]);
+
   return (
     <div className="relative min-h-dvh">
       {/* Global decorative background lives on <body> (see styles.css). */}
