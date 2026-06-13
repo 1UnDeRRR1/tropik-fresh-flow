@@ -8,6 +8,9 @@ import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
 import { useActivityHeartbeat } from "@/hooks/useActivityHeartbeat";
+import { MalekhivSpotlightLayer } from "@/components/MalekhivSpotlightLayer";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
 
 export const Route = createFileRoute("/_authenticated")({

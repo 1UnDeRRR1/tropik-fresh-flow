@@ -1,6 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home, Package, Truck, BarChart3, Calendar, Settings, Send, LineChart, Megaphone, Inbox, CalendarDays, Shield, Route as RouteIcon, Archive } from "lucide-react";
 import { FruitIcon, labelToFruit } from "@/components/FruitIcon";
+import { MalekhivBottomNav, type MalekhivNavItem } from "@/components/MalekhivBottomNav";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FxRateBadge } from "@/components/FxRateBadge";
@@ -731,6 +734,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         {isBranch ? (
+          branchId === MALEKHIV_BRANCH_ID ? (
+            <MalekhivBottomNav
+              items={items.map<MalekhivNavItem>((it) => ({
+                to: it.to,
+                label: it.label,
+                Icon: it.icon,
+                badge: it.badge,
+              }))}
+              isActive={isActive}
+            />
+          ) : (
           <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
             {items.map((it) => {
               const active = isActive(it.to, it.label);
@@ -756,6 +770,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </div>
+          )
         ) : isOwner ? (
           <div className="mx-auto grid max-w-3xl grid-cols-4 px-2">
             {items.map((it) => {
