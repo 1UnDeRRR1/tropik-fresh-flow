@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { getPersonalAssets } from "@/lib/branch-assets";
 import ownerSettingsBg from "@/assets/owner-settings-bg.png";
+import { useTheme, type ThemeMode } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
