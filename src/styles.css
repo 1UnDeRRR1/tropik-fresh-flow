@@ -719,8 +719,8 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   font-size: 0.875rem;
   line-height: 1.25rem;
   background: transparent;
-  color: hsl(var(--destructive));
-  border: 1px solid color-mix(in oklab, hsl(var(--destructive)) 60%, transparent);
+  color: var(--destructive);
+  border: 1px solid color-mix(in oklab, var(--destructive) 60%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transition: box-shadow .3s ease-in-out, background-color .15s ease;
@@ -728,8 +728,8 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   animation: shiny-btn-x 3s linear infinite;
 }
 .shiny-btn:hover {
-  box-shadow: 0 0 18px color-mix(in oklab, hsl(var(--destructive)) 25%, transparent);
-  background-color: color-mix(in oklab, hsl(var(--destructive)) 8%, transparent);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--destructive) 25%, transparent);
+  background-color: color-mix(in oklab, var(--destructive) 8%, transparent);
 }
 .shiny-btn:disabled {
   opacity: 0.5;
@@ -743,15 +743,15 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   z-index: 1;
   -webkit-mask-image: linear-gradient(
     -75deg,
-    hsl(var(--destructive)) calc(var(--x) + 20%),
+    var(--destructive) calc(var(--x) + 20%),
     transparent calc(var(--x) + 30%),
-    hsl(var(--destructive)) calc(var(--x) + 100%)
+    var(--destructive) calc(var(--x) + 100%)
   );
   mask-image: linear-gradient(
     -75deg,
-    hsl(var(--destructive)) calc(var(--x) + 20%),
+    var(--destructive) calc(var(--x) + 20%),
     transparent calc(var(--x) + 30%),
-    hsl(var(--destructive)) calc(var(--x) + 100%)
+    var(--destructive) calc(var(--x) + 100%)
   );
 }
 .shiny-btn-ring {
@@ -763,9 +763,9 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   border-radius: inherit;
   background: linear-gradient(
     -75deg,
-    color-mix(in oklab, hsl(var(--destructive)) 10%, transparent) calc(var(--x) + 20%),
-    color-mix(in oklab, hsl(var(--destructive)) 50%, transparent) calc(var(--x) + 25%),
-    color-mix(in oklab, hsl(var(--destructive)) 10%, transparent) calc(var(--x) + 100%)
+    color-mix(in oklab, var(--destructive) 10%, transparent) calc(var(--x) + 20%),
+    color-mix(in oklab, var(--destructive) 50%, transparent) calc(var(--x) + 25%),
+    color-mix(in oklab, var(--destructive) 10%, transparent) calc(var(--x) + 100%)
   );
   -webkit-mask:
     linear-gradient(#000, #000) content-box,
