@@ -9,6 +9,7 @@ export type AppRole =
   | "admin"
   | "import_manager"
   | "logistics"
+  | "broker"
   | "branch"
   | "calendar_branch"
   | "calendar_tropik"
