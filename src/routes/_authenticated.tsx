@@ -6,9 +6,10 @@ import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
 import { useActivityHeartbeat } from "@/hooks/useActivityHeartbeat";
-import { MalekhivSpotlightLayer } from "@/components/MalekhivSpotlightLayer";
+import { getOwnerBannerAssets, getPersonalAssets, type PersonalAssets } from "@/lib/branch-assets";
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+const ENABLE_MALEKHIV_VISUAL_EXPERIMENTS = false;
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/_authenticated")({
 // Minimum visible splash duration (ms). Splash will not disappear before this
 // elapses even if data loads instantly. Prevents the "flash-and-gone" effect
 // where the user still perceives a white/half-loaded screen.
-const MIN_SPLASH_MS = 0;
+const MIN_SPLASH_MS = 1200;
 
 // ----- First-screen readiness gate ---------------------------------------
 // Routes that own a first-screen data query (e.g. branch dashboard) call
@@ -62,15 +63,37 @@ export function useFirstScreenGate(key: string, pending: boolean) {
 /**
  * Full-bleed splash overlay. SSR and the very first client render produce
  * identical neutral HTML (spinner on a solid background) so React never
- * detects a hydration mismatch (#418). After mount we swap in the personal
- * full-bleed picture if a package is resolved for this user.
+ * detects a hydration mismatch (#418). After mount we can swap in the
+ * personal full-bleed picture when a package is resolved for this user.
  */
-function SplashOverlay() {
+function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
+  const ownerAssets = getOwnerBannerAssets();
+  const splashMobileWebp = ownerAssets?.splashMobile ?? personal?.splashMobileWebp;
+  const splashMobilePng = ownerAssets?.splashDesktop ?? personal?.splashMobilePng;
+  const splashDesktopPng = ownerAssets?.splashDesktop ?? personal?.splashDesktopPng;
+
   return (
     <div className="pointer-events-none fixed inset-0 z-[100] h-dvh w-screen overflow-hidden bg-background">
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-      </div>
+      {splashDesktopPng || splashMobilePng || splashMobileWebp ? (
+        <picture>
+          {splashMobileWebp ? <source media="(max-width: 767px)" type="image/webp" srcSet={splashMobileWebp} /> : null}
+          {splashMobilePng ? <source media="(max-width: 767px)" type="image/png" srcSet={splashMobilePng} /> : null}
+          {personal?.splashDesktopWebp ? <source media="(min-width: 768px)" type="image/webp" srcSet={personal.splashDesktopWebp} /> : null}
+          {splashDesktopPng ? <source media="(min-width: 768px)" type="image/png" srcSet={splashDesktopPng} /> : null}
+          <img
+            src={splashDesktopPng ?? splashMobilePng}
+            alt=""
+            className="h-full w-full object-cover object-top"
+            loading="eager"
+            decoding="async"
+            draggable={false}
+          />
+        </picture>
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        </div>
+      )}
     </div>
   );
 }
@@ -82,15 +105,10 @@ function AuthenticatedLayout() {
 
   useEffect(() => { if (user) initAliasCache(); }, [user]);
 
-  // Malekhiv visual scope: keep body[data-branch-test="malekhiv"] set across
-  // every Malekhiv page (not only the dashboard) so the spotlight/glow and
-  // table styles apply on Calendar, Archive, Requests, Profile, etc.
-  // The dashboard route also toggles this attribute locally — its cleanup on
-  // navigation would strip the flag, so we re-apply on every pathname change.
   const isMalekhivBranch =
     primaryRole === "branch" && profile?.branch_id === MALEKHIV_BRANCH_ID;
   useEffect(() => {
-    if (isMalekhivBranch) {
+    if (ENABLE_MALEKHIV_VISUAL_EXPERIMENTS && isMalekhivBranch) {
       document.body.setAttribute("data-branch-test", "malekhiv");
     } else {
       document.body.removeAttribute("data-branch-test");
@@ -123,7 +141,9 @@ function AuthenticatedLayout() {
   const gateCtx = useMemo<FirstScreenCtx>(() => ({ requireGate, markReady }), [requireGate, markReady]);
 
   const authReady = !loading && (!user || dataLoaded);
-  const splashVisible = !(mounted && minElapsed && authReady);
+  const firstScreenReady = pendingCount === 0;
+  const splashVisible = !(mounted && minElapsed && authReady && firstScreenReady);
+  const splashPersonal = useMemo(() => getPersonalAssets(user?.id, profile?.branch_id), [user?.id, profile?.branch_id]);
 
   // Pre-auth: send unauthenticated visitors to /login as soon as auth resolves.
   if (mounted && authReady && !user) return <Navigate to="/login" />;
@@ -147,8 +167,8 @@ function AuthenticatedLayout() {
           <Outlet />
         </AppShell>
       ) : null}
-      {isMalekhivBranch ? <MalekhivSpotlightLayer /> : null}
-      {splashVisible ? <SplashOverlay /> : null}
+      {ENABLE_MALEKHIV_VISUAL_EXPERIMENTS && isMalekhivBranch ? null : null}
+      {splashVisible ? <SplashOverlay personal={splashPersonal} /> : null}
     </FirstScreenContext.Provider>
   );
 }
