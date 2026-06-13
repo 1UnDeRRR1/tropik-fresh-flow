@@ -556,3 +556,65 @@ html:not(.dark) body:has(.owner-warm-theme) {
 html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   --background: oklch(0.955 0.018 75);
 }
+
+/* ============================================================
+   Malekhiv spotlight / glow on contours.
+   Active only when body[data-branch-test="malekhiv"] is set
+   (handled by _authenticated.tsx + branch dashboard).
+   --mlk-x / --mlk-y come from <MalekhivSpotlightLayer/> and hold
+   the current pointer position in CSS pixels (viewport coords).
+   `background-attachment: fixed` positions the gradient in the
+   viewport, so it works on any element without per-element math.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  body[data-branch-test="malekhiv"] .branch-table-wrap,
+  body[data-branch-test="malekhiv"] .rounded-xl.bg-card,
+  body[data-branch-test="malekhiv"] .rounded-2xl.bg-card,
+  body[data-branch-test="malekhiv"] .rounded-lg.bg-card {
+    position: relative;
+  }
+  body[data-branch-test="malekhiv"] .branch-table-wrap::before,
+  body[data-branch-test="malekhiv"] .rounded-xl.bg-card::before,
+  body[data-branch-test="malekhiv"] .rounded-2xl.bg-card::before,
+  body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+    padding: 1.5px;
+    background:
+      radial-gradient(
+        240px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(0 0% 0% / 0.10),
+        transparent 62%
+      );
+    background-attachment: fixed;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+            mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+  }
+  /* Dark mode: brighter halo on graphite surfaces. */
+  html.dark body[data-branch-test="malekhiv"] .branch-table-wrap::before,
+  html.dark body[data-branch-test="malekhiv"] .rounded-xl.bg-card::before,
+  html.dark body[data-branch-test="malekhiv"] .rounded-2xl.bg-card::before,
+  html.dark body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
+    background:
+      radial-gradient(
+        260px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(0 0% 100% / 0.18),
+        transparent 62%
+      );
+    background-attachment: fixed;
+  }
+  /* Subtle outer halo just past the contour (drop-shadow that follows the
+     same fixed radial via filter on a 2nd pseudo would be expensive; we
+     instead extend inset slightly and let the ring sit ~2px past the edge). */
+}
+
