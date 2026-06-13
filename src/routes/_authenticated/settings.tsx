@@ -31,28 +31,14 @@ function Settings() {
     { value: "dark", label: "Темна", icon: Moon },
     { value: "system", label: "Системна", icon: Monitor },
   ];
-  const activeIdx = Math.max(
-    0,
-    themeOptions.findIndex((o) => o.value === theme),
-  );
   const ThemeToggle = (
     <div className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur">
       <div className="mb-2 text-xs font-medium text-muted-foreground">Тема</div>
-      {/* Capsule segment control: sliding thumb between three labels.
-          Logic of useTheme/setTheme is unchanged; only the visual swaps. */}
       <div
         role="radiogroup"
         aria-label="Тема"
-        className="relative grid h-10 grid-cols-3 rounded-full border border-border bg-muted p-1"
+        className="grid h-10 grid-cols-3 gap-1 rounded-full border border-border bg-muted p-1"
       >
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-1 left-1 rounded-full bg-card shadow-sm ring-1 ring-border transition-transform duration-300 ease-out"
-          style={{
-            width: "calc((100% - 0.5rem) / 3)",
-            transform: `translateX(calc(${activeIdx} * 100%))`,
-          }}
-        />
         {themeOptions.map((opt) => {
           const Icon = opt.icon;
           const active = theme === opt.value;
@@ -64,18 +50,21 @@ function Settings() {
               aria-checked={active}
               onClick={() => setTheme(opt.value)}
               className={cn(
-                "relative z-10 flex items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
-                active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                "flex items-center justify-center gap-1 whitespace-nowrap rounded-full px-1 text-[11px] font-medium leading-none transition-colors",
+                active
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{opt.label}</span>
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{opt.label}</span>
             </button>
           );
         })}
       </div>
     </div>
   );
+
 
   // Owner exit: mobile = same proven mechanism as Lukach's profile background
   // (fixed inset-0 layer, object-cover object-center, no slot math, no
