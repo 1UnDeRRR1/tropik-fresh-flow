@@ -450,6 +450,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     lastScrollYRef.current = window.scrollY;
     const onScroll = () => {
+      // Guard: on pages that don't meaningfully scroll, never hide the nav.
+      // iOS rubber-band and tiny deltas were causing the nav to disappear on
+      // short Malekhiv screens.
+      if (
+        document.documentElement.scrollHeight <=
+        window.innerHeight + 1
+      ) {
+        setNavHidden(false);
+        lastScrollYRef.current = window.scrollY;
+        return;
+      }
       // Don't auto-hide while the soft keyboard is open — avoids flicker
       // around focused inputs / selects / dropdowns.
       const kb = parseFloat(
