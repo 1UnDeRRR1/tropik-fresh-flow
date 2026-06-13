@@ -23,6 +23,41 @@ function Settings() {
     navigate({ to: "/login" });
   };
 
+  const { theme, setTheme } = useTheme();
+  const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+    { value: "light", label: "Світла", icon: Sun },
+    { value: "dark", label: "Темна", icon: Moon },
+    { value: "system", label: "Системна", icon: Monitor },
+  ];
+  const ThemeToggle = (
+    <div className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur">
+      <div className="mb-2 text-xs font-medium text-muted-foreground">Тема</div>
+      <div className="grid grid-cols-3 gap-2">
+        {themeOptions.map((opt) => {
+          const Icon = opt.icon;
+          const active = theme === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setTheme(opt.value)}
+              aria-pressed={active}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-accent",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   // Owner exit: mobile = same proven mechanism as Lukach's profile background
   // (fixed inset-0 layer, object-cover object-center, no slot math, no
   // object-fill, no transform/scale). Exit button overlays the background.
