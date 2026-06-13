@@ -91,6 +91,21 @@ function AuthenticatedLayout() {
 
   useEffect(() => { if (user) initAliasCache(); }, [user]);
 
+  // Malekhiv visual scope: keep body[data-branch-test="malekhiv"] set across
+  // every Malekhiv page (not only the dashboard) so the spotlight/glow and
+  // table styles apply on Calendar, Archive, Requests, Profile, etc.
+  // The dashboard route also toggles this attribute locally — its cleanup on
+  // navigation would strip the flag, so we re-apply on every pathname change.
+  const isMalekhivBranch =
+    primaryRole === "branch" && profile?.branch_id === MALEKHIV_BRANCH_ID;
+  useEffect(() => {
+    if (isMalekhivBranch) {
+      document.body.setAttribute("data-branch-test", "malekhiv");
+    } else {
+      document.body.removeAttribute("data-branch-test");
+    }
+  }, [isMalekhivBranch, pathname]);
+
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -159,6 +174,7 @@ function AuthenticatedLayout() {
           <Outlet />
         </AppShell>
       ) : null}
+      {isMalekhivBranch ? <MalekhivSpotlightLayer /> : null}
       {splashVisible ? <SplashOverlay personal={splashPersonal} /> : null}
     </FirstScreenContext.Provider>
   );
