@@ -647,16 +647,15 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
      contour of any card it passes over. Uses mask trick to confine the
      glow to a thin ring. background-attachment: fixed keeps the radial
      anchored to the viewport so it walks continuously between cards. */
-  body[data-branch-test="malekhiv"] .branch-table-wrap,
   body[data-branch-test="malekhiv"] .bg-card,
   body[data-branch-test="malekhiv"] [class*="bg-card/"],
   body[data-branch-test="malekhiv"] [class*="bg-card\\/"] {
     position: relative;
   }
-  body[data-branch-test="malekhiv"] .branch-table-wrap::before,
   body[data-branch-test="malekhiv"] .bg-card::before,
   body[data-branch-test="malekhiv"] [class*="bg-card/"]::before,
   body[data-branch-test="malekhiv"] [class*="bg-card\\/"]::before {
+
     content: "";
     position: absolute;
     inset: -3px;
