@@ -2,8 +2,6 @@ import { createFileRoute, Outlet, Navigate, Link, useRouter, useRouterState } fr
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
-import { getOwnerBannerAssets, getPersonalAssets, type PersonalAssets } from "@/lib/branch-assets";
-import { getLastUserId } from "@/lib/last-user";
 import { translateError } from "@/lib/mutation-helpers";
 import { initAliasCache } from "@/lib/alias-cache";
 import { isOwnerAllowedPath, OWNER_HOME } from "@/lib/owner-route-guard";
@@ -22,7 +20,7 @@ export const Route = createFileRoute("/_authenticated")({
 // Minimum visible splash duration (ms). Splash will not disappear before this
 // elapses even if data loads instantly. Prevents the "flash-and-gone" effect
 // where the user still perceives a white/half-loaded screen.
-const MIN_SPLASH_MS = 1200;
+const MIN_SPLASH_MS = 0;
 
 // ----- First-screen readiness gate ---------------------------------------
 // Routes that own a first-screen data query (e.g. branch dashboard) call
@@ -67,29 +65,12 @@ export function useFirstScreenGate(key: string, pending: boolean) {
  * detects a hydration mismatch (#418). After mount we swap in the personal
  * full-bleed picture if a package is resolved for this user.
  */
-function SplashOverlay({ personal }: { personal: PersonalAssets | null }) {
+function SplashOverlay() {
   return (
     <div className="pointer-events-none fixed inset-0 z-[100] h-dvh w-screen overflow-hidden bg-background">
-      {personal ? (
-        <picture>
-          <source media="(max-width: 767px)" type="image/webp" srcSet={personal.splashMobileWebp} />
-          <source media="(max-width: 767px)" type="image/png" srcSet={personal.splashMobilePng} />
-          <source media="(min-width: 768px)" type="image/webp" srcSet={personal.splashDesktopWebp} />
-          <source media="(min-width: 768px)" type="image/png" srcSet={personal.splashDesktopPng} />
-          <img
-            src={personal.splashDesktopPng}
-            alt=""
-            className="h-full w-full object-cover object-top"
-            loading="eager"
-            decoding="async"
-            draggable={false}
-          />
-        </picture>
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-        </div>
-      )}
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+      </div>
     </div>
   );
 }
@@ -141,26 +122,8 @@ function AuthenticatedLayout() {
   }, []);
   const gateCtx = useMemo<FirstScreenCtx>(() => ({ requireGate, markReady }), [requireGate, markReady]);
 
-  const [hardTimeout, setHardTimeout] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setHardTimeout(true), 8000);
-    return () => clearTimeout(t);
-  }, []);
-
-  const lookupId = mounted ? (user?.id ?? getLastUserId()) : null;
-  const personal = lookupId ? getPersonalAssets(lookupId, profile?.branch_id) : null;
-  const ownerAssets = primaryRole === "owner" ? getOwnerBannerAssets() : null;
-  const splashPersonal = ownerAssets
-    ? {
-        splashMobileWebp: ownerAssets.splashMobile,
-        splashMobilePng: ownerAssets.splashDesktop,
-        splashDesktopPng: ownerAssets.splashDesktop,
-      }
-    : personal;
-
   const authReady = !loading && (!user || dataLoaded);
-  const firstScreenReady = pendingCount === 0 || hardTimeout;
-  const splashVisible = !(mounted && minElapsed && authReady && firstScreenReady);
+  const splashVisible = !(mounted && minElapsed && authReady);
 
   // Pre-auth: send unauthenticated visitors to /login as soon as auth resolves.
   if (mounted && authReady && !user) return <Navigate to="/login" />;
@@ -185,7 +148,7 @@ function AuthenticatedLayout() {
         </AppShell>
       ) : null}
       {isMalekhivBranch ? <MalekhivSpotlightLayer /> : null}
-      {splashVisible ? <SplashOverlay personal={splashPersonal} /> : null}
+      {splashVisible ? <SplashOverlay /> : null}
     </FirstScreenContext.Provider>
   );
 }
