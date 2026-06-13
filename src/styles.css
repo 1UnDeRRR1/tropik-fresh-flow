@@ -455,22 +455,18 @@ body::before {
    level; body cells sit ~10% more transparent so the page background
    gently shows through. No other branches/routes are affected. */
 body[data-branch-test="malekhiv"] .branch-table-wrap {
-  background-color: color-mix(in oklab, var(--color-card) 55%, transparent);
+  background-color: color-mix(in oklab, var(--color-card) 50%, transparent);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
-  background-color: color-mix(in oklab, var(--color-table-head) 70%, transparent) !important;
+  background-color: color-mix(in oklab, var(--color-table-head) 50%, transparent) !important;
 }
 body[data-branch-test="malekhiv"] .branch-table-wrap tbody td {
   background-color: transparent;
 }
 /* Sticky left columns (Status + Product) must be a fully opaque mask so
-   horizontally scrolled cells slide UNDER them without bleed-through.
-   The right-edge shadow lives ONLY on the rightmost sticky cell (Product,
-   left:56px) — that's the seam between the frozen zone and the scroll zone.
-   The Status column (left:0) sits inside the frozen zone and should not
-   draw an internal divider. */
+   horizontally scrolled cells slide UNDER them without bleed-through. */
 body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky,
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky {
   background-color: var(--color-card) !important;
@@ -479,15 +475,11 @@ body[data-branch-test="malekhiv"] .branch-table-wrap tbody td.sticky.left-\[52px
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th.sticky.left-\[52px\] {
   box-shadow: 2px 0 0 0 hsl(var(--border));
 }
-/* Kill iOS horizontal rubber-band inside the table scroller — vertical
-   page scroll is untouched. Applies to the wrapper TableScroller renders. */
 body[data-branch-test="malekhiv"] .branch-table-wrap > div {
   overscroll-behavior-x: none;
   -webkit-overflow-scrolling: auto;
   touch-action: pan-x pan-y;
 }
-/* Slightly darker text (~10% closer to black) without making it heavier.
-   Scoped to light mode only — in dark mode, inherit from tokens. */
 html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap,
 html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap td,
 html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap th {
@@ -497,6 +489,7 @@ html:not(.dark) body[data-branch-test="malekhiv"] .branch-table-wrap th {
 body[data-branch-test="malekhiv"] .branch-table-wrap thead th {
   font-weight: 500;
 }
+
 /* Bottom navigation: match header-level transparency */
 body[data-branch-test="malekhiv"] nav.fixed.bottom-0 {
   background-color: color-mix(in oklab, var(--color-card) 70%, transparent) !important;
