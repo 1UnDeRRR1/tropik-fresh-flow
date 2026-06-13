@@ -110,46 +110,51 @@
   --table-head: oklch(0.95 0.04 25 / 0.55);
 }
 
+/* Dark theme — neutral grey/graphite scale (no blue cast).
+   Hue removed (chroma=0) on surfaces; brand/status tones kept saturated so
+   they stay readable as semantic signals (red brand, green success, etc.). */
 .dark {
-  --background: oklch(0.16 0.04 265);
-  --foreground: oklch(0.98 0.003 250);
-  --card: oklch(0.22 0.05 265);
-  --card-foreground: oklch(0.98 0.003 250);
-  --popover: oklch(0.22 0.05 265);
-  --popover-foreground: oklch(0.98 0.003 250);
-  --primary: oklch(0.98 0.003 250);
-  --primary-foreground: oklch(0.18 0.04 265);
-  --brand: oklch(0.65 0.22 25);
+  --background: oklch(0.16 0 0);            /* graphite, almost black */
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.22 0 0);                  /* dark grey */
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+  --primary: oklch(0.96 0 0);               /* light grey accent */
+  --primary-foreground: oklch(0.16 0 0);
+  --brand: oklch(0.65 0.22 25);             /* keep TROPIK red */
   --brand-foreground: oklch(0.99 0.003 250);
-  --secondary: oklch(0.27 0.05 265);
-  --secondary-foreground: oklch(0.98 0.003 250);
-  --muted: oklch(0.27 0.05 265);
-  --muted-foreground: oklch(0.7 0.02 260);
-  --accent: oklch(0.27 0.05 265);
-  --accent-foreground: oklch(0.98 0.003 250);
+  --secondary: oklch(0.26 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.26 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.30 0 0);
+  --accent-foreground: oklch(0.96 0 0);
   --destructive: oklch(0.65 0.22 25);
   --destructive-foreground: oklch(0.98 0.003 250);
-  --border: oklch(1 0 0 / 0.08);
-  --input: oklch(1 0 0 / 0.12);
-  --ring: oklch(0.65 0.22 25);
+  --border: oklch(1 0 0 / 0.10);
+  --input: oklch(1 0 0 / 0.14);
+  --ring: oklch(0.78 0 0);
 
+  /* Status colors keep their semantic hue, only desaturated/brightened for dark surfaces. */
   --success: oklch(0.72 0.16 152);
   --warning: oklch(0.82 0.16 75);
   --info: oklch(0.72 0.13 240);
 
+  /* Charts: keep brand red + warm/cool spread, just darker-friendly. */
   --chart-1: oklch(0.72 0.20 25);
-  --chart-2: oklch(0.85 0.04 250);
+  --chart-2: oklch(0.78 0 0);
   --chart-3: oklch(0.72 0.13 240);
   --chart-4: oklch(0.80 0.15 75);
   --chart-5: oklch(0.72 0.16 152);
 
-  --sidebar: oklch(0.22 0.05 265);
-  --sidebar-foreground: oklch(0.98 0.003 250);
-  --sidebar-accent: oklch(0.30 0.05 265);
-  --sidebar-accent-foreground: oklch(0.98 0.003 250);
+  --sidebar: oklch(0.20 0 0);
+  --sidebar-foreground: oklch(0.96 0 0);
+  --sidebar-accent: oklch(0.28 0 0);
+  --sidebar-accent-foreground: oklch(0.96 0 0);
   --sidebar-border: oklch(1 0 0 / 0.08);
 
-  --table-head: oklch(0.42 0.08 25 / 0.5);
+  --table-head: oklch(0.30 0 0 / 0.55);
 }
 
 /* Dark mode: replace decorative photographic body background with a flat
@@ -551,3 +556,65 @@ html:not(.dark) body:has(.owner-warm-theme) {
 html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   --background: oklch(0.955 0.018 75);
 }
+
+/* ============================================================
+   Malekhiv spotlight / glow on contours.
+   Active only when body[data-branch-test="malekhiv"] is set
+   (handled by _authenticated.tsx + branch dashboard).
+   --mlk-x / --mlk-y come from <MalekhivSpotlightLayer/> and hold
+   the current pointer position in CSS pixels (viewport coords).
+   `background-attachment: fixed` positions the gradient in the
+   viewport, so it works on any element without per-element math.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  body[data-branch-test="malekhiv"] .branch-table-wrap,
+  body[data-branch-test="malekhiv"] .rounded-xl.bg-card,
+  body[data-branch-test="malekhiv"] .rounded-2xl.bg-card,
+  body[data-branch-test="malekhiv"] .rounded-lg.bg-card {
+    position: relative;
+  }
+  body[data-branch-test="malekhiv"] .branch-table-wrap::before,
+  body[data-branch-test="malekhiv"] .rounded-xl.bg-card::before,
+  body[data-branch-test="malekhiv"] .rounded-2xl.bg-card::before,
+  body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+    padding: 1.5px;
+    background:
+      radial-gradient(
+        240px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(0 0% 0% / 0.10),
+        transparent 62%
+      );
+    background-attachment: fixed;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+            mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+  }
+  /* Dark mode: brighter halo on graphite surfaces. */
+  html.dark body[data-branch-test="malekhiv"] .branch-table-wrap::before,
+  html.dark body[data-branch-test="malekhiv"] .rounded-xl.bg-card::before,
+  html.dark body[data-branch-test="malekhiv"] .rounded-2xl.bg-card::before,
+  html.dark body[data-branch-test="malekhiv"] .rounded-lg.bg-card::before {
+    background:
+      radial-gradient(
+        260px circle at calc(var(--mlk-x, -9999) * 1px) calc(var(--mlk-y, -9999) * 1px),
+        hsl(0 0% 100% / 0.18),
+        transparent 62%
+      );
+    background-attachment: fixed;
+  }
+  /* Subtle outer halo just past the contour (drop-shadow that follows the
+     same fixed radial via filter on a 2nd pseudo would be expensive; we
+     instead extend inset slightly and let the ring sit ~2px past the edge). */
+}
+

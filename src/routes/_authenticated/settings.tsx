@@ -29,10 +29,28 @@ function Settings() {
     { value: "dark", label: "Темна", icon: Moon },
     { value: "system", label: "Системна", icon: Monitor },
   ];
+  const activeIdx = Math.max(
+    0,
+    themeOptions.findIndex((o) => o.value === theme),
+  );
   const ThemeToggle = (
     <div className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur">
       <div className="mb-2 text-xs font-medium text-muted-foreground">Тема</div>
-      <div className="grid grid-cols-3 gap-2">
+      {/* Capsule segment control: sliding thumb between three labels.
+          Logic of useTheme/setTheme is unchanged; only the visual swaps. */}
+      <div
+        role="radiogroup"
+        aria-label="Тема"
+        className="relative grid h-10 grid-cols-3 rounded-full border border-border bg-muted p-1"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-1 left-1 rounded-full bg-card shadow-sm ring-1 ring-border transition-transform duration-300 ease-out"
+          style={{
+            width: "calc((100% - 0.5rem) / 3)",
+            transform: `translateX(calc(${activeIdx} * 100%))`,
+          }}
+        />
         {themeOptions.map((opt) => {
           const Icon = opt.icon;
           const active = theme === opt.value;
@@ -40,16 +58,15 @@ function Settings() {
             <button
               key={opt.value}
               type="button"
+              role="radio"
+              aria-checked={active}
               onClick={() => setTheme(opt.value)}
-              aria-pressed={active}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-foreground hover:bg-accent",
+                "relative z-10 flex items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
+                active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-3.5 w-3.5" />
               <span>{opt.label}</span>
             </button>
           );
