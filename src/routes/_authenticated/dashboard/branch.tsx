@@ -225,7 +225,7 @@ function BranchDashboard() {
   // so the user never sees the half-loaded shell or a false empty-state.
   useFirstScreenGate(
     "branch-dashboard",
-    !!branchId && (distsPending || (dists === undefined && !distsError)),
+    !!branchId && dists === undefined && distsPending && !distsError,
   );
 
   // All manager-offer responses for this branch (any decision state).
