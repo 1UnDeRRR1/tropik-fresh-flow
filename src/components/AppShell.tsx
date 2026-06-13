@@ -788,7 +788,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={cn(
           "fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
           "transition-transform duration-300 ease-out will-change-transform",
-          navHidden ? "translate-y-full" : "translate-y-0",
+          navHidden && !disableMobileNavAutoHide ? "translate-y-full" : "translate-y-0",
           isOwner && pathname.startsWith("/settings")
             ? "bg-[#f3eadc]/85"
             : "bg-card/95",
@@ -931,7 +931,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           "rounded-t-xl border border-b-0 border-border bg-card/90 backdrop-blur",
           "px-7 py-1.5 shadow-sm",
           "transition-opacity duration-200",
-          navHidden ? "opacity-100" : "pointer-events-none opacity-0",
+          navHidden && !disableMobileNavAutoHide ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom) + 0.25rem)",
