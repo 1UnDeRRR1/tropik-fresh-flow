@@ -193,7 +193,7 @@ function BranchDashboard() {
   const isBranchRole = hasRole("branch");
   const [drill, setDrill] = useState<{ key: string; product: string; country: string | null } | null>(null);
   const [offerRow, setOfferRow] = useState<Row | null>(null);
-  const [sortBy, setSortBy] = useState<SortKey>("last_event");
+  const [sortBy, setSortBy] = useState<SortKey>("eta");
   const [productFilter, setProductFilter] = useState<string>("__all__");
   const [countryFilter, setCountryFilter] = useState<string>("__all__");
 
