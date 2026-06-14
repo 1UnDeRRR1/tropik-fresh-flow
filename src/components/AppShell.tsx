@@ -724,33 +724,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         {/* Top nav for tablet/desktop */}
         <div className="mx-auto w-full max-w-[1600px] px-4 md:px-6 lg:px-10">
-          <nav className="hidden md:flex md:items-center md:gap-1 md:py-2 lg:gap-2">
-            {items.map((it) => {
-              const active = isActive(it.to, it.label);
-              return (
-                <Link
-                  key={it.to}
-                  to={it.to}
-                  className={cn(
-                    "fruit-tap relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
-                    active
-                      ? "bg-secondary text-brand fruit-active"
-                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-                  )}
-                >
-                  <span className="relative">
-                    <FruitIcon name={labelToFruit(it.label)} className="h-5 w-5 text-[18px]" />
-                    {it.badge && it.badge > 0 ? (
-                      <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                        {it.badge > 99 ? "99+" : it.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span>{it.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="hidden md:block md:py-2">
+            <LimelightNav items={items} isActive={isActive} variant="desktop" />
+          </div>
         </div>
       </header>
 
