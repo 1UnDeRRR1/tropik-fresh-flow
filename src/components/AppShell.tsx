@@ -350,6 +350,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [userId, qc]);
 
+  // Malekhiv-only density marker. Scoped CSS in styles.css under
+  // body[data-branch-density="malekhiv"] increases the surface opacity for
+  // tables / inputs / buttons (mobile +10%, desktop +20%). No effect on
+  // other roles. Does NOT re-enable the old body[data-branch-test=...] layer.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (isBranch && branchId === MALEKHIV_BRANCH_ID) {
+      document.body.setAttribute("data-branch-density", "malekhiv");
+      return () => {
+        document.body.removeAttribute("data-branch-density");
+      };
+    }
+    return;
+  }, [isBranch, branchId]);
+
   const items: NavItem[] = isOwner
     ? [
         { to: "/owner/calendar", label: "Календар", icon: Calendar },
