@@ -782,3 +782,36 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   inherits: false;
   initial-value: 100%;
 }
+
+/* ============================================================
+   Malekhiv density bump (scoped, additive, opt-in via body marker).
+   Activated only by body[data-branch-density="malekhiv"], which is set
+   exclusively for the Malekhiv branch in AppShell.tsx. Does NOT touch
+   global tokens, badges, status colors, popovers or the legacy
+   body[data-branch-test="malekhiv"] experiment layer.
+
+   Mobile: surfaces become ~10% less transparent than current.
+   Desktop: ~20% less transparent than current.
+   ============================================================ */
+body[data-branch-density="malekhiv"] .bg-card\/70 {
+  background-color: color-mix(in oklab, var(--color-card) 80%, transparent);
+}
+body[data-branch-density="malekhiv"] .bg-card\/80 {
+  background-color: color-mix(in oklab, var(--color-card) 90%, transparent);
+}
+body[data-branch-density="malekhiv"] .bg-card\/85 {
+  background-color: color-mix(in oklab, var(--color-card) 95%, transparent);
+}
+body[data-branch-density="malekhiv"] .bg-card\/95 {
+  background-color: var(--color-card);
+}
+@media (min-width: 768px) {
+  body[data-branch-density="malekhiv"] .bg-card\/70 {
+    background-color: color-mix(in oklab, var(--color-card) 90%, transparent);
+  }
+  body[data-branch-density="malekhiv"] .bg-card\/80,
+  body[data-branch-density="malekhiv"] .bg-card\/85,
+  body[data-branch-density="malekhiv"] .bg-card\/95 {
+    background-color: var(--color-card);
+  }
+}

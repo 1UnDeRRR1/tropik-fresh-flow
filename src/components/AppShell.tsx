@@ -12,6 +12,7 @@ import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { tapVibrate } from "@/lib/nav-feedback";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { MalekhivBottomNav } from "@/components/MalekhivBottomNav";
+import { LimelightNav } from "@/components/LimelightNav";
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
@@ -348,6 +349,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       supabase.removeChannel(ch);
     };
   }, [userId, qc]);
+
+  // Malekhiv-only density marker. Scoped CSS in styles.css under
+  // body[data-branch-density="malekhiv"] increases the surface opacity for
+  // tables / inputs / buttons (mobile +10%, desktop +20%). No effect on
+  // other roles. Does NOT re-enable the old body[data-branch-test=...] layer.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (isBranch && branchId === MALEKHIV_BRANCH_ID) {
+      document.body.setAttribute("data-branch-density", "malekhiv");
+      return () => {
+        document.body.removeAttribute("data-branch-density");
+      };
+    }
+    return;
+  }, [isBranch, branchId]);
 
   const items: NavItem[] = isOwner
     ? [
@@ -723,33 +739,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         {/* Top nav for tablet/desktop */}
         <div className="mx-auto w-full max-w-[1600px] px-4 md:px-6 lg:px-10">
-          <nav className="hidden md:flex md:items-center md:gap-1 md:py-2 lg:gap-2">
-            {items.map((it) => {
-              const active = isActive(it.to, it.label);
-              return (
-                <Link
-                  key={it.to}
-                  to={it.to}
-                  className={cn(
-                    "fruit-tap relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition lg:text-sm",
-                    active
-                      ? "bg-secondary text-brand fruit-active"
-                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-                  )}
-                >
-                  <span className="relative">
-                    <FruitIcon name={labelToFruit(it.label)} className="h-5 w-5 text-[18px]" />
-                    {it.badge && it.badge > 0 ? (
-                      <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                        {it.badge > 99 ? "99+" : it.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span>{it.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="hidden md:block md:py-2">
+            <LimelightNav items={items} isActive={isActive} variant="desktop" />
+          </div>
         </div>
       </header>
 
@@ -799,31 +791,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {isBranch && branchId === MALEKHIV_BRANCH_ID ? (
           <MalekhivBottomNav items={items} isActive={isActive} />
         ) : isBranch ? (
-          <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
-            {items.map((it) => {
-              const active = isActive(it.to, it.label);
-              return (
-                <Link
-                  key={it.to}
-                  to={it.to}
-                  className={cn(
-                    "fruit-tap relative flex flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
-                    active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <span className="relative">
-                    <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
-                    {it.badge && it.badge > 0 ? (
-                      <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                        {it.badge > 99 ? "99+" : it.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span>{it.label}</span>
-                </Link>
-              );
-            })}
-          </div>
+          <LimelightNav items={items} isActive={isActive} variant="mobile" />
         ) : isOwner ? (
           <div className="mx-auto grid max-w-3xl grid-cols-4 px-2">
             {items.map((it) => {
@@ -867,46 +835,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </div>
         ) : (
-          <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:auto] [&::-webkit-scrollbar]:hidden">
-            <div className="flex w-max gap-1 px-2">
-              {items.map((it) => {
-                const active = isActive(it.to, it.label);
-                const ownerIcon = isOwner ? OWNER_NAV_ICONS[it.to] : undefined;
-                if (ownerIcon) {
-                  return (
-                    <OwnerNavTab
-                      key={it.to}
-                      to={it.to}
-                      label={it.label}
-                      icons={ownerIcon}
-                      active={active}
-                    />
-                  );
-                }
-                return (
-                  <Link
-                    key={it.to}
-                    to={it.to}
-                    className={cn(
-                      "fruit-tap relative flex w-[64px] shrink-0 flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
-                      active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <span className="relative">
-                      <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
-                      {it.badge && it.badge > 0 ? (
-                        <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                          {it.badge > 99 ? "99+" : it.badge}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="whitespace-nowrap">{it.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
+          <LimelightNav items={items} isActive={isActive} variant="mobile" />
         )}
       </nav>
 
