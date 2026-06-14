@@ -195,7 +195,14 @@ function BranchFreeList() {
         managerName: s.import_manager_name ?? null,
       });
     });
-    out.sort((a, b) => (a.eta ?? "9999").localeCompare(b.eta ?? "9999"));
+    // Default grouping: ETA ascending (tomorrow first → later future dates).
+    // Within same ETA: product name alphabetically (uk). Nulls go to the end.
+    out.sort((a, b) => {
+      const ae = a.eta ?? "9999-12-31";
+      const be = b.eta ?? "9999-12-31";
+      if (ae !== be) return ae.localeCompare(be);
+      return (a.product ?? "").localeCompare(b.product ?? "", "uk");
+    });
     return out;
   }, [items, ships, pendingReqs]);
 
