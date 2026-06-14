@@ -776,31 +776,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {isBranch && branchId === MALEKHIV_BRANCH_ID ? (
           <MalekhivBottomNav items={items} isActive={isActive} />
         ) : isBranch ? (
-          <div className={cn("mx-auto grid max-w-3xl", items.length === 4 ? "grid-cols-4" : items.length === 6 ? "grid-cols-6" : items.length === 7 ? "grid-cols-7" : "grid-cols-5")}>
-            {items.map((it) => {
-              const active = isActive(it.to, it.label);
-              return (
-                <Link
-                  key={it.to}
-                  to={it.to}
-                  className={cn(
-                    "fruit-tap relative flex flex-col items-center justify-center py-1 text-[10px] font-medium leading-tight transition",
-                    active ? "text-brand fruit-active" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <span className="relative">
-                    <FruitIcon name={labelToFruit(it.label)} className="h-9 w-9 text-[30px]" />
-                    {it.badge && it.badge > 0 ? (
-                      <span className="absolute -right-2 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
-                        {it.badge > 99 ? "99+" : it.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span>{it.label}</span>
-                </Link>
-              );
-            })}
-          </div>
+          <LimelightNav items={items} isActive={isActive} variant="mobile" />
         ) : isOwner ? (
           <div className="mx-auto grid max-w-3xl grid-cols-4 px-2">
             {items.map((it) => {
