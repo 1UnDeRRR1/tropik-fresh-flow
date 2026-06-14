@@ -253,7 +253,7 @@ export function LimelightNav({ items, isActive, variant = "mobile" }: Props) {
                   className={cn(
                     "relative z-20 shrink-0 transition-opacity duration-150",
                     isDesktop
-                      ? "inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold lg:text-sm"
+                      ? "flex w-[88px] flex-col items-center justify-center gap-1 px-2 py-2 text-xs font-semibold"
                       : "flex w-[64px] flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium leading-tight tracking-tight",
                     active
                       ? "text-foreground opacity-100"
@@ -262,7 +262,7 @@ export function LimelightNav({ items, isActive, variant = "mobile" }: Props) {
                 >
                   <span className="relative inline-flex">
                     <Icon
-                      className={isDesktop ? "h-5 w-5" : "h-[22px] w-[22px]"}
+                      className={isDesktop ? "h-8 w-8" : "h-[22px] w-[22px]"}
                       strokeWidth={active ? 2 : 1.6}
                       aria-hidden="true"
                     />
@@ -272,7 +272,7 @@ export function LimelightNav({ items, isActive, variant = "mobile" }: Props) {
                       </span>
                     ) : null}
                   </span>
-                  <span className="whitespace-nowrap">{it.label}</span>
+                  <span className="whitespace-nowrap text-[11px] leading-tight">{it.label}</span>
                 </Link>
               );
             })}
@@ -283,12 +283,15 @@ export function LimelightNav({ items, isActive, variant = "mobile" }: Props) {
               aria-hidden="true"
               className={cn(
                 "pointer-events-none absolute top-0 z-10 h-[3px] rounded-full bg-foreground/85 shadow-[0_24px_18px_-4px_hsl(var(--foreground)/0.35)]",
-                isDesktop ? "w-12" : "w-10",
+                isDesktop ? "w-16" : "w-10",
                 ready ? "transition-[left] duration-[400ms] ease-out" : "",
               )}
               style={{ left: "-999px" }}
             >
-              <div className="pointer-events-none absolute left-[-30%] top-[3px] h-12 w-[160%] bg-gradient-to-b from-foreground/25 to-transparent [clip-path:polygon(5%_100%,25%_0,75%_0,95%_100%)]" />
+              <div className={cn(
+                "pointer-events-none absolute left-[-30%] top-[3px] w-[160%] bg-gradient-to-b from-foreground/25 to-transparent [clip-path:polygon(5%_100%,25%_0,75%_0,95%_100%)]",
+                isDesktop ? "h-16" : "h-12",
+              )} />
             </div>
           </div>
         </div>
