@@ -731,8 +731,15 @@ function BranchDashboard() {
           return toUaCountry(a.country ?? "").localeCompare(toUaCountry(b.country ?? ""), "uk");
         case "manager":
           return (a.manager_name ?? "").localeCompare(b.manager_name ?? "", "uk");
-        case "eta":
-          return (a.eta ?? "").localeCompare(b.eta ?? "");
+        case "eta": {
+          // Default grouping: ETA ascending (tomorrow first → later future
+          // dates). Within same ETA date: product name alphabetically (uk).
+          // Nulls go to the end.
+          const ae = a.eta ?? "9999-12-31";
+          const be = b.eta ?? "9999-12-31";
+          if (ae !== be) return ae.localeCompare(be);
+          return a.product.localeCompare(b.product, "uk");
+        }
         case "last_event":
         default: {
           // Most recent event first; rows without an event fall back to ETA.
