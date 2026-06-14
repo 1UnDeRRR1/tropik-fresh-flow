@@ -268,13 +268,10 @@ function BranchOffersPage() {
 
   // Bucket-base rows: branch-visible rows minus those that left the workflow
   // (real shipment code). NO product/country filter applied yet — these feed
-  // both filter-option derivation and final row rendering.
+  // both filter-option derivation and final row rendering. No sort here; the
+  // per-bucket ordering below is the source of truth.
   const bucketBaseRows = useMemo(() => {
-    const arrivalDate = (o: ManagerOffer): string | null => {
-      const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
-      return ship?.arrived_at || ship?.eta || o.expected_eta || null;
-    };
-    const filtered = baseVisibleOffers.filter((o) => {
+    return baseVisibleOffers.filter((o) => {
       if (!isRealShipmentCode(shipCodeOf(o))) return true;
       // Keep the row even when a real shipment code exists if this branch
       // still has remaining confirmed quantity (approved − linked > 0).
@@ -287,26 +284,18 @@ function BranchOffersPage() {
         : 0;
       return Math.max(approved - linked, 0) > 0;
     });
-    return [...filtered].sort((a, b) => {
-      const da = arrivalDate(a), db = arrivalDate(b);
-      if (!da && !db) return 0;
-      if (!da) return 1;
-      if (!db) return -1;
-      return da.localeCompare(db);
-    });
-  }, [baseVisibleOffers, shipmentById, responseByOffer]);
+  }, [baseVisibleOffers, responseByOffer]);
 
-  // Split unfiltered bucket-base into active/confirmed by status kind.
+  // Split unfiltered bucket-base into active/confirmed by status kind, and
+  // apply the per-bucket default grouping rules.
   const { activeBase, confirmedBase } = useMemo(() => {
-    const a: ManagerOffer[] = [];
-    const c: ManagerOffer[] = [];
+    type Bucket = "waiting" | "offer" | "confirmed";
+    const tagged: Array<{ o: ManagerOffer; bucket: Bucket; ts: string }> = [];
     for (const o of bucketBaseRows) {
       const r = responseByOffer[o.id] ?? null;
       // Local remaining: if this branch still has approved-but-not-yet-linked
       // pallets, the row belongs in "Підтверджені" regardless of whether the
-      // offer already has a real shipment code for the linked part. Shared
-      // getBranchOfferStatus would classify this as "shipped" and push it
-      // into "Активні"; override locally without touching shared code.
+      // offer already has a real shipment code for the linked part.
       const approved = r && r.approved_pallets != null && Number(r.approved_pallets) > 0
         ? Number(r.approved_pallets)
         : 0;
@@ -314,14 +303,44 @@ function BranchOffersPage() {
         ? Number((r as ManagerOfferResponse & { linked_pallets?: number }).linked_pallets ?? 0)
         : 0;
       const remaining = Math.max(approved - linked, 0);
+      const offerTs =
+        ((o as ManagerOffer & { updated_at?: string }).updated_at as string | undefined) ??
+        o.created_at;
       if (remaining > 0) {
-        c.push(o);
+        // Підтверджені: latest manager action first (response.updated_at, fallback offer).
+        const ts = (r?.updated_at as string | undefined) ?? offerTs;
+        tagged.push({ o, bucket: "confirmed", ts });
         continue;
       }
       const st = getBranchOfferStatus(o, r, shipCodeOf(o));
-      if (st.kind === "confirmed") c.push(o);
-      else a.push(o);
+      if (st.kind === "confirmed") {
+        const ts = (r?.updated_at as string | undefined) ?? offerTs;
+        tagged.push({ o, bucket: "confirmed", ts });
+      } else if (r && r.requested_pallets != null && Number(r.requested_pallets) > 0
+        && r.approved_pallets == null && !(r as any).refused_at) {
+        // Block 1: branch sent a request, waiting on manager — sort by
+        // branch action timestamp (response.updated_at), latest first.
+        const ts = (r.updated_at as string | undefined) ?? r.created_at ?? offerTs;
+        tagged.push({ o, bucket: "waiting", ts });
+      } else {
+        // Block 2: unanswered manager offers — sort by manager offer
+        // updated_at (fallback created_at), latest first.
+        tagged.push({ o, bucket: "offer", ts: offerTs });
+      }
     }
+    const a: ManagerOffer[] = [];
+    const c: ManagerOffer[] = [];
+    // Підтверджені: latest manager action first.
+    const confirmed = tagged.filter((t) => t.bucket === "confirmed")
+      .sort((x, y) => (y.ts ?? "").localeCompare(x.ts ?? ""));
+    for (const t of confirmed) c.push(t.o);
+    // Активні: Block 1 (waiting), then Block 2 (offer), each sorted by ts DESC.
+    const waiting = tagged.filter((t) => t.bucket === "waiting")
+      .sort((x, y) => (y.ts ?? "").localeCompare(x.ts ?? ""));
+    const offered = tagged.filter((t) => t.bucket === "offer")
+      .sort((x, y) => (y.ts ?? "").localeCompare(x.ts ?? ""));
+    for (const t of waiting) a.push(t.o);
+    for (const t of offered) a.push(t.o);
     return { activeBase: a, confirmedBase: c };
   }, [bucketBaseRows, responseByOffer, shipmentById]);
 

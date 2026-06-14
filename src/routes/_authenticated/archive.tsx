@@ -185,11 +185,28 @@ function ArchivePage() {
         });
       }
     }
-    // Sort ETA newest first
+    // Default ordering depends on tab:
+    //  - Доставлено: ETA today first, then tomorrow, then later ASC; within
+    //    the same ETA date, product name alphabetically. Past ETA after future.
+    //  - Не виконано: newest archive entry first (occurred_at DESC).
+    // We compute both keys here and let the visible-tab branch pick the right
+    // comparator at render time. For shared list ordering keep delivered logic.
+    const todayIso = new Date().toISOString().slice(0, 10);
     out.sort((a, b) => {
-      const ad = a.ui_eta ? new Date(a.ui_eta).getTime() : 0;
-      const bd = b.ui_eta ? new Date(b.ui_eta).getTime() : 0;
-      return bd - ad;
+      // Не виконано / refused / cut / cancelled: occurred_at DESC.
+      if (a.ui_event !== "delivered" || b.ui_event !== "delivered") {
+        const ao = a.occurred_at ?? a.ui_eta ?? "";
+        const bo = b.occurred_at ?? b.ui_eta ?? "";
+        return bo.localeCompare(ao);
+      }
+      // Delivered: today first → future ASC → past at end. Same-date by product.
+      const ae = a.ui_eta ?? "9999-12-31";
+      const be = b.ui_eta ?? "9999-12-31";
+      const aPast = ae < todayIso;
+      const bPast = be < todayIso;
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      if (ae !== be) return ae.localeCompare(be);
+      return (a.product_name ?? "").localeCompare(b.product_name ?? "", "uk");
     });
     return out;
   }, [rawRows]);
