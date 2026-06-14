@@ -283,12 +283,15 @@ export function LimelightNav({ items, isActive, variant = "mobile" }: Props) {
               aria-hidden="true"
               className={cn(
                 "pointer-events-none absolute top-0 z-10 h-[3px] rounded-full bg-foreground/85 shadow-[0_24px_18px_-4px_hsl(var(--foreground)/0.35)]",
-                isDesktop ? "w-12" : "w-10",
+                isDesktop ? "w-16" : "w-10",
                 ready ? "transition-[left] duration-[400ms] ease-out" : "",
               )}
               style={{ left: "-999px" }}
             >
-              <div className="pointer-events-none absolute left-[-30%] top-[3px] h-12 w-[160%] bg-gradient-to-b from-foreground/25 to-transparent [clip-path:polygon(5%_100%,25%_0,75%_0,95%_100%)]" />
+              <div className={cn(
+                "pointer-events-none absolute left-[-30%] top-[3px] w-[160%] bg-gradient-to-b from-foreground/25 to-transparent [clip-path:polygon(5%_100%,25%_0,75%_0,95%_100%)]",
+                isDesktop ? "h-16" : "h-12",
+              )} />
             </div>
           </div>
         </div>
