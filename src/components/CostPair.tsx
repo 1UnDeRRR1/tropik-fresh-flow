@@ -23,7 +23,7 @@ export function CostPair({
   const inv = Number(invoice ?? 0).toFixed(2);
   const sizeCls = size === "xs" ? "text-[10px]" : size === "md" ? "text-sm" : "text-xs";
   return (
-    <span className={cn("whitespace-nowrap font-bold tabular-nums", sizeCls, className)}>
+    <span className={cn("whitespace-nowrap font-bold tabular-nums num-soft", sizeCls, className)}>
       <span className="text-success">{prefix}{ind}{suffix}</span>
       <span className="text-muted-foreground font-normal"> / </span>
       <span className="text-destructive">{prefix}{inv}{suffix}</span>
