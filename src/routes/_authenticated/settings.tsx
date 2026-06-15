@@ -7,9 +7,9 @@ import { getPersonalAssets } from "@/lib/branch-assets";
 import ownerSettingsBg from "@/assets/owner-settings-bg.png";
 import { useTheme, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { MalekhivProfileSpotlight } from "@/components/MalekhivProfileSpotlight";
 
-const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+
+
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
