@@ -922,33 +922,35 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
    overlay vertically bounded by the header bottom and the
    bottom-nav top (top/bottom set inline by JS).
 
-   Theme behaviour:
-   - Light theme: mix-blend-mode: difference, 100% intensity.
-     Dark pixels (digits, letters, frames, buttons) light up in
-     color when the spotlight passes over them.
-   - Dark theme: mix-blend-mode: screen, 50% intensity. Light
-     pixels (digits, letters, frames, buttons) light up in color.
+   Selective reactivity (via mix-blend-mode):
+   - Light theme: `lighten`, 100% intensity → only dark pixels
+     (digits, letters, frames, buttons) light up in color; the
+     light page surface is unchanged.
+   - Dark theme: `darken`, 50% intensity → only light pixels
+     (digits, letters, frames, buttons) are pulled to the
+     spotlight color; the dark page surface is unchanged.
    ============================================================ */
-@media (prefers-reduced-motion: no-preference) {
-  .malekhiv-profile-spotlight {
-    position: fixed;
-    left: 0;
-    right: 0;
-    pointer-events: none;
-    z-index: 35;
-    opacity: calc(var(--spot-on, 0) * 1);
-    transition: opacity 200ms ease-out;
-    mix-blend-mode: difference;
-    background-image: radial-gradient(
-      260px 260px at calc(var(--x, -9999) * 1px) calc(var(--y, -9999) * 1px),
-      hsl(var(--hue, 220) 100% 60% / 0.95),
-      hsl(calc(var(--hue, 220) + 40) 100% 55% / 0.6) 45%,
-      transparent 78%
-    );
-  }
-  .malekhiv-profile-spotlight[data-mlk-profile-theme="dark"] {
-    mix-blend-mode: screen;
-    opacity: calc(var(--spot-on, 0) * 0.5);
-  }
+.malekhiv-profile-spotlight {
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 35;
+  opacity: calc(var(--spot-on, 0) * 1);
+  transition: opacity 200ms ease-out;
+  mix-blend-mode: lighten;
+  background-image: radial-gradient(
+    320px 320px at calc(var(--x, -9999) * 1px) calc(var(--y, -9999) * 1px),
+    hsl(var(--hue, 220) 100% 60% / 1),
+    hsl(calc(var(--hue, 220) + 40) 100% 55% / 0.85) 35%,
+    hsl(calc(var(--hue, 220) + 80) 100% 50% / 0.4) 60%,
+    transparent 80%
+  );
+  background-repeat: no-repeat;
 }
+.malekhiv-profile-spotlight[data-mlk-profile-theme="dark"] {
+  mix-blend-mode: darken;
+  opacity: calc(var(--spot-on, 0) * 0.5);
+}
+
 
