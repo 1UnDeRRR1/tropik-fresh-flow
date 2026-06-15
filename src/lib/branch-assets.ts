@@ -21,6 +21,11 @@ export type PersonalAssets = {
   headerDesktopPng?: string;
   headerMobileWebp?: string;
   headerMobilePng?: string;
+  // Optional dark-theme variants for the mobile header. When present,
+  // AppShell renders the light variant under the light theme and swaps to
+  // these under the dark theme. Absent = single image for both themes.
+  headerMobileWebpDark?: string;
+  headerMobilePngDark?: string;
   headerMobileWidth?: number;
   headerMobileHeight?: number;
   headerDesktopWidth?: number;
@@ -37,7 +42,13 @@ export type PersonalAssets = {
   profileBgDesktopPng?: string;
   profileBgMobileWebp?: string;
   profileBgMobilePng?: string;
+  // Optional dark-theme variants for the profile background.
+  profileBgMobileWebpDark?: string;
+  profileBgMobilePngDark?: string;
+  profileBgDesktopWebpDark?: string;
+  profileBgDesktopPngDark?: string;
 };
+
 
 export type OwnerBannerAssets = {
   calendar: string;
