@@ -132,6 +132,7 @@ function ArchivePage() {
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const openCardRef = useRef<HTMLDivElement | null>(null);
+  const suppressNextArchiveRowClickRef = useRef(false);
 
   // When a card is open: a pointerdown outside the open card closes the card.
   // If the click target is another archive row, also suppress its click so the
@@ -142,9 +143,14 @@ function ArchivePage() {
       const target = e.target as Node | null;
       if (!target) return;
       if (openCardRef.current && openCardRef.current.contains(target)) return;
+
+      const rowTarget =
+        target instanceof HTMLElement ? target.closest("[data-archive-row]") : null;
+
       setExpanded(null);
-      const el = target as HTMLElement;
-      if (el.closest && el.closest("[data-archive-row]")) {
+
+      if (rowTarget) {
+        suppressNextArchiveRowClickRef.current = true;
         e.preventDefault();
         e.stopPropagation();
       }
@@ -460,7 +466,13 @@ function ArchivePage() {
                   <button
                     type="button"
                     data-archive-row
-                    onClick={() => setExpanded(isOpen ? null : key)}
+                    onClick={() => {
+                      if (suppressNextArchiveRowClickRef.current) {
+                        suppressNextArchiveRowClickRef.current = false;
+                        return;
+                      }
+                      setExpanded(isOpen ? null : key);
+                    }}
                     className="w-full py-2 text-left text-sm active:opacity-70"
                   >
                     <div className="flex items-baseline justify-between gap-2">
