@@ -30,7 +30,43 @@ function applyClass(resolved: ResolvedTheme) {
   if (resolved === "dark") root.classList.add("dark");
   else root.classList.remove("dark");
   root.style.colorScheme = resolved;
+
+  // Keep the browser/OS status bar color in sync with the resolved theme.
+  // Without this, the <meta name="theme-color"> stays at its initial value
+  // and the mobile status bar only updates after a full app relaunch.
+  const color = resolved === "dark" ? "#0B0B0B" : "#E89A5C";
+  const ensureMeta = (selector: string, create: () => HTMLMetaElement) => {
+    let el = document.head.querySelector<HTMLMetaElement>(selector);
+    if (!el) {
+      el = create();
+      document.head.appendChild(el);
+    }
+    return el;
+  };
+  // Generic theme-color (used by most Android browsers and PWAs).
+  const generic = ensureMeta('meta[name="theme-color"]:not([media])', () => {
+    const m = document.createElement("meta");
+    m.name = "theme-color";
+    return m;
+  });
+  generic.setAttribute("content", color);
+  // Per-scheme entries help iOS Safari and Chrome pick the right one quickly.
+  const light = ensureMeta('meta[name="theme-color"][media*="light"]', () => {
+    const m = document.createElement("meta");
+    m.name = "theme-color";
+    m.setAttribute("media", "(prefers-color-scheme: light)");
+    return m;
+  });
+  light.setAttribute("content", "#E89A5C");
+  const dark = ensureMeta('meta[name="theme-color"][media*="dark"]', () => {
+    const m = document.createElement("meta");
+    m.name = "theme-color";
+    m.setAttribute("media", "(prefers-color-scheme: dark)");
+    return m;
+  });
+  dark.setAttribute("content", "#0B0B0B");
 }
+
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => readStored());
