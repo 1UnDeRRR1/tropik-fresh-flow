@@ -65,7 +65,7 @@ export function MalekhivProfileSpotlight() {
     const setOn = (on: boolean) => setVar("--spot-on", on ? "1" : "0");
     const keepOnBriefly = () => {
       window.clearTimeout(offTimer);
-      offTimer = window.setTimeout(() => setOn(false), 650);
+      offTimer = window.setTimeout(() => setOn(false), 1800);
     };
 
     const updateFromEvent = (nextX: number, nextY: number) => {
@@ -74,6 +74,14 @@ export function MalekhivProfileSpotlight() {
       viewportY = Math.max(0, Math.min(window.innerHeight, nextY));
       localX = Math.max(0, Math.min(rect.width, viewportX - rect.left));
       localY = Math.max(0, Math.min(rect.height, viewportY - rect.top));
+      const insideZone =
+        viewportY >= rect.top &&
+        viewportY <= rect.bottom &&
+        viewportX >= rect.left &&
+        viewportX <= rect.right;
+      // On mobile a tap can end before the next frame is painted. Flip the
+      // opacity gate immediately, then let rAF update the gradient position.
+      setOn(insideZone);
       if (!raf) raf = window.requestAnimationFrame(flush);
     };
 
