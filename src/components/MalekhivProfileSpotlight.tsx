@@ -29,33 +29,39 @@ export function MalekhivProfileSpotlight() {
     if (typeof window === "undefined" || !overlay) return;
 
     let raf = 0;
-    let nx = window.innerWidth / 2;
-    let ny = window.innerHeight / 2;
+    let clientX = window.innerWidth / 2;
+    let clientY = window.innerHeight / 2;
 
     const setVar = (name: string, value: string) =>
       overlay.style.setProperty(name, value);
 
     const flush = () => {
+      const rect = overlay.getBoundingClientRect();
       const w = window.innerWidth || 1;
       const h = window.innerHeight || 1;
-      const xp = nx / w;
-      const yp = ny / h;
+      const xp = clientX / w;
+      const yp = clientY / h;
+      const insideZone =
+        clientY >= rect.top &&
+        clientY <= rect.bottom &&
+        clientX >= rect.left &&
+        clientX <= rect.right;
       // GlowCard hue formula: base 220 (blue) + xp * 200 → blue → red sweep.
       const hue = 220 + xp * 200;
-      setVar("--x", nx.toFixed(2));
-      setVar("--y", ny.toFixed(2));
+      setVar("--x", clientX.toFixed(2));
+      setVar("--y", clientY.toFixed(2));
       setVar("--xp", xp.toFixed(3));
       setVar("--yp", yp.toFixed(3));
       setVar("--hue", hue.toFixed(1));
+      setOn(insideZone);
       raf = 0;
     };
 
     const setOn = (on: boolean) => setVar("--spot-on", on ? "1" : "0");
 
-    const updateFromEvent = (clientX: number, clientY: number) => {
-      nx = clientX;
-      ny = clientY;
-      setOn(true);
+    const updateFromEvent = (nextX: number, nextY: number) => {
+      clientX = Math.max(0, Math.min(window.innerWidth, nextX));
+      clientY = Math.max(0, Math.min(window.innerHeight, nextY));
       if (!raf) raf = window.requestAnimationFrame(flush);
     };
 
@@ -84,9 +90,6 @@ export function MalekhivProfileSpotlight() {
 
     updateZone();
     flush();
-    // Visible from the start so the user immediately sees the effect; the
-    // pointer events below keep it tracking afterwards.
-    setOn(true);
 
     document.addEventListener("pointermove", onPointerMove, { passive: true });
     document.addEventListener("pointerdown", onPointerDown, { passive: true });
