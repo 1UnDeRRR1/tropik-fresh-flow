@@ -54,6 +54,19 @@ export type PersonalAssets = {
   profileBgMobilePngDark?: string;
   profileBgDesktopWebpDark?: string;
   profileBgDesktopPngDark?: string;
+  // Per-route mobile header overrides. Key = pathname prefix (longest match
+  // wins). Each entry mirrors the headerMobile* shape (light + optional dark).
+  // Used by AppShell to swap the mobile banner per tab without changing the
+  // desktop header. Routes not listed fall back to default mobileHeader rules.
+  mobileHeaderByRoute?: Array<{
+    prefix: string;
+    webp: string;
+    png: string;
+    webpDark?: string;
+    pngDark?: string;
+    width: number;
+    height: number;
+  }>;
 };
 
 
