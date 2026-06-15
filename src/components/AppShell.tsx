@@ -606,32 +606,71 @@ export function AppShell({ children }: { children: ReactNode }) {
           /* Full-bleed personal header banner — only for users with a package.
              width/height attributes on each <source> + <img> let the browser
              reserve the correct aspect-ratio box before the image decodes,
-             so the header never pops in late and shoves nav down. */
+             so the header never pops in late and shoves nav down.
+             Mobile splits into a light/dark pair when a dark variant is
+             provided; desktop is rendered separately. */
           <div className="relative w-full pt-safe">
-            <picture>
+            {/* Mobile — light theme */}
+            <picture className={cn("block md:hidden", personalAssets.headerMobileWebpDark && "dark:hidden")}>
               <source
-                media="(max-width: 767px)"
                 type="image/webp"
                 srcSet={personalAssets.headerMobileWebp}
                 width={personalAssets.headerMobileWidth}
                 height={personalAssets.headerMobileHeight}
               />
               <source
-                media="(max-width: 767px)"
                 type="image/png"
                 srcSet={personalAssets.headerMobilePng}
                 width={personalAssets.headerMobileWidth}
                 height={personalAssets.headerMobileHeight}
               />
+              <img
+                src={personalAssets.headerMobilePng}
+                width={personalAssets.headerMobileWidth}
+                height={personalAssets.headerMobileHeight}
+                alt=""
+                className="block h-auto w-full"
+                loading="eager"
+                decoding="async"
+                draggable={false}
+              />
+            </picture>
+            {/* Mobile — dark theme (only when a dark variant is present) */}
+            {personalAssets.headerMobileWebpDark ? (
+              <picture className="hidden dark:block md:dark:hidden">
+                <source
+                  type="image/webp"
+                  srcSet={personalAssets.headerMobileWebpDark}
+                  width={personalAssets.headerMobileWidth}
+                  height={personalAssets.headerMobileHeight}
+                />
+                <source
+                  type="image/png"
+                  srcSet={personalAssets.headerMobilePngDark}
+                  width={personalAssets.headerMobileWidth}
+                  height={personalAssets.headerMobileHeight}
+                />
+                <img
+                  src={personalAssets.headerMobilePngDark}
+                  width={personalAssets.headerMobileWidth}
+                  height={personalAssets.headerMobileHeight}
+                  alt=""
+                  className="block h-auto w-full"
+                  loading="eager"
+                  decoding="async"
+                  draggable={false}
+                />
+              </picture>
+            ) : null}
+            {/* Desktop — unchanged single image */}
+            <picture className="hidden md:block">
               <source
-                media="(min-width: 768px)"
                 type="image/webp"
                 srcSet={personalAssets.headerDesktopWebp}
                 width={personalAssets.headerDesktopWidth}
                 height={personalAssets.headerDesktopHeight}
               />
               <source
-                media="(min-width: 768px)"
                 type="image/png"
                 srcSet={personalAssets.headerDesktopPng}
                 width={personalAssets.headerDesktopWidth}
@@ -648,6 +687,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 draggable={false}
               />
             </picture>
+
             {primaryRole && displayName && (
               <div className="pointer-events-none absolute right-3 top-3 max-w-[60%] text-right leading-tight md:right-6 md:top-5">
                 <div className="text-base font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] md:text-2xl">
