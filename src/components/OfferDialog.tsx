@@ -14,7 +14,18 @@ type Item = {
   caliber?: string | null;
   available_pallets: number;
   shipment_code: string;
+  shipment_eta?: string | null;
 };
+
+function isOfferLockedByEta(eta: string | null | undefined) {
+  if (!eta) return false;
+  const etaDate = new Date(`${eta}T00:00:00`);
+  if (Number.isNaN(etaDate.getTime())) return false;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = (etaDate.getTime() - todayStart.getTime()) / 86400000;
+  return diffDays <= 1;
+}
 
 export function OfferDialog({
   item,
@@ -50,6 +61,7 @@ export function OfferDialog({
   });
 
   const max = item?.available_pallets ?? 0;
+  const isLockedByEta = isOfferLockedByEta(item?.shipment_eta);
   const allocated = useMemo(
     () => Object.values(allocations).reduce((s, n) => s + (n || 0), 0),
     [allocations],
@@ -73,6 +85,9 @@ export function OfferDialog({
   const submit = useMutation({
     mutationFn: async () => {
       if (!item || !profile?.branch_id) throw new Error("missing");
+      if (isOfferLockedByEta(item.shipment_eta)) {
+        throw new Error("За 24 години до ETA пропозиція філіям недоступна");
+      }
       const entries = Object.entries(allocations).filter(([, n]) => n > 0);
       if (!entries.length) throw new Error("Виберіть кількість палет");
       const rows = entries.map(([branchId, pallets]) => ({
@@ -113,6 +128,9 @@ export function OfferDialog({
               <div className="text-xs text-muted-foreground">
                 {item.shipment_code} · всього {max}п
               </div>
+              {item.shipment_eta && (
+                <div className="mt-1 text-xs text-muted-foreground">ETA {item.shipment_eta}</div>
+              )}
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Розподілено</span>
                 <span className="font-bold tabular-nums">
@@ -120,6 +138,12 @@ export function OfferDialog({
                 </span>
               </div>
             </div>
+
+            {isLockedByEta && (
+              <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                За 24 години до ETA пропозиція філіям недоступна.
+              </div>
+            )}
 
             <ul className="space-y-2">
               {(branches ?? []).map((b) => {
@@ -140,7 +164,7 @@ export function OfferDialog({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          disabled={v <= 0}
+                          disabled={v <= 0 || isLockedByEta}
                           onClick={() => setQty(b.id, v - 1)}
                         >
                           −
@@ -150,6 +174,7 @@ export function OfferDialog({
                           min={0}
                           max={cap}
                           value={v}
+                          disabled={isLockedByEta}
                           onChange={(e) => setQty(b.id, Number(e.target.value) || 0)}
                           className="h-8 w-14 text-center"
                         />
@@ -157,7 +182,7 @@ export function OfferDialog({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          disabled={v >= cap}
+                          disabled={v >= cap || isLockedByEta}
                           onClick={() => setQty(b.id, v + 1)}
                         >
                           +
@@ -172,7 +197,7 @@ export function OfferDialog({
             <div className="sticky bottom-0 -mx-6 border-t border-border bg-background px-6 pb-2 pt-3">
               <Button
                 className="w-full"
-                disabled={allocated <= 0 || submit.isPending}
+                disabled={allocated <= 0 || submit.isPending || isLockedByEta}
                 onClick={() => submit.mutate()}
               >
                 Запропонувати ({allocated}п)

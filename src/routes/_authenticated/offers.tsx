@@ -173,11 +173,15 @@ function OffersPage() {
 
   const sent = useMemo(() => hydrate(sentRaw), [sentRaw, itemsInfo, shipsInfo]);
   const received = useMemo(() => hydrate(receivedRaw), [receivedRaw, itemsInfo, shipsInfo]);
+  const visibleSent = useMemo(
+    () => sent.filter((o) => o.status !== "pending" && o.status !== "expired"),
+    [sent],
+  );
 
   // Group sent offers by shipment+product
   const sentGroups = useMemo(() => {
     const map = new Map<string, { code: string; product: string; caliber?: string | null; origin_country?: string | null; final_cost_indicative?: number | null; final_cost_invoice?: number | null; shipment_eta?: string | null; rows: OfferRow[] }>();
-    for (const o of sent) {
+    for (const o of visibleSent) {
       const code = o.shipment_code ?? "—";
       const product = o.product_name ?? "—";
       const key = `${code}::${product}::${o.shipment_item_id}`;
@@ -185,7 +189,7 @@ function OffersPage() {
       map.get(key)!.rows.push(o);
     }
     return [...map.values()];
-  }, [sent]);
+  }, [visibleSent]);
 
   const [actioning, setActioning] = useState<OfferRow | null>(null);
   const [mode, setMode] = useState<"choose" | "partial">("choose");
@@ -226,7 +230,7 @@ function OffersPage() {
   });
 
   const incomingPending = received?.filter((o) => o.status === "pending").length ?? 0;
-  const sentPending = sent?.filter((o) => o.status === "pending").length ?? 0;
+  const sentPending = visibleSent?.filter((o) => o.status === "pending").length ?? 0;
 
   return (
     <div className="space-y-4">
