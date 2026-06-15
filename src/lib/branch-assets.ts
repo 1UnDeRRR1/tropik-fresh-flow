@@ -54,6 +54,19 @@ export type PersonalAssets = {
   profileBgMobilePngDark?: string;
   profileBgDesktopWebpDark?: string;
   profileBgDesktopPngDark?: string;
+  // Per-route mobile header overrides. Key = pathname prefix (longest match
+  // wins). Each entry mirrors the headerMobile* shape (light + optional dark).
+  // Used by AppShell to swap the mobile banner per tab without changing the
+  // desktop header. Routes not listed fall back to default mobileHeader rules.
+  mobileHeaderByRoute?: Array<{
+    prefix: string;
+    webp: string;
+    png: string;
+    webpDark?: string;
+    pngDark?: string;
+    width: number;
+    height: number;
+  }>;
 };
 
 
@@ -140,6 +153,15 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
       headerMobileProfileWebpDark: `${base}/profile_bg_mobile_dark.webp`,
       headerMobileProfilePngDark: `${base}/profile_bg_mobile_dark.png`,
       mobileSectionsOnly: true,
+      // Per-tab mobile headers (1920x480). Each tab gets its own scene with
+      // light + dark variants so the picture matches the resolved theme.
+      mobileHeaderByRoute: [
+        { prefix: "/distribution",    webp: `${base}/header_mobile_vilno_light.webp`,     png: `${base}/header_mobile_vilno_light.png`,     webpDark: `${base}/header_mobile_vilno_dark.webp`,     pngDark: `${base}/header_mobile_vilno_dark.png`,     width: 1920, height: 480 },
+        { prefix: "/branch-offers",   webp: `${base}/header_mobile_zed_light.webp`,       png: `${base}/header_mobile_zed_light.png`,       webpDark: `${base}/header_mobile_zed_dark.webp`,       pngDark: `${base}/header_mobile_zed_dark.png`,       width: 1920, height: 480 },
+        { prefix: "/branch-calendar", webp: `${base}/header_mobile_cal_light.webp`,       png: `${base}/header_mobile_cal_light.png`,       webpDark: `${base}/header_mobile_cal_dark.webp`,       pngDark: `${base}/header_mobile_cal_dark.png`,       width: 1920, height: 480 },
+        { prefix: "/offers",          webp: `${base}/header_mobile_transfers_light.webp`, png: `${base}/header_mobile_transfers_light.png`, webpDark: `${base}/header_mobile_transfers_dark.webp`, pngDark: `${base}/header_mobile_transfers_dark.png`, width: 1920, height: 480 },
+        { prefix: "/archive",         webp: `${base}/header_mobile_archive_light.webp`,   png: `${base}/header_mobile_archive_light.png`,   webpDark: `${base}/header_mobile_archive_dark.webp`,   pngDark: `${base}/header_mobile_archive_dark.png`,   width: 1920, height: 480 },
+      ],
     };
   })(),
 
