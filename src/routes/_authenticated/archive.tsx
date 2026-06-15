@@ -396,52 +396,91 @@ function ArchivePage() {
         </SectionCard>
       ) : (
         <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
+          {/* Visual parity with "Головна" branch list (BranchFlatList). */}
           <ul className="divide-y divide-border">
             {visibleRows.map((r) => {
               const key = r.result_id ?? `${r.position_id}-${r.ui_event}`;
               const isOpen = expanded === key;
+
+              const SEP_TIGHT = "\u2009·\u2009";
+              const product = r.product_name ?? "—";
+              const countryFull = r.origin_country_name
+                ? toUaCountry(r.origin_country_name)
+                : "";
+              const countryShortRaw = r.origin_country_name
+                ? toShortUaCountry(r.origin_country_name)
+                : "";
+              const variety = r.variety_name ?? "";
+              const fullLeftLen = product.length + countryFull.length + variety.length;
+              const useShortCountry =
+                fullLeftLen > 28 && !!countryShortRaw && countryShortRaw !== countryFull;
+              const country = useShortCountry ? `${countryShortRaw}.` : countryFull;
+              const tailParts: string[] = [];
+              if (country) tailParts.push(country);
+              if (variety) tailParts.push(variety);
+              const tail = tailParts.length ? ` · ${tailParts.join(" · ")}` : "";
+
+              const rawMgr = r.responsible_manager_name ?? "";
+              const code = r.shipment_code ?? "";
+              const metaApproxLen =
+                4 + fmtEtaShort(r.ui_eta).length +
+                (code ? 3 + code.length : 0) +
+                (rawMgr ? 3 + rawMgr.length : 0);
+              const mgr = rawMgr && metaApproxLen > 34 ? shortenManager(rawMgr) : rawMgr;
+
+              // Cost shown on bottom-right: prefer actual (delivered), fall back to snapshot.
+              const costInd =
+                r.actual_cost_indicative_usd ?? r.cost_indicative_usd_snapshot ?? null;
+              const costInv =
+                r.actual_cost_invoice_usd ?? r.cost_invoice_usd_snapshot ?? null;
+
               return (
-                <li key={key} className="py-2">
+                <li key={key}>
                   <button
+                    type="button"
                     onClick={() => setExpanded(isOpen ? null : key)}
-                    className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-1 text-left text-sm"
+                    className="w-full py-2 text-left text-sm active:opacity-70"
                   >
-                    <span className="font-mono text-info">{fmtDate(r.ui_eta)}</span>
-                    <span className="font-medium">
-                      {r.product_name ?? "—"}
-                      {r.origin_country_name ? ` (${r.origin_country_name})` : ""}
-                    </span>
-                    {tab === "done" ? (
-                      <>
-                        {r.caliber && (
-                          <span className="text-xs text-muted-foreground">· {r.caliber}</span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                        <span className="font-bold">{product}</span>
+                        {tail ? <span>{tail}</span> : null}
+                      </div>
+                      <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+                        {fmtNum(r.ui_qty)}п
+                        {tab === "done" && r.is_split_shipment ? (
+                          <span className="ml-0.5 text-warning" aria-label="split">*</span>
+                        ) : null}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
+                        <span className="font-mono font-semibold text-sky-600 dark:text-sky-300">
+                          {"ETA\u202F"}{fmtEtaShort(r.ui_eta)}
+                        </span>
+                        {code ? (
+                          <span className="text-foreground/80">
+                            {SEP_TIGHT}<span className="font-mono">{code}</span>
+                          </span>
+                        ) : null}
+                        {mgr ? (
+                          <span className="text-foreground/80"> · {mgr}</span>
+                        ) : null}
+                      </div>
+                      <span className="shrink-0">
+                        {tab === "done" ? (
+                          <CostPair indicative={costInd} invoice={costInv} size="xs" />
+                        ) : (
+                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">
+                            {EVENT_LABEL[r.ui_event]}
+                          </span>
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          · {fmtCost(actualCost(r) ?? costAtOrder(r))}
-                        </span>
-                        <span className="ml-auto text-xs font-semibold">
-                          {fmtNum(r.ui_qty)} пал.
-                          {r.is_split_shipment ? (
-                            <span className="ml-1 text-warning" aria-label="split">
-                              *
-                            </span>
-                          ) : null}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="ml-auto text-xs font-semibold">
-                          {fmtNum(r.ui_qty)} пал.
-                        </span>
-                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">
-                          {EVENT_LABEL[r.ui_event]}
-                        </span>
-                      </>
-                    )}
+                      </span>
+                    </div>
                   </button>
 
                   {isOpen && (
-                    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                    <div className="mb-2 mt-1 rounded-lg border border-border bg-muted/30 p-3 text-xs">
                       {tab === "done" ? (
                         <DeliveredDetail row={r} />
                       ) : (
