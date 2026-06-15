@@ -112,11 +112,14 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     headerDesktop: [2880, 720],
   }),
   [MALEKHIV_USER_ID]: (() => {
-    // Malekhiv: desktop header stays as-is; mobile header replaced with a
-    // theme-aware pumpkin-cart photograph (light B&W variant by day, dark
-    // moonlit variant by night). Profile background uses a wheat-field
-    // photograph (no inscription by day, "Україна не згасне" by night).
-    // All four mobile images are 1920x480 (4:1).
+    // Malekhiv: desktop header stays as-is. Mobile header is route-aware:
+    //  · Головна (/dashboard/branch) → pumpkin-cart photograph (light B&W
+    //    variant by day, dark moonlit variant by night);
+    //  · Профіль (/settings)         → wheat-field photograph (no inscription
+    //    by day, "Україна не згасне" inscription by night);
+    //  · all other mobile tabs       → neutral chrome (no banner).
+    // All four mobile images are 1920x480 (4:1). No profile background is
+    // set — the Профіль page renders without a decorative bg layer.
     const base = `/personal-assets/${MALEKHIV_USER_ID}`;
     const pkg = buildFullPackage(MALEKHIV_USER_ID, {
       headerMobile: [1920, 480],
@@ -124,14 +127,19 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     });
     return {
       ...pkg,
+      // Default mobile header = Головна (pumpkin cart). AppShell suppresses
+      // this image on routes other than /dashboard/branch and /settings
+      // because of `mobileSectionsOnly`.
       headerMobileWebp: `${base}/header_mobile_light.webp`,
       headerMobilePng: `${base}/header_mobile_light.png`,
       headerMobileWebpDark: `${base}/header_mobile_dark.webp`,
       headerMobilePngDark: `${base}/header_mobile_dark.png`,
-      profileBgMobileWebp: `${base}/profile_bg_mobile_light.webp`,
-      profileBgMobilePng: `${base}/profile_bg_mobile_light.png`,
-      profileBgMobileWebpDark: `${base}/profile_bg_mobile_dark.webp`,
-      profileBgMobilePngDark: `${base}/profile_bg_mobile_dark.png`,
+      // Профіль override (wheat field).
+      headerMobileProfileWebp: `${base}/profile_bg_mobile_light.webp`,
+      headerMobileProfilePng: `${base}/profile_bg_mobile_light.png`,
+      headerMobileProfileWebpDark: `${base}/profile_bg_mobile_dark.webp`,
+      headerMobileProfilePngDark: `${base}/profile_bg_mobile_dark.png`,
+      mobileSectionsOnly: true,
     };
   })(),
 
