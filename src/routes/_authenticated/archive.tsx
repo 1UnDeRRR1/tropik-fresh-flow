@@ -131,6 +131,27 @@ function ArchivePage() {
   const [countryFilter, setCountryFilter] = useState<string>("");
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const openCardRef = useRef<HTMLDivElement | null>(null);
+
+  // When a card is open: a pointerdown outside the open card closes the card.
+  // If the click target is another archive row, also suppress its click so the
+  // first interaction only closes the current card (does not open a new one).
+  useEffect(() => {
+    if (!expanded) return;
+    const handler = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (openCardRef.current && openCardRef.current.contains(target)) return;
+      setExpanded(null);
+      const el = target as HTMLElement;
+      if (el.closest && el.closest("[data-archive-row]")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("pointerdown", handler, true);
+    return () => document.removeEventListener("pointerdown", handler, true);
+  }, [expanded]);
 
   const {
     data: rawRows = [],
