@@ -587,9 +587,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     !isOwner && !!mobileHeader && !!mobileHeader.width && !!mobileHeader.height;
   const pinPersonalHeader =
     !!(isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
-  const personalHeaderMobilePadVw = hasPersonalHeaderBanner
-    ? (mobileHeader!.height! / mobileHeader!.width!) * 100
-    : null;
+
 
 
 
