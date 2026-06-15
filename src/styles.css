@@ -911,3 +911,37 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 .dark .num-soft {
   opacity: 0.8;
 }
+
+/* ============================================================
+   Malekhiv-only profile spotlight (/settings page).
+   Component: <MalekhivProfileSpotlight/>.
+   - Fixed overlay vertically bounded by header bottom and bottom
+     nav top (top/bottom set inline by JS).
+   - mix-blend-mode: lighten makes the white radial brighten dark
+     pixels (digits, letters, borders) under the pointer; light
+     surfaces remain unchanged.
+   - Light theme: 100% effect intensity. Dark theme: 50%.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .malekhiv-profile-spotlight {
+    position: fixed;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    z-index: 35;
+    mix-blend-mode: lighten;
+    opacity: calc(var(--spot-on, 0) * 1);
+    transition: opacity 200ms ease-out;
+    background:
+      radial-gradient(
+        160px 160px at var(--sx, -9999px) var(--sy, -9999px),
+        hsl(0 0% 100% / 1),
+        hsl(0 0% 100% / 0.65) 35%,
+        hsl(0 0% 100% / 0.2) 65%,
+        transparent 80%
+      );
+  }
+  .malekhiv-profile-spotlight[data-mlk-profile-theme="dark"] {
+    opacity: calc(var(--spot-on, 0) * 0.5);
+  }
+}
