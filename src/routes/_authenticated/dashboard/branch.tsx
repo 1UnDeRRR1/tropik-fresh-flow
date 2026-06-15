@@ -97,6 +97,16 @@ const fmtEtaShort = (eta: string | null) => {
   return `${day}\u202F${mo}.`;
 };
 
+function isBranchOfferLockedByEta(eta: string | null | undefined) {
+  if (!eta) return false;
+  const etaDate = new Date(`${eta}T00:00:00`);
+  if (Number.isNaN(etaDate.getTime())) return false;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = (etaDate.getTime() - todayStart.getTime()) / 86400000;
+  return diffDays <= 1;
+}
+
 // Abbreviate manager name when row is tight: "Назар Лукач" → "Назар Л.".
 // Single word stays as-is. One human-readable dot, never "..." ellipsis.
 const shortenManager = (name: string): string => {
@@ -198,6 +208,12 @@ function BranchDashboard() {
   const [countryFilter, setCountryFilter] = useState<string>("__all__");
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
+  useEffect(() => {
+    (supabase as any).rpc("expire_branch_transfer_offers").then(() => {
+      qc.invalidateQueries({ queryKey: ["branch-outgoing-offers", branchId] });
+    });
+  }, [branchId, qc]);
+
   useEffect(() => {
     if (ENABLE_MALEKHIV_VISUAL_EXPERIMENTS && isMalekhiv) {
       document.body.setAttribute("data-branch-test", "malekhiv");
@@ -1050,16 +1066,28 @@ function BranchDashboard() {
                     shipment_item_id: drillRow.shipment_item_id,
                     pallets: drillRow.pallets,
                   });
+                  const offerLocked = isBranchOfferLockedByEta(drillRow.eta);
                   if (s.free <= 0) return null;
                   return (
-                    <div className="flex justify-end">
+                    <div className="space-y-2">
+                      {offerLocked ? (
+                        <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                          За 24 години до ETA пропозиція філіям недоступна.
+                        </div>
+                      ) : null}
+                      <div className="flex justify-end">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setOfferRow(drillRow)}
+                        disabled={offerLocked}
+                        onClick={() => {
+                          if (offerLocked) return;
+                          setOfferRow(drillRow);
+                        }}
                       >
                         Запропонувати філії ({s.free}п)
                       </Button>
+                      </div>
                     </div>
                   );
                 })()}
@@ -1085,6 +1113,7 @@ function BranchDashboard() {
                   pallets: offerRow.pallets,
                 }).free,
                 shipment_code: offerRow.code,
+                shipment_eta: offerRow.eta,
               }
             : null
         }
