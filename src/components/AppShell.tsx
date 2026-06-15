@@ -529,18 +529,20 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
 
-  // Keep the fixed mobile header only for the owner banner. Reusing that
-  // pattern for branch personal headers pushed content into a bad scroll/
-  // safe-area state on mobile, which is what showed up on Malekhiv.
+  // Personal headers on mobile are pinned to the viewport top so the picture
+  // never drifts under scroll. The owner banner was always pinned; branch
+  // personal headers now follow the same rule per design request.
   const hasPersonalHeaderBanner =
     !isOwner &&
     !!personalAssets?.headerDesktopWebp &&
     !!personalAssets?.headerMobileWidth &&
     !!personalAssets?.headerMobileHeight;
-  const pinPersonalHeader = !!(isOwner && ownerMobileBanner);
+  const pinPersonalHeader =
+    !!(isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
   const personalHeaderMobilePadVw = hasPersonalHeaderBanner
     ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
     : null;
+
 
   // Deterministic header-height compensation: measure the real <header>
   // height on mobile and expose it as a CSS var so <main> can reserve the
