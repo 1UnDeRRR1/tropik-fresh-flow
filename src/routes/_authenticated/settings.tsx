@@ -124,7 +124,10 @@ function Settings() {
   }
 
 
-  // Non-owner roles: unchanged behaviour (personal profile bg + button).
+  // Non-owner roles. Only render the decorative profile background when the
+  // current user has one in their personal package (e.g. Лукач). Малехів no
+  // longer has a profile background — branding lives in the per-section
+  // mobile header instead.
   return (
     <div className="relative space-y-4">
       {hasProfileBg && personal && (
@@ -132,8 +135,7 @@ function Settings() {
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background"
         >
-          {/* Light theme variant */}
-          <picture className={cn("absolute inset-0 block h-full w-full", (personal.profileBgMobileWebpDark || personal.profileBgDesktopWebpDark) && "dark:hidden")}>
+          <picture className="absolute inset-0 block h-full w-full">
             <source media="(max-width: 767px)" type="image/webp" srcSet={personal.profileBgMobileWebp} />
             <source media="(max-width: 767px)" type="image/png" srcSet={personal.profileBgMobilePng} />
             <source media="(min-width: 768px)" type="image/webp" srcSet={personal.profileBgDesktopWebp} />
@@ -147,45 +149,6 @@ function Settings() {
               draggable={false}
             />
           </picture>
-          {/* Dark theme variant (only when provided) */}
-          {personal.profileBgMobileWebpDark || personal.profileBgDesktopWebpDark ? (
-            <picture className="absolute inset-0 hidden h-full w-full dark:block">
-
-              <source
-                media="(max-width: 767px)"
-                type="image/webp"
-                srcSet={personal.profileBgMobileWebpDark ?? personal.profileBgMobileWebp}
-              />
-              <source
-                media="(max-width: 767px)"
-                type="image/png"
-                srcSet={personal.profileBgMobilePngDark ?? personal.profileBgMobilePng}
-              />
-              <source
-                media="(min-width: 768px)"
-                type="image/webp"
-                srcSet={personal.profileBgDesktopWebpDark ?? personal.profileBgDesktopWebp}
-              />
-              <source
-                media="(min-width: 768px)"
-                type="image/png"
-                srcSet={personal.profileBgDesktopPngDark ?? personal.profileBgDesktopPng}
-              />
-              <img
-                src={
-                  personal.profileBgDesktopPngDark ??
-                  personal.profileBgMobilePngDark ??
-                  personal.profileBgDesktopPng ??
-                  personal.profileBgMobilePng
-                }
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover object-center"
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-              />
-            </picture>
-          ) : null}
         </div>
       )}
 
@@ -202,3 +165,4 @@ function Settings() {
     </div>
   );
 }
+

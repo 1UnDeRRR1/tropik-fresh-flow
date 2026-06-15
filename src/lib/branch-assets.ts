@@ -21,28 +21,35 @@ export type PersonalAssets = {
   headerDesktopPng?: string;
   headerMobileWebp?: string;
   headerMobilePng?: string;
-  // Optional dark-theme variants for the mobile header. When present,
-  // AppShell renders the light variant under the light theme and swaps to
-  // these under the dark theme. Absent = single image for both themes.
+  // Optional dark-theme variants for the default mobile header.
   headerMobileWebpDark?: string;
   headerMobilePngDark?: string;
   headerMobileWidth?: number;
   headerMobileHeight?: number;
   headerDesktopWidth?: number;
   headerDesktopHeight?: number;
+  // Optional per-section mobile header override for the Профіль tab.
+  // When set, AppShell uses this image instead of the default mobile header
+  // when pathname is /settings. Other tabs may be suppressed entirely on
+  // mobile via `mobileSectionsOnly` below.
+  headerMobileProfileWebp?: string;
+  headerMobileProfilePng?: string;
+  headerMobileProfileWebpDark?: string;
+  headerMobileProfilePngDark?: string;
+  // When true, the default mobile header only renders on the Головна
+  // (dashboard) route; other tabs (except Профіль, which has its own
+  // override above) get neutral chrome on mobile. Desktop is unaffected.
+  mobileSectionsOnly?: boolean;
   // Splash / loading overlay shown right after auth resolution.
   splashDesktopWebp?: string;
   splashDesktopPng?: string;
   splashMobileWebp?: string;
   splashMobilePng?: string;
-  // Decorative art-block background for the Профіль page. Sits below content
-  // (z-index 0), no-repeat, pinned to the bottom, contain-sized so nothing
-  // is cropped or stretched.
+  // Decorative art-block background for the Профіль page.
   profileBgDesktopWebp?: string;
   profileBgDesktopPng?: string;
   profileBgMobileWebp?: string;
   profileBgMobilePng?: string;
-  // Optional dark-theme variants for the profile background.
   profileBgMobileWebpDark?: string;
   profileBgMobilePngDark?: string;
   profileBgDesktopWebpDark?: string;
@@ -105,11 +112,14 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     headerDesktop: [2880, 720],
   }),
   [MALEKHIV_USER_ID]: (() => {
-    // Malekhiv: desktop header stays as-is; mobile header replaced with a
-    // theme-aware pumpkin-cart photograph (light B&W variant by day, dark
-    // moonlit variant by night). Profile background uses a wheat-field
-    // photograph (no inscription by day, "Україна не згасне" by night).
-    // All four mobile images are 1920x480 (4:1).
+    // Malekhiv: desktop header stays as-is. Mobile header is route-aware:
+    //  · Головна (/dashboard/branch) → pumpkin-cart photograph (light B&W
+    //    variant by day, dark moonlit variant by night);
+    //  · Профіль (/settings)         → wheat-field photograph (no inscription
+    //    by day, "Україна не згасне" inscription by night);
+    //  · all other mobile tabs       → neutral chrome (no banner).
+    // All four mobile images are 1920x480 (4:1). No profile background is
+    // set — the Профіль page renders without a decorative bg layer.
     const base = `/personal-assets/${MALEKHIV_USER_ID}`;
     const pkg = buildFullPackage(MALEKHIV_USER_ID, {
       headerMobile: [1920, 480],
@@ -117,14 +127,19 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     });
     return {
       ...pkg,
+      // Default mobile header = Головна (pumpkin cart). AppShell suppresses
+      // this image on routes other than /dashboard/branch and /settings
+      // because of `mobileSectionsOnly`.
       headerMobileWebp: `${base}/header_mobile_light.webp`,
       headerMobilePng: `${base}/header_mobile_light.png`,
       headerMobileWebpDark: `${base}/header_mobile_dark.webp`,
       headerMobilePngDark: `${base}/header_mobile_dark.png`,
-      profileBgMobileWebp: `${base}/profile_bg_mobile_light.webp`,
-      profileBgMobilePng: `${base}/profile_bg_mobile_light.png`,
-      profileBgMobileWebpDark: `${base}/profile_bg_mobile_dark.webp`,
-      profileBgMobilePngDark: `${base}/profile_bg_mobile_dark.png`,
+      // Профіль override (wheat field).
+      headerMobileProfileWebp: `${base}/profile_bg_mobile_light.webp`,
+      headerMobileProfilePng: `${base}/profile_bg_mobile_light.png`,
+      headerMobileProfileWebpDark: `${base}/profile_bg_mobile_dark.webp`,
+      headerMobileProfilePngDark: `${base}/profile_bg_mobile_dark.png`,
+      mobileSectionsOnly: true,
     };
   })(),
 
