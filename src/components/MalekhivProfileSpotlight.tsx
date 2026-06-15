@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTheme } from "@/lib/theme";
 
 /**
- * Malekhiv-only Spotlight overlay (all tabs).
+ * Malekhiv-only Spotlight-Card overlay (all tabs).
  *
  * Based on the Ruixen Spotlight-Card model (`@/components/ui/spotlight-card`):
  * the pointer drives `--x / --y / --xp / --yp / --hue` and a radial gradient
@@ -10,13 +10,15 @@ import { useTheme } from "@/lib/theme";
  * decoration into a fixed full-bleed overlay bounded vertically by the
  * profile header bottom and the bottom-nav top.
  *
- * Theme behaviour (CSS-driven, see `.malekhiv-profile-spotlight` in
- * `src/styles.css`):
- *  - Light theme — `mix-blend-mode: difference`, 100% intensity.
- *    Dark pixels (digits, letters, frames, buttons) light up in color
- *    when the spotlight passes over them.
- *  - Dark theme — `mix-blend-mode: screen`, 50% intensity. Light pixels
- *    (digits, letters, frames, buttons) light up in color.
+ * Selective reactivity is achieved with CSS `mix-blend-mode`:
+ *  - Light theme — `lighten`, 100% intensity. Formula `max(base, blend)`:
+ *    light pixels (page background) stay unchanged, dark pixels (digits,
+ *    letters, frames, buttons) are replaced by the spotlight color → only
+ *    dark stuff lights up.
+ *  - Dark theme — `darken`, 50% intensity. Formula `min(base, blend)`:
+ *    dark pixels (page background) stay unchanged, light pixels (digits,
+ *    letters, frames, buttons) are pulled down to the spotlight color →
+ *    only light stuff reacts.
  */
 export function MalekhivProfileSpotlight() {
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -25,22 +27,21 @@ export function MalekhivProfileSpotlight() {
   useEffect(() => {
     const overlay = overlayRef.current;
     if (typeof window === "undefined" || !overlay) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
     let raf = 0;
-    let nx = 0;
-    let ny = 0;
+    let nx = window.innerWidth / 2;
+    let ny = window.innerHeight / 2;
 
     const setVar = (name: string, value: string) =>
       overlay.style.setProperty(name, value);
 
     const flush = () => {
-      const xp = window.innerWidth ? nx / window.innerWidth : 0;
-      const yp = window.innerHeight ? ny / window.innerHeight : 0;
-      // Same hue formula as GlowCard: base + xp * spread.
-      const base = 220;
-      const spread = 280;
-      const hue = base + xp * spread;
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      const xp = nx / w;
+      const yp = ny / h;
+      // GlowCard hue formula: base 220 (blue) + xp * 200 → blue → red sweep.
+      const hue = 220 + xp * 200;
       setVar("--x", nx.toFixed(2));
       setVar("--y", ny.toFixed(2));
       setVar("--xp", xp.toFixed(3));
@@ -51,21 +52,22 @@ export function MalekhivProfileSpotlight() {
 
     const setOn = (on: boolean) => setVar("--spot-on", on ? "1" : "0");
 
-    const onPointerMove = (e: PointerEvent) => {
-      nx = e.clientX;
-      ny = e.clientY;
+    const updateFromEvent = (clientX: number, clientY: number) => {
+      nx = clientX;
+      ny = clientY;
       setOn(true);
       if (!raf) raf = window.requestAnimationFrame(flush);
     };
+
+    const onPointerMove = (e: PointerEvent) =>
+      updateFromEvent(e.clientX, e.clientY);
+    const onPointerDown = (e: PointerEvent) =>
+      updateFromEvent(e.clientX, e.clientY);
     const onTouchMove = (e: TouchEvent) => {
       const t = e.touches[0];
       if (!t) return;
-      nx = t.clientX;
-      ny = t.clientY;
-      setOn(true);
-      if (!raf) raf = window.requestAnimationFrame(flush);
+      updateFromEvent(t.clientX, t.clientY);
     };
-    const onLeave = () => setOn(false);
 
     const updateZone = () => {
       const header = document.querySelector<HTMLElement>("header");
@@ -81,15 +83,14 @@ export function MalekhivProfileSpotlight() {
     };
 
     updateZone();
-    setOn(false);
+    flush();
+    // Visible from the start so the user immediately sees the effect; the
+    // pointer events below keep it tracking afterwards.
+    setOn(true);
 
     document.addEventListener("pointermove", onPointerMove, { passive: true });
-    document.addEventListener("pointerdown", onPointerMove, { passive: true });
-    document.addEventListener("pointerup", onLeave, { passive: true });
-    document.addEventListener("pointercancel", onLeave, { passive: true });
+    document.addEventListener("pointerdown", onPointerDown, { passive: true });
     document.addEventListener("touchmove", onTouchMove, { passive: true });
-    document.addEventListener("touchend", onLeave, { passive: true });
-    document.addEventListener("touchcancel", onLeave, { passive: true });
     window.addEventListener("resize", updateZone);
     window.addEventListener("scroll", updateZone, true);
 
@@ -100,12 +101,8 @@ export function MalekhivProfileSpotlight() {
 
     return () => {
       document.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerdown", onPointerMove);
-      document.removeEventListener("pointerup", onLeave);
-      document.removeEventListener("pointercancel", onLeave);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("touchmove", onTouchMove);
-      document.removeEventListener("touchend", onLeave);
-      document.removeEventListener("touchcancel", onLeave);
       window.removeEventListener("resize", updateZone);
       window.removeEventListener("scroll", updateZone, true);
       ro.disconnect();
