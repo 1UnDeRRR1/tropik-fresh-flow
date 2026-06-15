@@ -656,61 +656,85 @@ export function AppShell({ children }: { children: ReactNode }) {
              width/height attributes on each <source> + <img> let the browser
              reserve the correct aspect-ratio box before the image decodes,
              so the header never pops in late and shoves nav down.
-             Mobile splits into a light/dark pair when a dark variant is
-             provided; desktop is rendered separately. */
+             Mobile picks a per-section image (Малехів: Головна = pumpkin,
+             Профіль = wheat, other tabs = neutral chrome). Each mobile slot
+             has its own light/dark <picture>; desktop is rendered separately. */
           <div className="relative w-full pt-safe">
-            {/* Mobile — light theme */}
-            <picture className={cn("block md:hidden", personalAssets.headerMobileWebpDark && "dark:hidden")}>
-              <source
-                type="image/webp"
-                srcSet={personalAssets.headerMobileWebp}
-                width={personalAssets.headerMobileWidth}
-                height={personalAssets.headerMobileHeight}
-              />
-              <source
-                type="image/png"
-                srcSet={personalAssets.headerMobilePng}
-                width={personalAssets.headerMobileWidth}
-                height={personalAssets.headerMobileHeight}
-              />
-              <img
-                src={personalAssets.headerMobilePng}
-                width={personalAssets.headerMobileWidth}
-                height={personalAssets.headerMobileHeight}
-                alt=""
-                className="block h-auto w-full"
-                loading="eager"
-                decoding="async"
-                draggable={false}
-              />
-            </picture>
-            {/* Mobile — dark theme (only when a dark variant is present) */}
-            {personalAssets.headerMobileWebpDark ? (
-              <picture className="hidden dark:block md:dark:hidden">
-                <source
-                  type="image/webp"
-                  srcSet={personalAssets.headerMobileWebpDark}
-                  width={personalAssets.headerMobileWidth}
-                  height={personalAssets.headerMobileHeight}
-                />
-                <source
-                  type="image/png"
-                  srcSet={personalAssets.headerMobilePngDark}
-                  width={personalAssets.headerMobileWidth}
-                  height={personalAssets.headerMobileHeight}
-                />
-                <img
-                  src={personalAssets.headerMobilePngDark}
-                  width={personalAssets.headerMobileWidth}
-                  height={personalAssets.headerMobileHeight}
-                  alt=""
-                  className="block h-auto w-full"
-                  loading="eager"
-                  decoding="async"
-                  draggable={false}
-                />
-              </picture>
-            ) : null}
+            {/* Mobile — light theme (only when a banner is configured for this route) */}
+            {mobileHeader ? (
+              <>
+                <picture className={cn("block md:hidden", mobileHeader.webpDark && "dark:hidden")}>
+                  <source
+                    type="image/webp"
+                    srcSet={mobileHeader.webp}
+                    width={mobileHeader.width}
+                    height={mobileHeader.height}
+                  />
+                  <source
+                    type="image/png"
+                    srcSet={mobileHeader.png}
+                    width={mobileHeader.width}
+                    height={mobileHeader.height}
+                  />
+                  <img
+                    src={mobileHeader.png}
+                    width={mobileHeader.width}
+                    height={mobileHeader.height}
+                    alt=""
+                    className="block h-auto w-full"
+                    loading="eager"
+                    decoding="async"
+                    draggable={false}
+                  />
+                </picture>
+                {mobileHeader.webpDark ? (
+                  <picture className="hidden dark:block md:dark:hidden">
+                    <source
+                      type="image/webp"
+                      srcSet={mobileHeader.webpDark}
+                      width={mobileHeader.width}
+                      height={mobileHeader.height}
+                    />
+                    <source
+                      type="image/png"
+                      srcSet={mobileHeader.pngDark}
+                      width={mobileHeader.width}
+                      height={mobileHeader.height}
+                    />
+                    <img
+                      src={mobileHeader.pngDark}
+                      width={mobileHeader.width}
+                      height={mobileHeader.height}
+                      alt=""
+                      className="block h-auto w-full"
+                      loading="eager"
+                      decoding="async"
+                      draggable={false}
+                    />
+                  </picture>
+                ) : null}
+              </>
+            ) : (
+              /* Mobile neutral chrome — branch opted into per-section mobile
+                 headers but this route has no banner. Keep desktop banner. */
+              <div className="flex items-center justify-between gap-3 px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:hidden">
+                <Link to={dashHref} className="text-sm font-bold tracking-tight text-foreground">
+                  Tropik
+                </Link>
+                {primaryRole && displayName && (
+                  <div className="truncate text-right text-sm font-semibold text-foreground">
+                    {showRedT ? (
+                      <>
+                        <span className="text-red-500">{displayName.charAt(0)}</span>
+                        {displayName.slice(1)}
+                      </>
+                    ) : (
+                      displayName
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Desktop — unchanged single image */}
             <picture className="hidden md:block">
               <source
@@ -737,7 +761,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               />
             </picture>
 
-            {primaryRole && displayName && (
+            {primaryRole && displayName && mobileHeader && (
               <div className="pointer-events-none absolute right-3 top-3 max-w-[60%] text-right leading-tight md:right-6 md:top-5">
                 <div className="text-base font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] md:text-2xl">
                   {showRedT ? (
