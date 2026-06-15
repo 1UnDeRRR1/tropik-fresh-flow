@@ -133,7 +133,7 @@ function Settings() {
           className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background"
         >
           {/* Light theme variant */}
-          <picture className={cn("block h-full w-full", personal.profileBgMobileWebpDark && "dark:hidden")}>
+          <picture className={cn("absolute inset-0 block h-full w-full", (personal.profileBgMobileWebpDark || personal.profileBgDesktopWebpDark) && "dark:hidden")}>
             <source media="(max-width: 767px)" type="image/webp" srcSet={personal.profileBgMobileWebp} />
             <source media="(max-width: 767px)" type="image/png" srcSet={personal.profileBgMobilePng} />
             <source media="(min-width: 768px)" type="image/webp" srcSet={personal.profileBgDesktopWebp} />
@@ -149,7 +149,8 @@ function Settings() {
           </picture>
           {/* Dark theme variant (only when provided) */}
           {personal.profileBgMobileWebpDark || personal.profileBgDesktopWebpDark ? (
-            <picture className="hidden h-full w-full dark:block">
+            <picture className="absolute inset-0 hidden h-full w-full dark:block">
+
               <source
                 media="(max-width: 767px)"
                 type="image/webp"
