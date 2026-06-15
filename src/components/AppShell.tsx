@@ -13,6 +13,8 @@ import { tapVibrate } from "@/lib/nav-feedback";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { MalekhivBottomNav } from "@/components/MalekhivBottomNav";
 import { LimelightNav } from "@/components/LimelightNav";
+import { MalekhivProfileSpotlight } from "@/components/MalekhivProfileSpotlight";
+
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
