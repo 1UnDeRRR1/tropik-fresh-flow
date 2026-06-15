@@ -913,13 +913,15 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 }
 
 /* ============================================================
-   Malekhiv-only profile spotlight (/settings page).
-   Component: <MalekhivProfileSpotlight/>.
+   Malekhiv-only spotlight (all tabs).
+   Component: <MalekhivProfileSpotlight/> (mounted globally in
+   AppShell for the Malekhiv branch user).
    - Fixed overlay vertically bounded by header bottom and bottom
      nav top (top/bottom set inline by JS).
-   - mix-blend-mode: lighten makes the white radial brighten dark
-     pixels (digits, letters, borders) under the pointer; light
-     surfaces remain unchanged.
+   - Rainbow conic gradient revealed through a radial alpha mask
+     that follows the pointer.
+   - No mix-blend-mode: the spotlight paints colors on top of the
+     UI but does NOT blend with the page background image.
    - Light theme: 100% effect intensity. Dark theme: 50%.
    ============================================================ */
 @media (prefers-reduced-motion: no-preference) {
@@ -929,19 +931,38 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
     right: 0;
     pointer-events: none;
     z-index: 35;
-    mix-blend-mode: lighten;
     opacity: calc(var(--spot-on, 0) * 1);
     transition: opacity 200ms ease-out;
     background:
-      radial-gradient(
-        160px 160px at var(--sx, -9999px) var(--sy, -9999px),
-        hsl(0 0% 100% / 1),
-        hsl(0 0% 100% / 0.65) 35%,
-        hsl(0 0% 100% / 0.2) 65%,
-        transparent 80%
+      conic-gradient(
+        from 0deg at var(--sx, -9999px) var(--sy, -9999px),
+        hsl(0   95% 60% / 0.85),
+        hsl(35  95% 60% / 0.85),
+        hsl(60  95% 60% / 0.85),
+        hsl(140 80% 55% / 0.85),
+        hsl(190 90% 55% / 0.85),
+        hsl(230 90% 65% / 0.85),
+        hsl(280 85% 65% / 0.85),
+        hsl(330 90% 60% / 0.85),
+        hsl(0   95% 60% / 0.85)
       );
+    -webkit-mask-image: radial-gradient(
+      160px 160px at var(--sx, -9999px) var(--sy, -9999px),
+      #000 0%,
+      rgba(0, 0, 0, 0.85) 30%,
+      rgba(0, 0, 0, 0.35) 65%,
+      transparent 85%
+    );
+    mask-image: radial-gradient(
+      160px 160px at var(--sx, -9999px) var(--sy, -9999px),
+      #000 0%,
+      rgba(0, 0, 0, 0.85) 30%,
+      rgba(0, 0, 0, 0.35) 65%,
+      transparent 85%
+    );
   }
   .malekhiv-profile-spotlight[data-mlk-profile-theme="dark"] {
     opacity: calc(var(--spot-on, 0) * 0.5);
   }
 }
+

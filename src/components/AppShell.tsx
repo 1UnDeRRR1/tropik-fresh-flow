@@ -13,6 +13,8 @@ import { tapVibrate } from "@/lib/nav-feedback";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { MalekhivBottomNav } from "@/components/MalekhivBottomNav";
 import { LimelightNav } from "@/components/LimelightNav";
+import { MalekhivProfileSpotlight } from "@/components/MalekhivProfileSpotlight";
+
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
@@ -956,6 +958,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           only when the mobile nav is auto-hidden. Tapping it slides the nav
           back up. Desktop is unaffected. */}
       {null}
+
+      {/* Malekhiv-only spotlight: rainbow glow following pointer, active on
+          every tab between header bottom and bottom-nav top. */}
+      {isBranch && branchId === MALEKHIV_BRANCH_ID ? <MalekhivProfileSpotlight /> : null}
+
     </div>
   );
 }

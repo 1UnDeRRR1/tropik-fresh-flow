@@ -7,9 +7,9 @@ import { getPersonalAssets } from "@/lib/branch-assets";
 import ownerSettingsBg from "@/assets/owner-settings-bg.png";
 import { useTheme, type ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { MalekhivProfileSpotlight } from "@/components/MalekhivProfileSpotlight";
 
-const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+
+
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -131,10 +131,9 @@ function Settings() {
   // current user has one in their personal package (e.g. Лукач). Малехів no
   // longer has a profile background — branding lives in the per-section
   // mobile header instead.
-  const isMalekhiv = profile?.branch_id === MALEKHIV_BRANCH_ID;
   return (
     <div className="relative space-y-4">
-      {isMalekhiv && <MalekhivProfileSpotlight />}
+
       {hasProfileBg && personal && (
         <div
           aria-hidden="true"
