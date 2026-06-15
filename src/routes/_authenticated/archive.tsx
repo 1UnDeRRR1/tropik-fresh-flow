@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
@@ -131,6 +131,27 @@ function ArchivePage() {
   const [countryFilter, setCountryFilter] = useState<string>("");
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const openCardRef = useRef<HTMLDivElement | null>(null);
+
+  // When a card is open: a pointerdown outside the open card closes the card.
+  // If the click target is another archive row, also suppress its click so the
+  // first interaction only closes the current card (does not open a new one).
+  useEffect(() => {
+    if (!expanded) return;
+    const handler = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (openCardRef.current && openCardRef.current.contains(target)) return;
+      setExpanded(null);
+      const el = target as HTMLElement;
+      if (el.closest && el.closest("[data-archive-row]")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("pointerdown", handler, true);
+    return () => document.removeEventListener("pointerdown", handler, true);
+  }, [expanded]);
 
   const {
     data: rawRows = [],
@@ -438,6 +459,7 @@ function ArchivePage() {
                 <li key={key}>
                   <button
                     type="button"
+                    data-archive-row
                     onClick={() => setExpanded(isOpen ? null : key)}
                     className="w-full py-2 text-left text-sm active:opacity-70"
                   >
@@ -449,7 +471,7 @@ function ArchivePage() {
                       <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
                         {fmtNum(r.ui_qty)}п
                         {tab === "done" && r.is_split_shipment ? (
-                          <span className="ml-0.5 text-warning" aria-label="split">*</span>
+                          <span className="ml-0.5 text-warning num-soft" aria-label="split">*</span>
                         ) : null}
                       </span>
                     </div>
@@ -480,7 +502,10 @@ function ArchivePage() {
                   </button>
 
                   {isOpen && (
-                    <div className="mb-2 mt-1 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                    <div
+                      ref={openCardRef}
+                      className="mb-2 mt-1 rounded-lg border border-border bg-muted/30 p-3 text-xs"
+                    >
                       {tab === "done" ? (
                         <DeliveredDetail row={r} />
                       ) : (
@@ -626,14 +651,14 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
         {/* ETA */}
         <div className={rowCls}>
           <span className={cn(leftCls, "font-mono text-info")}>
-            {fmtDate(r.promise_eta_snapshot)}
+            {r.promise_eta_snapshot ? `ETA\u202F${fmtEtaShort(r.promise_eta_snapshot)}` : "—"}
           </span>
           <span className={cn(midLabelCls, etaMidBg)}>
             <span className="block">дата прибуття</span>
             {etaNote && (
               <span
                 className={cn(
-                  "block text-[10px] font-bold mt-0.5",
+                  "block text-[10px] font-bold mt-0.5 num-soft",
                   etaDelta! > 0 ? "text-destructive" : "text-success",
                 )}
               >
@@ -642,7 +667,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
             )}
           </span>
           <span className={cn(rightCls, "font-mono text-info")}>
-            {fmtDate(r.actual_eta)}
+            {r.actual_eta ? `ETA\u202F${fmtEtaShort(r.actual_eta)}` : "—"}
           </span>
         </div>
 
@@ -654,7 +679,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
           <span className={cn(midLabelCls, palMidBg)}>
             <span className="block">кількість палет</span>
             {palNote && (
-              <span className="block text-[10px] font-bold text-destructive mt-0.5">
+              <span className="block text-[10px] font-bold text-destructive mt-0.5 num-soft">
                 {palNote}
               </span>
             )}
@@ -662,7 +687,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
           <span className={cn(rightCls, "font-semibold")}>
             {fmtNum(r.delivered_qty)} пал.
             {isSplit ? (
-              <span className="ml-0.5 text-warning" aria-label="split">*</span>
+              <span className="ml-0.5 text-warning num-soft" aria-label="split">*</span>
             ) : null}
           </span>
         </div>
@@ -677,7 +702,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
             {costNote && (
               <span
                 className={cn(
-                  "block text-[10px] font-bold mt-0.5",
+                  "block text-[10px] font-bold mt-0.5 num-soft",
                   costMidBg === "bg-destructive/10"
                     ? "text-destructive"
                     : costMidBg === "bg-success/10"

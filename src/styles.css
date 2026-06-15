@@ -815,3 +815,11 @@ body[data-branch-density="malekhiv"] .bg-card\/95 {
     background-color: var(--color-card);
   }
 }
+
+/* Numeric color softening — dark theme only.
+   Reduces brightness ~20% on numeric values rendered in red/green/yellow/orange
+   semantic colors so they stay readable on dark surfaces. Affects only elements
+   that opt in via the .num-soft class. Light theme unaffected. */
+.dark .num-soft {
+  opacity: 0.8;
+}
