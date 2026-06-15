@@ -958,6 +958,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           only when the mobile nav is auto-hidden. Tapping it slides the nav
           back up. Desktop is unaffected. */}
       {null}
+
+      {/* Malekhiv-only spotlight: rainbow glow following pointer, active on
+          every tab between header bottom and bottom-nav top. */}
+      {isBranch && branchId === MALEKHIV_BRANCH_ID ? <MalekhivProfileSpotlight /> : null}
+
     </div>
   );
 }
