@@ -790,29 +790,117 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
    global tokens, badges, status colors, popovers or the legacy
    body[data-branch-test="malekhiv"] experiment layer.
 
-   Mobile: surfaces become ~10% less transparent than current.
-   Desktop: ~20% less transparent than current.
+   Light theme only. Dark theme unchanged.
+   Mobile: surfaces become +15 percentage points more opaque (cap 100%).
+   Desktop (>=768px): +30 percentage points more opaque (cap 100%).
    ============================================================ */
-body[data-branch-density="malekhiv"] .bg-card\/70 {
-  background-color: color-mix(in oklab, var(--color-card) 80%, transparent);
+@media (max-width: 767px) {
+  /* Mobile: +15pp */
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/50 {
+    background-color: color-mix(in oklab, var(--color-card) 65%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/60 {
+    background-color: color-mix(in oklab, var(--color-card) 75%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/70 {
+    background-color: color-mix(in oklab, var(--color-card) 85%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/80 {
+    background-color: color-mix(in oklab, var(--color-card) 95%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/85,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/90,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/95 {
+    background-color: var(--color-card);
+  }
+
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/50 {
+    background-color: color-mix(in oklab, var(--color-muted) 65%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/60 {
+    background-color: color-mix(in oklab, var(--color-muted) 75%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/70 {
+    background-color: color-mix(in oklab, var(--color-muted) 85%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/80 {
+    background-color: color-mix(in oklab, var(--color-muted) 95%, transparent);
+  }
+
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/50 {
+    background-color: color-mix(in oklab, var(--color-secondary) 65%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/60 {
+    background-color: color-mix(in oklab, var(--color-secondary) 75%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/70 {
+    background-color: color-mix(in oklab, var(--color-secondary) 85%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/80 {
+    background-color: color-mix(in oklab, var(--color-secondary) 95%, transparent);
+  }
+
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/50 {
+    background-color: color-mix(in oklab, var(--color-background) 65%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/60 {
+    background-color: color-mix(in oklab, var(--color-background) 75%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/70 {
+    background-color: color-mix(in oklab, var(--color-background) 85%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/80 {
+    background-color: color-mix(in oklab, var(--color-background) 95%, transparent);
+  }
 }
-body[data-branch-density="malekhiv"] .bg-card\/80 {
-  background-color: color-mix(in oklab, var(--color-card) 90%, transparent);
-}
-body[data-branch-density="malekhiv"] .bg-card\/85 {
-  background-color: color-mix(in oklab, var(--color-card) 95%, transparent);
-}
-body[data-branch-density="malekhiv"] .bg-card\/95 {
-  background-color: var(--color-card);
-}
+
 @media (min-width: 768px) {
-  body[data-branch-density="malekhiv"] .bg-card\/70 {
+  /* Desktop: +30pp */
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/50 {
+    background-color: color-mix(in oklab, var(--color-card) 80%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/60 {
     background-color: color-mix(in oklab, var(--color-card) 90%, transparent);
   }
-  body[data-branch-density="malekhiv"] .bg-card\/80,
-  body[data-branch-density="malekhiv"] .bg-card\/85,
-  body[data-branch-density="malekhiv"] .bg-card\/95 {
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/70,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/80,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/85,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/90,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-card\/95 {
     background-color: var(--color-card);
+  }
+
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/50 {
+    background-color: color-mix(in oklab, var(--color-muted) 80%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/60 {
+    background-color: color-mix(in oklab, var(--color-muted) 90%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/70,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-muted\/80 {
+    background-color: var(--color-muted);
+  }
+
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/50 {
+    background-color: color-mix(in oklab, var(--color-secondary) 80%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/60 {
+    background-color: color-mix(in oklab, var(--color-secondary) 90%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/70,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-secondary\/80 {
+    background-color: var(--color-secondary);
+  }
+
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/50 {
+    background-color: color-mix(in oklab, var(--color-background) 80%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/60 {
+    background-color: color-mix(in oklab, var(--color-background) 90%, transparent);
+  }
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/70,
+  html:not(.dark) body[data-branch-density="malekhiv"] .bg-background\/80 {
+    background-color: var(--color-background);
   }
 }
 
