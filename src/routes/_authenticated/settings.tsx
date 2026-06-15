@@ -132,7 +132,8 @@ function Settings() {
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background"
         >
-          <picture>
+          {/* Light theme variant */}
+          <picture className={cn("block h-full w-full", personal.profileBgMobileWebpDark && "dark:hidden")}>
             <source media="(max-width: 767px)" type="image/webp" srcSet={personal.profileBgMobileWebp} />
             <source media="(max-width: 767px)" type="image/png" srcSet={personal.profileBgMobilePng} />
             <source media="(min-width: 768px)" type="image/webp" srcSet={personal.profileBgDesktopWebp} />
@@ -146,8 +147,47 @@ function Settings() {
               draggable={false}
             />
           </picture>
+          {/* Dark theme variant (only when provided) */}
+          {personal.profileBgMobileWebpDark || personal.profileBgDesktopWebpDark ? (
+            <picture className="hidden h-full w-full dark:block">
+              <source
+                media="(max-width: 767px)"
+                type="image/webp"
+                srcSet={personal.profileBgMobileWebpDark ?? personal.profileBgMobileWebp}
+              />
+              <source
+                media="(max-width: 767px)"
+                type="image/png"
+                srcSet={personal.profileBgMobilePngDark ?? personal.profileBgMobilePng}
+              />
+              <source
+                media="(min-width: 768px)"
+                type="image/webp"
+                srcSet={personal.profileBgDesktopWebpDark ?? personal.profileBgDesktopWebp}
+              />
+              <source
+                media="(min-width: 768px)"
+                type="image/png"
+                srcSet={personal.profileBgDesktopPngDark ?? personal.profileBgDesktopPng}
+              />
+              <img
+                src={
+                  personal.profileBgDesktopPngDark ??
+                  personal.profileBgMobilePngDark ??
+                  personal.profileBgDesktopPng ??
+                  personal.profileBgMobilePng
+                }
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover object-center"
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+              />
+            </picture>
+          ) : null}
         </div>
       )}
+
       <div className="relative z-10 space-y-4 pt-16">
         {ThemeToggle}
         <ShinyButton
