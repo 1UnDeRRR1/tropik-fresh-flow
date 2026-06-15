@@ -440,51 +440,224 @@ function ArchivePage() {
   );
 }
 
+// UA pluralization for "день": 1 → день, 2-4 → дні, 5+ → днів,
+// with the 11–14 exception always taking "днів".
+function pluralizeDays(n: number): string {
+  const abs = Math.abs(n);
+  const mod100 = abs % 100;
+  if (mod100 >= 11 && mod100 <= 14) return "днів";
+  const mod10 = abs % 10;
+  if (mod10 === 1) return "день";
+  if (mod10 >= 2 && mod10 <= 4) return "дні";
+  return "днів";
+}
+
+function diffDays(a: string | null, b: string | null): number | null {
+  if (!a || !b) return null;
+  const da = new Date(a);
+  const db = new Date(b);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return null;
+  const ms = da.setHours(0, 0, 0, 0) - db.setHours(0, 0, 0, 0);
+  return Math.round(ms / 86_400_000);
+}
+
 function DeliveredDetail({ row: r }: { row: UiRow }) {
-  // Two parallel grid lines: Було / Стало — same column starts
-  const cols = "grid grid-cols-[5rem_minmax(0,1fr)_5rem_4rem] gap-2 items-baseline";
+  // 3-column mini-table: Було (L) | Опис (C) | Стало (R)
+  const rowCls = "grid grid-cols-[1fr_auto_1fr] items-baseline gap-2 py-1";
+  const leftCls = "text-left tabular-nums";
+  const midLabelCls =
+    "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground text-center px-2 py-1 rounded";
+  const rightCls = "text-right tabular-nums";
+
+  // ETA
+  const etaDelta = diffDays(r.actual_eta, r.promise_eta_snapshot);
+  let etaMidBg = "";
+  let etaNote: string | null = null;
+  if (etaDelta != null && etaDelta !== 0) {
+    if (etaDelta > 0) {
+      etaMidBg = "bg-destructive/10";
+      etaNote = `+${etaDelta} ${pluralizeDays(etaDelta)}`;
+    } else {
+      etaMidBg = "bg-success/10";
+      etaNote = `${etaDelta} ${pluralizeDays(etaDelta)}`;
+    }
+  }
+
+  // Pallets
+  const isSplit = !!r.is_split_shipment;
+  const reqQ = r.requested_qty == null ? null : Number(r.requested_qty);
+  const delQ = r.delivered_qty == null ? null : Number(r.delivered_qty);
+  const palDelta =
+    !isSplit && reqQ != null && delQ != null ? delQ - reqQ : null;
+  let palMidBg = "";
+  let palNote: string | null = null;
+  if (palDelta != null && palDelta !== 0) {
+    palMidBg = "bg-destructive/10";
+    palNote =
+      palDelta > 0 ? `+${palDelta}п надлишку` : `${palDelta}п недодали`;
+  }
+
+  // Cost
+  const sInd = r.cost_indicative_usd_snapshot;
+  const sInv = r.cost_invoice_usd_snapshot;
+  const aInd = r.actual_cost_indicative_usd;
+  const aInv = r.actual_cost_invoice_usd;
+  const dInd = sInd != null && aInd != null ? Number(aInd) - Number(sInd) : null;
+  const dInv = sInv != null && aInv != null ? Number(aInv) - Number(sInv) : null;
+  let costMidBg = "";
+  let costNote: string | null = null;
+  const fmtSigned = (v: number) =>
+    `${v > 0 ? "+" : ""}${v.toFixed(2)}`;
+  const parts: string[] = [];
+  if (dInd != null) parts.push(`$${fmtSigned(dInd)}`);
+  else if (sInd != null || aInd != null) parts.push("—");
+  if (dInv != null) parts.push(`$${fmtSigned(dInv)}`);
+  else if (sInv != null || aInv != null) parts.push("—");
+  const haveBoth = dInd != null && dInv != null;
+  if (haveBoth) {
+    if (dInd! > 0 && dInv! > 0) {
+      costMidBg = "bg-destructive/10";
+      costNote = `здорожчало ${parts.join(" / ")}`;
+    } else if (dInd! < 0 && dInv! < 0) {
+      costMidBg = "bg-success/10";
+      costNote = `подешевшало ${parts.join(" / ")}`;
+    } else if (dInd !== 0 || dInv !== 0) {
+      costMidBg = "bg-warning/10";
+      costNote = parts.join(" / ");
+    }
+  } else if ((dInd != null && dInd !== 0) || (dInv != null && dInv !== 0)) {
+    // partial info — show plain note without misleading verb
+    costMidBg = "bg-warning/10";
+    costNote = parts.join(" / ");
+  }
+
+  // Variety / Caliber — single source today; highlight only if differs
+  const varietyDiff = false; // single source: snapshot == actual
+  const caliberDiff = false; // single source: snapshot == actual
+
   return (
-    <div className="space-y-2">
-      <div className={cols}>
-        <span className="text-[10px] font-semibold uppercase text-muted-foreground">Було</span>
-        <span className="font-mono text-info">{fmtDate(r.promise_eta_snapshot)}</span>
-        <span className="truncate">
-          {r.product_name ?? "—"}
-          {r.origin_country_name ? ` (${r.origin_country_name})` : ""}
-        </span>
-        <span className="text-right">{fmtCost(costAtOrder(r))}</span>
-        <span className="text-right font-semibold">{fmtNum(r.requested_qty)} пал.</span>
-      </div>
-      <div className={cols}>
-        <span className="text-[10px] font-semibold uppercase text-muted-foreground">Стало</span>
-        <span className="font-mono text-info">{fmtDate(r.actual_eta)}</span>
-        <span className="truncate">
-          {r.product_name ?? "—"}
-          {r.origin_country_name ? ` (${r.origin_country_name})` : ""}
-        </span>
-        <span className="text-right">{fmtCost(actualCost(r))}</span>
-        <span className="text-right font-semibold">{fmtNum(r.delivered_qty)} пал.</span>
-      </div>
-
-      <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-2 text-muted-foreground">
-        {r.pallet_qty != null && <span>Палет: {fmtNum(r.pallet_qty)}</span>}
-        {r.variety_name && <span>Сорт: {r.variety_name}</span>}
-        {r.caliber && <span>Калібр: {r.caliber}</span>}
-        {r.packaging && <span>Упаковка: {r.packaging}</span>}
-      </div>
-
-      <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-2">
-        {r.shipment_code && (
-          <span className="font-mono font-semibold">{r.shipment_code}</span>
-        )}
-        {r.responsible_manager_name && (
-          <span className="text-muted-foreground">· {r.responsible_manager_name}</span>
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="text-center space-y-0.5">
+        <div className="text-sm">
+          <span className="font-bold">{r.product_name ?? "—"}</span>
+          {r.origin_country_name ? (
+            <span className="font-normal"> {r.origin_country_name}</span>
+          ) : null}
+        </div>
+        {(r.shipment_code || r.responsible_manager_name) && (
+          <div className="text-[11px] text-muted-foreground">
+            {r.shipment_code ? (
+              <span className="font-mono">{r.shipment_code}</span>
+            ) : null}
+            {r.shipment_code && r.responsible_manager_name ? " · " : ""}
+            {r.responsible_manager_name ?? ""}
+          </div>
         )}
       </div>
 
-      {r.is_split_shipment && (
-        <div className="border-t border-border pt-2 text-[11px] text-warning">
-          * Частина товару в іншій поставці — деталі будуть додані пізніше
+      {/* Mini-table */}
+      <div className="rounded-lg border border-border bg-card/40 px-2 py-1 text-[12px]">
+        {/* Header row */}
+        <div className={rowCls}>
+          <span className={cn(leftCls, "text-[10px] uppercase text-muted-foreground")}>Було</span>
+          <span className="text-[10px] uppercase text-muted-foreground text-center">Опис</span>
+          <span className={cn(rightCls, "text-[10px] uppercase text-muted-foreground")}>Стало</span>
+        </div>
+
+        {/* ETA */}
+        <div className={rowCls}>
+          <span className={cn(leftCls, "font-mono text-info")}>
+            {fmtDate(r.promise_eta_snapshot)}
+          </span>
+          <span className={cn(midLabelCls, etaMidBg)}>
+            <span className="block">дата прибуття</span>
+            {etaNote && (
+              <span
+                className={cn(
+                  "block text-[10px] font-bold mt-0.5",
+                  etaDelta! > 0 ? "text-destructive" : "text-success",
+                )}
+              >
+                {etaNote}
+              </span>
+            )}
+          </span>
+          <span className={cn(rightCls, "font-mono text-info")}>
+            {fmtDate(r.actual_eta)}
+          </span>
+        </div>
+
+        {/* Pallets */}
+        <div className={rowCls}>
+          <span className={cn(leftCls, "font-semibold")}>
+            {fmtNum(r.requested_qty)} пал.
+          </span>
+          <span className={cn(midLabelCls, palMidBg)}>
+            <span className="block">кількість палет</span>
+            {palNote && (
+              <span className="block text-[10px] font-bold text-destructive mt-0.5">
+                {palNote}
+              </span>
+            )}
+          </span>
+          <span className={cn(rightCls, "font-semibold")}>
+            {fmtNum(r.delivered_qty)} пал.
+            {isSplit ? (
+              <span className="ml-0.5 text-warning" aria-label="split">*</span>
+            ) : null}
+          </span>
+        </div>
+
+        {/* Cost */}
+        <div className={rowCls}>
+          <span className={leftCls}>
+            <CostPair indicative={sInd} invoice={sInv} />
+          </span>
+          <span className={cn(midLabelCls, costMidBg)}>
+            <span className="block">собівартість</span>
+            {costNote && (
+              <span
+                className={cn(
+                  "block text-[10px] font-bold mt-0.5",
+                  costMidBg === "bg-destructive/10"
+                    ? "text-destructive"
+                    : costMidBg === "bg-success/10"
+                      ? "text-success"
+                      : "text-warning",
+                )}
+              >
+                {costNote}
+              </span>
+            )}
+          </span>
+          <span className={rightCls}>
+            <CostPair indicative={aInd} invoice={aInv} />
+          </span>
+        </div>
+
+        {/* Variety */}
+        <div className={rowCls}>
+          <span className={leftCls}>{r.variety_name ?? "—"}</span>
+          <span className={cn(midLabelCls, varietyDiff && "bg-destructive/10")}>
+            сорт
+          </span>
+          <span className={rightCls}>{r.variety_name ?? "—"}</span>
+        </div>
+
+        {/* Caliber */}
+        <div className={rowCls}>
+          <span className={leftCls}>{r.caliber ?? "—"}</span>
+          <span className={cn(midLabelCls, caliberDiff && "bg-destructive/10")}>
+            калібр
+          </span>
+          <span className={rightCls}>{r.caliber ?? "—"}</span>
+        </div>
+      </div>
+
+      {isSplit && (
+        <div className="text-[11px] text-muted-foreground">
+          * частина в іншій поставці — деталі будуть додані пізніше
         </div>
       )}
     </div>
