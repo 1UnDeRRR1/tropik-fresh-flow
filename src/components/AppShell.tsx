@@ -358,7 +358,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   // other roles. Does NOT re-enable the old body[data-branch-test=...] layer.
   useEffect(() => {
     if (typeof document === "undefined") return;
-    console.log("[mlk-debug]", { isBranch, branchId, expect: MALEKHIV_BRANCH_ID, match: isBranch && branchId === MALEKHIV_BRANCH_ID });
     if (isBranch && branchId === MALEKHIV_BRANCH_ID) {
       document.body.setAttribute("data-branch-density", "malekhiv");
       return () => {
