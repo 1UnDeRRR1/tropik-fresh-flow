@@ -935,22 +935,46 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   left: 0;
   right: 0;
   pointer-events: none;
-  z-index: 35;
+  z-index: 45;
   opacity: calc(var(--spot-on, 0) * 1);
   transition: opacity 200ms ease-out;
-  mix-blend-mode: lighten;
+  mix-blend-mode: normal;
   background-image: radial-gradient(
-    320px 320px at calc(var(--x, -9999) * 1px) calc(var(--y, -9999) * 1px),
-    hsl(var(--hue, 220) 100% 60% / 1),
-    hsl(calc(var(--hue, 220) + 40) 100% 55% / 0.85) 35%,
-    hsl(calc(var(--hue, 220) + 80) 100% 50% / 0.4) 60%,
+    300px 300px at calc(var(--x, -9999) * 1px) calc(var(--y, -9999) * 1px),
+    hsl(var(--hue, 220) 100% 66% / 0.78),
+    hsl(calc(var(--hue, 220) + 42) 100% 58% / 0.48) 34%,
+    hsl(calc(var(--hue, 220) + 86) 100% 54% / 0.22) 58%,
     transparent 80%
   );
   background-repeat: no-repeat;
+  filter: saturate(1.35) brightness(1.08);
 }
 .malekhiv-profile-spotlight[data-mlk-profile-theme="dark"] {
-  mix-blend-mode: darken;
   opacity: calc(var(--spot-on, 0) * 0.5);
+  filter: saturate(1.45) brightness(1.15);
+}
+
+body[data-branch-density="malekhiv"] :is(.bg-card, [class*="bg-card/"], [class*="bg-card\\/"], button, a, input, select, textarea) {
+  position: relative;
+}
+body[data-branch-density="malekhiv"] :is(.bg-card, [class*="bg-card/"], [class*="bg-card\\/"], button, a, input, select, textarea)::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--mlk-profile-spot-on, 0);
+  background: radial-gradient(
+    180px 180px at calc(var(--mlk-profile-vx, -9999) * 1px) calc(var(--mlk-profile-vy, -9999) * 1px),
+    hsl(var(--mlk-profile-hue, 220) 100% 62% / 0.95),
+    transparent 72%
+  );
+  background-attachment: fixed;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  padding: 2px;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
 }
 
 
