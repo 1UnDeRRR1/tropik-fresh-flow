@@ -7,6 +7,24 @@ import { SectionCard, EmptyState } from "@/components/cards";
 import { cn } from "@/lib/utils";
 import { useAuth, type AppRole } from "@/lib/auth";
 import { CostPair } from "@/components/CostPair";
+import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+
+// Same compact ETA format used in "Головна" branch list (e.g. "12 черв.").
+const fmtEtaShort = (eta: string | null) => {
+  if (!eta) return "—";
+  const d = new Date(eta);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mo = d.toLocaleDateString("uk-UA", { month: "short" }).replace(/\.$/, "");
+  return `${day}\u202F${mo}.`;
+};
+
+// Same manager abbreviation as branch list: "Назар Лукач" → "Назар Л.".
+const shortenManager = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+};
 
 export const Route = createFileRoute("/_authenticated/archive")({
   component: ArchivePage,
