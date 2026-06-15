@@ -124,11 +124,34 @@ function Settings() {
   }
 
 
-  // Non-owner roles: unchanged behaviour. No decorative profile background —
-  // any branding for these users now lives in the per-section mobile header
-  // (see AppShell + branch-assets).
+  // Non-owner roles. Only render the decorative profile background when the
+  // current user has one in their personal package (e.g. Лукач). Малехів no
+  // longer has a profile background — branding lives in the per-section
+  // mobile header instead.
   return (
     <div className="relative space-y-4">
+      {hasProfileBg && personal && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-background"
+        >
+          <picture className="absolute inset-0 block h-full w-full">
+            <source media="(max-width: 767px)" type="image/webp" srcSet={personal.profileBgMobileWebp} />
+            <source media="(max-width: 767px)" type="image/png" srcSet={personal.profileBgMobilePng} />
+            <source media="(min-width: 768px)" type="image/webp" srcSet={personal.profileBgDesktopWebp} />
+            <source media="(min-width: 768px)" type="image/png" srcSet={personal.profileBgDesktopPng} />
+            <img
+              src={personal.profileBgDesktopPng ?? personal.profileBgMobilePng}
+              alt=""
+              className="h-full w-full object-cover object-center"
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+            />
+          </picture>
+        </div>
+      )}
+
       <div className="relative z-10 space-y-4 pt-16">
         {ThemeToggle}
         <ShinyButton
