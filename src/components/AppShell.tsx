@@ -530,18 +530,67 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
   // Personal headers on mobile are pinned to the viewport top so the picture
-  // never drifts under scroll. The owner banner was always pinned; branch
-  // personal headers now follow the same rule per design request.
+  // never drifts under scroll. Branches that opt into per-section mobile
+  // headers (e.g. Malekhiv) only show a banner on Головна and Профіль —
+  // other tabs fall back to neutral chrome on mobile.
+  const isProfileRoute = pathname.startsWith("/settings");
+  const isHomeRoute =
+    pathname === dashHref || pathname.startsWith("/dashboard");
+
+  type MobileHeaderSrc = {
+    webp?: string;
+    png?: string;
+    webpDark?: string;
+    pngDark?: string;
+    width?: number;
+    height?: number;
+  };
+  const mobileHeader: MobileHeaderSrc | null = (() => {
+    if (isOwner || !personalAssets) return null;
+    if (personalAssets.mobileSectionsOnly) {
+      if (isProfileRoute && personalAssets.headerMobileProfileWebp) {
+        return {
+          webp: personalAssets.headerMobileProfileWebp,
+          png: personalAssets.headerMobileProfilePng,
+          webpDark: personalAssets.headerMobileProfileWebpDark,
+          pngDark: personalAssets.headerMobileProfilePngDark,
+          width: personalAssets.headerMobileWidth,
+          height: personalAssets.headerMobileHeight,
+        };
+      }
+      if (isHomeRoute && personalAssets.headerMobileWebp) {
+        return {
+          webp: personalAssets.headerMobileWebp,
+          png: personalAssets.headerMobilePng,
+          webpDark: personalAssets.headerMobileWebpDark,
+          pngDark: personalAssets.headerMobilePngDark,
+          width: personalAssets.headerMobileWidth,
+          height: personalAssets.headerMobileHeight,
+        };
+      }
+      return null;
+    }
+    if (personalAssets.headerMobileWebp) {
+      return {
+        webp: personalAssets.headerMobileWebp,
+        png: personalAssets.headerMobilePng,
+        webpDark: personalAssets.headerMobileWebpDark,
+        pngDark: personalAssets.headerMobilePngDark,
+        width: personalAssets.headerMobileWidth,
+        height: personalAssets.headerMobileHeight,
+      };
+    }
+    return null;
+  })();
+
   const hasPersonalHeaderBanner =
-    !isOwner &&
-    !!personalAssets?.headerDesktopWebp &&
-    !!personalAssets?.headerMobileWidth &&
-    !!personalAssets?.headerMobileHeight;
+    !isOwner && !!mobileHeader && !!mobileHeader.width && !!mobileHeader.height;
   const pinPersonalHeader =
     !!(isOwner && ownerMobileBanner) || hasPersonalHeaderBanner;
   const personalHeaderMobilePadVw = hasPersonalHeaderBanner
-    ? (personalAssets!.headerMobileHeight! / personalAssets!.headerMobileWidth!) * 100
+    ? (mobileHeader!.height! / mobileHeader!.width!) * 100
     : null;
+
 
 
   // Deterministic header-height compensation: measure the real <header>
