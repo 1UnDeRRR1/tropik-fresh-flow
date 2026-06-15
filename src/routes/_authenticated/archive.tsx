@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 import { cn } from "@/lib/utils";
 import { useAuth, type AppRole } from "@/lib/auth";
+import { CostPair } from "@/components/CostPair";
 
 export const Route = createFileRoute("/_authenticated/archive")({
   component: ArchivePage,
