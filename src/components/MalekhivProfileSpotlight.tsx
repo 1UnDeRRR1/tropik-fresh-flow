@@ -61,6 +61,8 @@ export function MalekhivProfileSpotlight() {
       setVar("--xp", xp.toFixed(3));
       setVar("--yp", yp.toFixed(3));
       setVar("--hue", hue.toFixed(1));
+      root.style.setProperty("--mlk-profile-vx", viewportX.toFixed(2));
+      root.style.setProperty("--mlk-profile-vy", viewportY.toFixed(2));
       setOn(insideZone);
       raf = 0;
     };
@@ -154,7 +156,7 @@ export function MalekhivProfileSpotlight() {
       ro.disconnect();
       window.clearTimeout(offTimer);
       if (raf) window.cancelAnimationFrame(raf);
-      ["x", "y", "xp", "yp", "hue", "spot-on"].forEach((name) => {
+      ["x", "y", "xp", "yp", "hue", "spot-on", "vx", "vy"].forEach((name) => {
         root.style.removeProperty(`--mlk-profile-${name}`);
       });
     };
