@@ -549,6 +549,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
   const mobileHeader: MobileHeaderSrc | null = (() => {
     if (isOwner || !personalAssets) return null;
+    // 1) Per-route override map (longest-prefix wins).
+    if (personalAssets.mobileHeaderByRoute && personalAssets.mobileHeaderByRoute.length) {
+      const match = personalAssets.mobileHeaderByRoute
+        .filter((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`) || pathname.startsWith(r.prefix))
+        .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+      if (match) {
+        return {
+          webp: match.webp,
+          png: match.png,
+          webpDark: match.webpDark,
+          pngDark: match.pngDark,
+          width: match.width,
+          height: match.height,
+        };
+      }
+    }
     if (personalAssets.mobileSectionsOnly) {
       if (isProfileRoute && personalAssets.headerMobileProfileWebp) {
         return {
