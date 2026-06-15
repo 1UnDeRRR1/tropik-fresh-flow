@@ -913,16 +913,21 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 }
 
 /* ============================================================
-   Malekhiv-only spotlight (all tabs).
+   Malekhiv-only Spotlight-Card overlay (all tabs).
    Component: <MalekhivProfileSpotlight/> (mounted globally in
-   AppShell for the Malekhiv branch user).
-   - Fixed overlay vertically bounded by header bottom and bottom
-     nav top (top/bottom set inline by JS).
-   - Rainbow conic gradient revealed through a radial alpha mask
-     that follows the pointer.
-   - No mix-blend-mode: the spotlight paints colors on top of the
-     UI but does NOT blend with the page background image.
-   - Light theme: 100% effect intensity. Dark theme: 50%.
+   AppShell for the Malekhiv branch user). Based on the Ruixen
+   Spotlight-Card model: pointer drives --x/--y/--xp/--yp/--hue
+   and a radial gradient paints a colored highlight under the
+   cursor. Adapted from a per-card decoration into a full-bleed
+   overlay vertically bounded by the header bottom and the
+   bottom-nav top (top/bottom set inline by JS).
+
+   Theme behaviour:
+   - Light theme: mix-blend-mode: difference, 100% intensity.
+     Dark pixels (digits, letters, frames, buttons) light up in
+     color when the spotlight passes over them.
+   - Dark theme: mix-blend-mode: screen, 50% intensity. Light
+     pixels (digits, letters, frames, buttons) light up in color.
    ============================================================ */
 @media (prefers-reduced-motion: no-preference) {
   .malekhiv-profile-spotlight {
@@ -933,35 +938,16 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
     z-index: 35;
     opacity: calc(var(--spot-on, 0) * 1);
     transition: opacity 200ms ease-out;
-    background:
-      conic-gradient(
-        from 0deg at var(--sx, -9999px) var(--sy, -9999px),
-        hsl(0   95% 60% / 0.85),
-        hsl(35  95% 60% / 0.85),
-        hsl(60  95% 60% / 0.85),
-        hsl(140 80% 55% / 0.85),
-        hsl(190 90% 55% / 0.85),
-        hsl(230 90% 65% / 0.85),
-        hsl(280 85% 65% / 0.85),
-        hsl(330 90% 60% / 0.85),
-        hsl(0   95% 60% / 0.85)
-      );
-    -webkit-mask-image: radial-gradient(
-      160px 160px at var(--sx, -9999px) var(--sy, -9999px),
-      #000 0%,
-      rgba(0, 0, 0, 0.85) 30%,
-      rgba(0, 0, 0, 0.35) 65%,
-      transparent 85%
-    );
-    mask-image: radial-gradient(
-      160px 160px at var(--sx, -9999px) var(--sy, -9999px),
-      #000 0%,
-      rgba(0, 0, 0, 0.85) 30%,
-      rgba(0, 0, 0, 0.35) 65%,
-      transparent 85%
+    mix-blend-mode: difference;
+    background-image: radial-gradient(
+      260px 260px at calc(var(--x, -9999) * 1px) calc(var(--y, -9999) * 1px),
+      hsl(var(--hue, 220) 100% 60% / 0.95),
+      hsl(calc(var(--hue, 220) + 40) 100% 55% / 0.6) 45%,
+      transparent 78%
     );
   }
   .malekhiv-profile-spotlight[data-mlk-profile-theme="dark"] {
+    mix-blend-mode: screen;
     opacity: calc(var(--spot-on, 0) * 0.5);
   }
 }
