@@ -29,8 +29,11 @@ export function MalekhivProfileSpotlight() {
     if (typeof window === "undefined" || !overlay) return;
 
     let raf = 0;
-    let clientX = window.innerWidth / 2;
-    let clientY = window.innerHeight / 2;
+    let viewportX = window.innerWidth / 2;
+    let viewportY = window.innerHeight / 2;
+    let localX = window.innerWidth / 2;
+    let localY = window.innerHeight / 2;
+    let offTimer = 0;
 
     const setVar = (name: string, value: string) =>
       overlay.style.setProperty(name, value);
@@ -39,17 +42,19 @@ export function MalekhivProfileSpotlight() {
       const rect = overlay.getBoundingClientRect();
       const w = window.innerWidth || 1;
       const h = window.innerHeight || 1;
-      const xp = clientX / w;
-      const yp = clientY / h;
+      const xp = viewportX / w;
+      const yp = viewportY / h;
       const insideZone =
-        clientY >= rect.top &&
-        clientY <= rect.bottom &&
-        clientX >= rect.left &&
-        clientX <= rect.right;
+        viewportY >= rect.top &&
+        viewportY <= rect.bottom &&
+        viewportX >= rect.left &&
+        viewportX <= rect.right;
       // GlowCard hue formula: base 220 (blue) + xp * 200 → blue → red sweep.
       const hue = 220 + xp * 200;
-      setVar("--x", clientX.toFixed(2));
-      setVar("--y", clientY.toFixed(2));
+      // CSS gradients are painted inside the bounded overlay, so mobile/touch
+      // viewport coordinates must be converted to overlay-local coordinates.
+      setVar("--x", localX.toFixed(2));
+      setVar("--y", localY.toFixed(2));
       setVar("--xp", xp.toFixed(3));
       setVar("--yp", yp.toFixed(3));
       setVar("--hue", hue.toFixed(1));
@@ -58,10 +63,25 @@ export function MalekhivProfileSpotlight() {
     };
 
     const setOn = (on: boolean) => setVar("--spot-on", on ? "1" : "0");
+    const keepOnBriefly = () => {
+      window.clearTimeout(offTimer);
+      offTimer = window.setTimeout(() => setOn(false), 1800);
+    };
 
     const updateFromEvent = (nextX: number, nextY: number) => {
-      clientX = Math.max(0, Math.min(window.innerWidth, nextX));
-      clientY = Math.max(0, Math.min(window.innerHeight, nextY));
+      const rect = overlay.getBoundingClientRect();
+      viewportX = Math.max(0, Math.min(window.innerWidth, nextX));
+      viewportY = Math.max(0, Math.min(window.innerHeight, nextY));
+      localX = Math.max(0, Math.min(rect.width, viewportX - rect.left));
+      localY = Math.max(0, Math.min(rect.height, viewportY - rect.top));
+      const insideZone =
+        viewportY >= rect.top &&
+        viewportY <= rect.bottom &&
+        viewportX >= rect.left &&
+        viewportX <= rect.right;
+      // On mobile a tap can end before the next frame is painted. Flip the
+      // opacity gate immediately, then let rAF update the gradient position.
+      setOn(insideZone);
       if (!raf) raf = window.requestAnimationFrame(flush);
     };
 
@@ -69,11 +89,21 @@ export function MalekhivProfileSpotlight() {
       updateFromEvent(e.clientX, e.clientY);
     const onPointerDown = (e: PointerEvent) =>
       updateFromEvent(e.clientX, e.clientY);
+    const onPointerUp = () => keepOnBriefly();
+    const onPointerCancel = () => keepOnBriefly();
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      window.clearTimeout(offTimer);
+      updateFromEvent(t.clientX, t.clientY);
+    };
     const onTouchMove = (e: TouchEvent) => {
       const t = e.touches[0];
       if (!t) return;
+      window.clearTimeout(offTimer);
       updateFromEvent(t.clientX, t.clientY);
     };
+    const onTouchEnd = () => keepOnBriefly();
 
     const updateZone = () => {
       const header = document.querySelector<HTMLElement>("header");
@@ -91,9 +121,14 @@ export function MalekhivProfileSpotlight() {
     updateZone();
     flush();
 
-    document.addEventListener("pointermove", onPointerMove, { passive: true });
-    document.addEventListener("pointerdown", onPointerDown, { passive: true });
-    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("pointermove", onPointerMove, { passive: true, capture: true });
+    document.addEventListener("pointerdown", onPointerDown, { passive: true, capture: true });
+    document.addEventListener("pointerup", onPointerUp, { passive: true, capture: true });
+    document.addEventListener("pointercancel", onPointerCancel, { passive: true, capture: true });
+    document.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true, capture: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
+    document.addEventListener("touchcancel", onTouchEnd, { passive: true, capture: true });
     window.addEventListener("resize", updateZone);
     window.addEventListener("scroll", updateZone, true);
 
@@ -103,12 +138,18 @@ export function MalekhivProfileSpotlight() {
       .forEach((el) => ro.observe(el));
 
     return () => {
-      document.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("pointermove", onPointerMove, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("pointercancel", onPointerCancel, true);
+      document.removeEventListener("touchstart", onTouchStart, true);
+      document.removeEventListener("touchmove", onTouchMove, true);
+      document.removeEventListener("touchend", onTouchEnd, true);
+      document.removeEventListener("touchcancel", onTouchEnd, true);
       window.removeEventListener("resize", updateZone);
       window.removeEventListener("scroll", updateZone, true);
       ro.disconnect();
+      window.clearTimeout(offTimer);
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, []);
