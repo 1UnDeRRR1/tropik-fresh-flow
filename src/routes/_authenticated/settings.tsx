@@ -131,10 +131,9 @@ function Settings() {
   // current user has one in their personal package (e.g. Лукач). Малехів no
   // longer has a profile background — branding lives in the per-section
   // mobile header instead.
-  const isMalekhiv = profile?.branch_id === MALEKHIV_BRANCH_ID;
   return (
     <div className="relative space-y-4">
-      {isMalekhiv && <MalekhivProfileSpotlight />}
+
       {hasProfileBg && personal && (
         <div
           aria-hidden="true"
