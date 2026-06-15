@@ -651,14 +651,14 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
         {/* ETA */}
         <div className={rowCls}>
           <span className={cn(leftCls, "font-mono text-info")}>
-            {fmtDate(r.promise_eta_snapshot)}
+            {r.promise_eta_snapshot ? `ETA\u202F${fmtEtaShort(r.promise_eta_snapshot)}` : "—"}
           </span>
           <span className={cn(midLabelCls, etaMidBg)}>
             <span className="block">дата прибуття</span>
             {etaNote && (
               <span
                 className={cn(
-                  "block text-[10px] font-bold mt-0.5",
+                  "block text-[10px] font-bold mt-0.5 num-soft",
                   etaDelta! > 0 ? "text-destructive" : "text-success",
                 )}
               >
@@ -667,7 +667,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
             )}
           </span>
           <span className={cn(rightCls, "font-mono text-info")}>
-            {fmtDate(r.actual_eta)}
+            {r.actual_eta ? `ETA\u202F${fmtEtaShort(r.actual_eta)}` : "—"}
           </span>
         </div>
 
@@ -679,7 +679,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
           <span className={cn(midLabelCls, palMidBg)}>
             <span className="block">кількість палет</span>
             {palNote && (
-              <span className="block text-[10px] font-bold text-destructive mt-0.5">
+              <span className="block text-[10px] font-bold text-destructive mt-0.5 num-soft">
                 {palNote}
               </span>
             )}
@@ -687,7 +687,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
           <span className={cn(rightCls, "font-semibold")}>
             {fmtNum(r.delivered_qty)} пал.
             {isSplit ? (
-              <span className="ml-0.5 text-warning" aria-label="split">*</span>
+              <span className="ml-0.5 text-warning num-soft" aria-label="split">*</span>
             ) : null}
           </span>
         </div>
@@ -702,7 +702,7 @@ function DeliveredDetail({ row: r }: { row: UiRow }) {
             {costNote && (
               <span
                 className={cn(
-                  "block text-[10px] font-bold mt-0.5",
+                  "block text-[10px] font-bold mt-0.5 num-soft",
                   costMidBg === "bg-destructive/10"
                     ? "text-destructive"
                     : costMidBg === "bg-success/10"
