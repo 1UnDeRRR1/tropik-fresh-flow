@@ -21,28 +21,35 @@ export type PersonalAssets = {
   headerDesktopPng?: string;
   headerMobileWebp?: string;
   headerMobilePng?: string;
-  // Optional dark-theme variants for the mobile header. When present,
-  // AppShell renders the light variant under the light theme and swaps to
-  // these under the dark theme. Absent = single image for both themes.
+  // Optional dark-theme variants for the default mobile header.
   headerMobileWebpDark?: string;
   headerMobilePngDark?: string;
   headerMobileWidth?: number;
   headerMobileHeight?: number;
   headerDesktopWidth?: number;
   headerDesktopHeight?: number;
+  // Optional per-section mobile header override for the Профіль tab.
+  // When set, AppShell uses this image instead of the default mobile header
+  // when pathname is /settings. Other tabs may be suppressed entirely on
+  // mobile via `mobileSectionsOnly` below.
+  headerMobileProfileWebp?: string;
+  headerMobileProfilePng?: string;
+  headerMobileProfileWebpDark?: string;
+  headerMobileProfilePngDark?: string;
+  // When true, the default mobile header only renders on the Головна
+  // (dashboard) route; other tabs (except Профіль, which has its own
+  // override above) get neutral chrome on mobile. Desktop is unaffected.
+  mobileSectionsOnly?: boolean;
   // Splash / loading overlay shown right after auth resolution.
   splashDesktopWebp?: string;
   splashDesktopPng?: string;
   splashMobileWebp?: string;
   splashMobilePng?: string;
-  // Decorative art-block background for the Профіль page. Sits below content
-  // (z-index 0), no-repeat, pinned to the bottom, contain-sized so nothing
-  // is cropped or stretched.
+  // Decorative art-block background for the Профіль page.
   profileBgDesktopWebp?: string;
   profileBgDesktopPng?: string;
   profileBgMobileWebp?: string;
   profileBgMobilePng?: string;
-  // Optional dark-theme variants for the profile background.
   profileBgMobileWebpDark?: string;
   profileBgMobilePngDark?: string;
   profileBgDesktopWebpDark?: string;
