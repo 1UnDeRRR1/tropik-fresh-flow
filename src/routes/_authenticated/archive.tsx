@@ -459,6 +459,7 @@ function ArchivePage() {
                 <li key={key}>
                   <button
                     type="button"
+                    data-archive-row
                     onClick={() => setExpanded(isOpen ? null : key)}
                     className="w-full py-2 text-left text-sm active:opacity-70"
                   >
@@ -470,7 +471,7 @@ function ArchivePage() {
                       <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
                         {fmtNum(r.ui_qty)}п
                         {tab === "done" && r.is_split_shipment ? (
-                          <span className="ml-0.5 text-warning" aria-label="split">*</span>
+                          <span className="ml-0.5 text-warning num-soft" aria-label="split">*</span>
                         ) : null}
                       </span>
                     </div>
@@ -501,7 +502,10 @@ function ArchivePage() {
                   </button>
 
                   {isOpen && (
-                    <div className="mb-2 mt-1 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                    <div
+                      ref={openCardRef}
+                      className="mb-2 mt-1 rounded-lg border border-border bg-muted/30 p-3 text-xs"
+                    >
                       {tab === "done" ? (
                         <DeliveredDetail row={r} />
                       ) : (
