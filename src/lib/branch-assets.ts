@@ -21,6 +21,11 @@ export type PersonalAssets = {
   headerDesktopPng?: string;
   headerMobileWebp?: string;
   headerMobilePng?: string;
+  // Optional dark-theme variants for the mobile header. When present,
+  // AppShell renders the light variant under the light theme and swaps to
+  // these under the dark theme. Absent = single image for both themes.
+  headerMobileWebpDark?: string;
+  headerMobilePngDark?: string;
   headerMobileWidth?: number;
   headerMobileHeight?: number;
   headerDesktopWidth?: number;
@@ -37,7 +42,13 @@ export type PersonalAssets = {
   profileBgDesktopPng?: string;
   profileBgMobileWebp?: string;
   profileBgMobilePng?: string;
+  // Optional dark-theme variants for the profile background.
+  profileBgMobileWebpDark?: string;
+  profileBgMobilePngDark?: string;
+  profileBgDesktopWebpDark?: string;
+  profileBgDesktopPngDark?: string;
 };
+
 
 export type OwnerBannerAssets = {
   calendar: string;
@@ -93,10 +104,30 @@ const USER_ASSETS: Record<string, PersonalAssets> = {
     headerMobile: [1290, 600],
     headerDesktop: [2880, 720],
   }),
-  [MALEKHIV_USER_ID]: buildFullPackage(MALEKHIV_USER_ID, {
-    headerMobile: [2880, 720],
-    headerDesktop: [2880, 720],
-  }),
+  [MALEKHIV_USER_ID]: (() => {
+    // Malekhiv: desktop header stays as-is; mobile header replaced with a
+    // theme-aware pumpkin-cart photograph (light B&W variant by day, dark
+    // moonlit variant by night). Profile background uses a wheat-field
+    // photograph (no inscription by day, "Україна не згасне" by night).
+    // All four mobile images are 1920x480 (4:1).
+    const base = `/personal-assets/${MALEKHIV_USER_ID}`;
+    const pkg = buildFullPackage(MALEKHIV_USER_ID, {
+      headerMobile: [1920, 480],
+      headerDesktop: [2880, 720],
+    });
+    return {
+      ...pkg,
+      headerMobileWebp: `${base}/header_mobile_light.webp`,
+      headerMobilePng: `${base}/header_mobile_light.png`,
+      headerMobileWebpDark: `${base}/header_mobile_dark.webp`,
+      headerMobilePngDark: `${base}/header_mobile_dark.png`,
+      profileBgMobileWebp: `${base}/profile_bg_mobile_light.webp`,
+      profileBgMobilePng: `${base}/profile_bg_mobile_light.png`,
+      profileBgMobileWebpDark: `${base}/profile_bg_mobile_dark.webp`,
+      profileBgMobilePngDark: `${base}/profile_bg_mobile_dark.png`,
+    };
+  })(),
+
   // Лукач: splash + profile background only (no custom header — neutral chrome).
   [LUKACH_USER_ID]: (() => {
     const base = `/personal-assets/${LUKACH_USER_ID}`;
