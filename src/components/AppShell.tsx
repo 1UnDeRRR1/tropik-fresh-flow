@@ -657,7 +657,7 @@ export function AppShell({ children }: { children: ReactNode }) {
              Mobile picks a per-section image (Малехів: Головна = pumpkin,
              Профіль = wheat, other tabs = neutral chrome). Each mobile slot
              has its own light/dark <picture>; desktop is rendered separately. */
-          <div className="relative w-full pt-safe">
+          <div className="relative w-full">
             {/* Mobile — light theme (only when a banner is configured for this route) */}
             {mobileHeader ? (
               <>
