@@ -968,6 +968,7 @@ function BranchDashboard() {
         <BranchFlatList
           rows={filteredRows}
           onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
+          isMalekhiv={isMalekhiv}
         />
       )}
 
