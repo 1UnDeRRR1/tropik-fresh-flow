@@ -753,11 +753,31 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 }
 
 /* Numeric color softening — dark theme only.
-   Reduces brightness ~20% on numeric values rendered in red/green/yellow/orange
-   semantic colors so they stay readable on dark surfaces. Affects only elements
-   that opt in via the .num-soft class. Light theme unaffected. */
+   Reduces visual aggression ~30% on numeric values rendered in semantic
+   red/green/orange so they stay readable on dark surfaces. Three vectors:
+     1. Opt-in helpers: .num-green / .num-red / .num-orange (preferred for
+        new code and CostPair-like numeric spans).
+     2. Legacy opt-in: .num-soft keeps working as a brightness damper.
+     3. Auto-target: any element using `tabular-nums` together with
+        text-success / text-destructive / text-warning / text-brand is
+        treated as a number and softened. Non-numeric labels never use
+        tabular-nums so they are untouched. Light theme unaffected.
+   Backgrounds, icons, borders and status chips are not modified. */
 .dark .num-soft {
-  opacity: 0.8;
+  opacity: 0.72;
+}
+.dark .num-green,
+.dark .tabular-nums.text-success {
+  color: color-mix(in oklab, var(--color-success) 70%, var(--color-foreground) 30%);
+}
+.dark .num-red,
+.dark .tabular-nums.text-destructive {
+  color: color-mix(in oklab, var(--color-destructive) 70%, var(--color-foreground) 30%);
+}
+.dark .num-orange,
+.dark .tabular-nums.text-warning,
+.dark .tabular-nums.text-brand {
+  color: color-mix(in oklab, var(--color-warning) 70%, var(--color-foreground) 30%);
 }
 
 
