@@ -362,30 +362,54 @@ function ArchivePage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        <select
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-        >
-          <option value="">Усі товари</option>
-          {productOptions.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <select
-          value={countryFilter}
-          onChange={(e) => setCountryFilter(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-        >
-          <option value="">Усі країни</option>
-          {countryOptions.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        {isMalekhiv ? (
+          <div className="min-w-0 flex-1">
+            <ShinyFilterSelect
+              value={productFilter}
+              onChange={setProductFilter}
+              options={productOptions.map((p) => ({ value: p, label: p }))}
+              allLabel="Всі товари"
+              allValue=""
+            />
+          </div>
+        ) : (
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          >
+            <option value="">Усі товари</option>
+            {productOptions.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        )}
+        {isMalekhiv ? (
+          <div className="min-w-0 flex-1">
+            <ShinyFilterSelect
+              value={countryFilter}
+              onChange={setCountryFilter}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+              allLabel="Всі країни"
+              allValue=""
+            />
+          </div>
+        ) : (
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          >
+            <option value="">Усі країни</option>
+            {countryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
         {tab === "notdone" && (
           <select
             value={eventFilter}
