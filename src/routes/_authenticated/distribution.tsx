@@ -300,6 +300,14 @@ function BranchFreeList() {
     });
     setSubmitting(false);
     if (error) {
+      if (typeof error.message === "string" && error.message.includes("BSR_INSERT_NO_POSITION_FOR_ITEM")) {
+        toast.error("Позиція недоступна для заявки. Оновіть список або зверніться до менеджера.");
+        setPick(null);
+        qc.invalidateQueries({ queryKey: ["branch-free-items"] });
+        qc.invalidateQueries({ queryKey: ["branch-free-ships"] });
+        qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
+        return;
+      }
       toast.error(error.message);
       return;
     }
@@ -309,6 +317,7 @@ function BranchFreeList() {
     qc.invalidateQueries({ queryKey: ["branch-free-ships"] });
     qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
   };
+
 
   return (
     <div className="space-y-4">
