@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
-import { Plus, AlertTriangle, CheckCircle2, Package, MailQuestion, ChevronRight } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2, ChevronRight, MailQuestion, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { StatCard, SectionCard, EmptyState } from "@/components/cards";
@@ -14,6 +14,8 @@ import { useAuth } from "@/lib/auth";
 import { useStableQueryData } from "@/lib/query-stability";
 import { toUaCountry } from "@/lib/countries";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { BranchPendingResponsesSheet, useBranchPendingResponses } from "@/components/BranchPendingResponsesSheet";
+import { toast } from "sonner";
 
 interface ActiveOverviewRow {
   shipment_id: string;
@@ -62,6 +64,9 @@ function ManagerDashboard() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
+  const [pendingSheetOpen, setPendingSheetOpen] = useState(false);
+  const pendingQuery = useBranchPendingResponses();
+  const pending = pendingQuery.data;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -274,24 +279,47 @@ function ManagerDashboard() {
           </div>
         </Link>
 
-        <StatCard
-          label="Не розподілено"
-          value={`${data?.notDist.ships ?? 0}(${data?.notDist.pallets ?? 0}п)`}
-          hint="Очікують розподілу"
-          icon={<Package className="h-4 w-4" />}
-          tone="warning"
-          to="/distribution"
-          hash="not"
-        />
+        <button
+          type="button"
+          onClick={() => setPendingSheetOpen(true)}
+          className="block h-full text-left"
+        >
+          <div className="h-full rounded-2xl border border-transparent bg-primary p-4 text-primary-foreground shadow-card transition-transform duration-150 active:scale-[0.9]">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold uppercase tracking-wide opacity-90">Заявки філій</span>
+              <MailQuestion className="h-4 w-4" />
+            </div>
+            {(pending?.pallets ?? 0) > 0 ? (
+              <>
+                <div className="mt-2 text-xs opacity-90">
+                  {pending!.branches} філій · {pending!.positions} позицій
+                </div>
+                <div className="text-2xl font-black tracking-tight">{pending!.pallets}п</div>
+                <div className="mt-1 text-xs opacity-80">Очікують підтвердження</div>
+              </>
+            ) : (
+              <>
+                <div className="mt-2 text-2xl font-black tracking-tight">0</div>
+                <div className="mt-1 text-xs opacity-80">Очікують підтвердження</div>
+              </>
+            )}
+          </div>
+        </button>
 
-        <StatCard
-          label="Заявки філій"
-          value={data?.requests ?? 0}
-          hint="Запити від філій"
-          icon={<MailQuestion className="h-4 w-4" />}
-          tone="primary"
-          to="/branch-requests"
-        />
+        <button
+          type="button"
+          onClick={() => toast("Потреби філій ще не додані")}
+          className="block h-full text-left"
+        >
+          <div className="h-full rounded-2xl border border-dashed border-border bg-muted/40 p-4 shadow-card transition-transform duration-150 active:scale-[0.9]">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold uppercase tracking-wide text-foreground">Потреби філій</span>
+              <Sparkles className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="mt-2 text-2xl font-black tracking-tight text-foreground">0</div>
+            <div className="mt-1 text-xs text-muted-foreground">Скоро</div>
+          </div>
+        </button>
       </div>
 
       <Tabs defaultValue="plan" className="w-full">
@@ -369,6 +397,12 @@ function ManagerDashboard() {
         plan={selectedPlan}
         open={!!selectedPlan}
         onOpenChange={(o) => !o && setSelectedPlan(null)}
+      />
+
+      <BranchPendingResponsesSheet
+        open={pendingSheetOpen}
+        onOpenChange={setPendingSheetOpen}
+        rows={pending?.rows ?? []}
       />
     </div>
   );
