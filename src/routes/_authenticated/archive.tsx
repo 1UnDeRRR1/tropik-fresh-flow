@@ -411,20 +411,34 @@ function ArchivePage() {
           </select>
         )}
         {tab === "notdone" && (
-          <select
-            value={eventFilter}
-            onChange={(e) => setEventFilter(e.target.value as EventFilter)}
-            className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-          >
-            <option value="all">Усі події</option>
-            {(["refused", "cancelled", "not_fulfilled", "cut"] as UiEventType[])
-              .filter((t) => availableEventTypes.has(t))
-              .map((t) => (
-                <option key={t} value={t}>
-                  {EVENT_LABEL[t]}
-                </option>
-              ))}
-          </select>
+          isMalekhiv ? (
+            <div className="min-w-0 flex-1">
+              <ShinyFilterSelect
+                value={eventFilter}
+                onChange={(v) => setEventFilter(v as EventFilter)}
+                options={(["refused", "cancelled", "not_fulfilled", "cut"] as UiEventType[])
+                  .filter((t) => availableEventTypes.has(t))
+                  .map((t) => ({ value: t, label: EVENT_LABEL[t] }))}
+                allLabel="Всі події"
+                allValue="all"
+              />
+            </div>
+          ) : (
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value as EventFilter)}
+              className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+            >
+              <option value="all">Усі події</option>
+              {(["refused", "cancelled", "not_fulfilled", "cut"] as UiEventType[])
+                .filter((t) => availableEventTypes.has(t))
+                .map((t) => (
+                  <option key={t} value={t}>
+                    {EVENT_LABEL[t]}
+                  </option>
+                ))}
+            </select>
+          )
         )}
       </div>
 
