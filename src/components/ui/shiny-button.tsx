@@ -4,12 +4,15 @@ import { motion, type HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 /**
- * Ruixen "Shiny Button" — visual port from the uploaded design.
- * Uses framer-motion to animate the `--x` CSS variable that drives the
- * sweeping shine on both the label (via mask) and the border ring.
+ * Ruixen / MagicUI "Shiny Button" — visual port from
+ * https://21st.dev/community/components/magicui/shiny-button/default
  *
- * Colors are themed via the `--primary` HSL CSS variable so it works in
- * both light and dark modes without any per-instance overrides.
+ * Implementation note: the project's `--primary` token is stored as an
+ * `oklch(...)` color, not as raw `H S L` channels, so the original
+ * `hsl(var(--primary))` form produced invalid CSS and the shine was
+ * completely invisible. We use `var(--primary)` directly for solid stops
+ * and `color-mix(in oklab, var(--primary) X%, transparent)` for the
+ * translucent stops — both render correctly with any color space.
  */
 
 const animationProps = {
@@ -33,6 +36,12 @@ const animationProps = {
   },
 } as const;
 
+const labelMask =
+  "linear-gradient(-75deg, var(--primary) calc(var(--x) + 20%), transparent calc(var(--x) + 30%), var(--primary) calc(var(--x) + 100%))";
+
+const ringGradient =
+  "linear-gradient(-75deg, color-mix(in oklab, var(--primary) 10%, transparent) calc(var(--x) + 20%), color-mix(in oklab, var(--primary) 50%, transparent) calc(var(--x) + 25%), color-mix(in oklab, var(--primary) 10%, transparent) calc(var(--x) + 100%))";
+
 export interface ShinyButtonProps
   extends Omit<HTMLMotionProps<"button">, "children"> {
   children: React.ReactNode;
@@ -40,25 +49,24 @@ export interface ShinyButtonProps
 }
 
 export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>(
-  ({ children, className, type = "button", ...props }, ref) => {
+  ({ children, className, type = "button", style, ...props }, ref) => {
     return (
       <motion.button
         ref={ref}
         type={type}
         {...animationProps}
         {...props}
+        style={{ ...(style as React.CSSProperties), ["--x" as string]: "100%" }}
         className={cn(
-          "relative rounded-lg px-6 py-2 font-medium backdrop-blur-xl transition-shadow duration-300 ease-in-out hover:shadow dark:bg-[radial-gradient(circle_at_50%_0%,hsl(var(--primary)/10%)_0%,transparent_60%)] dark:hover:shadow-[0_0_20px_hsl(var(--primary)/10%)]",
+          "relative rounded-lg px-6 py-2 font-medium backdrop-blur-xl transition-shadow duration-300 ease-in-out hover:shadow dark:hover:shadow-[0_0_20px_color-mix(in_oklab,var(--primary)_10%,transparent)]",
           className,
         )}
       >
         <span
           className="relative block size-full text-sm uppercase tracking-wide text-[rgb(0,0,0,65%)] dark:font-light dark:text-[rgb(255,255,255,90%)]"
           style={{
-            maskImage:
-              "linear-gradient(-75deg,hsl(var(--primary)) calc(var(--x) + 20%),transparent calc(var(--x) + 30%),hsl(var(--primary)) calc(var(--x) + 100%))",
-            WebkitMaskImage:
-              "linear-gradient(-75deg,hsl(var(--primary)) calc(var(--x) + 20%),transparent calc(var(--x) + 30%),hsl(var(--primary)) calc(var(--x) + 100%))",
+            maskImage: labelMask,
+            WebkitMaskImage: labelMask,
           }}
         >
           {children}
@@ -66,13 +74,14 @@ export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>
         <span
           aria-hidden="true"
           style={{
-            mask: "linear-gradient(rgb(0,0,0), rgb(0,0,0)) content-box,linear-gradient(rgb(0,0,0), rgb(0,0,0))",
+            mask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
             WebkitMask:
-              "linear-gradient(rgb(0,0,0), rgb(0,0,0)) content-box,linear-gradient(rgb(0,0,0), rgb(0,0,0))",
+              "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
             maskComposite: "exclude",
             WebkitMaskComposite: "xor",
+            backgroundImage: ringGradient,
           }}
-          className="absolute inset-0 z-10 block rounded-[inherit] bg-[linear-gradient(-75deg,hsl(var(--primary)/10%)_calc(var(--x)+20%),hsl(var(--primary)/50%)_calc(var(--x)+25%),hsl(var(--primary)/10%)_calc(var(--x)+100%))] p-px"
+          className="absolute inset-0 z-10 block rounded-[inherit] p-px"
         />
       </motion.button>
     );
