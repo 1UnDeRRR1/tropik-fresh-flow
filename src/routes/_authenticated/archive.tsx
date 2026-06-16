@@ -73,6 +73,11 @@ interface ArchiveRow {
   variety_name: string | null;
   responsible_manager_name: string | null;
   shipment_code: string | null;
+  // Manager-only shipment-first grouping needs these extra role-safe fields.
+  // Branch view also exposes them; admin view does too. Safe to select for all roles.
+  shipment_id: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
 }
 
 // UI row: actual archive row + optional derived flag
