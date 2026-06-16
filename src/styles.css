@@ -816,3 +816,22 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 @media (prefers-reduced-motion: reduce) {
   .shiny-filter-trigger::before { animation: none; }
 }
+
+/* ── Malekhiv branch — typography density upgrade (cards/rows only) ─────
+   Scoped strictly under [data-malekhiv-card]. Affects only Malekhiv users.
+   Mobile bumps: main 14→15, meta 11→12, pallets 14→15.
+   Desktop bumps: md → base/12/base, lg → 17/13/18, row padding md → 10px. */
+[data-malekhiv-card] .m-main { font-size: 15px; line-height: 1.25; }
+[data-malekhiv-card] .m-meta { font-size: 12px; line-height: 1.25; }
+[data-malekhiv-card] .m-pal  { font-size: 15px; line-height: 1.2; }
+@media (min-width: 768px) {
+  [data-malekhiv-card] .m-main { font-size: 16px; }
+  [data-malekhiv-card] .m-meta { font-size: 12px; }
+  [data-malekhiv-card] .m-pal  { font-size: 16px; }
+  [data-malekhiv-card] .m-row  { padding-top: 10px; padding-bottom: 10px; }
+}
+@media (min-width: 1024px) {
+  [data-malekhiv-card] .m-main { font-size: 17px; }
+  [data-malekhiv-card] .m-meta { font-size: 13px; }
+  [data-malekhiv-card] .m-pal  { font-size: 18px; }
+}
