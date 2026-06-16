@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/cards";
-import { StatusChip } from "@/components/StatusChip";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toUaCountry } from "@/lib/countries";
@@ -240,8 +240,8 @@ export function BranchPendingResponsesSheet({
                           <span className="font-medium text-foreground">{r.branchName}</span>
                           {r.eta ? <span className="text-muted-foreground"> · ETA {r.eta}</span> : null}
                           {r.status && r.status !== "active" ? (
-                            <span className="ml-1 align-middle">
-                              <StatusChip label={STATUS_LABEL[r.status] ?? r.status} tone="muted" />
+                            <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {STATUS_LABEL[r.status] ?? r.status}
                             </span>
                           ) : null}
                         </div>
