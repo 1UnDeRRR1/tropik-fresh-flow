@@ -9,6 +9,7 @@ import { useAuth, type AppRole } from "@/lib/auth";
 import { CostPair } from "@/components/CostPair";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
+import { ManagerShipmentArchive } from "@/components/archive/ManagerShipmentArchive";
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
