@@ -31,7 +31,7 @@ const animationProps = {
       mass: 0.5,
     },
   },
-} as AnimationProps;
+} as const;
 
 export interface ShinyButtonProps
   extends Omit<HTMLMotionProps<"button">, "children"> {
