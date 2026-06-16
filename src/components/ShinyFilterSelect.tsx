@@ -105,18 +105,18 @@ export function ShinyFilterSelect({
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
+        shineDelay={3}
         className={cn(
-          "shiny-filter-trigger flex h-9 w-full items-center justify-between !px-3 !py-1",
+          "shiny-filter-trigger relative flex h-9 w-full items-center !px-3 !py-1",
           open && "shiny-filter-trigger-open",
         )}
       >
-        <span className="flex w-full items-center justify-between gap-2">
-          <span className={cn("truncate normal-case tracking-normal opacity-95")}>
-            {displayLabel}
-          </span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        <span className="pointer-events-none block w-full truncate px-5 text-center normal-case tracking-normal opacity-95">
+          {displayLabel}
         </span>
+        <ChevronsUpDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
       </ShinyButton>
+
 
       {open ? (
         <div

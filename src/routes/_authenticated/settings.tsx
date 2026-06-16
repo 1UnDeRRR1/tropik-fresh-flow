@@ -159,10 +159,12 @@ function Settings() {
       <div className="relative z-10 space-y-4 pt-16">
         {ThemeToggle}
         <ShinyButton
-          className="relative z-10 flex w-full justify-center h-9 py-0"
+          className="relative z-10 flex h-9 w-full items-center justify-center py-0"
+          shineDelay={profile?.branch_id === "3bb65cb3-27a1-5f18-839a-340271d711fd" ? 3 : 1}
           onClick={handleSignOut}
         >
-          <LogOut className="h-4 w-4" /> Вийти
+          <LogOut className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+          <span className="block w-full text-center">Вийти</span>
         </ShinyButton>
 
       </div>

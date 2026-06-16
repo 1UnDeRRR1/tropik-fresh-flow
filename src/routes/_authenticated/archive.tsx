@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { useAuth, type AppRole } from "@/lib/auth";
 import { CostPair } from "@/components/CostPair";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
+import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
 // Same compact ETA format used in "Головна" branch list (e.g. "12 черв.").
 const fmtEtaShort = (eta: string | null) => {
@@ -124,7 +127,8 @@ type Tab = "done" | "notdone";
 type EventFilter = "all" | UiEventType;
 
 function ArchivePage() {
-  const { primaryRole } = useAuth();
+  const { primaryRole, profile } = useAuth();
+  const isMalekhiv = profile?.branch_id === MALEKHIV_BRANCH_ID;
   const view = viewForRole(primaryRole);
   const [tab, setTab] = useState<Tab>("done");
   const [productFilter, setProductFilter] = useState<string>("");
@@ -358,30 +362,54 @@ function ArchivePage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        <select
-          value={productFilter}
-          onChange={(e) => setProductFilter(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-        >
-          <option value="">Усі товари</option>
-          {productOptions.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <select
-          value={countryFilter}
-          onChange={(e) => setCountryFilter(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-        >
-          <option value="">Усі країни</option>
-          {countryOptions.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        {isMalekhiv ? (
+          <div className="min-w-0 flex-1">
+            <ShinyFilterSelect
+              value={productFilter}
+              onChange={setProductFilter}
+              options={productOptions.map((p) => ({ value: p, label: p }))}
+              allLabel="Всі товари"
+              allValue=""
+            />
+          </div>
+        ) : (
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          >
+            <option value="">Усі товари</option>
+            {productOptions.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        )}
+        {isMalekhiv ? (
+          <div className="min-w-0 flex-1">
+            <ShinyFilterSelect
+              value={countryFilter}
+              onChange={setCountryFilter}
+              options={countryOptions.map((c) => ({ value: c, label: c }))}
+              allLabel="Всі країни"
+              allValue=""
+            />
+          </div>
+        ) : (
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          >
+            <option value="">Усі країни</option>
+            {countryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
         {tab === "notdone" && (
           <select
             value={eventFilter}

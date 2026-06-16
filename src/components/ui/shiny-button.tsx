@@ -13,26 +13,28 @@ import { cn } from "@/lib/utils";
  * translucent stops — both render correctly with any color space.
  */
 
-const animationProps = {
-  initial: { "--x": "100%", scale: 0.8 },
-  animate: { "--x": "-100%", scale: 1 },
-  whileTap: { scale: 0.95 },
-  transition: {
-    repeat: Infinity,
-    repeatType: "loop",
-    repeatDelay: 1,
-    type: "spring",
-    stiffness: 20,
-    damping: 15,
-    mass: 2,
-    scale: {
+const buildAnimationProps = (shineDelay: number) =>
+  ({
+    initial: { "--x": "100%", scale: 0.8 },
+    animate: { "--x": "-100%", scale: 1 },
+    whileTap: { scale: 0.95 },
+    transition: {
+      repeat: Infinity,
+      repeatType: "loop",
+      repeatDelay: shineDelay,
       type: "spring",
-      stiffness: 200,
-      damping: 5,
-      mass: 0.5,
+      stiffness: 20,
+      damping: 15,
+      mass: 2,
+      scale: {
+        type: "spring",
+        stiffness: 200,
+        damping: 5,
+        mass: 0.5,
+      },
     },
-  },
-} as const;
+  }) as const;
+
 
 const labelMask =
   "linear-gradient(-75deg, var(--primary) calc(var(--x) + 20%), transparent calc(var(--x) + 30%), var(--primary) calc(var(--x) + 100%))";
@@ -43,10 +45,17 @@ const ringGradient =
 export interface ShinyButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
   children: React.ReactNode;
   className?: string;
+  /**
+   * Delay (in seconds) between sweep repeats. Increase to make the shiny
+   * effect appear less frequently without changing sweep speed.
+   * Default mirrors the original Ruixen component (1s).
+   */
+  shineDelay?: number;
 }
 
 export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>(
-  ({ children, className, type = "button", style, ...props }, ref) => {
+  ({ children, className, type = "button", style, shineDelay = 1, ...props }, ref) => {
+    const animationProps = buildAnimationProps(shineDelay);
     return (
       <motion.button
         ref={ref}
