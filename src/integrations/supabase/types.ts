@@ -3520,8 +3520,32 @@ export type Database = {
       }
       archive_due_cancelled_shipments: { Args: never; Returns: number }
       archive_due_unloaded_shipments: { Args: never; Returns: number }
+      archive_resolver_cancelled_pass: {
+        Args: { p_snapshot_id?: string }
+        Returns: {
+          action: string
+          detail: string
+          snapshot_id: string
+        }[]
+      }
       archive_resolver_run: {
         Args: { p_run_date: string; p_snapshot_id?: string }
+        Returns: {
+          action: string
+          detail: string
+          snapshot_id: string
+        }[]
+      }
+      archive_write_cancelled_for_shipment: {
+        Args: { p_reason?: string; p_shipment_id: string }
+        Returns: {
+          action: string
+          detail: string
+          snapshot_id: string
+        }[]
+      }
+      archive_write_cancelled_for_snapshot: {
+        Args: { p_reason?: string; p_snapshot_id: string }
         Returns: {
           action: string
           detail: string
