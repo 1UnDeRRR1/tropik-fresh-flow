@@ -249,6 +249,19 @@ function BranchOffersPage() {
       // Deleted/cancelled offers belong to Tropik Archive — never show in active workflow,
       // even when a branch response exists (defense-in-depth against fallback below).
       if (o.status === "deleted") return false;
+      // Legacy terminal zero-approved cleanup ONLY: pre-rule rows where the offer was
+      // closed and this branch's response was left at approved_pallets=0 without an
+      // explicit refused_at path. These belong to Archive (Build H backfill), not the
+      // active workflow. Does NOT change refusal semantics for new responses.
+      if (
+        o.status === "closed" &&
+        myR &&
+        myR.approved_pallets === 0 &&
+        myR.refused_at == null &&
+        (myR.requested_pallets ?? 0) > 0
+      ) {
+        return false;
+      }
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
       if (!myR) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
