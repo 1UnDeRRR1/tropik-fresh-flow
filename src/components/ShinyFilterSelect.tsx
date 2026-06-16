@@ -106,7 +106,10 @@ export function ShinyFilterSelect({
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="shiny-filter-trigger flex h-9 w-full items-center justify-between !px-3 !py-1"
+        className={cn(
+          "shiny-filter-trigger flex h-9 w-full items-center justify-between !px-3 !py-1",
+          open && "shiny-filter-trigger-open",
+        )}
       >
         <span className="flex w-full items-center justify-between gap-2">
           <span
