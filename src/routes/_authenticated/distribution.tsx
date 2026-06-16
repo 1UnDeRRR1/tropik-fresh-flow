@@ -334,7 +334,7 @@ function BranchFreeList() {
         <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
       ) : (
         <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border" data-malekhiv-card={profile?.branch_id === MALEKHIV_BRANCH_ID ? "" : undefined}>
             {rows.map((r) => {
               const countryFull = r.country ? toUaCountry(r.country) : "";
               const countryShortRaw = r.country ? toShortUaCountry(r.country) : "";
@@ -361,16 +361,16 @@ function BranchFreeList() {
                   <button
                     type="button"
                     onClick={() => openOffer(r)}
-                    className="w-full py-2 text-left text-sm active:opacity-70"
+                    className="m-row w-full py-2 text-left text-sm active:opacity-70"
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                      <div className="m-main min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
                         <span className="font-bold">{r.product}</span>
                         {tail ? <span>{tail}</span> : null}
                       </div>
-                      <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">{r.free}п</span>
+                      <span className="m-pal shrink-0 text-sm font-bold tabular-nums text-foreground">{r.free}п</span>
                     </div>
-                    <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                    <div className="m-meta mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
                       <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
                         <span className="font-mono font-semibold text-sky-600 dark:text-sky-300">
                           {"ETA\u202F"}{fmtEtaShort(r.eta)}
