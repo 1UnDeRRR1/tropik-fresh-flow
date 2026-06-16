@@ -625,16 +625,16 @@ function BranchOffersPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedOfferId(o.id)}
-                      className="w-full py-2 text-left text-sm active:opacity-70"
+                      className="m-row w-full py-2 text-left text-sm active:opacity-70"
                     >
                       <div className="flex items-baseline justify-between gap-2">
-                        <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
+                        <div className="m-main min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-foreground">
                           <span className="font-bold">{o.product_name}</span>
                           {tail ? <span>{tail}</span> : null}
                         </div>
                         {palletNode ? <span className="shrink-0">{palletNode}</span> : null}
                       </div>
-                      <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
+                      <div className="m-meta mt-0.5 flex items-baseline justify-between gap-2 text-[11px] font-normal text-muted-foreground">
                         <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">
                           <span className="font-mono font-semibold text-sky-600 dark:text-sky-300">
                             {"ETA\u202F"}{etaStr}
