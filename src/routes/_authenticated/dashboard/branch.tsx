@@ -902,25 +902,46 @@ function BranchDashboard() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
-              <CompactFilterSelect
-                value={productFilter}
-                onChange={setProductFilter}
-                options={productOptions}
-                allLabel="Всі товари"
-                allValue="__all__"
-                aliases={productAliases}
-              />
+              {branchId === MALEKHIV_BRANCH_ID ? (
+                <ShinyFilterSelect
+                  value={productFilter}
+                  onChange={setProductFilter}
+                  options={productOptions}
+                  allLabel="Всі товари"
+                  allValue="__all__"
+                />
+              ) : (
+                <CompactFilterSelect
+                  value={productFilter}
+                  onChange={setProductFilter}
+                  options={productOptions}
+                  allLabel="Всі товари"
+                  allValue="__all__"
+                  aliases={productAliases}
+                />
+              )}
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
-              <CompactFilterSelect
-                value={countryFilter}
-                onChange={setCountryFilter}
-                options={countryOptions}
-                allLabel="Всі країни"
-                allValue="__all__"
-                aliases={countryAliases}
-              />
+              {branchId === MALEKHIV_BRANCH_ID ? (
+                <ShinyFilterSelect
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                  options={countryOptions}
+                  allLabel="Всі країни"
+                  allValue="__all__"
+                />
+              ) : (
+                <CompactFilterSelect
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                  options={countryOptions}
+                  allLabel="Всі країни"
+                  allValue="__all__"
+                  aliases={countryAliases}
+                />
+              )}
+
             </div>
           </div>
           <div className="flex justify-end">
