@@ -596,12 +596,11 @@ export function ManagerShipmentArchive({
                     <button
                       type="button"
                       onClick={() => setOpenBranchKey(b.key)}
-                      className="flex w-full items-start gap-2 py-2.5 text-left active:opacity-70"
+                      className="flex w-full items-start gap-2 py-1.5 text-left active:opacity-70"
                     >
-                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="min-w-0 truncate text-sm font-bold text-foreground">
+                          <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">
                             {b.branch_name ?? "—"}
                           </span>
                           <StatusChip status={b.status} />
