@@ -307,11 +307,19 @@ function BranchFreeList() {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
-            <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
+            {profile?.branch_id === MALEKHIV_BRANCH_ID ? (
+              <ShinyFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} />
+            ) : (
+              <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
+            )}
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
-            <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
+            {profile?.branch_id === MALEKHIV_BRANCH_ID ? (
+              <ShinyFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} />
+            ) : (
+              <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
+            )}
           </div>
         </div>
         <div className="flex justify-end">
