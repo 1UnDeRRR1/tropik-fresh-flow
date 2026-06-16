@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/auth";
 import { useStableQueryData } from "@/lib/query-stability";
 import { toUaCountry } from "@/lib/countries";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { BranchPendingResponsesSheet, useBranchPendingResponses } from "@/components/BranchPendingResponsesSheet";
+import { useBranchPendingResponses } from "@/components/BranchPendingResponsesSheet";
 import { toast } from "sonner";
 
 interface ActiveOverviewRow {
