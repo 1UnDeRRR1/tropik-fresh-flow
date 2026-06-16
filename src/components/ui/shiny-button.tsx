@@ -8,10 +8,8 @@ import { cn } from "@/lib/utils";
  * https://21st.dev/community/components/magicui/shiny-button/default
  *
  * Implementation note: the project's `--primary` token is stored as an
- * `oklch(...)` color, not as raw `H S L` channels, so the original
- * `hsl(var(--primary))` form produced invalid CSS and the shine was
- * completely invisible. We use `var(--primary)` directly for solid stops
- * and `color-mix(in oklab, var(--primary) X%, transparent)` for the
+ * `oklch(...)` color, so the component uses `var(--primary)` directly for
+ * solid stops and `color-mix(in oklab, var(--primary) X%, transparent)` for
  * translucent stops — both render correctly with any color space.
  */
 
