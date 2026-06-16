@@ -45,10 +45,17 @@ const ringGradient =
 export interface ShinyButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
   children: React.ReactNode;
   className?: string;
+  /**
+   * Delay (in seconds) between sweep repeats. Increase to make the shiny
+   * effect appear less frequently without changing sweep speed.
+   * Default mirrors the original Ruixen component (1s).
+   */
+  shineDelay?: number;
 }
 
 export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>(
-  ({ children, className, type = "button", style, ...props }, ref) => {
+  ({ children, className, type = "button", style, shineDelay = 1, ...props }, ref) => {
+    const animationProps = buildAnimationProps(shineDelay);
     return (
       <motion.button
         ref={ref}
