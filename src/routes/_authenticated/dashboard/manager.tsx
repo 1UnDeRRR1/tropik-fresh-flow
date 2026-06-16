@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { Plus, AlertTriangle, CheckCircle2, ChevronRight, MailQuestion, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
