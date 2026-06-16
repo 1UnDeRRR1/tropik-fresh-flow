@@ -144,6 +144,23 @@ function ArchivePage() {
   const openCardRef = useRef<HTMLDivElement | null>(null);
   const suppressNextArchiveRowClickRef = useRef(false);
 
+  // When a card opens, bring its expanded detail to the vertical center of
+  // the viewport so a tap on a bottom row doesn't render the detail under
+  // the mobile bottom navigation. Mobile-friendly, no layout changes.
+  useEffect(() => {
+    if (!expanded) return;
+    const el = openCardRef.current;
+    if (!el) return;
+    const id = window.requestAnimationFrame(() => {
+      try {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+      } catch {
+        el.scrollIntoView();
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [expanded]);
+
   // When a card is open: a pointerdown outside the open card closes the card.
   // If the click target is another archive row, also suppress its click so the
   // first interaction only closes the current card (does not open a new one).
