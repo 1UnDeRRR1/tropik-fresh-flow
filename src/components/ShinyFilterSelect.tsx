@@ -106,13 +106,12 @@ export function ShinyFilterSelect({
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-9 w-full items-center justify-between !px-3 !py-1"
+        className="shiny-filter-trigger flex h-9 w-full items-center justify-between !px-3 !py-1"
       >
         <span className="flex w-full items-center justify-between gap-2">
           <span
             className={cn(
-              "truncate normal-case tracking-normal",
-              value === allValue && "opacity-70",
+              "truncate normal-case tracking-normal opacity-95",
             )}
           >
             {displayLabel}
