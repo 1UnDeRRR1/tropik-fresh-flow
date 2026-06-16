@@ -671,6 +671,29 @@ function ManagerOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Build F — controlled cancel via server fn. Replaces direct status='deleted'
+  // for the trash/delete action so an Archive event is written.
+  const cancelOfferFn = useServerFn(cancelManagerOffer);
+  const cancelOffer = useMutation({
+    mutationFn: async (id: string) => {
+      return await cancelOfferFn({ data: { offerId: id } });
+    },
+    onSuccess: async (res) => {
+      const archived = res?.archived ?? 0;
+      toast.success(
+        archived > 0
+          ? `Пропозицію скасовано (в архів: ${archived})`
+          : "Пропозицію скасовано",
+      );
+      await invalidateOfferWorkflowQueries();
+      await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
+    },
+    onError: async (e: Error) => {
+      toast.error(e.message || "Не вдалося скасувати пропозицію");
+      await invalidateOfferWorkflowQueries();
+    },
+  });
+
   const updateApproved = useMutation({
     mutationFn: async ({ id, approved }: { id: string; approved: number | null }) => {
       const { error } = await supabase
