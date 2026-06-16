@@ -309,48 +309,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [isManager, isAdmin, userId, qc]);
 
-  // Global shipments realtime: keep status across all sections (manager offers,
-  // branches, dashboards, shipments list) in sync without page reload.
-  useEffect(() => {
-    if (!userId) return;
-    const ch = supabase
-      .channel(`shipments-global-${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "shipments" },
-        () => {
-          const keys = [
-            ["shipments-list"],
-            ["manager-offers"],
-            ["manager-offer-responses"],
-            ["manager-offer-linked-shipments"],
-            ["manager-offer-targets"],
-            ["shipments-link-options"],
-            ["link-dialog-offer"],
-            ["branch-requests-full"],
-            ["branch-free"],
-            ["branch-incoming-ships-v3"],
-            ["branch-incoming-dists"],
-            ["branch-offer-shipments"],
-            ["branch-active-offers"],
-            ["my-branch-responses"],
-            ["nav-branch-manager-offers"],
-            ["nav-pending-manager-responses"],
-            ["offers"],
-            ["offers-ships"],
-            ["dash-manager"],
-            ["dash-admin"],
-            ["dash-branch"],
-            ["logistics-rows"],
-          ];
-          for (const key of keys) qc.invalidateQueries({ queryKey: key });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [userId, qc]);
+  // Global shipments realtime — narrowed + debounced.
+  // Per accepted performance plan: AppShell must NOT fan out screen-local
+  // heavy keys (manager-offers, dash-*, branch-active-offers, offers, etc.).
+  // Each screen owns its own targeted useRealtimeInvalidate subscription.
+  // We only keep ["shipments-list"] here so the shipments page header/badge
+  // stays fresh when the user is not currently on that screen, and it goes
+  // through the shared 300ms debounce.
+  useRealtimeInvalidate(
+    `shipments-global-${userId ?? "none"}`,
+    ["shipments"],
+    [["shipments-list"]],
+    !!userId,
+  );
 
   // Malekhiv-only density marker. Scoped CSS in styles.css under
   // body[data-branch-density="malekhiv"] increases the surface opacity for

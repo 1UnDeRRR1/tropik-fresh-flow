@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { LoadingPlanDetailDialog, type PlanDetailItem } from "@/components/LoadingPlanDetailDialog";
 import { Plus, AlertTriangle, CheckCircle2, ChevronRight, MailQuestion, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { useStableQueryData } from "@/lib/query-stability";
 import { toUaCountry } from "@/lib/countries";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useBranchPendingResponses } from "@/components/BranchPendingResponsesSheet";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 import { toast } from "sonner";
 
 interface ActiveOverviewRow {
@@ -62,31 +63,39 @@ interface PlanRow {
 
 function ManagerDashboard() {
   const { user } = useAuth();
-  const qc = useQueryClient();
+  
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
   const pendingQuery = useBranchPendingResponses();
   const pending = pendingQuery.data;
 
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel("loading-plan-manager")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "loading_plan" },
-        () => qc.invalidateQueries({ queryKey: ["dash-manager", user.id] }),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "shipment_items" },
-        () => qc.invalidateQueries({ queryKey: ["dash-manager", user.id] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc, user?.id]);
+  // Single debounced realtime subscription for the manager dashboard.
+  // Replaces three previous raw channels (loading-plan-manager,
+  // active-overview, dash-manager-offers-requests) that all invalidated the
+  // broad ["dash-manager"] prefix without debounce — that caused refetch
+  // storms (multiple repeated spinners) during bursts of writes.
+  // Now: one channel, 300ms debounce (via useRealtimeInvalidate), narrow
+  // query keys only.
+  useRealtimeInvalidate(
+    `dash-manager-${user?.id ?? "none"}`,
+    [
+      "loading_plan",
+      "shipment_items",
+      "shipments",
+      "manager_offers",
+      "manager_offer_responses",
+      "manager_offer_allocation_parts",
+      "branch_requests",
+      "distributions",
+      "distribution_items",
+    ],
+    [
+      ["dash-manager", user?.id],
+      ["dash-manager", "active-overview"],
+      ["dash-manager", "branch-pending-responses", user?.id],
+    ],
+    !!user?.id,
+  );
 
   const activeQuery = useQuery({
     queryKey: ["dash-manager", "active-overview"],
@@ -96,51 +105,6 @@ function ManagerDashboard() {
     },
     refetchInterval: 60_000,
   });
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("active-overview")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shipments" }, () =>
-        qc.invalidateQueries({ queryKey: ["dash-manager", "active-overview"] }),
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "shipment_items" }, () =>
-        qc.invalidateQueries({ queryKey: ["dash-manager", "active-overview"] }),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc]);
-
-  // Targeted realtime for offers/requests/distribution → invalidate the
-  // manager dashboard summaries within ~1-2s instead of waiting 60s.
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel("dash-manager-offers-requests")
-      .on("postgres_changes", { event: "*", schema: "public", table: "manager_offers" }, () => {
-        qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "manager_offer_responses" }, () => {
-        qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "manager_offer_allocation_parts" }, () => {
-        qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "branch_requests" }, () => {
-        qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "distributions" }, () => {
-        qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "distribution_items" }, () => {
-        qc.invalidateQueries({ queryKey: ["dash-manager"] });
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc, user?.id]);
 
 
   const summaryQuery = useQuery({
