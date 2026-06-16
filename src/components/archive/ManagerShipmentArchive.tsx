@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { ChevronRight, ChevronLeft, Package, MapPin, Building2 } from "lucide-react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CostPair } from "@/components/CostPair";
 import { toUaCountry } from "@/lib/countries";
