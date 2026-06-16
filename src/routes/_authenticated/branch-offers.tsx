@@ -246,6 +246,9 @@ function BranchOffersPage() {
       // both Активні and Підтверджені buckets.
       const myR = responseByOffer[o.id];
       if (myR?.refused_at) return false;
+      // Deleted/cancelled offers belong to Tropik Archive — never show in active workflow,
+      // even when a branch response exists (defense-in-depth against fallback below).
+      if (o.status === "deleted") return false;
       if (["active", "in_work", "confirmed", "linked"].includes(o.status)) return true;
       if (!myR) return false;
       const ts = new Date((o as ManagerOffer & { updated_at?: string }).updated_at ?? o.created_at).getTime();
