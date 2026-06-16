@@ -1234,13 +1234,11 @@ function ProductsFullscreen() {
     }, 1500);
   };
 
-  useEffect(() => {
-    const onUnload = () => {
-      void deleteShipmentIfEmpty(id);
-    };
-    window.addEventListener("pagehide", onUnload);
-    return () => window.removeEventListener("pagehide", onUnload);
-  }, [id]);
+  // Build E: pagehide hard-cleanup removed. It fired without confirmation and
+  // could race with async prefill (fromOffer), risking hard delete of a
+  // shipment that already had business links but no real item row yet.
+  // Empty-draft cleanup now happens only via the explicit Back button
+  // (leaveProducts), through the guarded deleteShipmentIfEmpty helper.
 
   // Auto-prefill a product row + freight from the source manager offer when
   // creating a new shipment directly under that offer ("Створити нову
