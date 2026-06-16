@@ -398,6 +398,12 @@ function ManagerDashboard() {
         open={!!selectedPlan}
         onOpenChange={(o) => !o && setSelectedPlan(null)}
       />
+
+      <BranchPendingResponsesSheet
+        open={pendingSheetOpen}
+        onOpenChange={setPendingSheetOpen}
+        rows={pending?.rows ?? []}
+      />
     </div>
   );
 }
