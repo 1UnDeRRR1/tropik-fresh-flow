@@ -8,6 +8,10 @@ import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CostPair } from "@/components/CostPair";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+
 import { Button } from "@/components/ui/button";
 import { OfferDialog } from "@/components/OfferDialog";
 import { useProductAliases } from "@/hooks/useProductAliases";
