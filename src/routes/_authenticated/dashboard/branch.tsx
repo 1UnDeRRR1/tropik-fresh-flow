@@ -121,16 +121,18 @@ const shortenManager = (name: string): string => {
 function BranchFlatList({
   rows,
   onOpen,
+  isMalekhiv = false,
 }: {
   rows: Row[];
   onOpen: (r: Row) => void;
+  isMalekhiv?: boolean;
 }) {
   // Tight middle-dot separator (narrow spaces around it) — same character,
   // just less air on each side. Keeps elements visually distinct.
   const SEP_TIGHT = "\u2009·\u2009";
   return (
     <div className="branch-table-wrap rounded-2xl border border-border bg-card shadow-card">
-      <ul className="divide-y divide-border px-3">
+      <ul className="divide-y divide-border px-3" data-malekhiv-card={isMalekhiv ? "" : undefined}>
         {rows.map((r) => {
           const countryFull = r.country ? toUaCountry(r.country) : "";
           const countryShortRaw = r.country ? toShortUaCountry(r.country) : "";
