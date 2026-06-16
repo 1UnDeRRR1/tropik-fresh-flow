@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Link2, Trash2, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { cancelManagerOffer } from "@/lib/manager-offers.functions";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -669,6 +671,29 @@ function ManagerOffersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Build F — controlled cancel via server fn. Replaces direct status='deleted'
+  // for the trash/delete action so an Archive event is written.
+  const cancelOfferFn = useServerFn(cancelManagerOffer);
+  const cancelOffer = useMutation({
+    mutationFn: async (id: string) => {
+      return await cancelOfferFn({ data: { offerId: id } });
+    },
+    onSuccess: async (res) => {
+      const archived = res?.archived ?? 0;
+      toast.success(
+        archived > 0
+          ? `Пропозицію скасовано (в архів: ${archived})`
+          : "Пропозицію скасовано",
+      );
+      await invalidateOfferWorkflowQueries();
+      await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
+    },
+    onError: async (e: Error) => {
+      toast.error(e.message || "Не вдалося скасувати пропозицію");
+      await invalidateOfferWorkflowQueries();
+    },
+  });
+
   const updateApproved = useMutation({
     mutationFn: async ({ id, approved }: { id: string; approved: number | null }) => {
       const { error } = await supabase
@@ -1328,8 +1353,9 @@ function ManagerOffersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={cancelOffer.isPending}
                     onClick={() => {
-                      setStatus.mutate({ id: o.id, status: "deleted" });
+                      cancelOffer.mutate(o.id);
                       setDetailOfferId(null);
                     }}
                   >
