@@ -3518,6 +3518,15 @@ export type Database = {
         Args: { _from: string; _hours: number }
         Returns: string
       }
+      archive_cancel_manager_offer: {
+        Args: { p_offer_id: string; p_reason?: string }
+        Returns: {
+          action: string
+          detail: string
+          response_id: string
+          snapshot_id: string
+        }[]
+      }
       archive_due_cancelled_shipments: { Args: never; Returns: number }
       archive_due_unloaded_shipments: { Args: never; Returns: number }
       archive_resolver_cancelled_pass: {
