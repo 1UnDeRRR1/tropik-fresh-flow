@@ -762,3 +762,20 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 
 
 
+
+/* Shiny filter trigger (Malekhiv → Вільно: "Всі товари" / "Всі країни")
+   Adds a subtle surface + ring + glow so the moving --x shine on text and
+   border overlay is actually visible. The animation itself lives in
+   src/components/ui/shiny-button.tsx. */
+.shiny-filter-trigger {
+  background-color: color-mix(in oklab, var(--primary) 6%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--primary) 28%, transparent),
+    0 0 18px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+.dark .shiny-filter-trigger {
+  background-color: color-mix(in oklab, var(--primary) 10%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--primary) 40%, transparent),
+    0 0 22px color-mix(in oklab, var(--primary) 28%, transparent);
+}
