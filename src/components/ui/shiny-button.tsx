@@ -69,7 +69,7 @@ export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>
         )}
       >
         <span
-          className="relative block size-full text-sm uppercase tracking-wide text-[rgb(0,0,0,65%)] dark:font-light dark:text-[rgb(255,255,255,90%)]"
+          className="relative flex size-full items-center justify-center text-sm uppercase leading-none tracking-wide text-[rgb(0,0,0,65%)] dark:font-light dark:text-[rgb(255,255,255,90%)]"
           style={{
             maskImage: labelMask,
             WebkitMaskImage: labelMask,
