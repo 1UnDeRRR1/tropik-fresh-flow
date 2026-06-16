@@ -472,14 +472,14 @@ function ArchivePage() {
           <div className="py-6 text-center text-sm text-muted-foreground">Завантаження…</div>
         </SectionCard>
       ) : primaryRole === "import_manager" ? (
-        <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
+        <div className="rounded-2xl border border-border bg-card px-3 py-1 shadow-card">
           <ManagerShipmentArchive
             rows={visibleRows}
             emptyLabel="Архівних подій ще немає"
             renderDeliveredDetail={(r) => <DeliveredDetail row={r as UiRow} />}
             renderNotDoneDetail={(r) => <NotDoneDetail row={r as UiRow} />}
           />
-        </SectionCard>
+        </div>
       ) : !visibleRows.length ? (
         <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
           <EmptyState title="Архівних подій ще немає" />
