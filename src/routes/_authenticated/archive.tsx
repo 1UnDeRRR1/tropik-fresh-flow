@@ -127,7 +127,8 @@ type Tab = "done" | "notdone";
 type EventFilter = "all" | UiEventType;
 
 function ArchivePage() {
-  const { primaryRole } = useAuth();
+  const { primaryRole, profile } = useAuth();
+  const isMalekhiv = profile?.branch_id === MALEKHIV_BRANCH_ID;
   const view = viewForRole(primaryRole);
   const [tab, setTab] = useState<Tab>("done");
   const [productFilter, setProductFilter] = useState<string>("");
