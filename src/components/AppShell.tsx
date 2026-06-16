@@ -902,6 +902,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         }
       >
         {children}
+        {/* Mobile-only inactive dead zone immediately above the bottom nav.
+            Height ≈ one compact row. pointer-events-none + aria-hidden so taps
+            here never reach a card/row/button. Desktop unaffected. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none h-16 w-full md:hidden"
+        />
       </main>
 
 
