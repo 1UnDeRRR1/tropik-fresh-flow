@@ -540,7 +540,7 @@ function BranchOffersPage() {
 
         return (
           <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-border" data-malekhiv-card={branchId === MALEKHIV_BRANCH_ID ? "" : undefined}>
               {rows.map((o) => {
                 const r = responseByOffer[o.id];
                 const ship = o.linked_shipment_id ? shipmentById[o.linked_shipment_id] : null;
