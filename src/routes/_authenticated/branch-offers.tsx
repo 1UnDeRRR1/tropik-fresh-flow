@@ -475,27 +475,47 @@ function BranchOffersPage() {
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
               Товар
             </label>
-            <CompactFilterSelect
-              value={fProduct}
-              onChange={setFProduct}
-              options={productOptions.map((p) => ({ value: p, label: p }))}
-              allLabel="Усі товари"
-              allValue={ALL}
-              aliases={productAliases}
-            />
+            {branchId === MALEKHIV_BRANCH_ID ? (
+              <ShinyFilterSelect
+                value={fProduct}
+                onChange={setFProduct}
+                options={productOptions.map((p) => ({ value: p, label: p }))}
+                allLabel="Всі товари"
+                allValue={ALL}
+              />
+            ) : (
+              <CompactFilterSelect
+                value={fProduct}
+                onChange={setFProduct}
+                options={productOptions.map((p) => ({ value: p, label: p }))}
+                allLabel="Усі товари"
+                allValue={ALL}
+                aliases={productAliases}
+              />
+            )}
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
               Країна походження
             </label>
-            <CompactFilterSelect
-              value={fCountry}
-              onChange={setFCountry}
-              options={countryOptions.map((c) => ({ value: c, label: c }))}
-              allLabel="Усі країни"
-              allValue={ALL}
-              aliases={countryAliases}
-            />
+            {branchId === MALEKHIV_BRANCH_ID ? (
+              <ShinyFilterSelect
+                value={fCountry}
+                onChange={setFCountry}
+                options={countryOptions.map((c) => ({ value: c, label: c }))}
+                allLabel="Всі країни"
+                allValue={ALL}
+              />
+            ) : (
+              <CompactFilterSelect
+                value={fCountry}
+                onChange={setFCountry}
+                options={countryOptions.map((c) => ({ value: c, label: c }))}
+                allLabel="Усі країни"
+                allValue={ALL}
+                aliases={countryAliases}
+              />
+            )}
           </div>
         </div>
         <BucketToggle value={bucket} onChange={setBucket} />
