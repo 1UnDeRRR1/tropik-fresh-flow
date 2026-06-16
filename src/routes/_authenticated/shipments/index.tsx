@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Plus, MoreVertical, Trash2, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { cancelShipment } from "@/lib/shipments.functions";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
 
@@ -194,6 +196,10 @@ function ShipmentsList() {
 
   const filtered = rows
     .filter((r) => {
+      // Cancelled shipments leave the normal active/unloaded working list.
+      // They remain readable in DB for audit and surface in branch Archive
+      // (event_type='cancelled') via archive_write_cancelled_for_shipment.
+      if ((r as { status?: string | null }).status === "cancelled") return false;
       const u = (r as { unloaded_at?: string | null }).unloaded_at;
       const arch = (r as { archived_at?: string | null }).archived_at;
       if (arch) return false;
@@ -553,14 +559,29 @@ function RowActions({ shipmentId, code, onChanged }: { shipmentId: string; code:
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
+  const cancelShipmentFn = useServerFn(cancelShipment);
+  const qc = useQueryClient();
   const onDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setOpen(false);
-    if (!confirm(`Видалити поставку ${code}? Цю дію неможливо скасувати.`)) return;
-    const { error } = await supabase.from("shipments").delete().eq("id", shipmentId);
-    if (error) return toast.error(error.message);
-    toast.success("Поставку видалено");
-    onChanged();
+    if (!confirm(`Скасувати поставку ${code}? Поставка зникне з активних і пов'язані обіцянки потраплять в Архів.`)) return;
+    try {
+      const res = await cancelShipmentFn({ data: { shipmentId } });
+      toast.success(
+        res.alreadyCancelled
+          ? "Поставку вже було скасовано"
+          : `Поставку скасовано${res.archived > 0 ? ` (в архів: ${res.archived})` : ""}`,
+      );
+      qc.invalidateQueries({ queryKey: ["shipments-list"] });
+      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["tropik-archive"] });
+      qc.invalidateQueries({ queryKey: ["shipment-quickview", shipmentId] });
+      onChanged();
+    } catch (err) {
+      const msg = err instanceof Response ? await err.text() : (err as Error)?.message ?? "Помилка";
+      toast.error(msg || "Не вдалося скасувати поставку");
+    }
   };
 
   return (
@@ -923,14 +944,29 @@ function VehicleCard({
     onCardClick();
   };
 
+  const cancelShipmentFn = useServerFn(cancelShipment);
+  const qc = useQueryClient();
   const doDelete = async () => {
     if (!ownShipment) return;
     setConfirmOpen(false);
     closeDelete();
-    const { error } = await supabase.from("shipments").delete().eq("id", ownShipment.id);
-    if (error) return toast.error(error.message);
-    toast.success("Поставку видалено");
-    onDeleted();
+    try {
+      const res = await cancelShipmentFn({ data: { shipmentId: ownShipment.id } });
+      toast.success(
+        res.alreadyCancelled
+          ? "Поставку вже було скасовано"
+          : `Поставку скасовано${res.archived > 0 ? ` (в архів: ${res.archived})` : ""}`,
+      );
+      qc.invalidateQueries({ queryKey: ["shipments-list"] });
+      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
+      qc.invalidateQueries({ queryKey: ["manager-offers"] });
+      qc.invalidateQueries({ queryKey: ["tropik-archive"] });
+      qc.invalidateQueries({ queryKey: ["shipment-quickview", ownShipment.id] });
+      onDeleted();
+    } catch (err) {
+      const msg = err instanceof Response ? await err.text() : (err as Error)?.message ?? "Помилка";
+      toast.error(msg || "Не вдалося скасувати поставку");
+    }
   };
 
   return (
