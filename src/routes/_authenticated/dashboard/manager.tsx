@@ -63,7 +63,7 @@ interface PlanRow {
 
 function ManagerDashboard() {
   const { user } = useAuth();
-  const qc = useQueryClient();
+  
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
   const pendingQuery = useBranchPendingResponses();
