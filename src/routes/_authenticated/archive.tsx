@@ -9,7 +9,7 @@ import { useAuth, type AppRole } from "@/lib/auth";
 import { CostPair } from "@/components/CostPair";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
-import { ManagerShipmentArchive } from "@/components/archive/ManagerShipmentArchive";
+
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
@@ -471,15 +471,6 @@ function ArchivePage() {
         <SectionCard title="Завантаження">
           <div className="py-6 text-center text-sm text-muted-foreground">Завантаження…</div>
         </SectionCard>
-      ) : primaryRole === "import_manager" ? (
-        <div className="rounded-2xl border border-border bg-card px-3 py-1 shadow-card">
-          <ManagerShipmentArchive
-            rows={visibleRows}
-            emptyLabel="Архівних подій ще немає"
-            renderDeliveredDetail={(r) => <DeliveredDetail row={r as UiRow} />}
-            renderNotDoneDetail={(r) => <NotDoneDetail row={r as UiRow} />}
-          />
-        </div>
       ) : !visibleRows.length ? (
         <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
           <EmptyState title="Архівних подій ще немає" />
