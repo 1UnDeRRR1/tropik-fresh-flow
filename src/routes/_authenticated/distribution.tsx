@@ -21,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { CostPair } from "@/components/CostPair";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
+import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
+
+const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
@@ -304,11 +307,19 @@ function BranchFreeList() {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Товар</label>
-            <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
+            {profile?.branch_id === MALEKHIV_BRANCH_ID ? (
+              <ShinyFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} />
+            ) : (
+              <CompactFilterSelect value={productFilter} onChange={setProductFilter} options={productOptions} allLabel="Всі товари" allValue={ALL} aliases={productAliases} />
+            )}
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">Країна походження</label>
-            <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
+            {profile?.branch_id === MALEKHIV_BRANCH_ID ? (
+              <ShinyFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} />
+            ) : (
+              <CompactFilterSelect value={countryFilter} onChange={setCountryFilter} options={countryOptions} allLabel="Всі країни" allValue={ALL} aliases={countryAliases} />
+            )}
           </div>
         </div>
         <div className="flex justify-end">
