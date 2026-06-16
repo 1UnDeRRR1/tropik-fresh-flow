@@ -583,7 +583,7 @@ function BranchOffersPage() {
                   const shown = remainingQ > 0 ? remainingQ : (apprQty != null && apprQty > 0 ? apprQty : 0);
                   if (shown > 0) {
                     palletNode = (
-                      <span className="text-sm font-bold tabular-nums text-foreground">
+                      <span className="m-pal text-sm font-bold tabular-nums text-foreground">
                         {shown}п
                       </span>
                     );
@@ -594,26 +594,26 @@ function BranchOffersPage() {
                   const showRequested = !showApproved && reqQty > 0;
                   if (showApproved) {
                     palletNode = (
-                      <span className="text-sm font-bold tabular-nums text-foreground">
+                      <span className="m-pal text-sm font-bold tabular-nums text-foreground">
                         {apprQty}п
                       </span>
                     );
                   } else if (offered != null && showRequested) {
                     palletNode = (
-                      <span className="text-sm font-bold tabular-nums">
+                      <span className="m-pal text-sm font-bold tabular-nums">
                         <span className="text-foreground">{offered}п</span>
                         <span className="ml-1 text-warning">·{reqQty}п</span>
                       </span>
                     );
                   } else if (showRequested) {
                     palletNode = (
-                      <span className="text-sm font-bold tabular-nums text-warning">
+                      <span className="m-pal text-sm font-bold tabular-nums text-warning">
                         {reqQty}п
                       </span>
                     );
                   } else if (offered != null) {
                     palletNode = (
-                      <span className="text-sm font-bold tabular-nums text-foreground">
+                      <span className="m-pal text-sm font-bold tabular-nums text-foreground">
                         {offered}п
                       </span>
                     );
