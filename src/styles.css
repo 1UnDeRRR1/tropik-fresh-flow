@@ -764,18 +764,55 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 
 
 /* Shiny filter trigger (Malekhiv → Вільно: "Всі товари" / "Всі країни")
-   Adds a subtle surface + ring + glow so the moving --x shine on text and
-   border overlay is actually visible. The animation itself lives in
-   src/components/ui/shiny-button.tsx. */
+   Self-contained CSS-only shimmer — does not depend on framer-motion --x.
+   A bright diagonal sweep moves across the trigger continuously. */
+@keyframes shiny-filter-sweep {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 .shiny-filter-trigger {
+  position: relative;
+  isolation: isolate;
   background-color: color-mix(in oklab, var(--primary) 10%, transparent);
   box-shadow:
     inset 0 0 0 1px color-mix(in oklab, var(--primary) 45%, transparent),
-    0 0 24px color-mix(in oklab, var(--primary) 28%, transparent);
+    0 0 24px color-mix(in oklab, var(--primary) 22%, transparent);
+  overflow: hidden;
+}
+.shiny-filter-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in oklab, var(--primary) 55%, transparent) 48%,
+    color-mix(in oklab, white 85%, transparent) 50%,
+    color-mix(in oklab, var(--primary) 55%, transparent) 52%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  animation: shiny-filter-sweep 2.8s linear infinite;
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+.shiny-filter-trigger > * {
+  position: relative;
+  z-index: 1;
 }
 .dark .shiny-filter-trigger {
   background-color: color-mix(in oklab, var(--primary) 14%, transparent);
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, var(--primary) 55%, transparent),
-    0 0 28px color-mix(in oklab, var(--primary) 38%, transparent);
+    inset 0 0 0 1px color-mix(in oklab, var(--primary) 60%, transparent),
+    0 0 30px color-mix(in oklab, var(--primary) 38%, transparent);
+}
+.dark .shiny-filter-trigger::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shiny-filter-trigger::before { animation: none; }
 }
