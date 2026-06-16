@@ -8,10 +8,8 @@ import { cn } from "@/lib/utils";
  * https://21st.dev/community/components/magicui/shiny-button/default
  *
  * Implementation note: the project's `--primary` token is stored as an
- * `oklch(...)` color, not as raw `H S L` channels, so the original
- * `hsl(var(--primary))` form produced invalid CSS and the shine was
- * completely invisible. We use `var(--primary)` directly for solid stops
- * and `color-mix(in oklab, var(--primary) X%, transparent)` for the
+ * `oklch(...)` color, so the component uses `var(--primary)` directly for
+ * solid stops and `color-mix(in oklab, var(--primary) X%, transparent)` for
  * translucent stops — both render correctly with any color space.
  */
 
@@ -42,8 +40,7 @@ const labelMask =
 const ringGradient =
   "linear-gradient(-75deg, color-mix(in oklab, var(--primary) 10%, transparent) calc(var(--x) + 20%), color-mix(in oklab, var(--primary) 50%, transparent) calc(var(--x) + 25%), color-mix(in oklab, var(--primary) 10%, transparent) calc(var(--x) + 100%))";
 
-export interface ShinyButtonProps
-  extends Omit<HTMLMotionProps<"button">, "children"> {
+export interface ShinyButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
   children: React.ReactNode;
   className?: string;
 }
@@ -75,8 +72,7 @@ export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>
           aria-hidden="true"
           style={{
             mask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
-            WebkitMask:
-              "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
+            WebkitMask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
             maskComposite: "exclude",
             WebkitMaskComposite: "xor",
             backgroundImage: ringGradient,

@@ -67,8 +67,7 @@ export function ShinyFilterSelect({
   const wrapRef = React.useRef<HTMLDivElement | null>(null);
 
   const selected = options.find((o) => o.value === value);
-  const displayLabel =
-    value === allValue ? allLabel : selected?.label ?? placeholder;
+  const displayLabel = value === allValue ? allLabel : (selected?.label ?? placeholder);
 
   React.useEffect(() => {
     if (!open) return;
@@ -106,14 +105,13 @@ export function ShinyFilterSelect({
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="shiny-filter-trigger flex h-9 w-full items-center justify-between !px-3 !py-1"
+        className={cn(
+          "shiny-filter-trigger flex h-9 w-full items-center justify-between !px-3 !py-1",
+          open && "shiny-filter-trigger-open",
+        )}
       >
         <span className="flex w-full items-center justify-between gap-2">
-          <span
-            className={cn(
-              "truncate normal-case tracking-normal opacity-95",
-            )}
-          >
+          <span className={cn("truncate normal-case tracking-normal opacity-95")}>
             {displayLabel}
           </span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -148,9 +146,7 @@ export function ShinyFilterSelect({
               </button>
             </li>
             {options.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-muted-foreground">
-                Нічого не знайдено
-              </li>
+              <li className="px-3 py-2 text-xs text-muted-foreground">Нічого не знайдено</li>
             ) : (
               options.map((o) => (
                 <li key={o.value}>
