@@ -208,6 +208,7 @@ function ValidatedAutocomplete({
 export const Route = createFileRoute("/_authenticated/manager-offers")({
   validateSearch: (s: Record<string, unknown>) => ({
     openOffer: typeof s.openOffer === "string" ? s.openOffer : undefined,
+    mode: s.mode === "branchRequests" ? ("branchRequests" as const) : undefined,
   }),
   component: ManagerOffersPage,
 });
@@ -576,7 +577,23 @@ function ManagerOffersPage() {
       }, 0);
   };
 
+  const branchRequestsMode = search.mode === "branchRequests";
+
   const filtered = useMemo(() => {
+    if (branchRequestsMode) {
+      // Only offers with at least one pending branch response:
+      // requested_pallets > 0 AND approved_pallets IS NULL AND refused_at IS NULL.
+      // Offer scoping (status != 'deleted', current manager visibility) is
+      // already enforced by the offers query above.
+      return merged.filter((o) =>
+        o.responses.some(
+          (r) =>
+            Number(r.requested_pallets ?? 0) > 0 &&
+            r.approved_pallets == null &&
+            r.refused_at == null,
+        ),
+      );
+    }
     if (tab === "active") {
       return merged.filter((o) => {
         if (o.status !== "active") return false;
@@ -602,7 +619,7 @@ function ManagerOffersPage() {
       });
     }
     return merged;
-  }, [merged, tab]);
+  }, [merged, tab, branchRequestsMode]);
 
 
   // Responses from branches while the offer is still open (not closed/linked/expired).
