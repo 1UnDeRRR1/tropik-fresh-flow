@@ -550,12 +550,11 @@ export function ManagerShipmentArchive({
                     <button
                       type="button"
                       onClick={() => setOpenPosKey(p.key)}
-                      className="flex w-full items-start gap-2 py-2.5 text-left active:opacity-70"
+                      className="flex w-full items-start gap-2 py-1.5 text-left active:opacity-70"
                     >
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="min-w-0 truncate text-sm font-bold text-foreground">
+                          <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">
                             {p.product_name ?? "—"}
                             {p.origin_country_name ? (
                               <span className="font-normal text-muted-foreground">
@@ -564,11 +563,11 @@ export function ManagerShipmentArchive({
                               </span>
                             ) : null}
                           </span>
-                          <span className="shrink-0 text-sm font-bold tabular-nums">
+                          <span className="shrink-0 text-[13px] font-semibold tabular-nums">
                             {fmtNum(p.totalQty)}п
                           </span>
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
                           {p.variety_name ? <span>{p.variety_name}</span> : null}
                           {p.caliber ? <span>· {p.caliber}</span> : null}
                           <span>· {p.branchCount} філій</span>
