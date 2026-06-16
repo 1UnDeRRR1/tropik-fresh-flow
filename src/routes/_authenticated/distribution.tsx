@@ -140,13 +140,18 @@ function BranchFreeList() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
-        .select("id,code,eta,country,status,import_manager_name")
+        .select("id,code,eta,country,status,import_manager_name,cancelled_at,archived_at,unloaded_at,arrived_at,pipeline_status")
         .in("id", shipmentIds);
       if (error) throw error;
       return (data ?? []) as Array<{
         id: string; code: string; eta: string | null;
         country: string | null; status: string;
         import_manager_name: string | null;
+        cancelled_at: string | null;
+        archived_at: string | null;
+        unloaded_at: string | null;
+        arrived_at: string | null;
+        pipeline_status: string | null;
       }>;
     },
   });
@@ -171,10 +176,15 @@ function BranchFreeList() {
       if (!r.shipment_item_id) return;
       pendMap.set(r.shipment_item_id, (pendMap.get(r.shipment_item_id) ?? 0) + Number(r.pallets ?? 0));
     });
+    const TERMINAL_STATUSES = new Set(["cancelled", "completed", "archived"]);
     const out: FreeRow[] = [];
     items.forEach((it) => {
       const s = sMap.get(it.shipment_id);
-      if (!s || s.status === "cancelled") return;
+      if (!s) return;
+      if (TERMINAL_STATUSES.has(String(s.status))) return;
+      if (s.cancelled_at) return;
+      if (s.archived_at) return;
+      if (s.unloaded_at) return;
       const pending = pendMap.get(it.id) ?? 0;
       const free = Number(it.free_pallets ?? 0) - pending;
       if (free <= 0) return;
@@ -208,6 +218,7 @@ function BranchFreeList() {
     });
     return out;
   }, [items, ships, pendingReqs]);
+
 
   const passes = (r: FreeRow, excl: "product" | "country" | null) => {
     if (excl !== "product" && productFilter !== ALL && r.product.trim() !== productFilter) return false;
