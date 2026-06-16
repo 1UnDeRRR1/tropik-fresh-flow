@@ -42,8 +42,7 @@ const labelMask =
 const ringGradient =
   "linear-gradient(-75deg, color-mix(in oklab, var(--primary) 10%, transparent) calc(var(--x) + 20%), color-mix(in oklab, var(--primary) 50%, transparent) calc(var(--x) + 25%), color-mix(in oklab, var(--primary) 10%, transparent) calc(var(--x) + 100%))";
 
-export interface ShinyButtonProps
-  extends Omit<HTMLMotionProps<"button">, "children"> {
+export interface ShinyButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
   children: React.ReactNode;
   className?: string;
 }
@@ -75,8 +74,7 @@ export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>
           aria-hidden="true"
           style={{
             mask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
-            WebkitMask:
-              "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
+            WebkitMask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
             maskComposite: "exclude",
             WebkitMaskComposite: "xor",
             backgroundImage: ringGradient,
