@@ -57,9 +57,11 @@ export async function deleteShipmentIfEmpty(shipmentId: string): Promise<boolean
   const itemIds = itemRows.map((i) => i.id);
 
   // 4. Business-link probes — fail closed on error, bail on any hit.
-  const probe = async <T>(p: Promise<{ data: T | null; error: unknown }>): Promise<"empty" | "hit" | "error"> => {
+  const probe = async (
+    q: PromiseLike<{ data: unknown; error: unknown }>,
+  ): Promise<"empty" | "hit" | "error"> => {
     try {
-      const { data, error } = await p;
+      const { data, error } = await q;
       if (error) return "error";
       if (Array.isArray(data) ? data.length > 0 : !!data) return "hit";
       return "empty";
