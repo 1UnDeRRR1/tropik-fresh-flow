@@ -9,6 +9,7 @@ import { useAuth, type AppRole } from "@/lib/auth";
 import { CostPair } from "@/components/CostPair";
 import { toUaCountry, toShortUaCountry } from "@/lib/countries";
 import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
+import { ManagerShipmentArchive } from "@/components/archive/ManagerShipmentArchive";
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
 
@@ -73,6 +74,11 @@ interface ArchiveRow {
   variety_name: string | null;
   responsible_manager_name: string | null;
   shipment_code: string | null;
+  // Manager-only shipment-first grouping needs these extra role-safe fields.
+  // Branch view also exposes them; admin view does too. Safe to select for all roles.
+  shipment_id: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
 }
 
 // UI row: actual archive row + optional derived flag
@@ -191,7 +197,8 @@ function ArchivePage() {
             "is_split_shipment,occurred_at,requested_qty,promise_eta_snapshot," +
             "caliber,packaging,pallet_qty,cost_indicative_usd_snapshot," +
             "cost_invoice_usd_snapshot,event_qty,product_name,origin_country_name," +
-            "variety_name,responsible_manager_name,shipment_code",
+            "variety_name,responsible_manager_name,shipment_code," +
+            "shipment_id,branch_id,branch_name",
         )
         .order("occurred_at", { ascending: false, nullsFirst: false })
         .limit(300);
@@ -463,6 +470,15 @@ function ArchivePage() {
       ) : isLoading ? (
         <SectionCard title="Завантаження">
           <div className="py-6 text-center text-sm text-muted-foreground">Завантаження…</div>
+        </SectionCard>
+      ) : primaryRole === "import_manager" ? (
+        <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
+          <ManagerShipmentArchive
+            rows={visibleRows}
+            emptyLabel="Архівних подій ще немає"
+            renderDeliveredDetail={(r) => <DeliveredDetail row={r as UiRow} />}
+            renderNotDoneDetail={(r) => <NotDoneDetail row={r as UiRow} />}
+          />
         </SectionCard>
       ) : !visibleRows.length ? (
         <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
