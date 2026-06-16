@@ -466,7 +466,7 @@ function ArchivePage() {
       ) : (
         <SectionCard title={tab === "done" ? "Доставлено" : "Не виконано"}>
           {/* Visual parity with "Головна" branch list (BranchFlatList). */}
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border" data-malekhiv-card={isMalekhiv ? "" : undefined}>
             {visibleRows.map((r) => {
               const key = r.result_id ?? `${r.position_id}-${r.ui_event}`;
               const isOpen = expanded === key;
