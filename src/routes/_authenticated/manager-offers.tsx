@@ -1353,8 +1353,9 @@ function ManagerOffersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={cancelOffer.isPending}
                     onClick={() => {
-                      setStatus.mutate({ id: o.id, status: "deleted" });
+                      cancelOffer.mutate(o.id);
                       setDetailOfferId(null);
                     }}
                   >
