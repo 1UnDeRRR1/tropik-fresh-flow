@@ -63,8 +63,8 @@ interface PlanRow {
 function ManagerDashboard() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<PlanDetailItem | null>(null);
-  const [pendingSheetOpen, setPendingSheetOpen] = useState(false);
   const pendingQuery = useBranchPendingResponses();
   const pending = pendingQuery.data;
 
@@ -281,7 +281,7 @@ function ManagerDashboard() {
 
         <button
           type="button"
-          onClick={() => setPendingSheetOpen(true)}
+          onClick={() => navigate({ to: "/manager-offers", search: { mode: "branchRequests" } as never })}
           className="block h-full text-left"
         >
           <div className="h-full rounded-2xl border border-transparent bg-primary p-4 text-primary-foreground shadow-card transition-transform duration-150 active:scale-[0.9]">
@@ -399,11 +399,6 @@ function ManagerDashboard() {
         onOpenChange={(o) => !o && setSelectedPlan(null)}
       />
 
-      <BranchPendingResponsesSheet
-        open={pendingSheetOpen}
-        onOpenChange={setPendingSheetOpen}
-        rows={pending?.rows ?? []}
-      />
     </div>
   );
 }
