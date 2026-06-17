@@ -444,39 +444,52 @@ function NewShipment() {
     },
   });
 
-  const [offerDraftPallets, setOfferDraftPallets] = useState<number>(0);
-  // Seed editable pallet count once when prefill arrives.
-  useEffect(() => {
-    if (!offerProductPrefill || offerProductPrefill.blocked) return;
-    if (offerDraftPallets > 0) return;
-    if (offerProductPrefill.safePalletCount > 0) {
-      setOfferDraftPallets(offerProductPrefill.safePalletCount);
-    }
-  }, [offerProductPrefill, offerDraftPallets]);
+  // Build 3 — local draft state. NO DB writes until "Готово".
+  type DraftRow = {
+    localId: string;
+    source_offer_id: string | null;
+    source_position_id: string | null;
+    product_name: string;
+    variety: string;
+    origin_country: string;
+    caliber: string;
+    package_used: string;
+    pallet_count: number;
+    pallet_weight: number; // kg per pallet
+    unit_price: number;
+    price_currency: string;
+    offerLocked: boolean;
+  };
+  const [step, setStep] = useState<"header" | "products">("header");
+  const [draftRows, setDraftRows] = useState<DraftRow[]>([]);
 
   const isOfferFlow = !!search.fromOffer;
   const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
   const offerFlowBlocked = isOfferFlow && !!offerProductPrefill && !!offerProductPrefill.blocked;
-  const [offerFinalConfirmReady, setOfferFinalConfirmReady] = useState(false);
 
+  // Seed one prefilled draft row from the offer the first time prefill arrives.
   useEffect(() => {
-    setOfferFinalConfirmReady(false);
-  }, [
-    mode,
-    vehicleId,
-    supplierId,
-    supplierInput,
-    country,
-    countryInput,
-    loadingDate,
-    vehicleInput,
-    code,
-    codeOverride,
-    etaOverride,
-    etaTouched,
-    offerDraftPallets,
-    search.fromOffer,
-  ]);
+    if (!offerProductPrefill || offerProductPrefill.blocked) return;
+    if (draftRows.length > 0) return;
+    const o = offerProductPrefill.offer;
+    setDraftRows([{
+      localId: `tmp_${crypto.randomUUID()}`,
+      source_offer_id: o.id,
+      source_position_id: offerProductPrefill.positionId,
+      product_name: canonicalizeProductName(o.product_name ?? "") || (o.product_name ?? ""),
+      variety: o.variety ?? "",
+      origin_country: normalizeCountry(o.origin_country ?? "") || (o.origin_country ?? ""),
+      caliber: o.caliber ?? "",
+      package_used: "",
+      pallet_count: offerProductPrefill.safePalletCount > 0 ? offerProductPrefill.safePalletCount : 1,
+      pallet_weight: Number(offerProductPrefill.palletWeight ?? 0),
+      unit_price: Number(o.price_per_kg ?? 0),
+      price_currency: ((o.price_currency ?? "EUR") as string),
+      offerLocked: true,
+    }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerProductPrefill]);
+
 
 
 
@@ -513,7 +526,10 @@ function NewShipment() {
     }
   }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq, previewSupSeq]);
 
-  const onSubmit = async (e: FormEvent) => {
+  // Build 3 — header step does NO DB writes. Just validates the header form
+  // and advances to the product-draft step. The single save boundary is
+  // finalSave() invoked by "Готово" on the draft step.
+  const onHeaderNext = (e: FormEvent) => {
     e.preventDefault();
     const missing: string[] = [];
     if (!supplierId || !selectedSupplier) missing.push("supplier");
@@ -539,32 +555,68 @@ function NewShipment() {
       );
       return;
     }
-    // Build 2A — offer-draft validation: pallets must be in (0, pending].
-    if (isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked) {
-      const pc = Number(offerDraftPallets);
-      if (!Number.isFinite(pc) || pc <= 0) {
-        toast.error("Вкажіть кількість палет більше 0");
-        return;
-      }
-      if (pc > offerProductPrefill.pending) {
-        toast.error(`Більше за залишок пропозиції (${offerProductPrefill.pending} пал)`);
-        return;
-      }
-    }
     setInvalid(new Set());
+    setStep("products");
+  };
 
-    if (isOfferDraftMode && !offerFinalConfirmReady) {
-      setOfferFinalConfirmReady(true);
+  // Final save boundary. Inserts vehicle (if new), shipment, all draft items,
+  // attaches positions and runs FIFO offer link. Rolls back everything
+  // created in THIS attempt on any failure.
+  const finalSave = async () => {
+    if (draftRows.length === 0) {
+      toast.error("Додайте хоча б один товар");
       return;
     }
-
+    for (const r of draftRows) {
+      if (!r.product_name.trim()) {
+        toast.error("Заповніть назву товару");
+        return;
+      }
+      if (!(r.pallet_count > 0)) {
+        toast.error(`«${r.product_name || "Товар"}»: кількість палет > 0`);
+        return;
+      }
+      if (!(r.pallet_weight > 0)) {
+        toast.error(`«${r.product_name}»: вага палети > 0`);
+        return;
+      }
+      if (!(r.unit_price > 0)) {
+        toast.error(`«${r.product_name}»: ціна > 0`);
+        return;
+      }
+      if (!r.origin_country.trim()) {
+        toast.error(`«${r.product_name}»: країна походження`);
+        return;
+      }
+      if (r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked) {
+        if (r.pallet_count > offerProductPrefill.pending) {
+          toast.error(`Більше за залишок пропозиції (${offerProductPrefill.pending} пал)`);
+          return;
+        }
+      }
+    }
 
     setSubmitting(true);
-    // Track a freshly-created vehicle so we can roll it back if the
-    // subsequent shipment INSERT fails. Without this, a failed creation
-    // leaves an orphan vehicle in the "open vehicles" list with no
-    // shipments inside (looks "underloaded" and unowned).
-    let createdVehicleIdForRollback: string | null = null;
+    let createdVehicleId: string | null = null;
+    let createdShipmentId: string | null = null;
+    const createdItemIds: string[] = [];
+    const createdPositionIds: string[] = [];
+
+    const rollback = async () => {
+      for (const itemId of createdItemIds) {
+        try { await supabase.from("shipment_items").delete().eq("id", itemId); } catch { /* ignore */ }
+      }
+      for (const pid of createdPositionIds) {
+        try { await rollbackBirthPosition(pid); } catch { /* ignore */ }
+      }
+      if (createdShipmentId) {
+        try { await supabase.from("shipments").delete().eq("id", createdShipmentId); } catch { /* ignore */ }
+      }
+      if (createdVehicleId) {
+        try { await supabase.from("vehicles" as never).delete().eq("id", createdVehicleId); } catch { /* ignore */ }
+      }
+    };
+
     try {
       let vId = vehicleId;
       let vCode = selectedVehicle?.code ?? "";
@@ -593,7 +645,7 @@ function NewShipment() {
           .single();
         if (vErr) throw vErr;
         vId = (vRow as { id: string }).id;
-        createdVehicleIdForRollback = vId;
+        createdVehicleId = vId;
       } else {
         if (!selectedVehicle) throw new Error("Виберіть відкрите авто");
         useCountry = selectedVehicle.country;
@@ -611,26 +663,14 @@ function NewShipment() {
 
       const shipmentId = crypto.randomUUID();
 
-      // Phase 2 strict manager assignment.
-      // Rule: supplier known → manager comes from the supplier's assignment.
-      //       No assignment → block.
-      //       admin/super_admin never silently become the responsible manager
-      //       (no fallback to currentManagerId for those roles).
       const isAdminActor = hasRole(["super_admin", "admin"]);
       const supplierManagerId = selectedSupplier?.import_manager_id ?? null;
       let assignedManagerId: string | null = supplierManagerId;
       if (!assignedManagerId && !isAdminActor) {
-        // Import manager flow: they own their own shipment when the supplier
-        // has no explicit assignment yet.
         assignedManagerId = currentManagerId ?? null;
       }
       if (!assignedManagerId) {
-        // Roll back the vehicle we just created — otherwise the manager
-        // sees a phantom "open vehicle" with no owner.
-        if (createdVehicleIdForRollback) {
-          await supabase.from("vehicles" as never).delete().eq("id", createdVehicleIdForRollback);
-          createdVehicleIdForRollback = null;
-        }
+        await rollback();
         toast.error(
           isAdminActor
             ? "Постачальнику не призначено імпорт-менеджера. Призначте менеджера й повторіть."
@@ -640,110 +680,80 @@ function NewShipment() {
         return;
       }
 
-      const insertPayload = {
-        id: shipmentId,
-        code: finalCode,
-        supplier_id: supplierId,
-        supplier_seq: supplierSeq,
-        country: normalizeCountry(useCountry),
-        loading_date: useLoadingDate || null,
-        logistics_days: useDays,
-        eta: useEta || null,
-        import_manager_id: assignedManagerId,
-        created_by: user?.id ?? null,
-        vehicle_id: vId,
-      } as never;
-
-      const { error } = await supabase
+      const { error: shipErr } = await supabase
         .from("shipments")
-        .insert(insertPayload);
-
-      if (error) {
-        if (error.code === "23505" || /duplicate|unique/i.test(error.message)) {
+        .insert({
+          id: shipmentId,
+          code: finalCode,
+          supplier_id: supplierId,
+          supplier_seq: supplierSeq,
+          country: normalizeCountry(useCountry),
+          loading_date: useLoadingDate || null,
+          logistics_days: useDays,
+          eta: useEta || null,
+          import_manager_id: assignedManagerId,
+          created_by: user?.id ?? null,
+          vehicle_id: vId,
+        } as never);
+      if (shipErr) {
+        if (shipErr.code === "23505" || /duplicate|unique/i.test(shipErr.message)) {
           throw new Error("Поставка з таким номером вже існує");
         }
-        throw new Error(error.message || "Помилка збереження");
+        throw new Error(shipErr.message || "Помилка збереження");
       }
+      createdShipmentId = shipmentId;
 
-      // Build 1 (final) — offer-draft commit happens inline here, NOT on the
-      // products page. We must hold both the vehicle and shipment rollback
-      // handles until commitNewShipmentItem succeeds. If it fails we
-      // unwind: shipment_item is removed by the helper, then we delete the
-      // shipment + vehicle and roll back any freshly-minted position.
-      if (isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked) {
-        const offer = offerProductPrefill.offer;
-        const pc = Number(offerDraftPallets);
-        const palletWeight = Number(offerProductPrefill.palletWeight ?? 0);
-        const netKg = pc * (palletWeight > 0 ? palletWeight : 0);
+      // Per-row commit via the authoritative helper.
+      for (const r of draftRows) {
+        const netKg = r.pallet_count * r.pallet_weight;
         const grossKg = netKg;
-        const resolvedName =
-          canonicalizeProductName(offer.product_name ?? "") ||
-          (offer.product_name ?? "");
         const itemPayload: Record<string, unknown> = {
           shipment_id: shipmentId,
-          product_name: resolvedName,
-          variety: offer.variety || null,
-          origin_country: normalizeCountry(offer.origin_country ?? "") || null,
-          caliber: offer.caliber || null,
+          product_name: r.product_name,
+          variety: r.variety || null,
+          origin_country: normalizeCountry(r.origin_country) || null,
+          caliber: r.caliber || null,
           sku: null,
-          package_used: null,
-          pallet_count: pc,
+          package_used: r.package_used || null,
+          pallet_count: r.pallet_count,
           net_weight_kg: netKg,
           gross_weight_kg: grossKg,
           resolver_net_per_pallet_kg: null,
           resolver_gross_per_pallet_kg: null,
           net_auto: false,
           gross_auto: false,
-          pallet_weight: palletWeight > 0 ? palletWeight : 0,
+          pallet_weight: r.pallet_weight,
           qty: netKg,
           unit: "kg",
-          unit_price: Number(offer.price_per_kg ?? 0),
-          price_currency: (offer.price_currency ?? "EUR"),
+          unit_price: r.unit_price,
+          price_currency: r.price_currency,
         };
-        const localId = `tmp_${crypto.randomUUID()}`;
         const commitRes = await commitNewShipmentItem({
           shipmentId,
           draft: {
-            localId,
-            source_offer_id: offer.id,
-            source_position_id: offerProductPrefill.positionId,
-            product_name: resolvedName,
-            origin_country: normalizeCountry(offer.origin_country ?? "") || "",
-            caliber: offer.caliber || "",
-            package_used: "",
-            pallet_count: pc,
+            localId: r.localId,
+            source_offer_id: r.source_offer_id,
+            source_position_id: r.source_position_id,
+            product_name: r.product_name,
+            origin_country: normalizeCountry(r.origin_country) || "",
+            caliber: r.caliber || "",
+            package_used: r.package_used || "",
+            pallet_count: r.pallet_count,
           },
           payload: itemPayload,
           responsibleManagerId: assignedManagerId,
         });
         if (!commitRes.ok) {
-          // Unwind: shipment first (FK guards prevent later vehicle delete
-          // otherwise), then vehicle, then any freshly-created position.
-          try {
-            await supabase.from("shipments").delete().eq("id", shipmentId);
-          } catch { /* swallow */ }
-          if (createdVehicleIdForRollback) {
-            try {
-              await supabase.from("vehicles" as never).delete().eq("id", createdVehicleIdForRollback);
-            } catch { /* swallow */ }
-            createdVehicleIdForRollback = null;
-          }
-          if (commitRes.createdPositionId) {
-            await rollbackBirthPosition(commitRes.createdPositionId);
-          }
-          qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+          if (commitRes.createdPositionId) createdPositionIds.push(commitRes.createdPositionId);
+          await rollback();
           toast.error(commitRes.reason || "Не вдалося зберегти позицію");
           setSubmitting(false);
           return;
         }
+        createdItemIds.push(commitRes.itemId);
+        if (commitRes.createdPositionId) createdPositionIds.push(commitRes.createdPositionId);
       }
 
-      // Shipment committed — vehicle is no longer orphan, cancel rollback.
-      createdVehicleIdForRollback = null;
-
-      // refetchType: "all" — force background refetch even on unmounted lists,
-      // so the manager's /shipments table is fresh on the next navigation
-      // without requiring a manual page refresh.
       qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
@@ -760,38 +770,18 @@ function NewShipment() {
       qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["shipment-products"], refetchType: "all" });
-      if (isOfferDraftMode) {
-        toast.success("Поставку створено");
-        navigate({ to: "/shipments" });
-      } else {
-        toast.success("Поставку створено. Додайте позиції товарів.");
-        navigate({
-          to: "/shipments/$id/products",
-          params: { id: shipmentId },
-          search: {},
-        } as never);
-      }
+
+      toast.success("Поставку створено");
+      navigate({ to: "/shipments" });
     } catch (err: unknown) {
-      // Roll back orphan vehicle from a failed mode="new" creation.
-      // Best-effort: if delete itself fails (FK from a parallel write, RLS),
-      // we still surface the original error to the user.
-      if (createdVehicleIdForRollback) {
-        try {
-          await supabase
-            .from("vehicles" as never)
-            .delete()
-            .eq("id", createdVehicleIdForRollback);
-        } catch {
-          /* swallow rollback failure */
-        }
-        createdVehicleIdForRollback = null;
-        qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
-      }
+      await rollback();
+      qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
       toast.error(err instanceof Error ? err.message : "Помилка збереження");
     } finally {
       setSubmitting(false);
     }
   };
+
 
   if (loading || !isStaff) {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
@@ -1000,78 +990,143 @@ function NewShipment() {
     </div>
   );
 
+  const headerSummary = (
+    <div className="rounded-xl border border-border bg-secondary/30 p-3 text-xs space-y-1">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+        <div><span className="text-muted-foreground">Постачальник: </span><span className="font-semibold">{selectedSupplier?.name ?? "—"}</span></div>
+        <div><span className="text-muted-foreground">Номер: </span><span className="font-semibold tabular-nums">{code || "—"}</span></div>
+        <div><span className="text-muted-foreground">Країна: </span><span className="font-semibold">{mode === "existing" && selectedVehicle ? selectedVehicle.country : country || "—"}</span></div>
+        <div><span className="text-muted-foreground">{mode === "new" ? "Завантаж." : "Авто"}: </span><span className="font-semibold tabular-nums">{mode === "new" ? (loadingDate || "—") : (selectedVehicle?.code ?? "—")}</span></div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
       <PageHeader title="Нова поставка" />
 
-      <form onSubmit={onSubmit} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
-        {/* Mode toggle */}
-        <div className="grid grid-cols-2 gap-2">
-          <ModeButton active={mode === "new"} onClick={() => { setMode("new"); setVehicleId(""); }}>
-            <Plus className="mr-1 h-4 w-4" /> Нове авто
-          </ModeButton>
-          <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
-            <Truck className="mr-1 h-4 w-4" /> До відкритого
-          </ModeButton>
+      {step === "header" ? (
+        <form onSubmit={onHeaderNext} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
+          {/* Mode toggle */}
+          <div className="grid grid-cols-2 gap-2">
+            <ModeButton active={mode === "new"} onClick={() => { setMode("new"); setVehicleId(""); }}>
+              <Plus className="mr-1 h-4 w-4" /> Нове авто
+            </ModeButton>
+            <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
+              <Truck className="mr-1 h-4 w-4" /> До відкритого
+            </ModeButton>
+          </div>
+
+          {mode === "new" ? (
+            <>
+              {supplierField}
+              {countryField}
+              {codeField}
+              {loadingDateField}
+              {etaField}
+            </>
+          ) : (
+            <>
+              {supplierField}
+              {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
+              {vehicleField}
+              {codeField}
+              {etaField}
+            </>
+          )}
+
+          {isOfferFlow && offerProductPrefillLoading && (
+            <div className="rounded-xl border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
+              Завантаження товару з пропозиції…
+            </div>
+          )}
+          {offerFlowBlocked && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              Пропозиція недоступна для створення поставки.
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={submitting || (isOfferFlow && (offerProductPrefillLoading || !isOfferDraftMode))}
+            className="w-full bg-brand text-brand-foreground hover:bg-brand/90"
+          >
+            Далі — товари
+          </Button>
+        </form>
+      ) : (
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
+          {headerSummary}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Товари (чернетка)</div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setDraftRows((rows) => [
+                  ...rows,
+                  {
+                    localId: `tmp_${crypto.randomUUID()}`,
+                    source_offer_id: null,
+                    source_position_id: null,
+                    product_name: "",
+                    variety: "",
+                    origin_country: country || "",
+                    caliber: "",
+                    package_used: "",
+                    pallet_count: 1,
+                    pallet_weight: 0,
+                    unit_price: 0,
+                    price_currency: "EUR",
+                    offerLocked: false,
+                  },
+                ])}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Додати товар
+              </Button>
+            </div>
+
+            {draftRows.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-center text-sm text-muted-foreground">
+                Додайте хоча б один товар і натисніть «Готово».
+              </div>
+            )}
+
+            {draftRows.map((r, idx) => (
+              <DraftRowCard
+                key={r.localId}
+                row={r}
+                index={idx}
+                onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
+                onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
+                offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
+              />
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => setStep("header")}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              disabled={submitting || draftRows.length === 0}
+              onClick={finalSave}
+              className="bg-brand text-brand-foreground hover:bg-brand/90"
+            >
+              {submitting ? "Створення…" : "Готово"}
+            </Button>
+          </div>
         </div>
+      )}
 
-        {mode === "new" ? (
-          <>
-            {supplierField}
-            {countryField}
-            {codeField}
-            {loadingDateField}
-            {etaField}
-          </>
-        ) : (
-          <>
-            {supplierField}
-            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
-            {vehicleField}
-            {codeField}
-            {etaField}
-          </>
-        )}
-
-        {isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked && (
-          <OfferDraftSummary
-            offer={offerProductPrefill.offer}
-            pending={offerProductPrefill.pending}
-            palletWeight={offerProductPrefill.palletWeight}
-            pallets={offerDraftPallets}
-            onPalletsChange={setOfferDraftPallets}
-            readyToConfirm={offerFinalConfirmReady}
-          />
-        )}
-
-        {isOfferFlow && offerProductPrefillLoading && (
-          <div className="rounded-xl border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
-            Завантаження товару з пропозиції…
-          </div>
-        )}
-
-        {offerFlowBlocked && (
-          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            Пропозиція недоступна для створення поставки.
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          disabled={submitting || (isOfferFlow && (offerProductPrefillLoading || !isOfferDraftMode))}
-          className="w-full bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          {submitting
-            ? "Створення…"
-            : isOfferDraftMode
-              ? offerFinalConfirmReady
-                ? "Підтвердити створення поставки"
-                : "Перевірити поставку"
-              : "Створити та перейти до товарів"}
-        </Button>
-      </form>
-
-      {mobileEditingLabel && (
+      {mobileEditingLabel && step === "header" && (
         <div
           className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
           style={{ bottom: "var(--keyboard-inset, 0px)" }}
@@ -1097,6 +1152,131 @@ function NewShipment() {
     </div>
   );
 }
+
+type DraftRowShape = {
+  localId: string;
+  source_offer_id: string | null;
+  source_position_id: string | null;
+  product_name: string;
+  variety: string;
+  origin_country: string;
+  caliber: string;
+  package_used: string;
+  pallet_count: number;
+  pallet_weight: number;
+  unit_price: number;
+  price_currency: string;
+  offerLocked: boolean;
+};
+
+function DraftRowCard({
+  row,
+  index,
+  onChange,
+  onRemove,
+  offerPending,
+}: {
+  row: DraftRowShape;
+  index: number;
+  onChange: (patch: Partial<DraftRowShape>) => void;
+  onRemove: () => void;
+  offerPending: number | null;
+}) {
+  const netKg = row.pallet_count * row.pallet_weight;
+  const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
+  return (
+    <div className="rounded-xl border border-border bg-background p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-muted-foreground">
+          #{index + 1}{row.source_offer_id ? " · з пропозиції" : ""}
+        </div>
+        <Button type="button" size="sm" variant="ghost" onClick={onRemove}>Видалити</Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[11px]">Товар</Label>
+          <Input
+            value={row.product_name}
+            onChange={(e) => onChange({ product_name: e.target.value })}
+            placeholder="Назва"
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Походження</Label>
+          <Input
+            value={row.origin_country}
+            onChange={(e) => onChange({ origin_country: e.target.value })}
+            placeholder="Країна"
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Сорт</Label>
+          <Input
+            value={row.variety}
+            onChange={(e) => onChange({ variety: e.target.value })}
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Калібр</Label>
+          <Input
+            value={row.caliber}
+            onChange={(e) => onChange({ caliber: e.target.value })}
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">
+            Палет{offerPending != null ? ` (залишок: ${offerPending})` : ""}
+          </Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={row.pallet_count || ""}
+            onChange={(e) => onChange({ pallet_count: Number(e.target.value) || 0 })}
+            className={cn(tooManyOffer && "border-destructive")}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Вага палети, кг</Label>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={row.pallet_weight || ""}
+            onChange={(e) => onChange({ pallet_weight: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Ціна за кг</Label>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            value={row.unit_price || ""}
+            onChange={(e) => onChange({ unit_price: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Валюта</Label>
+          <Input
+            value={row.price_currency}
+            onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
+            maxLength={3}
+          />
+        </div>
+      </div>
+      <div className="text-[11px] text-muted-foreground tabular-nums">
+        Нетто ≈ {Math.round(netKg)} кг
+      </div>
+    </div>
+  );
+}
+
 
 function ModeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -1204,91 +1384,4 @@ function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; owner
   );
 }
 
-function OfferDraftSummary({
-  offer,
-  pending,
-  palletWeight,
-  pallets,
-  onPalletsChange,
-  readyToConfirm,
-}: {
-  offer: {
-    product_name: string | null;
-    origin_country: string | null;
-    caliber: string | null;
-    variety: string | null;
-    price_per_kg: number | null;
-    price_currency: string | null;
-  };
-  pending: number;
-  palletWeight: number;
-  pallets: number;
-  onPalletsChange: (n: number) => void;
-  readyToConfirm: boolean;
-}) {
-  const pw = Number(palletWeight) > 0 ? Number(palletWeight) : 0;
-  const netKg = pw * Math.max(0, Number(pallets || 0));
-  const tooMany = Number(pallets || 0) > pending;
-  const tooFew = Number(pallets || 0) <= 0;
-  return (
-    <div className="rounded-xl border border-border bg-secondary/30 p-3 space-y-2 text-sm">
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-        {readyToConfirm
-          ? "Перевірено локально — збереження буде лише після підтвердження"
-          : "Товар з пропозиції (чернетка — ще не збережено)"}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <div className="text-muted-foreground text-[11px]">Товар</div>
-          <div className="font-semibold truncate">{offer.product_name ?? "—"}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground text-[11px]">Походження</div>
-          <div className="font-semibold truncate">{offer.origin_country ?? "—"}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground text-[11px]">Калібр</div>
-          <div className="font-semibold truncate">{offer.caliber || "—"}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground text-[11px]">Сорт</div>
-          <div className="font-semibold truncate">{offer.variety || "—"}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground text-[11px]">Ціна</div>
-          <div className="font-semibold tabular-nums">
-            {Number(offer.price_per_kg ?? 0).toFixed(2)} {offer.price_currency ?? "EUR"}/кг
-          </div>
-        </div>
-        <div>
-          <div className="text-muted-foreground text-[11px]">Вага палети</div>
-          <div className="font-semibold tabular-nums">{pw ? `${Math.round(pw)} кг` : "—"}</div>
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="offer-draft-pallets" className="text-xs">
-          Палет (залишок пропозиції: {pending})
-        </Label>
-        <Input
-          id="offer-draft-pallets"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={pending}
-          value={pallets || ""}
-          onChange={(e) => onPalletsChange(Number(e.target.value) || 0)}
-          className={cn((tooMany || tooFew) && "border-destructive")}
-        />
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>
-            {tooFew
-              ? "Вкажіть кількість > 0"
-              : tooMany
-                ? `Більше за залишок (${pending})`
-                : `Нетто ≈ ${Math.round(netKg)} кг`}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
+// (OfferDraftSummary removed in Build 3 — replaced by real draft product step.)
