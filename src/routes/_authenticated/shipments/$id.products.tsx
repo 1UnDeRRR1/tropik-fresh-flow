@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
@@ -15,7 +16,7 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
-import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
+import { deleteEmptyDraftShipment } from "@/lib/shipments.functions";
 import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 import { translateError } from "@/lib/mutation-helpers";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
@@ -107,6 +108,10 @@ type ItemRow = {
 type DraftRow = {
   localId: string;          // "tmp_<uuid>" for new rows; dbId for existing rows
   dbId: string | null;      // null = new row not yet inserted
+  source_offer_id?: string | null;
+  source_position_id?: string | null;
+  source_offer_freight_amount?: number | null;
+  source_offer_freight_currency?: string | null;
   product_name: string;
   variety: string;
   origin_country: string;
@@ -156,6 +161,10 @@ function itemRowToDraft(item: ItemRow): DraftRow {
   return {
     localId: item.id,
     dbId: item.id,
+    source_offer_id: null,
+    source_position_id: null,
+    source_offer_freight_amount: null,
+    source_offer_freight_currency: null,
     product_name: item.product_name === "Новий товар" ? "" : (item.product_name ?? ""),
     variety: item.variety ?? "",
     origin_country: item.origin_country ?? "",
@@ -181,6 +190,10 @@ function emptyDraftRow(): DraftRow {
   return {
     localId: `tmp_${uuid}`,
     dbId: null,
+    source_offer_id: null,
+    source_position_id: null,
+    source_offer_freight_amount: null,
+    source_offer_freight_currency: null,
     product_name: "",
     variety: "",
     origin_country: "",
@@ -798,6 +811,7 @@ function ProductsFullscreen() {
   const fromOfferId = search.fromOffer;
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const deleteEmptyDraftShipmentFn = useServerFn(deleteEmptyDraftShipment);
   const { user, loading, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
   const { data: currentManagerId } = useQuery({
@@ -1238,7 +1252,7 @@ function ProductsFullscreen() {
   // could race with async prefill (fromOffer), risking hard delete of a
   // shipment that already had business links but no real item row yet.
   // Empty-draft cleanup now happens only via the explicit Back button
-  // (leaveProducts), through the guarded deleteShipmentIfEmpty helper.
+  // (leaveProducts), through the guarded server-side deleteEmptyDraftShipment helper.
 
   // Auto-prefill a product row + freight from the source manager offer when
   // creating a new shipment directly under that offer ("Створити нову
@@ -1321,112 +1335,28 @@ function ProductsFullscreen() {
         const netKg = safePalletCount * palletWeightShim;
         const grossKg = netKg;
 
-        const { data: inserted, error: insErr } = await supabase
-          .from("shipment_items")
-          .insert({
-            shipment_id: id,
-            product_name: offer.product_name,
-            origin_country: offer.origin_country
-              ? normalizeCountry(offer.origin_country)
-              : null,
-            caliber: offer.caliber ?? null,
-            variety: offer.variety ?? null,
-            pallet_count: safePalletCount,
-            pallet_weight: palletWeightShim,
-            unit_price: Number(offer.price_per_kg ?? 0),
-            price_currency: offer.price_currency ?? "EUR",
-            qty: netKg,
-            unit: "kg",
-            package_used: null,
-            net_weight_kg: netKg > 0 ? netKg : null,
-            gross_weight_kg: grossKg > 0 ? grossKg : null,
-            resolver_net_per_pallet_kg: null,
-            resolver_gross_per_pallet_kg: null,
-            net_auto: false,
-            gross_auto: false,
-          })
-          .select("id")
-          .single();
-        if (insErr) {
-          prefillRunRef.current = false;
-          toast.error(translateError(insErr));
-          return;
-        }
-        const newItemId = inserted!.id as string;
-
-        // Phase 2: attach the new shipment_item to the offer's existing
-        // position_id. NEVER mint a new position from text fields here.
-        const attachRes = await attachShipmentItemToPosition({
-          shipmentItemId: newItemId,
-          positionId: offerPositionId,
-          palletQty: safePalletCount,
+        setDraftItems((prev) => {
+          if (prev.some((draft) => draft.source_offer_id === offer.id)) return prev;
+          return [
+            ...prev,
+            {
+              ...emptyDraftRow(),
+              source_offer_id: offer.id,
+              source_position_id: offerPositionId,
+              source_offer_freight_amount: Number(offer.freight_amount ?? 0),
+              source_offer_freight_currency: offer.freight_currency ?? "EUR",
+              product_name: offer.product_name ?? "",
+              origin_country: offer.origin_country ? normalizeCountry(offer.origin_country) : "",
+              caliber: offer.caliber ?? "",
+              variety: offer.variety ?? "",
+              pallet_count: safePalletCount,
+              net_weight_kg: netKg,
+              gross_weight_kg: grossKg,
+              unit_price: Number(offer.price_per_kg ?? 0),
+              price_currency: (offer.price_currency ?? "EUR") as "EUR" | "USD",
+            },
+          ];
         });
-        if (!attachRes.ok) {
-          // Cleanup the just-inserted orphan shipment_item (no other links yet).
-          await supabase.from("shipment_items").delete().eq("id", newItemId);
-          prefillRunRef.current = false;
-          toast.error(
-            `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`,
-          );
-          return;
-        }
-
-        // Copy freight from offer to shipment if shipment has no freight yet.
-        if (
-          (sh.logistics_cost == null || Number(sh.logistics_cost) <= 0) &&
-          Number(offer.freight_amount ?? 0) > 0
-        ) {
-          await supabase
-            .from("shipments")
-            .update({
-              logistics_cost: Number(offer.freight_amount),
-              logistics_cost_currency: offer.freight_currency ?? "EUR",
-            })
-            .eq("id", id);
-        }
-
-        // FIFO allocation через RPC (легасі shipment ↔ offer облік палет).
-        const { error: rpcErr } = await supabase.rpc(
-          "link_offer_to_shipment_item_fifo",
-          {
-            p_offer_id: offer.id,
-            p_shipment_item_id: newItemId,
-            p_max_pallets: safePalletCount,
-            p_allow_caliber_mismatch: false,
-            p_notes: undefined,
-          },
-        );
-        if (rpcErr) {
-          const { data: ap } = await supabase
-            .from("manager_offer_allocation_parts")
-            .select("id")
-            .eq("shipment_item_id", newItemId)
-            .limit(1);
-          const { data: di } = await supabase
-            .from("distribution_items")
-            .select("id")
-            .eq("shipment_item_id", newItemId)
-            .limit(1);
-          if ((ap?.length ?? 0) === 0 && (di?.length ?? 0) === 0) {
-            const { error: delErr } = await supabase
-              .from("shipment_items")
-              .delete()
-              .eq("id", newItemId);
-            if (delErr) {
-              toast.error(
-                `Помилка прив'язки і cleanup не вдалося: ${translateError(delErr)}`,
-              );
-            } else {
-              toast.error(translateError(rpcErr));
-            }
-          } else {
-            toast.error(
-              `Помилка прив'язки, рядок залишено для перевірки: ${translateError(rpcErr)}`,
-            );
-          }
-          prefillRunRef.current = false;
-          return;
-        }
 
         qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
         qc.invalidateQueries({ queryKey: ["shipment", id] });
@@ -1452,14 +1382,20 @@ function ProductsFullscreen() {
 
 
   // D1 §8 — "Назад": discard local draft + pendingDeletes, no DB writes.
-  // Safety: deleteShipmentIfEmpty only removes a truly empty newly created shipment
+  // Safety: deleteEmptyDraftShipment only removes a truly empty newly created shipment
   // (it checks the DB; under D1 manual rows never reach DB until "Готово", so a fresh
   // shipment with no prefill and no committed rows stays eligible for cleanup).
   const leaveProducts = async () => {
     setDraftItems([]);
     setPendingDeletes([]);
     baselinesRef.current = new Map();
-    const deleted = await deleteShipmentIfEmpty(id);
+    let deleted = false;
+    try {
+      const res = await deleteEmptyDraftShipmentFn({ data: { shipmentId: id } });
+      deleted = res.deleted;
+    } catch {
+      deleted = false;
+    }
     if (deleted) {
       navigate({ to: "/shipments" });
       return;
@@ -1662,30 +1598,35 @@ function ProductsFullscreen() {
       let abortReason: string | null = null;
 
       for (const d of newDrafts) {
-        // 3a. Create draft position (resolves product+country, no reserve).
-        const posRes = await createPositionForShipmentItem({
-          productName: d.product_name,
-          originCountry: d.origin_country,
-          sourceContext: "shipment_item_manual",
-          sourceRowKey: `${id}:${d.localId}`,
-          // Strip "tmp_" prefix — p_client_row_id is a uuid column in DB.
-          // Frontend localId is `tmp_<uuid>`; pass the raw uuid only.
-          clientRowId: d.localId.replace(/^tmp_/, ""),
-          caliber: d.caliber || null,
-          packaging: d.package_used || null,
-          responsibleManagerId: sh?.import_manager_id ?? null,
-          palletQty: d.pallet_count > 0 ? d.pallet_count : null,
-        });
-        if (!posRes.ok) {
-          abortReason =
-            posRes.stage === "resolve_product"
-              ? "Товар не розпізнано. Уточніть назву товару."
-              : posRes.stage === "resolve_country"
-                ? "Країну не розпізнано. Уточніть країну."
-                : `Не вдалося створити позицію: ${posRes.reason}`;
-          break;
+        // 3a. Offer-prefilled rows must attach to the offer's existing
+        // position_id. Manual rows create a fresh draft position.
+        let positionId = d.source_position_id ?? null;
+        if (!positionId) {
+          const posRes = await createPositionForShipmentItem({
+            productName: d.product_name,
+            originCountry: d.origin_country,
+            sourceContext: "shipment_item_manual",
+            sourceRowKey: `${id}:${d.localId}`,
+            // Strip "tmp_" prefix — p_client_row_id is a uuid column in DB.
+            // Frontend localId is `tmp_<uuid>`; pass the raw uuid only.
+            clientRowId: d.localId.replace(/^tmp_/, ""),
+            caliber: d.caliber || null,
+            packaging: d.package_used || null,
+            responsibleManagerId: sh?.import_manager_id ?? null,
+            palletQty: d.pallet_count > 0 ? d.pallet_count : null,
+          });
+          if (!posRes.ok) {
+            abortReason =
+              posRes.stage === "resolve_product"
+                ? "Товар не розпізнано. Уточніть назву товару."
+                : posRes.stage === "resolve_country"
+                  ? "Країну не розпізнано. Уточніть країну."
+                  : `Не вдалося створити позицію: ${posRes.reason}`;
+            break;
+          }
+          positionId = posRes.positionId;
+          createdPositionIds.push(positionId);
         }
-        createdPositionIds.push(posRes.positionId);
 
         // 3b. Insert the single shipment_item.
         const payload = buildPayload(d, { forUpdate: false });
@@ -1704,12 +1645,26 @@ function ProductsFullscreen() {
         // 3c. Attach item to fresh position + verify shipment_items.position_id.
         const attachRes = await attachShipmentItemToPosition({
           shipmentItemId: newItemId,
-          positionId: posRes.positionId,
+          positionId,
           palletQty: d.pallet_count > 0 ? d.pallet_count : null,
         });
         if (!attachRes.ok) {
           abortReason = `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`;
           break;
+        }
+
+        if (d.source_offer_id) {
+          const { error: fifoErr } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
+            p_offer_id: d.source_offer_id,
+            p_shipment_item_id: newItemId,
+            p_max_pallets: d.pallet_count,
+            p_allow_caliber_mismatch: false,
+            p_notes: undefined,
+          });
+          if (fifoErr) {
+            abortReason = `Не вдалося прив'язати пропозицію: ${translateError(fifoErr)}`;
+            break;
+          }
         }
       }
 
@@ -1811,6 +1766,26 @@ function ProductsFullscreen() {
           .in("id", pendingDeletes);
         if (delErr) {
           toast.error(translateError(delErr));
+        }
+      }
+
+      const offerFreightDraft = draftItems.find(
+        (d) => d.source_offer_id && Number(d.source_offer_freight_amount ?? 0) > 0,
+      );
+      if (
+        offerFreightDraft &&
+        (sh?.logistics_cost == null || Number(sh.logistics_cost) <= 0)
+      ) {
+        const { error: freightErr } = await supabase
+          .from("shipments")
+          .update({
+            logistics_cost: Number(offerFreightDraft.source_offer_freight_amount),
+            logistics_cost_currency: offerFreightDraft.source_offer_freight_currency ?? "EUR",
+          })
+          .eq("id", id);
+        if (freightErr) {
+          toast.error(translateError(freightErr));
+          return;
         }
       }
 
