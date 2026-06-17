@@ -457,6 +457,26 @@ function NewShipment() {
   const isOfferFlow = !!search.fromOffer;
   const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
   const offerFlowBlocked = isOfferFlow && !!offerProductPrefill && !!offerProductPrefill.blocked;
+  const [offerFinalConfirmReady, setOfferFinalConfirmReady] = useState(false);
+
+  useEffect(() => {
+    setOfferFinalConfirmReady(false);
+  }, [
+    mode,
+    vehicleId,
+    supplierId,
+    supplierInput,
+    country,
+    countryInput,
+    loadingDate,
+    vehicleInput,
+    code,
+    codeOverride,
+    etaOverride,
+    etaTouched,
+    offerDraftPallets,
+    search.fromOffer,
+  ]);
 
 
 
@@ -532,6 +552,11 @@ function NewShipment() {
       }
     }
     setInvalid(new Set());
+
+    if (isOfferDraftMode && !offerFinalConfirmReady) {
+      setOfferFinalConfirmReady(true);
+      return;
+    }
 
 
     setSubmitting(true);
