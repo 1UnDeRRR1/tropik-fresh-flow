@@ -103,9 +103,10 @@ export const cancelShipment = createServerFn({ method: "POST" })
     }
 
     // 3. Archive write — service_role only.
-    const safeReason = reason && reason.trim().length > 0
-      ? reason
-      : `Shipment cancelled from UI: ${ship.code ?? shipmentId}`;
+    const safeReason =
+      reason && reason.trim().length > 0
+        ? reason
+        : `Shipment cancelled from UI: ${ship.code ?? shipmentId}`;
 
     const { data: archiveRes, error: archiveErr } = await supabaseAdmin.rpc(
       "archive_write_cancelled_for_shipment",
@@ -125,10 +126,9 @@ export const cancelShipment = createServerFn({ method: "POST" })
       const tail = revertErr
         ? ` (rollback failed: ${revertErr.message})`
         : " (статус поставки відновлено)";
-      throw new Response(
-        `Архівний запис не створено: ${archiveErr.message}${tail}`,
-        { status: 500 },
-      );
+      throw new Response(`Архівний запис не створено: ${archiveErr.message}${tail}`, {
+        status: 500,
+      });
     }
 
     const archivedCount = Array.isArray(archiveRes) ? archiveRes.length : 0;
@@ -206,7 +206,13 @@ export const deleteEmptyDraftShipment = createServerFn({ method: "POST" })
       try {
         const { data: probeData, error } = await q;
         if (error) return "error";
-        return Array.isArray(probeData) ? (probeData.length > 0 ? "hit" : "empty") : probeData ? "hit" : "empty";
+        return Array.isArray(probeData)
+          ? probeData.length > 0
+            ? "hit"
+            : "empty"
+          : probeData
+            ? "hit"
+            : "empty";
       } catch {
         return "error";
       }
