@@ -1590,30 +1590,35 @@ function ProductsFullscreen() {
       let abortReason: string | null = null;
 
       for (const d of newDrafts) {
-        // 3a. Create draft position (resolves product+country, no reserve).
-        const posRes = await createPositionForShipmentItem({
-          productName: d.product_name,
-          originCountry: d.origin_country,
-          sourceContext: "shipment_item_manual",
-          sourceRowKey: `${id}:${d.localId}`,
-          // Strip "tmp_" prefix — p_client_row_id is a uuid column in DB.
-          // Frontend localId is `tmp_<uuid>`; pass the raw uuid only.
-          clientRowId: d.localId.replace(/^tmp_/, ""),
-          caliber: d.caliber || null,
-          packaging: d.package_used || null,
-          responsibleManagerId: sh?.import_manager_id ?? null,
-          palletQty: d.pallet_count > 0 ? d.pallet_count : null,
-        });
-        if (!posRes.ok) {
-          abortReason =
-            posRes.stage === "resolve_product"
-              ? "Товар не розпізнано. Уточніть назву товару."
-              : posRes.stage === "resolve_country"
-                ? "Країну не розпізнано. Уточніть країну."
-                : `Не вдалося створити позицію: ${posRes.reason}`;
-          break;
+        // 3a. Offer-prefilled rows must attach to the offer's existing
+        // position_id. Manual rows create a fresh draft position.
+        let positionId = d.source_position_id ?? null;
+        if (!positionId) {
+          const posRes = await createPositionForShipmentItem({
+            productName: d.product_name,
+            originCountry: d.origin_country,
+            sourceContext: "shipment_item_manual",
+            sourceRowKey: `${id}:${d.localId}`,
+            // Strip "tmp_" prefix — p_client_row_id is a uuid column in DB.
+            // Frontend localId is `tmp_<uuid>`; pass the raw uuid only.
+            clientRowId: d.localId.replace(/^tmp_/, ""),
+            caliber: d.caliber || null,
+            packaging: d.package_used || null,
+            responsibleManagerId: sh?.import_manager_id ?? null,
+            palletQty: d.pallet_count > 0 ? d.pallet_count : null,
+          });
+          if (!posRes.ok) {
+            abortReason =
+              posRes.stage === "resolve_product"
+                ? "Товар не розпізнано. Уточніть назву товару."
+                : posRes.stage === "resolve_country"
+                  ? "Країну не розпізнано. Уточніть країну."
+                  : `Не вдалося створити позицію: ${posRes.reason}`;
+            break;
+          }
+          positionId = posRes.positionId;
+          createdPositionIds.push(positionId);
         }
-        createdPositionIds.push(posRes.positionId);
 
         // 3b. Insert the single shipment_item.
         const payload = buildPayload(d, { forUpdate: false });
@@ -1632,12 +1637,26 @@ function ProductsFullscreen() {
         // 3c. Attach item to fresh position + verify shipment_items.position_id.
         const attachRes = await attachShipmentItemToPosition({
           shipmentItemId: newItemId,
-          positionId: posRes.positionId,
+          positionId,
           palletQty: d.pallet_count > 0 ? d.pallet_count : null,
         });
         if (!attachRes.ok) {
           abortReason = `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`;
           break;
+        }
+
+        if (d.source_offer_id) {
+          const { error: fifoErr } = await supabase.rpc("link_offer_to_shipment_item_fifo", {
+            p_offer_id: d.source_offer_id,
+            p_shipment_item_id: newItemId,
+            p_max_pallets: d.pallet_count,
+            p_allow_caliber_mismatch: false,
+            p_notes: undefined,
+          });
+          if (fifoErr) {
+            abortReason = `Не вдалося прив'язати пропозицію: ${translateError(fifoErr)}`;
+            break;
+          }
         }
       }
 
