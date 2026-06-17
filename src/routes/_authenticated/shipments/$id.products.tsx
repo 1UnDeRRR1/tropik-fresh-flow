@@ -1343,6 +1343,8 @@ function ProductsFullscreen() {
               ...emptyDraftRow(),
               source_offer_id: offer.id,
               source_position_id: offerPositionId,
+              source_offer_freight_amount: Number(offer.freight_amount ?? 0),
+              source_offer_freight_currency: offer.freight_currency ?? "EUR",
               product_name: offer.product_name ?? "",
               origin_country: offer.origin_country ? normalizeCountry(offer.origin_country) : "",
               caliber: offer.caliber ?? "",
