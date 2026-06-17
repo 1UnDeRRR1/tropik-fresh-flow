@@ -110,6 +110,8 @@ type DraftRow = {
   dbId: string | null;      // null = new row not yet inserted
   source_offer_id?: string | null;
   source_position_id?: string | null;
+  source_offer_freight_amount?: number | null;
+  source_offer_freight_currency?: string | null;
   product_name: string;
   variety: string;
   origin_country: string;
@@ -161,6 +163,8 @@ function itemRowToDraft(item: ItemRow): DraftRow {
     dbId: item.id,
     source_offer_id: null,
     source_position_id: null,
+    source_offer_freight_amount: null,
+    source_offer_freight_currency: null,
     product_name: item.product_name === "Новий товар" ? "" : (item.product_name ?? ""),
     variety: item.variety ?? "",
     origin_country: item.origin_country ?? "",
@@ -188,6 +192,8 @@ function emptyDraftRow(): DraftRow {
     dbId: null,
     source_offer_id: null,
     source_position_id: null,
+    source_offer_freight_amount: null,
+    source_offer_freight_currency: null,
     product_name: "",
     variety: "",
     origin_country: "",
