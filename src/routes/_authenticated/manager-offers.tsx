@@ -1396,12 +1396,15 @@ function ManagerOffersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    aria-label="Відкликати"
+                    title="Відкликати"
                     disabled={cancelOffer.isPending}
                     onClick={() => {
                       cancelOffer.mutate(o.id);
                       setDetailOfferId(null);
                     }}
                   >
+
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
