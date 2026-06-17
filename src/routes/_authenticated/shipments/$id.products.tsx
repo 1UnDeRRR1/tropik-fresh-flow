@@ -1329,112 +1329,26 @@ function ProductsFullscreen() {
         const netKg = safePalletCount * palletWeightShim;
         const grossKg = netKg;
 
-        const { data: inserted, error: insErr } = await supabase
-          .from("shipment_items")
-          .insert({
-            shipment_id: id,
-            product_name: offer.product_name,
-            origin_country: offer.origin_country
-              ? normalizeCountry(offer.origin_country)
-              : null,
-            caliber: offer.caliber ?? null,
-            variety: offer.variety ?? null,
-            pallet_count: safePalletCount,
-            pallet_weight: palletWeightShim,
-            unit_price: Number(offer.price_per_kg ?? 0),
-            price_currency: offer.price_currency ?? "EUR",
-            qty: netKg,
-            unit: "kg",
-            package_used: null,
-            net_weight_kg: netKg > 0 ? netKg : null,
-            gross_weight_kg: grossKg > 0 ? grossKg : null,
-            resolver_net_per_pallet_kg: null,
-            resolver_gross_per_pallet_kg: null,
-            net_auto: false,
-            gross_auto: false,
-          })
-          .select("id")
-          .single();
-        if (insErr) {
-          prefillRunRef.current = false;
-          toast.error(translateError(insErr));
-          return;
-        }
-        const newItemId = inserted!.id as string;
-
-        // Phase 2: attach the new shipment_item to the offer's existing
-        // position_id. NEVER mint a new position from text fields here.
-        const attachRes = await attachShipmentItemToPosition({
-          shipmentItemId: newItemId,
-          positionId: offerPositionId,
-          palletQty: safePalletCount,
+        setDraftItems((prev) => {
+          if (prev.some((draft) => draft.source_offer_id === offer.id)) return prev;
+          return [
+            ...prev,
+            {
+              ...emptyDraftRow(),
+              source_offer_id: offer.id,
+              source_position_id: offerPositionId,
+              product_name: offer.product_name ?? "",
+              origin_country: offer.origin_country ? normalizeCountry(offer.origin_country) : "",
+              caliber: offer.caliber ?? "",
+              variety: offer.variety ?? "",
+              pallet_count: safePalletCount,
+              net_weight_kg: netKg,
+              gross_weight_kg: grossKg,
+              unit_price: Number(offer.price_per_kg ?? 0),
+              price_currency: (offer.price_currency ?? "EUR") as "EUR" | "USD",
+            },
+          ];
         });
-        if (!attachRes.ok) {
-          // Cleanup the just-inserted orphan shipment_item (no other links yet).
-          await supabase.from("shipment_items").delete().eq("id", newItemId);
-          prefillRunRef.current = false;
-          toast.error(
-            `Не вдалося прив'язати позицію (${attachRes.stage}): ${attachRes.reason}`,
-          );
-          return;
-        }
-
-        // Copy freight from offer to shipment if shipment has no freight yet.
-        if (
-          (sh.logistics_cost == null || Number(sh.logistics_cost) <= 0) &&
-          Number(offer.freight_amount ?? 0) > 0
-        ) {
-          await supabase
-            .from("shipments")
-            .update({
-              logistics_cost: Number(offer.freight_amount),
-              logistics_cost_currency: offer.freight_currency ?? "EUR",
-            })
-            .eq("id", id);
-        }
-
-        // FIFO allocation через RPC (легасі shipment ↔ offer облік палет).
-        const { error: rpcErr } = await supabase.rpc(
-          "link_offer_to_shipment_item_fifo",
-          {
-            p_offer_id: offer.id,
-            p_shipment_item_id: newItemId,
-            p_max_pallets: safePalletCount,
-            p_allow_caliber_mismatch: false,
-            p_notes: undefined,
-          },
-        );
-        if (rpcErr) {
-          const { data: ap } = await supabase
-            .from("manager_offer_allocation_parts")
-            .select("id")
-            .eq("shipment_item_id", newItemId)
-            .limit(1);
-          const { data: di } = await supabase
-            .from("distribution_items")
-            .select("id")
-            .eq("shipment_item_id", newItemId)
-            .limit(1);
-          if ((ap?.length ?? 0) === 0 && (di?.length ?? 0) === 0) {
-            const { error: delErr } = await supabase
-              .from("shipment_items")
-              .delete()
-              .eq("id", newItemId);
-            if (delErr) {
-              toast.error(
-                `Помилка прив'язки і cleanup не вдалося: ${translateError(delErr)}`,
-              );
-            } else {
-              toast.error(translateError(rpcErr));
-            }
-          } else {
-            toast.error(
-              `Помилка прив'язки, рядок залишено для перевірки: ${translateError(rpcErr)}`,
-            );
-          }
-          prefillRunRef.current = false;
-          return;
-        }
 
         qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
         qc.invalidateQueries({ queryKey: ["shipment", id] });
