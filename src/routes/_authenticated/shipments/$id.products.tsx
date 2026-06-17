@@ -1769,6 +1769,26 @@ function ProductsFullscreen() {
         }
       }
 
+      const offerFreightDraft = draftItems.find(
+        (d) => d.source_offer_id && Number(d.source_offer_freight_amount ?? 0) > 0,
+      );
+      if (
+        offerFreightDraft &&
+        (sh?.logistics_cost == null || Number(sh.logistics_cost) <= 0)
+      ) {
+        const { error: freightErr } = await supabase
+          .from("shipments")
+          .update({
+            logistics_cost: Number(offerFreightDraft.source_offer_freight_amount),
+            logistics_cost_currency: offerFreightDraft.source_offer_freight_currency ?? "EUR",
+          })
+          .eq("id", id);
+        if (freightErr) {
+          toast.error(translateError(freightErr));
+          return;
+        }
+      }
+
       // 6. Clear local state so hydration takes over after refetch.
       setDraftItems([]);
       setPendingDeletes([]);
