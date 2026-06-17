@@ -1040,6 +1040,7 @@ function NewShipment() {
             palletWeight={offerProductPrefill.palletWeight}
             pallets={offerDraftPallets}
             onPalletsChange={setOfferDraftPallets}
+            readyToConfirm={offerFinalConfirmReady}
           />
         )}
 
@@ -1063,7 +1064,9 @@ function NewShipment() {
           {submitting
             ? "Створення…"
             : isOfferDraftMode
-              ? "Створити поставку"
+              ? offerFinalConfirmReady
+                ? "Підтвердити створення поставки"
+                : "Перевірити поставку"
               : "Створити та перейти до товарів"}
         </Button>
       </form>
