@@ -627,6 +627,79 @@ function NewShipment() {
         throw new Error(error.message || "Помилка збереження");
       }
 
+      // Build 1 (final) — offer-draft commit happens inline here, NOT on the
+      // products page. We must hold both the vehicle and shipment rollback
+      // handles until commitNewShipmentItem succeeds. If it fails we
+      // unwind: shipment_item is removed by the helper, then we delete the
+      // shipment + vehicle and roll back any freshly-minted position.
+      if (isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked) {
+        const offer = offerProductPrefill.offer;
+        const pc = Number(offerDraftPallets);
+        const palletWeight = Number(offerProductPrefill.palletWeight ?? 0);
+        const netKg = pc * (palletWeight > 0 ? palletWeight : 0);
+        const grossKg = netKg;
+        const resolvedName =
+          canonicalizeProductName(offer.product_name ?? "") ||
+          (offer.product_name ?? "");
+        const itemPayload: Record<string, unknown> = {
+          shipment_id: shipmentId,
+          product_name: resolvedName,
+          variety: offer.variety || null,
+          origin_country: normalizeCountry(offer.origin_country ?? "") || null,
+          caliber: offer.caliber || null,
+          sku: null,
+          package_used: null,
+          pallet_count: pc,
+          net_weight_kg: netKg,
+          gross_weight_kg: grossKg,
+          resolver_net_per_pallet_kg: null,
+          resolver_gross_per_pallet_kg: null,
+          net_auto: false,
+          gross_auto: false,
+          pallet_weight: palletWeight > 0 ? palletWeight : 0,
+          qty: netKg,
+          unit: "kg",
+          unit_price: Number(offer.price_per_kg ?? 0),
+          price_currency: (offer.price_currency ?? "EUR"),
+        };
+        const localId = `tmp_${crypto.randomUUID()}`;
+        const commitRes = await commitNewShipmentItem({
+          shipmentId,
+          draft: {
+            localId,
+            source_offer_id: offer.id,
+            source_position_id: offerProductPrefill.positionId,
+            product_name: resolvedName,
+            origin_country: normalizeCountry(offer.origin_country ?? "") || "",
+            caliber: offer.caliber || "",
+            package_used: "",
+            pallet_count: pc,
+          },
+          payload: itemPayload,
+          responsibleManagerId: assignedManagerId,
+        });
+        if (!commitRes.ok) {
+          // Unwind: shipment first (FK guards prevent later vehicle delete
+          // otherwise), then vehicle, then any freshly-created position.
+          try {
+            await supabase.from("shipments").delete().eq("id", shipmentId);
+          } catch { /* swallow */ }
+          if (createdVehicleIdForRollback) {
+            try {
+              await supabase.from("vehicles" as never).delete().eq("id", createdVehicleIdForRollback);
+            } catch { /* swallow */ }
+            createdVehicleIdForRollback = null;
+          }
+          if (commitRes.createdPositionId) {
+            await rollbackBirthPosition(commitRes.createdPositionId);
+          }
+          qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
+          toast.error(commitRes.reason || "Не вдалося зберегти позицію");
+          setSubmitting(false);
+          return;
+        }
+      }
+
       // Shipment committed — vehicle is no longer orphan, cancel rollback.
       createdVehicleIdForRollback = null;
 
@@ -649,12 +722,17 @@ function NewShipment() {
       qc.invalidateQueries({ queryKey: ["nav-branch-manager-offers"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"], refetchType: "all" });
       qc.invalidateQueries({ queryKey: ["shipment-products"], refetchType: "all" });
-      toast.success("Поставку створено. Додайте позиції товарів.");
-      navigate({
-        to: "/shipments/$id/products",
-        params: { id: shipmentId },
-        search: search.fromOffer ? { fromOffer: search.fromOffer } : {},
-      } as never);
+      if (isOfferDraftMode) {
+        toast.success("Поставку створено");
+        navigate({ to: "/shipments" });
+      } else {
+        toast.success("Поставку створено. Додайте позиції товарів.");
+        navigate({
+          to: "/shipments/$id/products",
+          params: { id: shipmentId },
+          search: search.fromOffer ? { fromOffer: search.fromOffer } : {},
+        } as never);
+      }
     } catch (err: unknown) {
       // Roll back orphan vehicle from a failed mode="new" creation.
       // Best-effort: if delete itself fails (FK from a parallel write, RLS),
