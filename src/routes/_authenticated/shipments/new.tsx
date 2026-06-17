@@ -990,78 +990,143 @@ function NewShipment() {
     </div>
   );
 
+  const headerSummary = (
+    <div className="rounded-xl border border-border bg-secondary/30 p-3 text-xs space-y-1">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+        <div><span className="text-muted-foreground">Постачальник: </span><span className="font-semibold">{selectedSupplier?.name ?? "—"}</span></div>
+        <div><span className="text-muted-foreground">Номер: </span><span className="font-semibold tabular-nums">{code || "—"}</span></div>
+        <div><span className="text-muted-foreground">Країна: </span><span className="font-semibold">{mode === "existing" && selectedVehicle ? selectedVehicle.country : country || "—"}</span></div>
+        <div><span className="text-muted-foreground">{mode === "new" ? "Завантаж." : "Авто"}: </span><span className="font-semibold tabular-nums">{mode === "new" ? (loadingDate || "—") : (selectedVehicle?.code ?? "—")}</span></div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
       <PageHeader title="Нова поставка" />
 
-      <form onSubmit={onSubmit} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
-        {/* Mode toggle */}
-        <div className="grid grid-cols-2 gap-2">
-          <ModeButton active={mode === "new"} onClick={() => { setMode("new"); setVehicleId(""); }}>
-            <Plus className="mr-1 h-4 w-4" /> Нове авто
-          </ModeButton>
-          <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
-            <Truck className="mr-1 h-4 w-4" /> До відкритого
-          </ModeButton>
+      {step === "header" ? (
+        <form onSubmit={onHeaderNext} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
+          {/* Mode toggle */}
+          <div className="grid grid-cols-2 gap-2">
+            <ModeButton active={mode === "new"} onClick={() => { setMode("new"); setVehicleId(""); }}>
+              <Plus className="mr-1 h-4 w-4" /> Нове авто
+            </ModeButton>
+            <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
+              <Truck className="mr-1 h-4 w-4" /> До відкритого
+            </ModeButton>
+          </div>
+
+          {mode === "new" ? (
+            <>
+              {supplierField}
+              {countryField}
+              {codeField}
+              {loadingDateField}
+              {etaField}
+            </>
+          ) : (
+            <>
+              {supplierField}
+              {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
+              {vehicleField}
+              {codeField}
+              {etaField}
+            </>
+          )}
+
+          {isOfferFlow && offerProductPrefillLoading && (
+            <div className="rounded-xl border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
+              Завантаження товару з пропозиції…
+            </div>
+          )}
+          {offerFlowBlocked && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              Пропозиція недоступна для створення поставки.
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={submitting || (isOfferFlow && (offerProductPrefillLoading || !isOfferDraftMode))}
+            className="w-full bg-brand text-brand-foreground hover:bg-brand/90"
+          >
+            Далі — товари
+          </Button>
+        </form>
+      ) : (
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
+          {headerSummary}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Товари (чернетка)</div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setDraftRows((rows) => [
+                  ...rows,
+                  {
+                    localId: `tmp_${crypto.randomUUID()}`,
+                    source_offer_id: null,
+                    source_position_id: null,
+                    product_name: "",
+                    variety: "",
+                    origin_country: country || "",
+                    caliber: "",
+                    package_used: "",
+                    pallet_count: 1,
+                    pallet_weight: 0,
+                    unit_price: 0,
+                    price_currency: "EUR",
+                    offerLocked: false,
+                  },
+                ])}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Додати товар
+              </Button>
+            </div>
+
+            {draftRows.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-center text-sm text-muted-foreground">
+                Додайте хоча б один товар і натисніть «Готово».
+              </div>
+            )}
+
+            {draftRows.map((r, idx) => (
+              <DraftRowCard
+                key={r.localId}
+                row={r}
+                index={idx}
+                onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
+                onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
+                offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
+              />
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => setStep("header")}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              disabled={submitting || draftRows.length === 0}
+              onClick={finalSave}
+              className="bg-brand text-brand-foreground hover:bg-brand/90"
+            >
+              {submitting ? "Створення…" : "Готово"}
+            </Button>
+          </div>
         </div>
+      )}
 
-        {mode === "new" ? (
-          <>
-            {supplierField}
-            {countryField}
-            {codeField}
-            {loadingDateField}
-            {etaField}
-          </>
-        ) : (
-          <>
-            {supplierField}
-            {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
-            {vehicleField}
-            {codeField}
-            {etaField}
-          </>
-        )}
-
-        {isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked && (
-          <OfferDraftSummary
-            offer={offerProductPrefill.offer}
-            pending={offerProductPrefill.pending}
-            palletWeight={offerProductPrefill.palletWeight}
-            pallets={offerDraftPallets}
-            onPalletsChange={setOfferDraftPallets}
-            readyToConfirm={offerFinalConfirmReady}
-          />
-        )}
-
-        {isOfferFlow && offerProductPrefillLoading && (
-          <div className="rounded-xl border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
-            Завантаження товару з пропозиції…
-          </div>
-        )}
-
-        {offerFlowBlocked && (
-          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            Пропозиція недоступна для створення поставки.
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          disabled={submitting || (isOfferFlow && (offerProductPrefillLoading || !isOfferDraftMode))}
-          className="w-full bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          {submitting
-            ? "Створення…"
-            : isOfferDraftMode
-              ? offerFinalConfirmReady
-                ? "Підтвердити створення поставки"
-                : "Перевірити поставку"
-              : "Створити та перейти до товарів"}
-        </Button>
-      </form>
-
-      {mobileEditingLabel && (
+      {mobileEditingLabel && step === "header" && (
         <div
           className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
           style={{ bottom: "var(--keyboard-inset, 0px)" }}
@@ -1087,6 +1152,131 @@ function NewShipment() {
     </div>
   );
 }
+
+type DraftRowShape = {
+  localId: string;
+  source_offer_id: string | null;
+  source_position_id: string | null;
+  product_name: string;
+  variety: string;
+  origin_country: string;
+  caliber: string;
+  package_used: string;
+  pallet_count: number;
+  pallet_weight: number;
+  unit_price: number;
+  price_currency: string;
+  offerLocked: boolean;
+};
+
+function DraftRowCard({
+  row,
+  index,
+  onChange,
+  onRemove,
+  offerPending,
+}: {
+  row: DraftRowShape;
+  index: number;
+  onChange: (patch: Partial<DraftRowShape>) => void;
+  onRemove: () => void;
+  offerPending: number | null;
+}) {
+  const netKg = row.pallet_count * row.pallet_weight;
+  const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
+  return (
+    <div className="rounded-xl border border-border bg-background p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-muted-foreground">
+          #{index + 1}{row.source_offer_id ? " · з пропозиції" : ""}
+        </div>
+        <Button type="button" size="sm" variant="ghost" onClick={onRemove}>Видалити</Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[11px]">Товар</Label>
+          <Input
+            value={row.product_name}
+            onChange={(e) => onChange({ product_name: e.target.value })}
+            placeholder="Назва"
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Походження</Label>
+          <Input
+            value={row.origin_country}
+            onChange={(e) => onChange({ origin_country: e.target.value })}
+            placeholder="Країна"
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Сорт</Label>
+          <Input
+            value={row.variety}
+            onChange={(e) => onChange({ variety: e.target.value })}
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Калібр</Label>
+          <Input
+            value={row.caliber}
+            onChange={(e) => onChange({ caliber: e.target.value })}
+            disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">
+            Палет{offerPending != null ? ` (залишок: ${offerPending})` : ""}
+          </Label>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={row.pallet_count || ""}
+            onChange={(e) => onChange({ pallet_count: Number(e.target.value) || 0 })}
+            className={cn(tooManyOffer && "border-destructive")}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Вага палети, кг</Label>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={row.pallet_weight || ""}
+            onChange={(e) => onChange({ pallet_weight: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Ціна за кг</Label>
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            value={row.unit_price || ""}
+            onChange={(e) => onChange({ unit_price: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Валюта</Label>
+          <Input
+            value={row.price_currency}
+            onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
+            maxLength={3}
+          />
+        </div>
+      </div>
+      <div className="text-[11px] text-muted-foreground tabular-nums">
+        Нетто ≈ {Math.round(netKg)} кг
+      </div>
+    </div>
+  );
+}
+
 
 function ModeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
