@@ -395,7 +395,7 @@ function NewShipment() {
   // Mirrors the prefill block in $id.products.tsx (lines 1257-1380) but
   // stays LOCAL: nothing is written to the DB until the user clicks the
   // final "Створити поставку" button. Pressing Back creates nothing.
-  const { data: offerProductPrefill } = useQuery({
+  const { data: offerProductPrefill, isLoading: offerProductPrefillLoading } = useQuery({
     queryKey: ["new-shipment-offer-product-prefill", search.fromOffer],
     enabled: !!search.fromOffer,
     queryFn: async () => {
@@ -454,7 +454,9 @@ function NewShipment() {
     }
   }, [offerProductPrefill, offerDraftPallets]);
 
-  const isOfferDraftMode = !!search.fromOffer && !!offerProductPrefill && !offerProductPrefill.blocked;
+  const isOfferFlow = !!search.fromOffer;
+  const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
+  const offerFlowBlocked = isOfferFlow && !!offerProductPrefill && !!offerProductPrefill.blocked;
 
 
 
@@ -503,6 +505,18 @@ function NewShipment() {
     }
     if (missing.length) {
       triggerShake(missing);
+      return;
+    }
+    if (isOfferFlow && offerProductPrefillLoading) {
+      toast.error("Дані пропозиції ще завантажуються");
+      return;
+    }
+    if (isOfferFlow && !isOfferDraftMode) {
+      toast.error(
+        offerFlowBlocked
+          ? "Пропозиція недоступна для створення поставки"
+          : "Не вдалося завантажити товар з пропозиції",
+      );
       return;
     }
     // Build 2A — offer-draft validation: pallets must be in (0, pending].
@@ -729,7 +743,7 @@ function NewShipment() {
         navigate({
           to: "/shipments/$id/products",
           params: { id: shipmentId },
-          search: search.fromOffer ? { fromOffer: search.fromOffer } : {},
+          search: {},
         } as never);
       }
     } catch (err: unknown) {
