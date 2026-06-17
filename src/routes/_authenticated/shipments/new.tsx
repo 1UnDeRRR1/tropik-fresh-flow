@@ -26,6 +26,13 @@ import {
 import { StaffOnly } from "@/components/StaffOnly";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
+import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
+import { rollbackBirthPosition } from "@/lib/position-attach";
+import { canonicalizeProductName, resolveProductOption } from "@/lib/product-aliases";
+import { translateError } from "@/lib/mutation-helpers";
+
+const MAX_PALLETS_PER_OFFER_DRAFT = 26;
+const TARGET_KG_PER_OFFER_DRAFT = 21000;
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
