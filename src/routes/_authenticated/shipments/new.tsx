@@ -1118,6 +1118,10 @@ function NewShipment() {
                 onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
                 onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
                 offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
+                productOptions={productOptions}
+                productAliases={productAliases}
+                countryOptions={countryOptions}
+                countryAliases={countryAliases}
               />
             ))}
           </div>
