@@ -28,8 +28,7 @@ import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { rollbackBirthPosition } from "@/lib/position-attach";
-import { canonicalizeProductName, resolveProductOption } from "@/lib/product-aliases";
-import { translateError } from "@/lib/mutation-helpers";
+import { canonicalizeProductName } from "@/lib/product-aliases";
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
