@@ -1240,7 +1240,7 @@ function ProductsFullscreen() {
   // could race with async prefill (fromOffer), risking hard delete of a
   // shipment that already had business links but no real item row yet.
   // Empty-draft cleanup now happens only via the explicit Back button
-  // (leaveProducts), through the guarded deleteShipmentIfEmpty helper.
+  // (leaveProducts), through the guarded server-side deleteEmptyDraftShipment helper.
 
   // Auto-prefill a product row + freight from the source manager offer when
   // creating a new shipment directly under that offer ("Створити нову
@@ -1454,7 +1454,7 @@ function ProductsFullscreen() {
 
 
   // D1 §8 — "Назад": discard local draft + pendingDeletes, no DB writes.
-  // Safety: deleteShipmentIfEmpty only removes a truly empty newly created shipment
+  // Safety: deleteEmptyDraftShipment only removes a truly empty newly created shipment
   // (it checks the DB; under D1 manual rows never reach DB until "Готово", so a fresh
   // shipment with no prefill and no committed rows stays eligible for cleanup).
   const leaveProducts = async () => {
