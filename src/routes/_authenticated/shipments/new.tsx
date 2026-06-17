@@ -994,8 +994,22 @@ function NewShipment() {
           </>
         )}
 
+        {isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked && (
+          <OfferDraftSummary
+            offer={offerProductPrefill.offer}
+            pending={offerProductPrefill.pending}
+            palletWeight={offerProductPrefill.palletWeight}
+            pallets={offerDraftPallets}
+            onPalletsChange={setOfferDraftPallets}
+          />
+        )}
+
         <Button type="submit" disabled={submitting} className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
-          {submitting ? "Створення…" : "Створити та перейти до товарів"}
+          {submitting
+            ? "Створення…"
+            : isOfferDraftMode
+              ? "Створити поставку"
+              : "Створити та перейти до товарів"}
         </Button>
       </form>
 
