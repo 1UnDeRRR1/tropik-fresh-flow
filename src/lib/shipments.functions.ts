@@ -220,28 +220,76 @@ export const deleteEmptyDraftShipment = createServerFn({ method: "POST" })
 
     if (itemIds.length > 0) {
       const linkProbe = await probe(
-        supabaseAdmin.from("manager_offer_shipment_links").select("id").in("shipment_item_id", itemIds).limit(1),
+        supabaseAdmin
+          .from("manager_offer_shipment_links")
+          .select("id")
+          .in("shipment_item_id", itemIds)
+          .limit(1),
       );
-      if (linkProbe !== "empty") return { ok: true as const, deleted: false, reason: "business_links" as const };
+      if (linkProbe !== "empty") {
+        return { ok: true as const, deleted: false, reason: "business_links" as const };
+      }
 
       const allocItemProbe = await probe(
-        supabaseAdmin.from("manager_offer_allocation_parts").select("id").in("shipment_item_id", itemIds).limit(1),
+        supabaseAdmin
+          .from("manager_offer_allocation_parts")
+          .select("id")
+          .in("shipment_item_id", itemIds)
+          .limit(1),
       );
-      if (allocItemProbe !== "empty") return { ok: true as const, deleted: false, reason: "business_links" as const };
+      if (allocItemProbe !== "empty") {
+        return { ok: true as const, deleted: false, reason: "business_links" as const };
+      }
 
       const distItemProbe = await probe(
-        supabaseAdmin.from("distribution_items").select("id").in("shipment_item_id", itemIds).limit(1),
+        supabaseAdmin
+          .from("distribution_items")
+          .select("id")
+          .in("shipment_item_id", itemIds)
+          .limit(1),
       );
-      if (distItemProbe !== "empty") return { ok: true as const, deleted: false, reason: "business_links" as const };
+      if (distItemProbe !== "empty") {
+        return { ok: true as const, deleted: false, reason: "business_links" as const };
+      }
     }
 
     const probes = await Promise.all([
-      probe(supabaseAdmin.from("manager_offer_allocation_parts").select("id").eq("shipment_id", shipmentId).limit(1)),
+      probe(
+        supabaseAdmin
+          .from("manager_offer_allocation_parts")
+          .select("id")
+          .eq("shipment_id", shipmentId)
+          .limit(1),
+      ),
       probe(supabaseAdmin.from("distributions").select("id").eq("shipment_id", shipmentId).limit(1)),
-      probe(supabaseAdmin.from("archive_promise_snapshots").select("id").eq("source_shipment_id", shipmentId).limit(1)),
-      probe(supabaseAdmin.from("branch_archive_results").select("result_id").eq("shipment_id", shipmentId).limit(1)),
-      probe(supabaseAdmin.from("position_shipment_links").select("id").eq("shipment_id", shipmentId).limit(1)),
-      probe(supabaseAdmin.from("manager_offers").select("id").eq("linked_shipment_id", shipmentId).limit(1)),
+      probe(
+        supabaseAdmin
+          .from("archive_promise_snapshots")
+          .select("id")
+          .eq("source_shipment_id", shipmentId)
+          .limit(1),
+      ),
+      probe(
+        supabaseAdmin
+          .from("branch_archive_results")
+          .select("result_id")
+          .eq("shipment_id", shipmentId)
+          .limit(1),
+      ),
+      probe(
+        supabaseAdmin
+          .from("position_shipment_links")
+          .select("id")
+          .eq("shipment_id", shipmentId)
+          .limit(1),
+      ),
+      probe(
+        supabaseAdmin
+          .from("manager_offers")
+          .select("id")
+          .eq("linked_shipment_id", shipmentId)
+          .limit(1),
+      ),
     ]);
     if (probes.some((result) => result !== "empty")) {
       return { ok: true as const, deleted: false, reason: "business_links" as const };
