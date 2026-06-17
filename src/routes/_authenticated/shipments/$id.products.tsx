@@ -108,6 +108,8 @@ type ItemRow = {
 type DraftRow = {
   localId: string;          // "tmp_<uuid>" for new rows; dbId for existing rows
   dbId: string | null;      // null = new row not yet inserted
+  source_offer_id?: string | null;
+  source_position_id?: string | null;
   product_name: string;
   variety: string;
   origin_country: string;
@@ -157,6 +159,8 @@ function itemRowToDraft(item: ItemRow): DraftRow {
   return {
     localId: item.id,
     dbId: item.id,
+    source_offer_id: null,
+    source_position_id: null,
     product_name: item.product_name === "Новий товар" ? "" : (item.product_name ?? ""),
     variety: item.variety ?? "",
     origin_country: item.origin_country ?? "",
@@ -182,6 +186,8 @@ function emptyDraftRow(): DraftRow {
   return {
     localId: `tmp_${uuid}`,
     dbId: null,
+    source_offer_id: null,
+    source_position_id: null,
     product_name: "",
     variety: "",
     origin_country: "",
