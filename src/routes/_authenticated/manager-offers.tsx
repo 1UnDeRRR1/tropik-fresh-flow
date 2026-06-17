@@ -1317,13 +1317,6 @@ function ManagerOffersPage() {
                         <Button
                           size="sm"
                           onClick={async () => {
-                            try {
-                              await autoConfirmPendingForOffer(o.id);
-                            } catch (e) {
-                              toast.error((e as Error).message);
-                              return;
-                            }
-                            await invalidateOfferWorkflowQueries();
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
@@ -1362,13 +1355,6 @@ function ManagerOffersPage() {
                           className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
                           title="Немає підходящої поставки — створіть нову"
                           onClick={async () => {
-                            try {
-                              await autoConfirmPendingForOffer(o.id);
-                            } catch (e) {
-                              toast.error((e as Error).message);
-                              return;
-                            }
-                            await invalidateOfferWorkflowQueries();
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
