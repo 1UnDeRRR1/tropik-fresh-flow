@@ -792,9 +792,12 @@ function ManagerOffersPage() {
   });
 
   // Strict guardrail (spec v2): auto-confirm ONLY rows where
-  //   requested_pallets > 0 AND approved_pallets IS NULL.
-  // Never overwrites partial approvals or refusals (approved_pallets = 0).
-  // Uses existing table/columns/RLS — no schema/RPC changes.
+  //   requested_pallets > 0 AND approved_pallets IS NULL AND refused_at IS NULL.
+  // Quantity rule: use current draft value from the per-row input ref when the
+  // manager has edited it (>0 and finite) without clicking «Підтвердити»;
+  // otherwise fall back to requested_pallets. Never overwrites partial
+  // approvals or refusals (approved_pallets = 0). Uses existing
+  // table/columns/RLS — no schema/RPC changes.
   async function autoConfirmPendingForOffer(offerId: string): Promise<number> {
     const { data, error } = await supabase
       .from("manager_offer_responses")
@@ -806,21 +809,33 @@ function ManagerOffersPage() {
     if (error) throw error;
     const rows = (data ?? []) as Pick<ManagerOfferResponse, "id" | "requested_pallets" | "approved_pallets" | "refused_at">[];
     if (rows.length === 0) return 0;
+    let confirmed = 0;
     for (const r of rows) {
       // Defensive double-check: never overwrite an existing answer or refusal.
       if (r.approved_pallets != null) continue;
       if (r.refused_at != null) continue;
       const requested = Number(r.requested_pallets ?? 0);
       if (!(requested > 0)) continue;
+      // Prefer the manager's current draft value from the row input ref, if
+      // present, valid and > 0. Refs only exist while the detail dialog is
+      // open — when closed we fall back to requested_pallets, which matches
+      // the spec ("manager did not edit").
+      const draftRaw = approvedInputRefs.current[r.id]?.value;
+      let useQty = requested;
+      if (typeof draftRaw === "string" && draftRaw.trim() !== "") {
+        const dv = Number(draftRaw);
+        if (Number.isFinite(dv) && dv > 0) useQty = dv;
+      }
       const { error: updErr } = await supabase
         .from("manager_offer_responses")
-        .update({ approved_pallets: requested })
+        .update({ approved_pallets: useQty })
         .eq("id", r.id)
         .is("approved_pallets", null)
         .is("refused_at", null); // guardrail at the DB level
       if (updErr) throw updErr;
+      confirmed += 1;
     }
-    return rows.length;
+    return confirmed;
   }
 
   const takeIntoWork = useMutation({
@@ -841,6 +856,7 @@ function ManagerOffersPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
 
   const [showAllPending, setShowAllPending] = useState(false);
@@ -1370,27 +1386,25 @@ function ManagerOffersPage() {
                       <Pencil className="mr-1 h-3.5 w-3.5" /> Редагувати
                     </Button>
                   )}
-                  {!["closed", "expired", "linked"].includes(o.status) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setStatus.mutate({ id: o.id, status: "closed" })}
-                    >
-                      Закрити
-                    </Button>
-                  )}
+                  {/* «Закрити» removed — «Взяти в роботу» is the single
+                      primary action for moving the offer into the confirmed
+                      bucket and it auto-confirms pending branch requests. */}
+
                   {o.status !== "deleted" && (
                     <ShareLinkButtons offer={o} />
                   )}
                   <Button
                     size="sm"
                     variant="ghost"
+                    aria-label="Відкликати"
+                    title="Відкликати"
                     disabled={cancelOffer.isPending}
                     onClick={() => {
                       cancelOffer.mutate(o.id);
                       setDetailOfferId(null);
                     }}
                   >
+
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -1477,20 +1491,14 @@ function ManagerOffersPage() {
                                           ? r.approved_pallets
                                           : r.requested_pallets
                                       }
-                                      onBlur={(e) => {
-                                        if (rowLocked) return;
-                                        const raw = e.target.value;
-                                        if (raw === "" || raw == null) return;
-                                        const v = Number(raw);
-                                        if (!Number.isFinite(v) || v <= 0) {
-                                          toast.error("Вкажіть кількість палет більше 0");
-                                          return;
-                                        }
-                                        if (v !== r.approved_pallets) {
-                                          updateApproved.mutate({ id: r.id, approved: v });
-                                        }
-                                      }}
+                                      // No onBlur write: focusing/leaving the
+                                      // field must NEVER confirm. Only the
+                                      // per-row «Підтвердити» button or the
+                                      // global «Взяти в роботу» may write
+                                      // approved_pallets. Refusal stays on
+                                      // «Відмовити».
                                     />
+
                                     {!rowLocked && (
                                       <>
                                         <Button
