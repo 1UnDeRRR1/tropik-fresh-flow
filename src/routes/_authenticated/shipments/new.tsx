@@ -1145,3 +1145,88 @@ function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; owner
     </div>
   );
 }
+
+function OfferDraftSummary({
+  offer,
+  pending,
+  palletWeight,
+  pallets,
+  onPalletsChange,
+}: {
+  offer: {
+    product_name: string | null;
+    origin_country: string | null;
+    caliber: string | null;
+    variety: string | null;
+    price_per_kg: number | null;
+    price_currency: string | null;
+  };
+  pending: number;
+  palletWeight: number;
+  pallets: number;
+  onPalletsChange: (n: number) => void;
+}) {
+  const pw = Number(palletWeight) > 0 ? Number(palletWeight) : 0;
+  const netKg = pw * Math.max(0, Number(pallets || 0));
+  const tooMany = Number(pallets || 0) > pending;
+  const tooFew = Number(pallets || 0) <= 0;
+  return (
+    <div className="rounded-xl border border-border bg-secondary/30 p-3 space-y-2 text-sm">
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        Товар з пропозиції (чернетка — ще не збережено)
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <div className="text-muted-foreground text-[11px]">Товар</div>
+          <div className="font-semibold truncate">{offer.product_name ?? "—"}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-[11px]">Походження</div>
+          <div className="font-semibold truncate">{offer.origin_country ?? "—"}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-[11px]">Калібр</div>
+          <div className="font-semibold truncate">{offer.caliber || "—"}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-[11px]">Сорт</div>
+          <div className="font-semibold truncate">{offer.variety || "—"}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-[11px]">Ціна</div>
+          <div className="font-semibold tabular-nums">
+            {Number(offer.price_per_kg ?? 0).toFixed(2)} {offer.price_currency ?? "EUR"}/кг
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-[11px]">Вага палети</div>
+          <div className="font-semibold tabular-nums">{pw ? `${Math.round(pw)} кг` : "—"}</div>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="offer-draft-pallets" className="text-xs">
+          Палет (залишок пропозиції: {pending})
+        </Label>
+        <Input
+          id="offer-draft-pallets"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={pending}
+          value={pallets || ""}
+          onChange={(e) => onPalletsChange(Number(e.target.value) || 0)}
+          className={cn((tooMany || tooFew) && "border-destructive")}
+        />
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>
+            {tooFew
+              ? "Вкажіть кількість > 0"
+              : tooMany
+                ? `Більше за залишок (${pending})`
+                : `Нетто ≈ ${Math.round(netKg)} кг`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
