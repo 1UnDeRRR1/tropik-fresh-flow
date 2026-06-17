@@ -506,7 +506,20 @@ function NewShipment() {
       triggerShake(missing);
       return;
     }
+    // Build 2A — offer-draft validation: pallets must be in (0, pending].
+    if (isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked) {
+      const pc = Number(offerDraftPallets);
+      if (!Number.isFinite(pc) || pc <= 0) {
+        toast.error("Вкажіть кількість палет більше 0");
+        return;
+      }
+      if (pc > offerProductPrefill.pending) {
+        toast.error(`Більше за залишок пропозиції (${offerProductPrefill.pending} пал)`);
+        return;
+      }
+    }
     setInvalid(new Set());
+
 
     setSubmitting(true);
     // Track a freshly-created vehicle so we can roll it back if the
