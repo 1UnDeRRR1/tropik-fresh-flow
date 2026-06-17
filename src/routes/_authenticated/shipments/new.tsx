@@ -113,6 +113,18 @@ function NewShipment() {
   const [countryInput, setCountryInput] = useState("");
   const countryOptions = useCountryOptions();
   const countryAliases = useCountryAliases();
+  const productAliases = useProductAliases();
+  const { data: productOptions = [] } = useQuery({
+    queryKey: ["product-dictionary-options-new-draft"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("product_dictionary")
+        .select("product_name_ua")
+        .order("product_name_ua");
+      return ((data ?? []).map((r) => r.product_name_ua).filter(Boolean) as string[]);
+    },
+  });
   const [vehicleInput, setVehicleInput] = useState("");
   const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
