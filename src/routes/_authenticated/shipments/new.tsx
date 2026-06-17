@@ -1196,15 +1196,38 @@ function DraftRowCard({
   onChange,
   onRemove,
   offerPending,
+  productOptions,
+  productAliases,
+  countryOptions,
+  countryAliases,
 }: {
   row: DraftRowShape;
   index: number;
   onChange: (patch: Partial<DraftRowShape>) => void;
   onRemove: () => void;
   offerPending: number | null;
+  productOptions: string[];
+  productAliases: Record<string, string>;
+  countryOptions: string[];
+  countryAliases: Record<string, string>;
 }) {
   const netKg = row.pallet_count * row.pallet_weight;
   const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
+  const varieties = useVarietiesFor(row.product_name);
+  const { data: palletResolved } = usePalletResolver(row.product_name, row.origin_country);
+  const packageOptions: PackageOption[] = palletResolved?.options ?? [];
+  const packageItems = useMemo(
+    () => packageOptions.map((opt, i) => ({
+      ...opt,
+      key: `${opt.package_used}|${opt.pallet_net_kg ?? ""}|${opt.pallet_gross_kg ?? ""}|${i}`,
+      label: opt.package_used,
+      searchStrings: [opt.package_used, opt.pallet_size ?? ""].filter(Boolean) as string[],
+    })),
+    [packageOptions],
+  );
+
+  const fieldInputClassName = "h-9 rounded-md border border-input bg-background px-2 text-sm";
+
   return (
     <div className="rounded-xl border border-border bg-background p-3 space-y-2">
       <div className="flex items-center justify-between">
@@ -1216,28 +1239,40 @@ function DraftRowCard({
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-[11px]">Товар</Label>
-          <Input
+          <AutocompleteCell
             value={row.product_name}
-            onChange={(e) => onChange({ product_name: e.target.value })}
+            onChange={(v) => onChange({ product_name: v })}
+            options={productOptions}
+            aliases={productAliases}
             placeholder="Назва"
-            disabled={row.offerLocked}
+            readOnly={row.offerLocked}
+            expandedMinWidth={220}
+            className={fieldInputClassName}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-[11px]">Походження</Label>
-          <Input
+          <AutocompleteCell
             value={row.origin_country}
-            onChange={(e) => onChange({ origin_country: e.target.value })}
+            onChange={(v) => onChange({ origin_country: v })}
+            options={countryOptions}
+            aliases={countryAliases}
             placeholder="Країна"
-            disabled={row.offerLocked}
+            readOnly={row.offerLocked}
+            expandedMinWidth={200}
+            className={fieldInputClassName}
           />
         </div>
         <div className="space-y-1">
           <Label className="text-[11px]">Сорт</Label>
-          <Input
+          <VarietyAutocomplete
             value={row.variety}
-            onChange={(e) => onChange({ variety: e.target.value })}
+            onChange={(v) => onChange({ variety: v })}
+            varieties={varieties}
+            placeholder="—"
             disabled={row.offerLocked}
+            expandedMinWidth={200}
+            inputClassName={fieldInputClassName}
           />
         </div>
         <div className="space-y-1">
@@ -1246,6 +1281,40 @@ function DraftRowCard({
             value={row.caliber}
             onChange={(e) => onChange({ caliber: e.target.value })}
             disabled={row.offerLocked}
+          />
+        </div>
+        <div className="space-y-1 col-span-2">
+          <Label className="text-[11px]">Упаковка</Label>
+          <InlineAutocomplete
+            value={row.package_used}
+            onValueChange={(v) => onChange({ package_used: v })}
+            items={packageItems}
+            getKey={(item) => item.key}
+            getLabel={(item) => item.label}
+            getSearchStrings={(item) => item.searchStrings}
+            onSelect={(item) => {
+              const patch: Partial<DraftRowShape> = { package_used: item.package_used };
+              const gross = item.pallet_gross_kg;
+              if (gross != null && gross > 0 && (!row.pallet_weight || row.pallet_weight <= 0)) {
+                patch.pallet_weight = gross;
+              }
+              onChange(patch);
+            }}
+            placeholder={row.product_name ? "Виберіть упаковку" : "Спочатку виберіть товар"}
+            expandedMinWidth={240}
+            browseLimit={50}
+            searchLimit={3}
+            minSearchLength={2}
+            inputClassName={fieldInputClassName}
+            renderItem={(item) => (
+              <div>
+                <div className="font-medium truncate">{item.package_used}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  net {item.pallet_net_kg ?? "—"} / gross {item.pallet_gross_kg ?? "—"} кг
+                  {item.pallet_size ? ` · ${item.pallet_size}` : ""}
+                </div>
+              </div>
+            )}
           />
         </div>
         <div className="space-y-1">
