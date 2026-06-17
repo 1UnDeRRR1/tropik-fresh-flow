@@ -392,6 +392,72 @@ function NewShipment() {
   // selection, and even a linked shipment's supplier is not used to prefill
   // here — that caused values to be restored after manual clearing.
 
+  // Build 2A — full offer product prefill for inline draft commit.
+  // Mirrors the prefill block in $id.products.tsx (lines 1257-1380) but
+  // stays LOCAL: nothing is written to the DB until the user clicks the
+  // final "Створити поставку" button. Pressing Back creates nothing.
+  const { data: offerProductPrefill } = useQuery({
+    queryKey: ["new-shipment-offer-product-prefill", search.fromOffer],
+    enabled: !!search.fromOffer,
+    queryFn: async () => {
+      const offerId = search.fromOffer!;
+      const { data: offer, error: offerErr } = await supabase
+        .from("manager_offers")
+        .select(
+          "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,position_id,import_manager_id",
+        )
+        .eq("id", offerId)
+        .maybeSingle();
+      if (offerErr) throw offerErr;
+      if (!offer) return null;
+      const positionId = (offer as { position_id?: string | null }).position_id ?? null;
+      if (!positionId) {
+        return { blocked: "no_position" as const, offer };
+      }
+      const [{ data: responses }, { data: allocParts }] = await Promise.all([
+        supabase.from("manager_offer_responses").select("approved_pallets").eq("offer_id", offerId),
+        supabase.from("manager_offer_allocation_parts").select("pallets, status").eq("offer_id", offerId),
+      ]);
+      const approvedTotal = (responses ?? []).reduce(
+        (s, r) => s + Number((r as { approved_pallets: number | null }).approved_pallets ?? 0),
+        0,
+      );
+      const orderedTotal = (allocParts ?? [])
+        .filter((p) => (p as { status: string }).status === "ordered")
+        .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+      const cancelledTotal = (allocParts ?? [])
+        .filter((p) => (p as { status: string }).status === "cancelled")
+        .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+      const pending = Math.max(0, approvedTotal - orderedTotal - cancelledTotal);
+      const palletWeight = Number(offer.pallet_weight ?? 0);
+      const desired = palletWeight > 0
+        ? Math.min(MAX_PALLETS_PER_OFFER_DRAFT, Math.max(1, Math.floor(TARGET_KG_PER_OFFER_DRAFT / palletWeight)))
+        : 0;
+      const safePalletCount = Math.min(desired, pending);
+      return {
+        blocked: false as const,
+        offer,
+        positionId,
+        pending,
+        safePalletCount,
+        palletWeight,
+      };
+    },
+  });
+
+  const [offerDraftPallets, setOfferDraftPallets] = useState<number>(0);
+  // Seed editable pallet count once when prefill arrives.
+  useEffect(() => {
+    if (!offerProductPrefill || offerProductPrefill.blocked) return;
+    if (offerDraftPallets > 0) return;
+    if (offerProductPrefill.safePalletCount > 0) {
+      setOfferDraftPallets(offerProductPrefill.safePalletCount);
+    }
+  }, [offerProductPrefill, offerDraftPallets]);
+
+  const isOfferDraftMode = !!search.fromOffer && !!offerProductPrefill && !offerProductPrefill.blocked;
+
+
 
   // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
