@@ -28,6 +28,7 @@ import {
   attachShipmentItemToPosition,
   rollbackBirthPosition,
 } from "@/lib/position-attach";
+import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
 
