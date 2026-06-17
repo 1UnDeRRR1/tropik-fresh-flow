@@ -1018,7 +1018,23 @@ function NewShipment() {
           />
         )}
 
-        <Button type="submit" disabled={submitting} className="w-full bg-brand text-brand-foreground hover:bg-brand/90">
+        {isOfferFlow && offerProductPrefillLoading && (
+          <div className="rounded-xl border border-border bg-secondary/30 p-3 text-sm text-muted-foreground">
+            Завантаження товару з пропозиції…
+          </div>
+        )}
+
+        {offerFlowBlocked && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            Пропозиція недоступна для створення поставки.
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          disabled={submitting || (isOfferFlow && (offerProductPrefillLoading || !isOfferDraftMode))}
+          className="w-full bg-brand text-brand-foreground hover:bg-brand/90"
+        >
           {submitting
             ? "Створення…"
             : isOfferDraftMode
