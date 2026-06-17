@@ -26,6 +26,13 @@ import {
 import { StaffOnly } from "@/components/StaffOnly";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
+import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
+import { rollbackBirthPosition } from "@/lib/position-attach";
+import { canonicalizeProductName, resolveProductOption } from "@/lib/product-aliases";
+import { translateError } from "@/lib/mutation-helpers";
+
+const MAX_PALLETS_PER_OFFER_DRAFT = 26;
+const TARGET_KG_PER_OFFER_DRAFT = 21000;
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
@@ -385,6 +392,72 @@ function NewShipment() {
   // selection, and even a linked shipment's supplier is not used to prefill
   // here — that caused values to be restored after manual clearing.
 
+  // Build 2A — full offer product prefill for inline draft commit.
+  // Mirrors the prefill block in $id.products.tsx (lines 1257-1380) but
+  // stays LOCAL: nothing is written to the DB until the user clicks the
+  // final "Створити поставку" button. Pressing Back creates nothing.
+  const { data: offerProductPrefill } = useQuery({
+    queryKey: ["new-shipment-offer-product-prefill", search.fromOffer],
+    enabled: !!search.fromOffer,
+    queryFn: async () => {
+      const offerId = search.fromOffer!;
+      const { data: offer, error: offerErr } = await supabase
+        .from("manager_offers")
+        .select(
+          "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,position_id,import_manager_id",
+        )
+        .eq("id", offerId)
+        .maybeSingle();
+      if (offerErr) throw offerErr;
+      if (!offer) return null;
+      const positionId = (offer as { position_id?: string | null }).position_id ?? null;
+      if (!positionId) {
+        return { blocked: "no_position" as const, offer };
+      }
+      const [{ data: responses }, { data: allocParts }] = await Promise.all([
+        supabase.from("manager_offer_responses").select("approved_pallets").eq("offer_id", offerId),
+        supabase.from("manager_offer_allocation_parts").select("pallets, status").eq("offer_id", offerId),
+      ]);
+      const approvedTotal = (responses ?? []).reduce(
+        (s, r) => s + Number((r as { approved_pallets: number | null }).approved_pallets ?? 0),
+        0,
+      );
+      const orderedTotal = (allocParts ?? [])
+        .filter((p) => (p as { status: string }).status === "ordered")
+        .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+      const cancelledTotal = (allocParts ?? [])
+        .filter((p) => (p as { status: string }).status === "cancelled")
+        .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+      const pending = Math.max(0, approvedTotal - orderedTotal - cancelledTotal);
+      const palletWeight = Number(offer.pallet_weight ?? 0);
+      const desired = palletWeight > 0
+        ? Math.min(MAX_PALLETS_PER_OFFER_DRAFT, Math.max(1, Math.floor(TARGET_KG_PER_OFFER_DRAFT / palletWeight)))
+        : 0;
+      const safePalletCount = Math.min(desired, pending);
+      return {
+        blocked: false as const,
+        offer,
+        positionId,
+        pending,
+        safePalletCount,
+        palletWeight,
+      };
+    },
+  });
+
+  const [offerDraftPallets, setOfferDraftPallets] = useState<number>(0);
+  // Seed editable pallet count once when prefill arrives.
+  useEffect(() => {
+    if (!offerProductPrefill || offerProductPrefill.blocked) return;
+    if (offerDraftPallets > 0) return;
+    if (offerProductPrefill.safePalletCount > 0) {
+      setOfferDraftPallets(offerProductPrefill.safePalletCount);
+    }
+  }, [offerProductPrefill, offerDraftPallets]);
+
+  const isOfferDraftMode = !!search.fromOffer && !!offerProductPrefill && !offerProductPrefill.blocked;
+
+
 
   // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
@@ -433,7 +506,20 @@ function NewShipment() {
       triggerShake(missing);
       return;
     }
+    // Build 2A — offer-draft validation: pallets must be in (0, pending].
+    if (isOfferDraftMode && offerProductPrefill && !offerProductPrefill.blocked) {
+      const pc = Number(offerDraftPallets);
+      if (!Number.isFinite(pc) || pc <= 0) {
+        toast.error("Вкажіть кількість палет більше 0");
+        return;
+      }
+      if (pc > offerProductPrefill.pending) {
+        toast.error(`Більше за залишок пропозиції (${offerProductPrefill.pending} пал)`);
+        return;
+      }
+    }
     setInvalid(new Set());
+
 
     setSubmitting(true);
     // Track a freshly-created vehicle so we can roll it back if the
