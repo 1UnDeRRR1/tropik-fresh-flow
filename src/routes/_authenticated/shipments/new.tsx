@@ -29,6 +29,11 @@ import { resolveCountry } from "@/lib/country-search";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { rollbackBirthPosition } from "@/lib/position-attach";
 import { canonicalizeProductName } from "@/lib/product-aliases";
+import { AutocompleteCell } from "@/components/AutocompleteCell";
+import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
+import { useProductAliases } from "@/hooks/useProductAliases";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
+import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
