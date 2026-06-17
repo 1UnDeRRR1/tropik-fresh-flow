@@ -23,11 +23,7 @@ import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { CustomsManualOverrideField } from "@/components/CustomsManualOverrideField";
 import { CUSTOMS_STRINGS, getCustomsStatusFromMatch } from "@/lib/customs-status";
 import { allocateTransport } from "@/lib/transport";
-import {
-  createPositionForShipmentItem,
-  attachShipmentItemToPosition,
-  rollbackBirthPosition,
-} from "@/lib/position-attach";
+import { rollbackBirthPosition } from "@/lib/position-attach";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
