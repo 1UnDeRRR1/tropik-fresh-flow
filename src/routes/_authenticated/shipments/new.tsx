@@ -444,39 +444,52 @@ function NewShipment() {
     },
   });
 
-  const [offerDraftPallets, setOfferDraftPallets] = useState<number>(0);
-  // Seed editable pallet count once when prefill arrives.
-  useEffect(() => {
-    if (!offerProductPrefill || offerProductPrefill.blocked) return;
-    if (offerDraftPallets > 0) return;
-    if (offerProductPrefill.safePalletCount > 0) {
-      setOfferDraftPallets(offerProductPrefill.safePalletCount);
-    }
-  }, [offerProductPrefill, offerDraftPallets]);
+  // Build 3 — local draft state. NO DB writes until "Готово".
+  type DraftRow = {
+    localId: string;
+    source_offer_id: string | null;
+    source_position_id: string | null;
+    product_name: string;
+    variety: string;
+    origin_country: string;
+    caliber: string;
+    package_used: string;
+    pallet_count: number;
+    pallet_weight: number; // kg per pallet
+    unit_price: number;
+    price_currency: string;
+    offerLocked: boolean;
+  };
+  const [step, setStep] = useState<"header" | "products">("header");
+  const [draftRows, setDraftRows] = useState<DraftRow[]>([]);
 
   const isOfferFlow = !!search.fromOffer;
   const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
   const offerFlowBlocked = isOfferFlow && !!offerProductPrefill && !!offerProductPrefill.blocked;
-  const [offerFinalConfirmReady, setOfferFinalConfirmReady] = useState(false);
 
+  // Seed one prefilled draft row from the offer the first time prefill arrives.
   useEffect(() => {
-    setOfferFinalConfirmReady(false);
-  }, [
-    mode,
-    vehicleId,
-    supplierId,
-    supplierInput,
-    country,
-    countryInput,
-    loadingDate,
-    vehicleInput,
-    code,
-    codeOverride,
-    etaOverride,
-    etaTouched,
-    offerDraftPallets,
-    search.fromOffer,
-  ]);
+    if (!offerProductPrefill || offerProductPrefill.blocked) return;
+    if (draftRows.length > 0) return;
+    const o = offerProductPrefill.offer;
+    setDraftRows([{
+      localId: `tmp_${crypto.randomUUID()}`,
+      source_offer_id: o.id,
+      source_position_id: offerProductPrefill.positionId,
+      product_name: canonicalizeProductName(o.product_name ?? "") || (o.product_name ?? ""),
+      variety: o.variety ?? "",
+      origin_country: normalizeCountry(o.origin_country ?? "") || (o.origin_country ?? ""),
+      caliber: o.caliber ?? "",
+      package_used: "",
+      pallet_count: offerProductPrefill.safePalletCount > 0 ? offerProductPrefill.safePalletCount : 1,
+      pallet_weight: Number(offerProductPrefill.palletWeight ?? 0),
+      unit_price: Number(o.price_per_kg ?? 0),
+      price_currency: ((o.price_currency ?? "EUR") as string),
+      offerLocked: true,
+    }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerProductPrefill]);
+
 
 
 
