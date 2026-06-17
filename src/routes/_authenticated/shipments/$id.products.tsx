@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
@@ -15,7 +16,7 @@ import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { CostPair } from "@/components/CostPair";
-import { deleteShipmentIfEmpty } from "@/lib/cleanup-empty-shipment";
+import { deleteEmptyDraftShipment } from "@/lib/shipments.functions";
 import { canonicalizeProductName, normalizeProductKey, resolveProductOption } from "@/lib/product-aliases";
 import { translateError } from "@/lib/mutation-helpers";
 import { CustomsStatusChip } from "@/components/CustomsStatusChip";
@@ -798,6 +799,7 @@ function ProductsFullscreen() {
   const fromOfferId = search.fromOffer;
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const deleteEmptyDraftShipmentFn = useServerFn(deleteEmptyDraftShipment);
   const { user, loading, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
   const { data: currentManagerId } = useQuery({
@@ -1459,7 +1461,13 @@ function ProductsFullscreen() {
     setDraftItems([]);
     setPendingDeletes([]);
     baselinesRef.current = new Map();
-    const deleted = await deleteShipmentIfEmpty(id);
+    let deleted = false;
+    try {
+      const res = await deleteEmptyDraftShipmentFn({ data: { shipmentId: id } });
+      deleted = res.deleted;
+    } catch {
+      deleted = false;
+    }
     if (deleted) {
       navigate({ to: "/shipments" });
       return;
