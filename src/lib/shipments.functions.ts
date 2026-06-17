@@ -261,7 +261,9 @@ export const deleteEmptyDraftShipment = createServerFn({ method: "POST" })
           .eq("shipment_id", shipmentId)
           .limit(1),
       ),
-      probe(supabaseAdmin.from("distributions").select("id").eq("shipment_id", shipmentId).limit(1)),
+      probe(
+        supabaseAdmin.from("distributions").select("id").eq("shipment_id", shipmentId).limit(1),
+      ),
       probe(
         supabaseAdmin
           .from("archive_promise_snapshots")
