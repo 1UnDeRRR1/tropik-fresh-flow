@@ -457,6 +457,26 @@ function NewShipment() {
   const isOfferFlow = !!search.fromOffer;
   const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
   const offerFlowBlocked = isOfferFlow && !!offerProductPrefill && !!offerProductPrefill.blocked;
+  const [offerFinalConfirmReady, setOfferFinalConfirmReady] = useState(false);
+
+  useEffect(() => {
+    setOfferFinalConfirmReady(false);
+  }, [
+    mode,
+    vehicleId,
+    supplierId,
+    supplierInput,
+    country,
+    countryInput,
+    loadingDate,
+    vehicleInput,
+    code,
+    codeOverride,
+    etaOverride,
+    etaTouched,
+    offerDraftPallets,
+    search.fromOffer,
+  ]);
 
 
 
@@ -532,6 +552,11 @@ function NewShipment() {
       }
     }
     setInvalid(new Set());
+
+    if (isOfferDraftMode && !offerFinalConfirmReady) {
+      setOfferFinalConfirmReady(true);
+      return;
+    }
 
 
     setSubmitting(true);
@@ -1015,6 +1040,7 @@ function NewShipment() {
             palletWeight={offerProductPrefill.palletWeight}
             pallets={offerDraftPallets}
             onPalletsChange={setOfferDraftPallets}
+            readyToConfirm={offerFinalConfirmReady}
           />
         )}
 
@@ -1038,7 +1064,9 @@ function NewShipment() {
           {submitting
             ? "Створення…"
             : isOfferDraftMode
-              ? "Створити поставку"
+              ? offerFinalConfirmReady
+                ? "Підтвердити створення поставки"
+                : "Перевірити поставку"
               : "Створити та перейти до товарів"}
         </Button>
       </form>
@@ -1182,6 +1210,7 @@ function OfferDraftSummary({
   palletWeight,
   pallets,
   onPalletsChange,
+  readyToConfirm,
 }: {
   offer: {
     product_name: string | null;
@@ -1195,6 +1224,7 @@ function OfferDraftSummary({
   palletWeight: number;
   pallets: number;
   onPalletsChange: (n: number) => void;
+  readyToConfirm: boolean;
 }) {
   const pw = Number(palletWeight) > 0 ? Number(palletWeight) : 0;
   const netKg = pw * Math.max(0, Number(pallets || 0));
@@ -1203,7 +1233,9 @@ function OfferDraftSummary({
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-3 space-y-2 text-sm">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-        Товар з пропозиції (чернетка — ще не збережено)
+        {readyToConfirm
+          ? "Перевірено локально — збереження буде лише після підтвердження"
+          : "Товар з пропозиції (чернетка — ще не збережено)"}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
