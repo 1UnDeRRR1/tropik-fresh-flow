@@ -1201,6 +1201,7 @@ function NewShipment() {
               {codeField}
               {loadingDateField}
               {etaField}
+              {transportField}
             </>
           ) : (
             <>
