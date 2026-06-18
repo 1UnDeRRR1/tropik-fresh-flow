@@ -514,3 +514,44 @@ export function buildPayload(
   if (!opts.forUpdate) payload.shipment_id = ctx.shipmentId;
   return payload;
 }
+
+// -----------------------------------------------------------------------------
+// Pure rules (Build A.1 mechanical extraction).
+// -----------------------------------------------------------------------------
+
+// Mobile-typo guard: net must not exceed gross. Verbatim from
+// $id.products.tsx L1096-L1098.
+export function isNetGreaterThanGross(d: {
+  net_weight_kg: number | null | undefined;
+  gross_weight_kg: number | null | undefined;
+}): boolean {
+  const n = Number(d.net_weight_kg);
+  const g = Number(d.gross_weight_kg);
+  return n > 0 && g > 0 && n > g;
+}
+
+// Gross-first capacity reducer. Verbatim from $id.products.tsx
+// L859-L864 / L1106-L1110 / L2076-L2082 / L2184-L2189:
+//   pallets  = Σ pallet_count
+//   grossKg  = Σ (gross_weight_kg > 0 ? gross_weight_kg : pallet_count * pallet_weight)
+export type CapacityItemLike = {
+  pallet_count: number | null | undefined;
+  pallet_weight?: number | null | undefined;
+  gross_weight_kg?: number | null | undefined;
+};
+
+export function sumCapacity(items: readonly CapacityItemLike[]): {
+  pallets: number;
+  grossKg: number;
+} {
+  let pallets = 0;
+  let grossKg = 0;
+  for (const it of items) {
+    const pc = Number(it.pallet_count ?? 0);
+    pallets += pc;
+    const g = Number(it.gross_weight_kg ?? 0);
+    grossKg += g > 0 ? g : pc * Number(it.pallet_weight ?? 0);
+  }
+  return { pallets, grossKg };
+}
+
