@@ -27,6 +27,29 @@ import { rollbackBirthPosition } from "@/lib/position-attach";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
+import {
+  type DraftRow,
+  type ProductRef,
+  type RequiredField,
+  type ActiveCustomsRef,
+  type RowComponents,
+  type ItemRowLike,
+  type ShipmentRowLike,
+  type VehicleContextLike,
+  isKnownProductName,
+  isEuCountry,
+  normalizeCustomsKey,
+  customsLookupName,
+  getCountryCandidatesNormalized,
+  pickCustomsRefForDraft,
+  computeCustomsPreview,
+  computeRowPreview,
+  emptyDraftRow,
+  itemRowToDraft,
+  isDraftDirty,
+  getMissingDraftFields,
+  buildPayload as buildShipmentItemPayload,
+} from "@/lib/shipment-row-engine";
 
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
