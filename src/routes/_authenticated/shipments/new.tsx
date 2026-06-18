@@ -224,6 +224,37 @@ function NewShipment() {
     [openVehicles, vehicleId],
   );
 
+  // Existing committed load on the selected vehicle, aggregated gross-first
+  // from shipment_items (matches shipments/index.tsx aggregateVehicleFromItems);
+  // falls back to vehicles.total_* only when no item rows exist. Reused by
+  // both the sticky capacity strip and the finalSave hard-block.
+  const existingVehicleLoad = useMemo(() => {
+    if (mode !== "existing" || !selectedVehicle) return { pallets: 0, gross: 0 };
+    let pallets = 0;
+    let gross = 0;
+    let sawAny = false;
+    for (const s of selectedVehicle.shipments ?? []) {
+      for (const it of s.shipment_items ?? []) {
+        sawAny = true;
+        const pc = Number(it.pallet_count ?? 0);
+        pallets += pc;
+        const g = Number(it.gross_weight_kg ?? 0);
+        if (g > 0) {
+          gross += g;
+        } else {
+          const net = Number(it.net_weight_kg ?? 0);
+          const pw = Number(it.pallet_weight ?? 0);
+          gross += net > 0 ? net : pc * pw;
+        }
+      }
+    }
+    if (!sawAny) {
+      pallets = Number(selectedVehicle.total_pallets ?? 0);
+      gross = Number(selectedVehicle.total_weight_kg ?? 0);
+    }
+    return { pallets, gross };
+  }, [mode, selectedVehicle]);
+
   const profileNameById = useMemo(
     () => new Map((managerProfiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"])),
     [managerProfiles],
@@ -647,33 +678,10 @@ function NewShipment() {
     }
 
     // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
-    // Derive existing vehicle load from shipment_items (gross-first) to match
-    // shipments/index.tsx aggregateVehicleFromItems; fall back to vehicle totals
-    // only when no items exist (legacy: total_weight_kg is net-ish).
-    let existingP = 0;
-    let existingKg = 0;
-    if (mode === "existing" && selectedVehicle) {
-      let sawAny = false;
-      for (const s of selectedVehicle.shipments ?? []) {
-        for (const it of s.shipment_items ?? []) {
-          sawAny = true;
-          const pc = Number(it.pallet_count ?? 0);
-          existingP += pc;
-          const g = Number(it.gross_weight_kg ?? 0);
-          if (g > 0) {
-            existingKg += g;
-          } else {
-            const net = Number(it.net_weight_kg ?? 0);
-            const pw = Number(it.pallet_weight ?? 0);
-            existingKg += net > 0 ? net : pc * pw;
-          }
-        }
-      }
-      if (!sawAny) {
-        existingP = Number(selectedVehicle.total_pallets ?? 0);
-        existingKg = Number(selectedVehicle.total_weight_kg ?? 0);
-      }
-    }
+    // Uses the shared existingVehicleLoad memo so the sticky strip and this
+    // gate never disagree.
+    const existingP = existingVehicleLoad.pallets;
+    const existingKg = existingVehicleLoad.gross;
     const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
     const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
     if (existingP + draftP > VEHICLE_MAX_PALLETS) {
@@ -1316,12 +1324,16 @@ function NewShipment() {
             },
           ];
         });
-        const totalPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
-        const totalGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
+        const draftPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
+        const draftGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
+        // Combine with existing committed load when topping up an open vehicle,
+        // so the strip never hides an overload behind a positive remainder.
+        const totalPallets = draftPallets + existingVehicleLoad.pallets;
+        const totalGross = draftGross + existingVehicleLoad.gross;
         const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
         const capGross = TARGET_KG_PER_OFFER_DRAFT;
-        const remainPallets = Math.max(0, capPallets - totalPallets);
-        const remainGross = Math.max(0, capGross - totalGross);
+        const remainPallets = capPallets - totalPallets;
+        const remainGross = capGross - totalGross;
         const fmt = (n: number) => Math.round(n).toLocaleString("uk-UA").replace(/,/g, " ");
         return (
         <div className="shipments-new-products -mx-4 md:mx-0">
