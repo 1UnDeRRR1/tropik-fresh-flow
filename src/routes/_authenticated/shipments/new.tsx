@@ -1333,7 +1333,7 @@ function NewShipment() {
         const totalPallets = draftPallets + existingVehicleLoad.pallets;
         const totalGross = draftGross + existingVehicleLoad.gross;
         const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
-        const capGross = TARGET_KG_PER_OFFER_DRAFT;
+        const capGross = VEHICLE_MAX_KG;
         const remainPallets = capPallets - totalPallets;
         const remainGross = capGross - totalGross;
         const fmt = (n: number) => Math.round(n).toLocaleString("uk-UA").replace(/,/g, " ");
