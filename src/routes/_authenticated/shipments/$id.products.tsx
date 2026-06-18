@@ -2127,14 +2127,14 @@ function TransportBar({
         "text-[11px] font-semibold uppercase tracking-wide transition-colors group-focus-within:text-primary",
         isEmpty ? "text-destructive" : "text-muted-foreground",
       )}>
-        Перевезення авто {isEmpty && "*"}
+        Перевезення авто
       </span>
       <Input
         ref={inputRef}
         type="text"
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
-        placeholder="Обов'язково"
+        placeholder="Перевезення авто"
         value={val}
         autoComplete="off"
         autoCorrect="off"
