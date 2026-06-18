@@ -647,8 +647,33 @@ function NewShipment() {
     }
 
     // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
-    const existingP = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_pallets ?? 0) : 0;
-    const existingKg = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_weight_kg ?? 0) : 0;
+    // Derive existing vehicle load from shipment_items (gross-first) to match
+    // shipments/index.tsx aggregateVehicleFromItems; fall back to vehicle totals
+    // only when no items exist (legacy: total_weight_kg is net-ish).
+    let existingP = 0;
+    let existingKg = 0;
+    if (mode === "existing" && selectedVehicle) {
+      let sawAny = false;
+      for (const s of selectedVehicle.shipments ?? []) {
+        for (const it of s.shipment_items ?? []) {
+          sawAny = true;
+          const pc = Number(it.pallet_count ?? 0);
+          existingP += pc;
+          const g = Number(it.gross_weight_kg ?? 0);
+          if (g > 0) {
+            existingKg += g;
+          } else {
+            const net = Number(it.net_weight_kg ?? 0);
+            const pw = Number(it.pallet_weight ?? 0);
+            existingKg += net > 0 ? net : pc * pw;
+          }
+        }
+      }
+      if (!sawAny) {
+        existingP = Number(selectedVehicle.total_pallets ?? 0);
+        existingKg = Number(selectedVehicle.total_weight_kg ?? 0);
+      }
+    }
     const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
     const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
     if (existingP + draftP > VEHICLE_MAX_PALLETS) {
