@@ -1,121 +1,129 @@
+## Build B — integration plan for `/shipments/new`
 
-# Plan-only: Evaluation of `etheral-shadow` as new day/night background
+Goal: make the existing card editor on `/shipments/new` fully active and back its math with `shipment-row-engine`. No new form, no early shipment INSERT, no formula duplication, no `$id.products.tsx` changes.
 
-Только оценка. Никаких изменений кода, зависимостей, БД, RLS, auth, формул, position_id, словарей, операционных строк.
+### Files to touch (allowed scope only)
 
-## 1. Содержимое пакета
+1. `src/routes/_authenticated/shipments/new.tsx` — wire to engine, remove local duplication.
+2. `src/lib/shipment-row-engine.ts` — backward-compatible additions only (see §3).
+3. NEW `src/lib/shipment-row-service.ts` — pure data-loading helpers (customs refs, FX, vehicle context, pallet standard lookup) reused by both editors; no React, no JSX.
+4. `src/lib/commit-shipment-row.ts` — widen INSERT payload typing only (passthrough), no behavior change.
+5. `src/styles.css` — only `.shipments-new-products` scoped tweaks if a row card needs them.
 
-`ruixen-etheral-shadow-files.zip` содержит:
+Explicitly NOT touching this Build: `$id.products.tsx`, AppShell, AutocompleteCell, InlineAutocomplete, manager-offers, branch screens, loading plan, distribution, any DB schema/RLS/RPC/trigger, reference data.
 
-- `etheral-shadow-package/src/components/ui/etheral-shadow.tsx` — единственный рабочий файл (~260 строк).
-- `etheral-shadow-package/src/examples/etheral-shadow-demo.tsx`, `app-page-example.tsx` — демо.
-- `README.md`, `package-dependencies.txt` (одна строка: `npm install framer-motion`).
+### 1. Local `DraftRow` ↔ engine `DraftRow` reconciliation
 
-Компонент использует:
-- `framer-motion` (`animate`, `useMotionValue`, `AnimationPlaybackControls`) — для hue-rotate анимации SVG-фильтра.
-- Inline SVG `<filter>` с `feTurbulence` + двойным `feDisplacementMap` + `feColorMatrix` + `blur(4px)`.
-- `mask-image` / `-webkit-mask-image` поверх цветной заливки.
-- Два **удалённых** изображения по умолчанию с `framerusercontent.com` (mask + noise). Можно переопределить через `maskImageUrl` / `noiseImageUrl`.
-- Директиву `'use client'` (no-op для нашего стека, не вредит).
+Current `new.tsx` `DraftRow` (line ~505) has extras that engine doesn't: `brand`, `class`, `source_offer_freight_amount`, `source_offer_freight_currency`, **no** `resolver_*`/`auto` flags (uses different totals model).
 
-## 2. Текущая схема фона приложения
+Decision: **extend engine `DraftRow` with optional `brand?: string` and `class?: string`** (backward-compatible — `$id.products.tsx` ignores undefined). Keep `source_offer_freight_*` already present on engine. Do NOT collapse the two flows yet. `new.tsx` will use engine `DraftRow` directly, and add `brand`/`class` fields wired to UI inputs that were previously dead.
 
-Глобальный фон задан в одном месте — `src/styles.css`:
+Why: avoids two parallel contracts; preserves $id.products invariants because new optional fields never reach update path there.
 
-- строки ~396–410: `body { background-image: url("/page-backgrounds/global/bg_mobile.webp"); ... background-attachment: fixed; }` + `@media (min-width: 768px) { body { background-image: url(".../bg_desktop.webp"); } }`
-- строки ~160–165: `html.dark body { background-image: none !important; background-color: var(--color-background); }` — в тёмной теме фото-фон уже отключён, виден только flat surface.
+### 2. Engine helpers `new.tsx` will call (all already exist except as noted)
 
-Файлы в `public/page-backgrounds/global/`: `bg_mobile.webp/png`, `bg_desktop.webp/png`.
+- `isNetGreaterThanGross(d)` — replaces inline `r.net_weight_kg > r.gross_weight_kg` check at L662.
+- `sumCapacity(rows)` — replaces the local `gross` reducer at L1330 and the 21500/26 derivations.
+- `getMissingDraftFields(d, products)` — replaces the per-row validation block L654–L680.
+- `computeRowPreview(d, dbItem=null, sh, vehicleContext, refs, latestEurUsd, products, isClean=false, savedRefForClean=null)` — drives indicative/invoice and the customs chip basis (`exact|fallback|none|manual`).
+- `pickCustomsRefForDraft`, `computeCustomsPreview` — used indirectly through `computeRowPreview`.
+- `buildPayload(d, ctx, { forUpdate: false })` — replaces the ad-hoc payload at L863–L890, but `new.tsx` still appends `brand`, `class`, and the manual-customs fields (see §3) after the engine payload, because the engine excludes trigger-owned columns and brand/class are not in the engine contract today.
 
-Дополнительно (НЕ глобальные, трогать не нужно):
-- `src/routes/login.tsx` — splash последнего пользователя как backdrop логина.
-- `src/routes/_authenticated.tsx` + `src/routes/_authenticated/index.tsx` — splash-overlay при загрузке (personal/owner assets).
-- `src/components/AppShell.tsx`, `src/routes/_authenticated/settings.tsx` — персональные header/profile-bg для отдельных пользователей.
-- Owner banners в `src/lib/branch-assets.ts`.
+**Backward-compatible engine additions** (only what's strictly needed):
 
-Эти слои **поверх** body-фона и завязаны на конкретных пользователей — план их не затрагивает. Заменяется только глобальный body-фон в `styles.css` и файлы в `public/page-backgrounds/global/`.
+- Add optional `brand?: string` and `class?: string` to `DraftRow` and `DRAFT_EDITABLE_KEYS`.
+- Add optional `appendBrandClass?: boolean` to `buildPayload` opts, OR (preferred) keep `buildPayload` untouched and let `new.tsx` spread `{ brand, class }` after the engine payload. Preferred = no engine change for this.
 
-## 3. Зависимость framer-motion
+### 3. Manual customs override (red → confirm)
 
-В `package.json` `framer-motion` **отсутствует**. Установка добавит ~50–60 KB gzip к бандлу. Сам компонент использует только `animate`/`useMotionValue` — это поддерживает tree-shaking, но всё равно дополнительный рантайм. Установка зависимостей — отдельный шаг, в Plan не выполняется.
+Local-only until final `Створити`. State held in `new.tsx` per `localId`:
+```
+manualOverride: Record<localId, { duty_usd: number; confirmed_at: string; by: string }>
+```
+On INSERT, when present for a row, `new.tsx` adds `customs_override_duty_usd`, `customs_override_confirmed_at`, `customs_override_by` to the payload sent through `commitNewShipmentItem`. The engine's `computeRowPreview` already honors `dbItem.customs_override_*` for clean rows; here `dbItem` is `null`, so `new.tsx` passes a synthetic `dbItem`-like object for the preview when manual override is active, OR (cleaner) we extend `computeRowPreview` with optional `localOverride: { duty_usd, confirmed_at, by } | null` — purely additive parameter, default `null`, $id.products.tsx call sites untouched.
 
-## 4. Риски анимированной версии
+Decision: **additive `localOverride` parameter on `computeRowPreview`**. Smaller blast radius than synthesizing a fake `ItemRowLike`.
 
-- **CPU/GPU**: `feTurbulence` + двойной `feDisplacementMap` + `blur` под `hueRotate` на 360° бесконечно — один из самых тяжёлых паттернов в SVG. На фоне `body` это перерисовывается под каждым скроллом/перерисовкой страницы. На слабых Android / старых iPad возможны заметные просадки FPS и тротлинг батареи.
-- **Safari / iOS**: `mask-image` + `feDisplacementMap` исторически работают, но `filter: url(#...)` на больших областях даёт фризы и баги отрисовки в iOS Safari.
-- **Удалённые ассеты**: `framerusercontent.com` — внешний CDN Framer, без SLA для нас. Любой сбой = пропадает mask и фон становится сплошным цветом. Это нарушает `STOP` условие «требует ненадёжных внешних ассетов».
-- **Noise overlay**: `opacity` до 1.0 заметно снижает читаемость текста в гуттерах вокруг карточек.
-- **Reduced motion**: компонент не уважает `prefers-reduced-motion`.
-- **Тяжёлые экраны** (`manager-offers`, `branch-offers`, архив, distribution) — там и так много DOM/таблиц; дополнительный постоянный фильтр на body может усугубить лаг при скролле.
+Red status blocks `Створити` for that row until override confirmed in UI. Yellow and green do not block.
 
-## 5. Совместимость с существующей архитектурой
+`commit-shipment-row.ts` payload typing widened (passthrough) to permit the three override columns + `brand` + `class` to flow through unchanged. No logic added.
 
-- Body имеет `background-attachment: fixed` — текущий подход дешёвый (один растровый слой). Замена на компонент потребует фиксированного слоя `<div className="fixed inset-0 -z-10">` где-то в `__root.tsx` или `_authenticated.tsx`. Это **редизайн слоёв layout**, выходит за рамки «точечной замены».
-- Splash overlay (`z-50`) и owner/personal backgrounds останутся выше — конфликта по z-index нет, но нужно убедиться, что новый слой строго `-z-10`/`z-0` и `pointer-events-none`, иначе перехватит клики на пустых экранах.
-- Dark mode уже гасит body-image. Нужно либо: (a) расширить ту же логику на новый компонент (рендерить только в light), либо (b) сделать вторую конфигурацию для dark.
+### 4. `shipment-row-service.ts` (new, pure)
 
-## 6. Рекомендация
+Exports React Query option factories used by both editors. For Build B only the new ones `new.tsx` needs:
+- `activeCustomsRefsQuery()` → `ActiveCustomsRef[]`
+- `latestEurUsdQuery()` → `number | null`
+- `vehicleContextQuery(vehicleId)` → `VehicleContextLike | null`
+- `palletStandardBoxesPerPalletQuery(productName, packageUsed)` → `number | null` (read-only `boxes_per_pallet`)
 
-**B — Static-first.** Анимированная версия как глобальный body-фон даёт нетривиальный риск производительности и зависит от внешнего Framer CDN. Установка `framer-motion` ради глобального фонового эффекта — диспропорционально.
+`new.tsx` consumes these via existing `useQuery` plumbing. No new RPCs, no new tables, no schema. `$id.products.tsx` is not modified — it can adopt the service later in a separate task.
 
-Минимум, что нужно сделать до любого Build:
-1. Залить локально mask-изображение (и при желании noise) в `public/page-backgrounds/global/` — никаких ссылок на `framerusercontent.com`.
-2. Сгенерировать **один статичный кадр** желаемого вида (либо средствами компонента в браузере с `animation.scale=0`, либо просто экспорт PNG/WebP под мобайл/десктоп) — это и есть продакшен-фон. По сути возвращаемся к той же модели, что сейчас (две картинки day/night), только с новой эстетикой.
+### 5. Brand / class
 
-Анимированный компонент можно держать как опцию для одного экрана (например, login backdrop) позже, отдельной задачей — но **не** как глобальный body-фон.
+- Inputs in card become live and feed `draftRow.brand` / `draftRow.class`.
+- INSERT payload spreads them after the engine payload.
+- Shared engine `DraftRow` gains optional `brand?` / `class?` only. `itemRowToDraft` does not populate them (so $id.products.tsx round-trip is unchanged and cannot null-out existing DB values from old editor).
 
-## 7. Day/Night конфигурация (для static-first)
+### 6. Ящ./пал.
 
-- Day: `public/page-backgrounds/global/bg_mobile.webp` + `bg_desktop.webp` — заменить файлы новыми статичными кадрами (светлая палитра, низкая насыщенность шумa).
-- Night: либо оставить текущее поведение (`html.dark body { background-image: none }` = flat dark surface), либо завести параллельный набор `bg_mobile_dark.webp`/`bg_desktop_dark.webp` и подключить через `html.dark body { background-image: url(...dark.webp); }`.
-- Переключение темы — через уже существующий `ThemeProvider`; флика нет, потому что меняется только CSS-правило `html.dark body`.
+- Read-only chip in card, fed by `shipment-row-service.palletStandardBoxesPerPalletQuery(product, package_used)`. Returns `boxes_per_pallet` directly from `pallet_standards`.
+- No edit, no fake value, no new column.
 
-## 8. Читаемость
+### 7. Preview context
 
-Карточки/таблицы/диалоги в проекте используют `--card`/`--popover` (непрозрачные), поэтому фон виден только в гуттерах. Тем не менее у нового статичного фона надо проверить контраст бордюров `--border` (`oklch(0.92 0.008 250)`) и текста на пустых экранах (`Settings`, splash, login). Если фон визуально шумный — добавить `body::before` полупрозрачный wash (например, `bg-background/40`) глобально, без правок компонентов.
+- `mode === "new"`: `sh = { eur_usd_rate: localFx ?? latestEurUsd, vehicle_id: null, logistics_cost_usd: localTransportUsd }`, `vehicleContext = null`.
+- `mode === "existing"`: real `sh` and `vehicleContext` from existing vehicle/shipment queries that `new.tsx` already runs (L189). No new query for shipments-share-vehicle since it's already in scope.
 
-## 9. План тестирования (до Build)
+### 8. Preserved invariants
 
-После принятия static-варианта прогнать вручную в preview:
-- main dashboards (manager, branch, owner), `manager-offers`, `branch-offers`, archive, distribution, login, splash.
-- mobile 390×844 и desktop 1440+.
-- light/dark переключение из Settings.
-- скролл больших таблиц (FPS на глаз).
-- проверка, что splash и personal/owner assets не перекрыты и не перекрывают новый фон.
+- Header "Далі" stays UI-only (0 DB writes).
+- Back button → 0 DB writes (no temp shipment).
+- Single final `Створити` boundary calls existing `commitNewShipmentItem` per row.
+- `position_id` flow unchanged (already passed via `source_position_id` → `commitNewShipmentItem`).
+- FIFO offer link unchanged (commit helper handles it).
+- Capacity 26 / 21500 enforced via `sumCapacity` + same toast text.
+- Recognition gate (product/country must resolve before first INSERT) unchanged.
 
-## 10. Предлагаемый узкий Build scope (если позже одобрите вариант B)
+### 9. Removed as dead duplication
 
-Затрагиваемые файлы — **только**:
-- `public/page-backgrounds/global/bg_mobile.{webp,png}` — заменить файлами.
-- `public/page-backgrounds/global/bg_desktop.{webp,png}` — заменить файлами.
-- (опционально) `public/page-backgrounds/global/bg_mobile_dark.webp`, `bg_desktop_dark.webp` — новые.
-- `src/styles.css`: при необходимости добавить правило `html.dark body { background-image: url(...dark.webp); }` вместо текущего `none`. Иначе CSS не меняется (URL остаётся прежним).
+- Local `gross` reducer at L1330 → `sumCapacity`.
+- Inline net>gross check at L662 → `isNetGreaterThanGross`.
+- Per-row required-fields block L654–L680 → `getMissingDraftFields`.
+- Any hardcoded "—" in numeric preview cells (replaced by real engine values or genuine "потрібно заповнити" placeholder).
+- Local `DraftRow` definition L505 → engine `DraftRow`.
 
-Никаких новых зависимостей. Никаких новых React-компонентов. `framer-motion` **не ставится**. Никаких правок `AppShell`, `__root.tsx`, `_authenticated.tsx`, splash, personal/owner assets, login.
+Not removed in this Build:
+- `/draft-mockup` route, `new-draft-test` route — per instruction, deferred to cleanup task after acceptance.
+- Existing supplier/vehicle/code/loadingDate/eta UI in the header — unchanged.
 
-## 11. STOP-флаги, которые сейчас сработали против анимированной версии
+### Test checklist (executed after edits)
 
-- Требует внешних ассетов (`framerusercontent.com`) — нестабильность.
-- Нетривиальный риск лага на мобиле без статичного fallback из коробки.
-- Чтобы стать глобальным фоном корректно — нужно вмешательство в layout-слой (`__root`/`_authenticated`), это редизайн AppShell-окружения.
-- Требует добавления `framer-motion` ради декоративного эффекта.
+1. `bunx tsc --noEmit` clean.
+2. `bun run build` clean.
+3. UI: Product/Country/Variety/Brand/Class/Caliber/Packaging/Pallets/Net/Gross/Price/Currency all editable.
+4. Back from /shipments/new → 0 rows in `shipments` & `shipment_items` for this attempt (verified by `SELECT count(*) WHERE created_at > <start>` diff).
+5. Net=1000 / Gross=900 → `Створити` blocked with toast.
+6. 27 pallets → blocked; 21500+ kg → blocked (same toast strings as $id.products).
+7. Customs green (Avocado + Peru), yellow (Avocado + a recognized country absent from avocado customs list, e.g. Azerbaijan via dropdown selection), red (fake product or a recognized product+country pair with no customs row).
+8. Red → row blocks creation until manual override confirmed; after confirm, preview shows manual indicative=invoice=override.
+9. Indicative/invoice pair rendered in row & header.
+10. After `Створити` succeeds: DB row has `customs_match_id` and `final_cost_*` populated by trigger (preview never wrote them).
+11. Offer-derived row: `shipment_items.position_id` == offer's `position_id`; exactly one `manager_offer_allocation_parts` row created.
 
-## 12. Risk confirmations
+### Risks and mitigations
 
-- DB touched? no
-- RLS touched? no
-- Auth touched? no
-- RPC/functions/triggers/migrations touched? no
-- Roles / role visibility touched? no
-- Branch/logistics/broker visibility touched? no
-- Cost/customs/transport/FX formulas touched? no
-- Net/gross/pallet formulas touched? no
-- position_id lifecycle touched? no
-- Reference dictionaries touched? no
-- Old operational rows touched? no
-- UI/code touched? no
-- Dependency installed? no
+- **DraftRow contract drift**: mitigated by additive optional fields (`brand?`, `class?`) and additive optional `localOverride` param on `computeRowPreview`. $id.products.tsx call sites compile and behave identically.
+- **Local manual override leakage**: stored only in `new.tsx` state, included in INSERT payload only on final commit. Never persisted as a draft anywhere.
+- **commit-shipment-row payload widening**: passthrough typing only. Existing offer path unaffected.
+- **Preview context mismatch for "new vehicle"**: synthesized `sh` matches the field shape engine reads (`eur_usd_rate`, `vehicle_id`, `logistics_cost_usd`); other engine fields read from `vehicleContext` are guarded behind `vehicle_id` check.
+- **No early shipment row** confirmed via Back-flow test (#4).
 
-## Итоговая рекомендация
+### What I need from you to start
 
-**B — Static-first.** Не устанавливать `framer-motion`, не подключать компонент `EtheralShadow` как глобальный body-фон. Если эстетика etheral-shadow желательна — сгенерировать статичные кадры (light + опционально dark), положить в `public/page-backgrounds/global/`, заменить текущие файлы. Анимированный вариант — отдельной поздней задачей и максимум на одном экране (например, login), не глобально.
+Confirm:
+- (a) **engine `DraftRow` gets optional `brand?` / `class?`** (no other shape change), and **`computeRowPreview` gets optional `localOverride` param** — both purely additive;
+- (b) `new.tsx` uses engine `DraftRow` directly (not a local type), keeping all current header/back/save boundaries;
+- (c) `shipment-row-service.ts` scope limited to the four query factories listed in §4 (no other helpers);
+- (d) the red-block UX is "Створити" stays disabled for that row's contribution until `Підтвердити митну ставку вручну` is clicked in the inline manual-override field (same component as `$id.products.tsx`: `CustomsManualOverrideField`).
+
+On `yes`, I implement and return the Build report. On `no` or partial, tell me which point to revise.
