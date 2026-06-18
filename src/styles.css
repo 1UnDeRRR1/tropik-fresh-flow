@@ -855,3 +855,86 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   [data-malekhiv-card] .m-meta { font-size: 13px; }
   [data-malekhiv-card] .m-pal  { font-size: 18px; }
 }
+
+/* /shipments/new — approved /draft-mockup pill visual, scoped to product step. */
+.shipments-new-products {
+  --snp-pill-border: rgba(255,255,255,0.24);
+  --snp-pill-border-strong: rgba(255,255,255,0.34);
+  --snp-pill-value: rgba(255,255,255,0.82);
+  --snp-pill-placeholder: rgba(255,255,255,0.30);
+  --snp-muted-red: #d85a55;
+}
+.shipments-new-products .snp-muted-red { color: var(--snp-muted-red); }
+.shipments-new-products .snp-pill-label-opt { color: rgba(255,255,255,0.55); }
+
+.shipments-new-products .snp-pill {
+  border: 1px solid var(--snp-pill-border);
+  background: rgba(255,255,255,0.025);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 0 0 1px rgba(255,255,255,0.03);
+  transition: border-color 0.15s ease;
+}
+.shipments-new-products .snp-pill.is-focused {
+  border-color: var(--snp-pill-border-strong);
+}
+.shipments-new-products .snp-pill.is-error {
+  border-color: var(--snp-muted-red);
+  animation: snp-blink-ring 0.45s ease-in-out 2;
+}
+.shipments-new-products .snp-pill.is-deferred {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.shipments-new-products .snp-pill-placeholder {
+  color: var(--snp-pill-placeholder);
+}
+
+/* Pill input: sits absolutely inside its .snp-pill wrapper, transparent
+   chrome, color/value driven by the wrapper. */
+.shipments-new-products .snp-pill-input,
+.shipments-new-products .snp-pill input.snp-pill-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  color: var(--snp-pill-value) !important;
+  font-size: 13.5px !important;
+  font-weight: 500;
+  text-align: center;
+  padding: 0 1rem;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.shipments-new-products .snp-pill input.snp-pill-input::placeholder {
+  color: transparent;
+}
+.shipments-new-products .snp-pill.is-focused input.snp-pill-input,
+.shipments-new-products .snp-pill input.snp-pill-input:focus {
+  text-align: left;
+  padding-top: 0.75rem;
+}
+
+@keyframes snp-blink-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(216,90,85,0); }
+  50% { box-shadow: 0 0 0 3px rgba(216,90,85,0.40); }
+}
+
+/* Velvet "+Створити" sized for the footer grid slot. */
+.shipments-new-velvet-create.velvet-cosmic-button {
+  width: 100%;
+  height: 44px;
+  border-radius: 9999px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.shipments-new-velvet-create.velvet-cosmic-button::before,
+.shipments-new-velvet-create.velvet-cosmic-button::after,
+.shipments-new-velvet-create .velvet-cosmic-press-bloom {
+  border-radius: 9999px;
+}
