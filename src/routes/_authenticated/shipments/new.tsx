@@ -224,6 +224,37 @@ function NewShipment() {
     [openVehicles, vehicleId],
   );
 
+  // Existing committed load on the selected vehicle, aggregated gross-first
+  // from shipment_items (matches shipments/index.tsx aggregateVehicleFromItems);
+  // falls back to vehicles.total_* only when no item rows exist. Reused by
+  // both the sticky capacity strip and the finalSave hard-block.
+  const existingVehicleLoad = useMemo(() => {
+    if (mode !== "existing" || !selectedVehicle) return { pallets: 0, gross: 0 };
+    let pallets = 0;
+    let gross = 0;
+    let sawAny = false;
+    for (const s of selectedVehicle.shipments ?? []) {
+      for (const it of s.shipment_items ?? []) {
+        sawAny = true;
+        const pc = Number(it.pallet_count ?? 0);
+        pallets += pc;
+        const g = Number(it.gross_weight_kg ?? 0);
+        if (g > 0) {
+          gross += g;
+        } else {
+          const net = Number(it.net_weight_kg ?? 0);
+          const pw = Number(it.pallet_weight ?? 0);
+          gross += net > 0 ? net : pc * pw;
+        }
+      }
+    }
+    if (!sawAny) {
+      pallets = Number(selectedVehicle.total_pallets ?? 0);
+      gross = Number(selectedVehicle.total_weight_kg ?? 0);
+    }
+    return { pallets, gross };
+  }, [mode, selectedVehicle]);
+
   const profileNameById = useMemo(
     () => new Map((managerProfiles ?? []).map((profile) => [profile.id, profile.full_name || "Менеджер"])),
     [managerProfiles],
