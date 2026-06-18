@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DraftMockupRouteImport } from './routes/draft-mockup'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as OTokenRouteImport } from './routes/o.$token'
@@ -41,7 +42,6 @@ import { Route as AuthenticatedSuperAdminUsersRouteImport } from './routes/_auth
 import { Route as AuthenticatedSuperAdminLogsRouteImport } from './routes/_authenticated/super-admin/logs'
 import { Route as AuthenticatedSuperAdminActivityRouteImport } from './routes/_authenticated/super-admin/activity'
 import { Route as AuthenticatedShipmentsNewDraftTestRouteImport } from './routes/_authenticated/shipments/new-draft-test'
-import { Route as AuthenticatedShipmentsNewDraftMockupRouteImport } from './routes/_authenticated/shipments/new-draft-mockup'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
 import { Route as AuthenticatedOwnerStatisticsRouteImport } from './routes/_authenticated/owner/statistics'
@@ -73,6 +73,11 @@ import { Route as AuthenticatedDashboardAdminStatusesRouteImport } from './route
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DraftMockupRoute = DraftMockupRouteImport.update({
+  id: '/draft-mockup',
+  path: '/draft-mockup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -241,12 +246,6 @@ const AuthenticatedShipmentsNewDraftTestRoute =
     path: '/shipments/new-draft-test',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedShipmentsNewDraftMockupRoute =
-  AuthenticatedShipmentsNewDraftMockupRouteImport.update({
-    id: '/shipments/new-draft-mockup',
-    path: '/shipments/new-draft-mockup',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedShipmentsNewRoute =
   AuthenticatedShipmentsNewRouteImport.update({
     id: '/shipments/new',
@@ -410,6 +409,7 @@ const AuthenticatedDashboardAdminStatusesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/draft-mockup': typeof DraftMockupRoute
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -455,7 +455,6 @@ export interface FileRoutesByFullPath {
   '/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
-  '/shipments/new-draft-mockup': typeof AuthenticatedShipmentsNewDraftMockupRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
@@ -470,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/shipments-lifecycle': typeof ApiPublicHooksShipmentsLifecycleRoute
 }
 export interface FileRoutesByTo {
+  '/draft-mockup': typeof DraftMockupRoute
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/archive': typeof AuthenticatedArchiveRoute
@@ -513,7 +513,6 @@ export interface FileRoutesByTo {
   '/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
-  '/shipments/new-draft-mockup': typeof AuthenticatedShipmentsNewDraftMockupRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
@@ -530,6 +529,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/draft-mockup': typeof DraftMockupRoute
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -576,7 +576,6 @@ export interface FileRoutesById {
   '/_authenticated/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
-  '/_authenticated/shipments/new-draft-mockup': typeof AuthenticatedShipmentsNewDraftMockupRoute
   '/_authenticated/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/_authenticated/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/_authenticated/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
@@ -594,6 +593,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/draft-mockup'
     | '/login'
     | '/admin'
     | '/analytics'
@@ -639,7 +639,6 @@ export interface FileRouteTypes {
     | '/owner/statistics'
     | '/shipments/$id'
     | '/shipments/new'
-    | '/shipments/new-draft-mockup'
     | '/shipments/new-draft-test'
     | '/super-admin/activity'
     | '/super-admin/logs'
@@ -654,6 +653,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/shipments-lifecycle'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/draft-mockup'
     | '/login'
     | '/analytics'
     | '/archive'
@@ -697,7 +697,6 @@ export interface FileRouteTypes {
     | '/owner/statistics'
     | '/shipments/$id'
     | '/shipments/new'
-    | '/shipments/new-draft-mockup'
     | '/shipments/new-draft-test'
     | '/super-admin/activity'
     | '/super-admin/logs'
@@ -713,6 +712,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/draft-mockup'
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
@@ -759,7 +759,6 @@ export interface FileRouteTypes {
     | '/_authenticated/owner/statistics'
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
-    | '/_authenticated/shipments/new-draft-mockup'
     | '/_authenticated/shipments/new-draft-test'
     | '/_authenticated/super-admin/activity'
     | '/_authenticated/super-admin/logs'
@@ -776,6 +775,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  DraftMockupRoute: typeof DraftMockupRoute
   LoginRoute: typeof LoginRoute
   OTokenRoute: typeof OTokenRoute
   ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
@@ -789,6 +789,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/draft-mockup': {
+      id: '/draft-mockup'
+      path: '/draft-mockup'
+      fullPath: '/draft-mockup'
+      preLoaderRoute: typeof DraftMockupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -1006,13 +1013,6 @@ declare module '@tanstack/react-router' {
       path: '/shipments/new-draft-test'
       fullPath: '/shipments/new-draft-test'
       preLoaderRoute: typeof AuthenticatedShipmentsNewDraftTestRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/shipments/new-draft-mockup': {
-      id: '/_authenticated/shipments/new-draft-mockup'
-      path: '/shipments/new-draft-mockup'
-      fullPath: '/shipments/new-draft-mockup'
-      preLoaderRoute: typeof AuthenticatedShipmentsNewDraftMockupRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/shipments/new': {
@@ -1355,7 +1355,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardSuperAdminRoute: typeof AuthenticatedDashboardSuperAdminRoute
   AuthenticatedShipmentsIdRoute: typeof AuthenticatedShipmentsIdRouteWithChildren
   AuthenticatedShipmentsNewRoute: typeof AuthenticatedShipmentsNewRoute
-  AuthenticatedShipmentsNewDraftMockupRoute: typeof AuthenticatedShipmentsNewDraftMockupRoute
   AuthenticatedShipmentsNewDraftTestRoute: typeof AuthenticatedShipmentsNewDraftTestRoute
   AuthenticatedShipmentsIndexRoute: typeof AuthenticatedShipmentsIndexRoute
 }
@@ -1389,8 +1388,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardSuperAdminRoute: AuthenticatedDashboardSuperAdminRoute,
   AuthenticatedShipmentsIdRoute: AuthenticatedShipmentsIdRouteWithChildren,
   AuthenticatedShipmentsNewRoute: AuthenticatedShipmentsNewRoute,
-  AuthenticatedShipmentsNewDraftMockupRoute:
-    AuthenticatedShipmentsNewDraftMockupRoute,
   AuthenticatedShipmentsNewDraftTestRoute:
     AuthenticatedShipmentsNewDraftTestRoute,
   AuthenticatedShipmentsIndexRoute: AuthenticatedShipmentsIndexRoute,
@@ -1402,6 +1399,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  DraftMockupRoute: DraftMockupRoute,
   LoginRoute: LoginRoute,
   OTokenRoute: OTokenRoute,
   ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
