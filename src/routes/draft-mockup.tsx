@@ -170,14 +170,14 @@ function MockupPage() {
               <button
                 type="button"
                 onClick={triggerSave}
-                className="h-11 rounded-full border border-white/70 bg-primary text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                className="h-11 rounded-full border-2 border-white/90 bg-primary text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 + Додати товар
               </button>
               <button
                 type="button"
                 onClick={triggerSave}
-                className="h-11 rounded-full border border-primary/60 bg-primary/10 text-[13px] font-semibold text-primary"
+                className="h-11 rounded-full border-2 border-primary/70 bg-primary/10 text-[13px] font-semibold text-primary"
               >
                 + Аналогічний
               </button>
