@@ -338,9 +338,18 @@ export function computeRowPreview(
   // Build B — additive. Local manual customs override held only in the
   // /shipments/new draft state, before any INSERT exists. Honored exactly like
   // a saved dbItem override (mirrors DB short-circuit; sets basis="manual";
-  // wins over any picked ref). All existing call sites omit this argument and
-  // get the previous behavior.
-  localOverride: { duty_usd: number; confirmed_at: string; by: string | null } | null = null,
+  // wins over any picked ref) ONLY when the confirmed identity snapshot
+  // (product_name + origin_country, normalized) matches the current draft AND
+  // duty_usd > 0 AND confirmed_at is present. A stale override from a previous
+  // product/country combination must never survive an identity change.
+  // All existing call sites omit this argument and get the previous behavior.
+  localOverride: {
+    duty_usd: number;
+    confirmed_at: string;
+    by: string | null;
+    product_name: string;
+    origin_country: string;
+  } | null = null,
 ): { value: { indicative: number; invoice: number } | null; components: RowComponents } {
   const components: RowComponents = {
     productName: d.product_name,
@@ -427,7 +436,12 @@ export function computeRowPreview(
   } else if (
     localOverride &&
     localOverride.confirmed_at &&
-    localOverride.duty_usd != null
+    localOverride.duty_usd != null &&
+    Number(localOverride.duty_usd) > 0 &&
+    normalizeProductValue(canonicalizeProductName(localOverride.product_name)) ===
+      normalizeProductValue(canonicalizeProductName(d.product_name)) &&
+    normalizeCustomsKey(normalizeCountry(localOverride.origin_country)) ===
+      normalizeCustomsKey(normalizeCountry(d.origin_country))
   ) {
     overrideDuty = Number(localOverride.duty_usd);
     components.customsBasis = "manual";
