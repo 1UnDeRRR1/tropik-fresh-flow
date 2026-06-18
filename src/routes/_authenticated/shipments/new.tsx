@@ -1176,6 +1176,8 @@ function NewShipment() {
                   productAliases={productAliases}
                   countryOptions={countryOptions}
                   countryAliases={countryAliases}
+                  supplierBrand={selectedSupplier?.alias || selectedSupplier?.name || ""}
+                  shipmentCode={code}
                 />
               ))}
 
@@ -1199,15 +1201,7 @@ function NewShipment() {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    onClick={() => setStep("header")}
-                    className="h-11 rounded-full"
-                  >
-                    Назад
-                  </Button>
+                  <div aria-hidden="true" />
                   <VelvetCosmicCreateButton
                     label={submitting ? "Створення…" : "+Створити"}
                     disabled={submitting || draftRows.length === 0}
@@ -1276,6 +1270,8 @@ function DraftRowCard({
   productAliases,
   countryOptions,
   countryAliases,
+  supplierBrand,
+  shipmentCode,
 }: {
   row: DraftRowShape;
   index: number;
@@ -1286,6 +1282,8 @@ function DraftRowCard({
   productAliases: Record<string, string>;
   countryOptions: string[];
   countryAliases: Record<string, string>;
+  supplierBrand: string;
+  shipmentCode: string;
 }) {
   const netKg = row.pallet_count * row.pallet_weight;
   const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
@@ -1303,8 +1301,8 @@ function DraftRowCard({
   );
 
   const pillInput = "snp-pill-input";
-  const headerTitle = row.product_name?.trim() || `Товар №${index + 1}`;
-  const headerSub = `${row.pallet_count || 0} пал · ${Math.round(netKg) || 0} кг${row.source_offer_id ? " · з пропозиції" : ""}`;
+  const headerTitle = (supplierBrand || row.product_name || `Товар №${index + 1}`).toUpperCase();
+  const headerSub = shipmentCode || `${row.pallet_count || 0} пал · ${Math.round(netKg) || 0} кг`;
 
   return (
     <section className="snp-card rounded-2xl border border-border bg-card p-3 shadow">
@@ -1485,6 +1483,24 @@ function DraftRowCard({
               className={pillInput}
             />
           </PillSlot>
+        </div>
+
+        {/* Розрахунок собівартості — структура з затвердженого превью.
+            Значення підставляться після створення поставки. */}
+        <div className="mt-2 rounded-xl border border-border/60 bg-background/40 p-2.5">
+          <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Розрахунок собівартості</span>
+            <span className="text-[10px] font-normal text-muted-foreground/70">деталі</span>
+          </div>
+          <div className="space-y-0.5 text-[11.5px] tabular-nums">
+            <div className="flex justify-between"><span className="text-muted-foreground">FX EUR/USD</span><span className="font-medium">—</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Митниця</span><span className="font-medium text-muted-foreground/70">—</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Транспорт, $/кг</span><span className="font-medium">—</span></div>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between border-t border-border/40 pt-1.5 text-[12px] font-bold tabular-nums">
+            <span>Собівартість</span>
+            <span className="text-muted-foreground/70">— / —</span>
+          </div>
         </div>
       </div>
     </section>
