@@ -3565,7 +3565,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
         value={text}
-        placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
+        placeholder={focused ? "" : "Ціна за кг"}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
