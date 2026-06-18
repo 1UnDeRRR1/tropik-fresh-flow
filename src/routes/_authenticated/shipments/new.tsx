@@ -1452,28 +1452,8 @@ function NewShipment() {
   );
 }
 
-type DraftRowShape = {
-  localId: string;
-  source_offer_id: string | null;
-  source_position_id: string | null;
-  product_name: string;
-  variety: string;
-  origin_country: string;
-  caliber: string;
-  brand: string;
-  class: string;
-  package_used: string;
-  pallet_count: number;
-  net_weight_kg: number;
-  gross_weight_kg: number;
-  resolver_net_per_pallet_kg: number | null;
-  resolver_gross_per_pallet_kg: number | null;
-  net_auto: boolean;
-  gross_auto: boolean;
-  unit_price: number;
-  price_currency: string;
-  offerLocked: boolean;
-};
+// Build B.2 — DraftRowCard reuses the route-level NewShipmentDraftRow type.
+type DraftRowShape = NewShipmentDraftRow;
 
 // Permissive decimal pattern: "", "0", "0,", "0,5", "0.5", "12", "12.34".
 const DECIMAL_RE = /^[0-9]*[.,]?[0-9]*$/;
