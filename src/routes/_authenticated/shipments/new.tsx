@@ -914,10 +914,32 @@ function NewShipment() {
     </div>
   );
 
+  const minLoadingDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  })();
   const loadingDateField = (
     <div className={cn("space-y-1.5", invalid.has("loadingDate") && "field-invalid")}>
       <Label htmlFor="ld">Дата завантаження</Label>
-      <Input id="ld" type="date" value={loadingDate} onChange={(e) => { setLoadingDate(e.target.value); if (e.target.value) clearInvalid("loadingDate"); }} />
+      <Input
+        id="ld"
+        type="date"
+        min={minLoadingDate}
+        value={loadingDate}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v && v < minLoadingDate) {
+            toast.error("Дата завантаження не раніше завтрашнього дня");
+            return;
+          }
+          setLoadingDate(v);
+          if (v) clearInvalid("loadingDate");
+        }}
+      />
     </div>
   );
 
