@@ -1748,7 +1748,7 @@ function DraftRowCard({
           <PillSlot label="Валюта" hasValue={!!row.price_currency}>
             <input
               value={row.price_currency}
-              onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
+              onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() as "EUR" | "USD" })}
               maxLength={3}
               placeholder="EUR"
               className={pillInput}
