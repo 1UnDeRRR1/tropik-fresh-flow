@@ -1,14 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { ShinyButton } from "@/components/ui/shiny-button";
 
 export const Route = createFileRoute("/draft-mockup")({
   component: MockupPage,
 });
 
 /**
- * VISUAL-ONLY PROTOTYPE for /shipments/new product step — stage 3.
+ * VISUAL-ONLY PROTOTYPE for /shipments/new product step.
  * Static values. No Supabase, no save, no nav. Not wired into real flow.
+ *
+ * Visual tokens (local to this prototype only, no global token changes):
+ *   --pill-border        rgba(255,255,255,0.24)
+ *   --pill-border-strong rgba(255,255,255,0.34)
+ *   --pill-value         rgba(255,255,255,0.82)   field value text
+ *   --pill-placeholder   rgba(255,255,255,0.30)   placeholder / dim hint
+ *   --muted-red          #d85a55                  required label + destructive
+ *   --muted-red-border   rgba(216,90,85,0.62)
+ *   --muted-red-bg       rgba(90,18,18,0.22)
  */
 function MockupPage() {
   const [showCustoms, setShowCustoms] = useState(false);
@@ -55,6 +64,8 @@ function MockupPage() {
     }
   }
 
+  const MUTED_RED = "#d85a55";
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Fixed compact capacity strip */}
@@ -84,7 +95,8 @@ function MockupPage() {
               </div>
               <button
                 type="button"
-                className="shrink-0 text-[12px] font-medium text-destructive hover:text-destructive/80"
+                className="shrink-0 text-[12px] font-medium hover:opacity-80"
+                style={{ color: MUTED_RED }}
               >
                 Видалити
               </button>
@@ -140,7 +152,7 @@ function MockupPage() {
                   <span>
                     <span className="text-success">$1.59</span>
                     <span className="px-1 text-muted-foreground">/</span>
-                    <span className="text-destructive">$1.59</span>
+                    <span style={{ color: MUTED_RED }}>$1.59</span>
                   </span>
                 </div>
 
@@ -157,7 +169,7 @@ function MockupPage() {
                     <KV k="Ціна за кг (USD)" v="$1.1591" />
                     <div className="text-muted-foreground">Ціна ≤ порогу → мито = індикатив = <b className="text-foreground">$0.2850</b></div>
                     <div className="mt-1 flex justify-between font-semibold text-success"><span>Індикативне мито</span><span>$0.2850</span></div>
-                    <div className="flex justify-between font-semibold text-destructive"><span>Інвойсне мито</span><span>$0.2850</span></div>
+                    <div className="flex justify-between font-semibold" style={{ color: MUTED_RED }}><span>Інвойсне мито</span><span>$0.2850</span></div>
                   </div>
                 )}
               </div>
@@ -185,10 +197,25 @@ function MockupPage() {
 
             {/* Reserved error slot under "+ Додати товар" — left column width */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="min-h-[18px] px-1 text-[11px] leading-tight text-destructive/80">
+              <div className="min-h-[18px] px-1 text-[11px] leading-tight" style={{ color: MUTED_RED }}>
                 {errorMsg}
               </div>
-              <ShinyRedButton onClick={triggerSave}>+ Створити</ShinyRedButton>
+              {/*
+                "+ Створити" reuses the SAME ShinyButton component used by
+                Malekhiv's ShinyFilterSelect ("Усі товари" / "Усі країни"),
+                with --primary overridden locally to a muted dark red so
+                the velvet sweep tone matches without a new effect.
+              */}
+              <ShinyButton
+                onClick={triggerSave}
+                shineDelay={3}
+                style={{ ["--primary" as string]: MUTED_RED, height: "44px" }}
+                className="!h-11 w-full !rounded-full !px-4 !py-0 border"
+              >
+                <span style={{ color: MUTED_RED }} className="text-[13px] font-semibold normal-case tracking-normal">
+                  + Створити
+                </span>
+              </ShinyButton>
             </div>
           </div>
         </div>
@@ -203,10 +230,24 @@ function MockupPage() {
           80% { transform: translateX(4px); }
         }
         @keyframes blink-ring {
-          0%,100% { box-shadow: 0 0 0 0 hsl(var(--destructive) / 0); }
-          50% { box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.45); }
+          0%,100% { box-shadow: 0 0 0 0 rgba(216,90,85,0); }
+          50% { box-shadow: 0 0 0 3px rgba(216,90,85,0.40); }
         }
-        .blink-error { animation: blink-ring 0.45s ease-in-out 2; border-color: hsl(var(--destructive)) !important; }
+        .pill-field {
+          --pill-border: rgba(255,255,255,0.24);
+          --pill-border-strong: rgba(255,255,255,0.34);
+          border: 1px solid var(--pill-border);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.04),
+            0 0 0 1px rgba(255,255,255,0.03);
+          background: rgba(255,255,255,0.025);
+        }
+        .pill-field.is-focused { border-color: var(--pill-border-strong); }
+        .pill-field.is-error { animation: blink-ring 0.45s ease-in-out 2; border-color: #d85a55 !important; }
+        .pill-value { color: rgba(255,255,255,0.82); }
+        .pill-placeholder { color: rgba(255,255,255,0.30); }
+        .pill-label-req { color: #d85a55; }
+        .pill-label-opt { color: rgba(255,255,255,0.55); }
       `}</style>
     </div>
   );
@@ -221,11 +262,13 @@ function Row3({ children }: { children: React.ReactNode }) {
 
 /**
  * Pill-shaped input field with floating-label behavior.
- *  - Empty + not focused: label centered, slightly blurred.
- *  - Focused: center label hides; corner label appears sharp at top-left;
- *             text input is left-aligned so typing flows naturally from the left.
- *  - Has value + not focused: corner label sharp at top-left;
- *             value centered horizontally and vertically.
+ *  - Empty + not focused: muted placeholder centered (the field's own label, lowercased
+ *    visually via tracking, used as a hint). No asterisk. No floating label.
+ *  - Focused or has value: floating label appears top-left.
+ *      required → red label
+ *      optional → grey label
+ *  - Value text is always the muted off-white `.pill-value` color (never red),
+ *    even when the field is required or in error state.
  */
 function PillField({
   label,
@@ -252,26 +295,26 @@ function PillField({
     if (saveAttempt > 0 && errored) setBlinkKey((k) => k + 1);
   }, [saveAttempt, errored]);
 
-  const showCenterLabel = !focused && isEmpty;
-  const showCornerLabel = focused || !isEmpty;
+  const showFloatingLabel = focused || !isEmpty;
+  const showPlaceholder = !focused && isEmpty;
 
   return (
     <div
       key={blinkKey}
-      className={`relative h-11 rounded-full border bg-muted/50 transition-colors ${
-        errored && saveAttempt > 0
-          ? "blink-error"
-          : focused
-          ? "border-primary/60"
-          : "border-border/70"
-      }`}
+      className={[
+        "pill-field relative h-11 rounded-full transition-colors",
+        focused ? "is-focused" : "",
+        errored && saveAttempt > 0 ? "is-error" : "",
+      ].join(" ")}
     >
-      {showCornerLabel && (
+      {showFloatingLabel && (
         <span
-          className={`pointer-events-none absolute left-4 top-1 z-10 text-[9px] font-medium uppercase tracking-wide leading-none text-muted-foreground/80`}
+          className={[
+            "pointer-events-none absolute left-4 top-1 z-10 text-[9px] font-medium uppercase tracking-wide leading-none",
+            required ? "pill-label-req" : "pill-label-opt",
+          ].join(" ")}
         >
           {label}
-          {required && <span className="ml-0.5 text-destructive/70">*</span>}
         </span>
       )}
       <input
@@ -280,76 +323,17 @@ function PillField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{ appearance: "none", WebkitAppearance: "none", background: "transparent" }}
-        className={`absolute inset-0 h-full w-full rounded-full border-0 px-4 text-[13.5px] font-medium text-foreground outline-none focus:outline-none focus:ring-0 ${
-          focused ? "text-left pt-3" : "text-center"
-        }`}
+        className={[
+          "pill-value absolute inset-0 h-full w-full rounded-full border-0 px-4 text-[13.5px] font-medium outline-none focus:outline-none focus:ring-0",
+          focused ? "text-left pt-3" : "text-center",
+        ].join(" ")}
       />
-      {showCenterLabel && (
-        <span
-          className={`pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-muted-foreground/55`}
-        >
+      {showPlaceholder && (
+        <span className="pill-placeholder pointer-events-none absolute inset-0 flex items-center justify-center text-[13px]">
           {label}
-          {required && <span className="ml-0.5 text-muted-foreground/55">*</span>}
         </span>
       )}
     </div>
-  );
-}
-
-/**
- * Red shiny button — mirrors the Malekhiv ShinyFilterSelect motion/sweep,
- * but tinted destructive (smoky red/crimson sweep) instead of grey.
- */
-function ShinyRedButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-}) {
-  const labelMask =
-    "linear-gradient(-75deg, hsl(var(--destructive)) calc(var(--x) + 20%), hsl(0 0% 100%) calc(var(--x) + 25%), hsl(var(--destructive)) calc(var(--x) + 100%))";
-  const ringGradient =
-    "linear-gradient(-75deg, hsl(var(--destructive) / 0.3) calc(var(--x) + 20%), hsl(var(--destructive) / 1) calc(var(--x) + 25%), hsl(var(--destructive) / 0.3) calc(var(--x) + 100%))";
-
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      initial={{ "--x": "100%", scale: 0.98 } as any}
-      animate={{ "--x": "-100%", scale: 1 } as any}
-      whileTap={{ scale: 0.96 }}
-      transition={{
-        repeat: Infinity,
-        repeatType: "loop",
-        repeatDelay: 1,
-        type: "spring",
-        stiffness: 20,
-        damping: 15,
-        mass: 2,
-        scale: { type: "spring", stiffness: 200, damping: 5, mass: 0.5 },
-      }}
-      style={{ ["--x" as string]: "100%" }}
-      className="relative h-11 w-full rounded-full border border-destructive/50 bg-destructive/10 px-4 text-[13px] font-semibold backdrop-blur-xl transition-shadow duration-300 hover:shadow-[0_0_20px_hsl(var(--destructive)/0.25)]"
-    >
-      <span
-        className="relative flex size-full items-center justify-center leading-none tracking-wide text-destructive"
-        style={{ maskImage: labelMask, WebkitMaskImage: labelMask }}
-      >
-        {children}
-      </span>
-      <span
-        aria-hidden="true"
-        style={{
-          mask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
-          WebkitMask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
-          maskComposite: "exclude",
-          WebkitMaskComposite: "xor",
-          backgroundImage: ringGradient,
-        }}
-        className="absolute inset-0 z-10 block rounded-[inherit] p-px"
-      />
-    </motion.button>
   );
 }
 
