@@ -109,6 +109,9 @@ function NewShipment() {
   const [submitting, setSubmitting] = useState(false);
   const [etaOverride, setEtaOverride] = useState<string>("");
   const [etaTouched, setEtaTouched] = useState(false);
+  // Transport (new vehicle only). Persisted to shipments on final save.
+  const [logisticsCostText, setLogisticsCostText] = useState<string>("");
+  const [logisticsCurrency, setLogisticsCurrency] = useState<string>("EUR");
 
   const [supplierInput, setSupplierInput] = useState("");
   const [countryInput, setCountryInput] = useState("");
