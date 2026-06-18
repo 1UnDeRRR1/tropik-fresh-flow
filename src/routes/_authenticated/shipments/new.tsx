@@ -34,6 +34,7 @@ import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
+import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
@@ -1042,7 +1043,8 @@ function NewShipment() {
 
   return (
     <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
-      <PageHeader title="Нова поставка" />
+      {step === "header" && <PageHeader title="Нова поставка" />}
+
 
       {step === "header" ? (
         <form onSubmit={onHeaderNext} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
@@ -1093,81 +1095,133 @@ function NewShipment() {
             Далі — товари
           </Button>
         </form>
-      ) : (
-        <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
-          {headerSummary}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Товари (чернетка)</div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setDraftRows((rows) => [
-                  ...rows,
-                  {
-                    localId: `tmp_${crypto.randomUUID()}`,
-                    source_offer_id: null,
-                    source_position_id: null,
-                    product_name: "",
-                    variety: "",
-                    origin_country: country || "",
-                    caliber: "",
-                    package_used: "",
-                    pallet_count: 1,
-                    pallet_weight: 0,
-                    unit_price: 0,
-                    price_currency: "EUR",
-                    offerLocked: false,
-                  },
-                ])}
-              >
-                <Plus className="mr-1 h-4 w-4" /> Додати товар
-              </Button>
+      ) : (() => {
+        // Approved /draft-mockup visual package wired to live draftRows.
+        const addEmptyRow = () => setDraftRows((rows) => [
+          ...rows,
+          {
+            localId: `tmp_${crypto.randomUUID()}`,
+            source_offer_id: null,
+            source_position_id: null,
+            product_name: "",
+            variety: "",
+            origin_country: country || "",
+            caliber: "",
+            package_used: "",
+            pallet_count: 1,
+            pallet_weight: 0,
+            unit_price: 0,
+            price_currency: "EUR",
+            offerLocked: false,
+          },
+        ]);
+        const addSimilarRow = () => setDraftRows((rows) => {
+          const last = rows[rows.length - 1];
+          return [
+            ...rows,
+            {
+              localId: `tmp_${crypto.randomUUID()}`,
+              source_offer_id: null,
+              source_position_id: null,
+              product_name: last?.product_name ?? "",
+              variety: last?.variety ?? "",
+              origin_country: last?.origin_country ?? (country || ""),
+              caliber: last?.caliber ?? "",
+              package_used: last?.package_used ?? "",
+              pallet_count: 1,
+              pallet_weight: 0,
+              unit_price: 0,
+              price_currency: last?.price_currency ?? "EUR",
+              offerLocked: false,
+            },
+          ];
+        });
+        const totalPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
+        const totalGross = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0) * (Number(r.pallet_weight) || 0), 0);
+        const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
+        const capGross = TARGET_KG_PER_OFFER_DRAFT;
+        const remainPallets = Math.max(0, capPallets - totalPallets);
+        const remainGross = Math.max(0, capGross - totalGross);
+        const fmt = (n: number) => Math.round(n).toLocaleString("uk-UA").replace(/,/g, " ");
+        return (
+        <div className="shipments-new-products -mx-4 md:mx-0">
+          {/* Sticky capacity strip — approved mockup */}
+          <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <div className="mx-auto flex w-full max-w-[460px] items-center justify-between gap-2 whitespace-nowrap text-[11.5px] leading-tight tabular-nums">
+              <span><span className="text-muted-foreground">Палети </span><span className="font-semibold">{totalPallets}/{capPallets}</span></span>
+              <span className="text-border">·</span>
+              <span><span className="text-muted-foreground">Брутто </span><span className="font-semibold">{fmt(totalGross)}/{fmt(capGross)}</span></span>
+              <span className="text-border">·</span>
+              <span><span className="text-muted-foreground">Залишок </span><span className="font-semibold">{remainPallets} / {fmt(remainGross)}</span></span>
             </div>
-
-            {draftRows.length === 0 && (
-              <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-center text-sm text-muted-foreground">
-                Додайте хоча б один товар і натисніть «Готово».
-              </div>
-            )}
-
-            {draftRows.map((r, idx) => (
-              <DraftRowCard
-                key={r.localId}
-                row={r}
-                index={idx}
-                onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
-                onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
-                offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
-                productOptions={productOptions}
-                productAliases={productAliases}
-                countryOptions={countryOptions}
-                countryAliases={countryAliases}
-              />
-            ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={submitting}
-              onClick={() => setStep("header")}
-            >
-              Назад
-            </Button>
-            <Button
-              type="button"
-              disabled={submitting || draftRows.length === 0}
-              onClick={finalSave}
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
-            >
-              {submitting ? "Створення…" : "Готово"}
-            </Button>
+          <div className="px-2 pb-6 pt-3">
+            <div className="mx-auto w-full max-w-[460px] space-y-2.5">
+              {draftRows.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-center text-sm text-muted-foreground">
+                  Додайте хоча б один товар і натисніть «Створити».
+                </div>
+              )}
+
+              {draftRows.map((r, idx) => (
+                <DraftRowCard
+                  key={r.localId}
+                  row={r}
+                  index={idx}
+                  onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
+                  onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
+                  offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
+                  productOptions={productOptions}
+                  productAliases={productAliases}
+                  countryOptions={countryOptions}
+                  countryAliases={countryAliases}
+                />
+              ))}
+
+              {/* Footer buttons — approved mockup */}
+              <div className="space-y-1.5 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={addEmptyRow}
+                    className="h-11 rounded-full border-2 border-white/90 bg-primary px-3 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    + Додати товар
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addSimilarRow}
+                    disabled={draftRows.length === 0}
+                    className="h-11 rounded-full border-2 border-primary/70 bg-primary/10 px-3 text-[13px] font-semibold text-primary disabled:opacity-50"
+                  >
+                    + Аналогічний
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={() => setStep("header")}
+                    className="h-11 rounded-full"
+                  >
+                    Назад
+                  </Button>
+                  <VelvetCosmicCreateButton
+                    label={submitting ? "Створення…" : "+Створити"}
+                    disabled={submitting || draftRows.length === 0}
+                    onClick={() => { if (!submitting && draftRows.length > 0) void finalSave(); }}
+                    className="shipments-new-velvet-create"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
+
 
       {mobileEditingLabel && step === "header" && (
         <div
@@ -1248,65 +1302,88 @@ function DraftRowCard({
     [packageOptions],
   );
 
-  const fieldInputClassName = "h-9 rounded-md border border-input bg-background px-2 text-sm";
+  const pillInput = "snp-pill-input";
+  const headerTitle = row.product_name?.trim() || `Товар №${index + 1}`;
+  const headerSub = `${row.pallet_count || 0} пал · ${Math.round(netKg) || 0} кг${row.source_offer_id ? " · з пропозиції" : ""}`;
 
   return (
-    <div className="rounded-xl border border-border bg-background p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold text-muted-foreground">
-          #{index + 1}{row.source_offer_id ? " · з пропозиції" : ""}
+    <section className="snp-card rounded-2xl border border-border bg-card p-3 shadow">
+      {/* Header */}
+      <div className="mb-2.5 flex items-center justify-between gap-3 border-b border-border/60 pb-2">
+        <div className="min-w-0">
+          <div className="truncate text-[15px] font-semibold leading-tight uppercase">{headerTitle}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{headerSub}</div>
         </div>
-        <Button type="button" size="sm" variant="ghost" onClick={onRemove}>Видалити</Button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="snp-muted-red shrink-0 text-[12px] font-medium hover:opacity-80"
+        >
+          Видалити
+        </button>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label className="text-[11px]">Товар</Label>
-          <AutocompleteCell
-            value={row.product_name}
-            onChange={(v) => onChange({ product_name: v })}
-            options={productOptions}
-            aliases={productAliases}
-            placeholder="Назва"
-            readOnly={row.offerLocked}
-            expandedMinWidth={220}
-            className={fieldInputClassName}
-          />
+
+      <div className="space-y-2">
+        {/* Row: Товар / Походження */}
+        <div className="grid grid-cols-2 gap-2">
+          <PillSlot label="Товар" required hasValue={!!row.product_name}>
+            <AutocompleteCell
+              value={row.product_name}
+              onChange={(v) => onChange({ product_name: v })}
+              options={productOptions}
+              aliases={productAliases}
+              placeholder="Товар"
+              readOnly={row.offerLocked}
+              expandedMinWidth={220}
+              className={pillInput}
+            />
+          </PillSlot>
+          <PillSlot label="Походження" required hasValue={!!row.origin_country}>
+            <AutocompleteCell
+              value={row.origin_country}
+              onChange={(v) => onChange({ origin_country: v })}
+              options={countryOptions}
+              aliases={countryAliases}
+              placeholder="Походження"
+              readOnly={row.offerLocked}
+              expandedMinWidth={200}
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">Походження</Label>
-          <AutocompleteCell
-            value={row.origin_country}
-            onChange={(v) => onChange({ origin_country: v })}
-            options={countryOptions}
-            aliases={countryAliases}
-            placeholder="Країна"
-            readOnly={row.offerLocked}
-            expandedMinWidth={200}
-            className={fieldInputClassName}
-          />
+
+        {/* Row: Сорт / Бренд(deferred) */}
+        <div className="grid grid-cols-2 gap-2">
+          <PillSlot label="Сорт" hasValue={!!row.variety}>
+            <VarietyAutocomplete
+              value={row.variety}
+              onChange={(v) => onChange({ variety: v })}
+              varieties={varieties}
+              placeholder="Сорт"
+              disabled={row.offerLocked}
+              expandedMinWidth={200}
+              inputClassName={pillInput}
+            />
+          </PillSlot>
+          <PillSlot label="Бренд" hasValue={false} deferred />
         </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">Сорт</Label>
-          <VarietyAutocomplete
-            value={row.variety}
-            onChange={(v) => onChange({ variety: v })}
-            varieties={varieties}
-            placeholder="—"
-            disabled={row.offerLocked}
-            expandedMinWidth={200}
-            inputClassName={fieldInputClassName}
-          />
+
+        {/* Row: Калібр / Клас(deferred) */}
+        <div className="grid grid-cols-2 gap-2">
+          <PillSlot label="Калібр" hasValue={!!row.caliber}>
+            <input
+              value={row.caliber}
+              onChange={(e) => onChange({ caliber: e.target.value })}
+              disabled={row.offerLocked}
+              placeholder="Калібр"
+              className={pillInput}
+            />
+          </PillSlot>
+          <PillSlot label="Клас" hasValue={false} deferred />
         </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">Калібр</Label>
-          <Input
-            value={row.caliber}
-            onChange={(e) => onChange({ caliber: e.target.value })}
-            disabled={row.offerLocked}
-          />
-        </div>
-        <div className="space-y-1 col-span-2">
-          <Label className="text-[11px]">Упаковка</Label>
+
+        {/* Упаковка — full width */}
+        <PillSlot label="Упаковка" required hasValue={!!row.package_used}>
           <InlineAutocomplete
             value={row.package_used}
             onValueChange={(v) => onChange({ package_used: v })}
@@ -1322,12 +1399,12 @@ function DraftRowCard({
               }
               onChange(patch);
             }}
-            placeholder={row.product_name ? "Виберіть упаковку" : "Спочатку виберіть товар"}
+            placeholder={row.product_name ? "Упаковка" : "Спочатку виберіть товар"}
             expandedMinWidth={240}
             browseLimit={50}
             searchLimit={3}
             minSearchLength={2}
-            inputClassName={fieldInputClassName}
+            inputClassName={pillInput}
             renderItem={(item) => (
               <div>
                 <div className="font-medium truncate">{item.package_used}</div>
@@ -1338,56 +1415,126 @@ function DraftRowCard({
               </div>
             )}
           />
+        </PillSlot>
+
+        {/* Row: Ящ./пал(deferred) / К-ть палет / Вага палети */}
+        <div className="grid grid-cols-3 gap-2">
+          <PillSlot label="Ящ./пал." hasValue={false} deferred />
+          <PillSlot
+            label={offerPending != null ? `К-ть палет (${offerPending})` : "К-ть палет"}
+            required
+            hasValue={!!row.pallet_count}
+            errored={tooManyOffer}
+          >
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={row.pallet_count || ""}
+              onChange={(e) => onChange({ pallet_count: Number(e.target.value) || 0 })}
+              placeholder="Палет"
+              className={pillInput}
+            />
+          </PillSlot>
+          <PillSlot label="Вага палети" hasValue={!!row.pallet_weight}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={row.pallet_weight || ""}
+              onChange={(e) => onChange({ pallet_weight: Number(e.target.value) || 0 })}
+              placeholder="Вага палети"
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">
-            Палет{offerPending != null ? ` (залишок: ${offerPending})` : ""}
-          </Label>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={row.pallet_count || ""}
-            onChange={(e) => onChange({ pallet_count: Number(e.target.value) || 0 })}
-            className={cn(tooManyOffer && "border-destructive")}
-          />
+
+        {/* Row: Нетто (derived) / Брутто(deferred) */}
+        <div className="grid grid-cols-2 gap-2">
+          <PillSlot label="Нетто, кг" hasValue={netKg > 0}>
+            <input
+              value={netKg > 0 ? Math.round(netKg).toString() : ""}
+              readOnly
+              placeholder="Нетто, кг"
+              className={pillInput}
+            />
+          </PillSlot>
+          <PillSlot label="Брутто, кг" hasValue={false} deferred />
         </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">Вага палети, кг</Label>
-          <Input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            value={row.pallet_weight || ""}
-            onChange={(e) => onChange({ pallet_weight: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">Ціна за кг</Label>
-          <Input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.01"
-            value={row.unit_price || ""}
-            onChange={(e) => onChange({ unit_price: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px]">Валюта</Label>
-          <Input
-            value={row.price_currency}
-            onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
-            maxLength={3}
-          />
+
+        {/* Row: Ціна за кг / Валюта */}
+        <div className="grid grid-cols-2 gap-2">
+          <PillSlot label="Ціна за кг" required hasValue={!!row.unit_price}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              value={row.unit_price || ""}
+              onChange={(e) => onChange({ unit_price: Number(e.target.value) || 0 })}
+              placeholder="Ціна за кг"
+              className={pillInput}
+            />
+          </PillSlot>
+          <PillSlot label="Валюта" hasValue={!!row.price_currency}>
+            <input
+              value={row.price_currency}
+              onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
+              maxLength={3}
+              placeholder="Валюта"
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
       </div>
-      <div className="text-[11px] text-muted-foreground tabular-nums">
-        Нетто ≈ {Math.round(netKg)} кг
-      </div>
+    </section>
+  );
+}
+
+function PillSlot({
+  label,
+  required = false,
+  hasValue,
+  errored = false,
+  deferred = false,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hasValue: boolean;
+  errored?: boolean;
+  deferred?: boolean;
+  children?: React.ReactNode;
+}) {
+  const [focused, setFocused] = useState(false);
+  const showFloating = focused || hasValue;
+  return (
+    <div
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={() => setFocused(false)}
+      className={cn(
+        "snp-pill relative h-11 rounded-full",
+        focused && "is-focused",
+        errored && "is-error",
+        deferred && "is-deferred",
+      )}
+      data-required={required ? "true" : undefined}
+    >
+      {showFloating && !deferred && (
+        <span className={cn("snp-pill-label pointer-events-none absolute left-4 top-1 z-10 text-[9px] font-medium uppercase tracking-wide leading-none", required ? "snp-muted-red" : "snp-pill-label-opt")}>
+          {label}
+        </span>
+      )}
+      {children}
+      {!focused && !hasValue && (
+        <span className="snp-pill-placeholder pointer-events-none absolute inset-0 flex items-center justify-center text-[13px]">
+          {label}
+        </span>
+      )}
     </div>
   );
 }
+
 
 
 function ModeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
