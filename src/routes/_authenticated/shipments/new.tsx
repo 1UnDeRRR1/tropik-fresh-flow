@@ -35,11 +35,27 @@ import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
 import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
+import {
+  type DraftRow as EngineDraftRow,
+  type ProductRef,
+  getMissingDraftFields,
+  isNetGreaterThanGross,
+  sumCapacity,
+} from "@/lib/shipment-row-engine";
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
+
+// Build B.2 — route-specific extension of the shared engine DraftRow.
+// brand/class/offerLocked are required at this route; engine treats brand/class
+// as optional and never touches offerLocked.
+type NewShipmentDraftRow = EngineDraftRow & {
+  brand: string;
+  class: string;
+  offerLocked: boolean;
+};
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
@@ -501,32 +517,16 @@ function NewShipment() {
     },
   });
 
-  // Build 3 — local draft state. NO DB writes until "Готово".
-  type DraftRow = {
-    localId: string;
-    source_offer_id: string | null;
-    source_position_id: string | null;
-    product_name: string;
-    variety: string;
-    origin_country: string;
-    caliber: string;
-    brand: string;
-    class: string;
-    package_used: string;
-    pallet_count: number;
-    // Real separate totals. Never derive gross from net at save time.
-    net_weight_kg: number;
-    gross_weight_kg: number;
-    resolver_net_per_pallet_kg: number | null;
-    resolver_gross_per_pallet_kg: number | null;
-    net_auto: boolean;
-    gross_auto: boolean;
-    unit_price: number;
-    price_currency: string;
-    offerLocked: boolean;
-  };
+  // Build B.2 — local draft state. NO DB writes until "Готово".
+  // Type lives at module scope (NewShipmentDraftRow) so DraftRowCard can reuse it.
   const [step, setStep] = useState<"header" | "products">("header");
-  const [draftRows, setDraftRows] = useState<DraftRow[]>([]);
+  const [draftRows, setDraftRows] = useState<NewShipmentDraftRow[]>([]);
+
+  // Build B.2 — ProductRef list for engine validation (canonical product names).
+  const productRefs = useMemo<ProductRef[]>(
+    () => productOptions.map((name) => ({ name })),
+    [productOptions],
+  );
 
   const isOfferFlow = !!search.fromOffer;
   const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
@@ -542,12 +542,16 @@ function NewShipment() {
     const seedTotal = palWeight * pallets;
     setDraftRows([{
       localId: `tmp_${crypto.randomUUID()}`,
+      dbId: null,
       source_offer_id: o.id,
       source_position_id: offerProductPrefill.positionId,
+      source_offer_freight_amount: null,
+      source_offer_freight_currency: null,
       product_name: canonicalizeProductName(o.product_name ?? "") || (o.product_name ?? ""),
       variety: o.variety ?? "",
       origin_country: normalizeCountry(o.origin_country ?? "") || (o.origin_country ?? ""),
       caliber: o.caliber ?? "",
+      sku: "",
       brand: "",
       class: "",
       package_used: "",
@@ -559,7 +563,7 @@ function NewShipment() {
       net_auto: true,
       gross_auto: true,
       unit_price: Number(o.price_per_kg ?? 0),
-      price_currency: ((o.price_currency ?? "EUR") as string),
+      price_currency: ((o.price_currency ?? "EUR") as "EUR" | "USD"),
       offerLocked: true,
     }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -642,32 +646,38 @@ function NewShipment() {
       toast.error("Додайте хоча б один товар");
       return;
     }
+    // Build B.2 — per-row required-field validation via shared engine helpers.
+    // product_name "known" check is intentionally NOT used here so unknown
+    // names still reach the rpc_resolve_offer_line_defaults gate below.
     for (const r of draftRows) {
       if (!r.product_name.trim()) {
         toast.error("Заповніть назву товару");
         return;
       }
-      if (!(r.pallet_count > 0)) {
+      const missing = getMissingDraftFields(r, productRefs).filter((k) => k !== "product_name");
+      if (missing.includes("pallet_count")) {
         toast.error(`«${r.product_name || "Товар"}»: кількість палет > 0`);
         return;
       }
-      if (!(r.net_weight_kg > 0)) {
-        toast.error(`«${r.product_name}»: нетто > 0`);
-        return;
+      if (missing.includes("total_weight")) {
+        if (!(r.net_weight_kg > 0)) {
+          toast.error(`«${r.product_name}»: нетто > 0`);
+          return;
+        }
+        if (!(r.gross_weight_kg > 0)) {
+          toast.error(`«${r.product_name}»: брутто > 0`);
+          return;
+        }
       }
-      if (!(r.gross_weight_kg > 0)) {
-        toast.error(`«${r.product_name}»: брутто > 0`);
-        return;
-      }
-      if (r.net_weight_kg > r.gross_weight_kg) {
+      if (isNetGreaterThanGross(r)) {
         toast.error(`«${r.product_name}»: нетто не може бути більше брутто`);
         return;
       }
-      if (!(r.unit_price > 0)) {
+      if (missing.includes("unit_price")) {
         toast.error(`«${r.product_name}»: ціна > 0`);
         return;
       }
-      if (!r.origin_country.trim()) {
+      if (missing.includes("origin_country")) {
         toast.error(`«${r.product_name}»: країна походження`);
         return;
       }
@@ -680,12 +690,13 @@ function NewShipment() {
     }
 
     // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
-    // Uses the shared existingVehicleLoad memo so the sticky strip and this
-    // gate never disagree.
+    // Build B.2 — draft capacity via shared sumCapacity; existingVehicleLoad
+    // keeps its legacy gross→net→pallet*pallet_weight fallback unchanged.
     const existingP = existingVehicleLoad.pallets;
     const existingKg = existingVehicleLoad.gross;
-    const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
-    const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
+    const draftCap = sumCapacity(draftRows);
+    const draftP = draftCap.pallets;
+    const draftKg = draftCap.grossKg;
     if (existingP + draftP > VEHICLE_MAX_PALLETS) {
       toast.error(`Перевищено палети авто: ${existingP + draftP} > ${VEHICLE_MAX_PALLETS}`);
       return;
@@ -1277,12 +1288,16 @@ function NewShipment() {
           ...rows,
           {
             localId: `tmp_${crypto.randomUUID()}`,
+            dbId: null,
             source_offer_id: null,
             source_position_id: null,
+            source_offer_freight_amount: null,
+            source_offer_freight_currency: null,
             product_name: "",
             variety: "",
             origin_country: country || "",
             caliber: "",
+            sku: "",
             brand: "",
             class: "",
             package_used: "",
@@ -1304,12 +1319,16 @@ function NewShipment() {
             ...rows,
             {
               localId: `tmp_${crypto.randomUUID()}`,
+              dbId: null,
               source_offer_id: null,
               source_position_id: null,
+              source_offer_freight_amount: null,
+              source_offer_freight_currency: null,
               product_name: last?.product_name ?? "",
               variety: last?.variety ?? "",
               origin_country: last?.origin_country ?? (country || ""),
               caliber: last?.caliber ?? "",
+              sku: "",
               brand: last?.brand ?? "",
               class: last?.class ?? "",
               package_used: last?.package_used ?? "",
@@ -1321,13 +1340,15 @@ function NewShipment() {
               net_auto: true,
               gross_auto: true,
               unit_price: 0,
-              price_currency: last?.price_currency ?? "EUR",
+              price_currency: (last?.price_currency ?? "EUR") as "EUR" | "USD",
               offerLocked: false,
             },
           ];
         });
-        const draftPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
-        const draftGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
+        // Build B.2 — shared draft capacity via engine sumCapacity.
+        const draftCap = sumCapacity(draftRows);
+        const draftPallets = draftCap.pallets;
+        const draftGross = draftCap.grossKg;
         // Combine with existing committed load when topping up an open vehicle,
         // so the strip never hides an overload behind a positive remainder.
         const totalPallets = draftPallets + existingVehicleLoad.pallets;
@@ -1438,28 +1459,8 @@ function NewShipment() {
   );
 }
 
-type DraftRowShape = {
-  localId: string;
-  source_offer_id: string | null;
-  source_position_id: string | null;
-  product_name: string;
-  variety: string;
-  origin_country: string;
-  caliber: string;
-  brand: string;
-  class: string;
-  package_used: string;
-  pallet_count: number;
-  net_weight_kg: number;
-  gross_weight_kg: number;
-  resolver_net_per_pallet_kg: number | null;
-  resolver_gross_per_pallet_kg: number | null;
-  net_auto: boolean;
-  gross_auto: boolean;
-  unit_price: number;
-  price_currency: string;
-  offerLocked: boolean;
-};
+// Build B.2 — DraftRowCard reuses the route-level NewShipmentDraftRow type.
+type DraftRowShape = NewShipmentDraftRow;
 
 // Permissive decimal pattern: "", "0", "0,", "0,5", "0.5", "12", "12.34".
 const DECIMAL_RE = /^[0-9]*[.,]?[0-9]*$/;
@@ -1754,7 +1755,7 @@ function DraftRowCard({
           <PillSlot label="Валюта" hasValue={!!row.price_currency}>
             <input
               value={row.price_currency}
-              onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
+              onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() as "EUR" | "USD" })}
               maxLength={3}
               placeholder="EUR"
               className={pillInput}
