@@ -1324,12 +1324,16 @@ function NewShipment() {
             },
           ];
         });
-        const totalPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
-        const totalGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
+        const draftPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
+        const draftGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
+        // Combine with existing committed load when topping up an open vehicle,
+        // so the strip never hides an overload behind a positive remainder.
+        const totalPallets = draftPallets + existingVehicleLoad.pallets;
+        const totalGross = draftGross + existingVehicleLoad.gross;
         const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
         const capGross = TARGET_KG_PER_OFFER_DRAFT;
-        const remainPallets = Math.max(0, capPallets - totalPallets);
-        const remainGross = Math.max(0, capGross - totalGross);
+        const remainPallets = capPallets - totalPallets;
+        const remainGross = capGross - totalGross;
         const fmt = (n: number) => Math.round(n).toLocaleString("uk-UA").replace(/,/g, " ");
         return (
         <div className="shipments-new-products -mx-4 md:mx-0">
