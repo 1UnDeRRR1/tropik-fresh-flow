@@ -1,9 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState, createContext, useContext, useCallback, type FocusEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -27,6 +27,7 @@ import { rollbackBirthPosition } from "@/lib/position-attach";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
+import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
 
 // Patch 6B: per-shipment customs-ref index supplied via context (no module globals).
 // D1-Fix v2.5.3 — widened to carry numeric fields so clean rows can compute
@@ -1858,30 +1859,21 @@ function ProductsFullscreen() {
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
     <div
-      className={cn("fixed inset-x-0 top-0 z-[100] flex flex-col overflow-x-hidden overscroll-contain bg-background", shake && "animate-shake")}
+      className={cn("shipment-product-preview fixed inset-x-0 top-0 z-[100] flex flex-col overflow-x-hidden overscroll-contain bg-background", shake && "animate-shake")}
       style={{ bottom: "var(--keyboard-inset, 0px)" }}
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-2 pt-safe">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[15px] font-semibold leading-tight">{sh?.supplier_name || "Постачальник"}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{sh?.code ?? "…"}</div>
+        </div>
         <button
           type="button"
           onClick={() => { if (tryLeave(null)) void leaveProducts(); }}
-          className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+          className="shrink-0 text-[12px] font-medium text-[color:var(--shipment-muted-red)] hover:opacity-80"
         >
-          <ArrowLeft className="h-4 w-4" /> Назад
+          Видалити
         </button>
-        <div className="min-w-0 flex-1 text-center">
-          <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide">
-            <span className={cn(incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-              {country}
-              {incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
-            </span>
-          </div>
-        </div>
-
-        <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
-          <Plus className="h-4 w-4" />
-        </Button>
       </header>
 
       {sh && (
@@ -1982,46 +1974,53 @@ function ProductsFullscreen() {
       )}
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <button
-          type="button"
-          disabled={isSaving}
-          className="block w-full disabled:opacity-60"
-          onClick={(e) => {
-            if (isSaving) { e.preventDefault(); return; }
-            if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
-              e.preventDefault();
-              triggerShake(transportMissing);
-              return;
-            }
-            if (!tryLeave(e)) return;
-            void commitDraft();
-          }}
-        >
-          <Button
-            asChild={false}
-            disabled={isSaving}
-            className={cn(
-              "w-full",
-              (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "bg-brand text-brand-foreground hover:bg-brand/90",
-            )}
-          >
-            {isSaving
-              ? "Збереження…"
-              : transportMissing
-                ? canSaveForLater
-                  ? "Зберегти зараз, перевезення додасте пізніше"
-                  : "Вкажіть вартість перевезення"
-                : incompleteCount > 0
-                  ? `Заповніть обов'язкові поля (${incompleteCount})`
-                  : redUnconfirmedCount > 0
-                    ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
-                    : canSaveForLater
-                      ? "Зберегти та вийти"
-                      : "Готово"}
-          </Button>
-        </button>
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={!currentShipmentEditable}
+              onClick={addItem}
+              className="h-11 rounded-full border-2 border-white/90 bg-primary px-3 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            >
+              + Додати товар
+            </button>
+            <button
+              type="button"
+              disabled={!currentShipmentEditable}
+              onClick={addItem}
+              className="h-11 rounded-full border-2 border-primary/70 bg-primary/10 px-3 text-[13px] font-semibold text-primary disabled:opacity-60"
+            >
+              + Аналогічний
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="min-h-[18px] px-1 text-[11px] leading-tight text-[color:var(--shipment-muted-red)]">
+              {isSaving
+                ? "Збереження…"
+                : transportMissing && !canSaveForLater
+                  ? "Вкажіть вартість перевезення"
+                  : incompleteCount > 0
+                    ? `Заповніть обов'язкові поля (${incompleteCount})`
+                    : redUnconfirmedCount > 0
+                      ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
+                      : ""}
+            </div>
+            <VelvetCosmicCreateButton
+              label="+Створити"
+              disabled={isSaving}
+              onClick={() => {
+                if (isSaving) return;
+                if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
+                  triggerShake(transportMissing);
+                  return;
+                }
+                if (!tryLeave(null)) return;
+                void commitDraft();
+              }}
+              className="shipment-velvet-create"
+            />
+          </div>
+        </div>
       </footer>
 
     </div>
@@ -2128,14 +2127,14 @@ function TransportBar({
         "text-[11px] font-semibold uppercase tracking-wide transition-colors group-focus-within:text-primary",
         isEmpty ? "text-destructive" : "text-muted-foreground",
       )}>
-        Перевезення авто {isEmpty && "*"}
+        Перевезення авто
       </span>
       <Input
         ref={inputRef}
         type="text"
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
-        placeholder="Обов'язково"
+        placeholder="Перевезення авто"
         value={val}
         autoComplete="off"
         autoCorrect="off"
@@ -2543,7 +2542,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   } as { id: string; pallet_count: number | null; pallet_weight: number | null; gross_weight_kg: number | null }));
   return (
     <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
-      <table className="w-full min-w-[860px] text-[12px] tabular-nums">
+      <table className="shipment-products-table w-full min-w-[860px] text-[12px] tabular-nums">
         <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
           <tr className="border-b border-border">
             <th className={cn(headerCls(0), "text-left")}>Товар</th>
@@ -2819,14 +2818,14 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   return (
     <>
     <tr
-      className="border-b border-border/40"
+      className="shipment-product-card border-b border-border/40"
       onFocusCapture={(e) => {
         const td = (e.target as HTMLElement).closest("td");
         if (td?.dataset.col) setFocused(Number(td.dataset.col));
       }}
       onBlurCapture={() => setFocused(null)}
     >
-      <td data-col="0" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
+      <td data-col="0" data-label="Товар" data-required="true" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => {
@@ -2840,7 +2839,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
 
           options={knownProductNames}
           aliases={productAliases}
-          placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
+          placeholder="Товар"
           className={cn(
             "font-medium",
             (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80",
@@ -2855,10 +2854,10 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           </div>
         )}
       </td>
-      <td data-col="1" className="relative px-0.5 py-0.5">
+      <td data-col="1" data-label="Сорт" className="relative px-0.5 py-0.5">
         <VarietyCell value={form.variety} onChange={(v) => set("variety", v)} productName={form.product_name} readOnly={readOnly} />
       </td>
-      <td data-col="2" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
+      <td data-col="2" data-label="Походження" data-required="true" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => {
@@ -2872,19 +2871,19 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
 
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
-          placeholder={invalidCountry ? "Країна*" : "Країна"}
+          placeholder="Походження"
           className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={180}
           readOnly={readOnly}
         />
       </td>
-      <td data-col="3" className="relative px-0.5 py-0.5">
-        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
+      <td data-col="3" data-label="Калібр" className="relative px-0.5 py-0.5">
+        <CellInput value={form.caliber} placeholder="Калібр" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td data-col="4" className="relative px-0.5 py-0.5">
-        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
+      <td data-col="4" data-label="SKU" className="relative px-0.5 py-0.5">
+        <CellInput value={form.sku} placeholder="SKU" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td data-col="5" className="relative px-0.5 py-0.5">
+      <td data-col="5" data-label="Упаковка" data-required="true" className="relative px-0.5 py-0.5">
         <PackageCell
           value={form.package_used}
           productName={form.product_name}
@@ -2913,7 +2912,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         />
       </td>
 
-      <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
+      <td data-col="6" data-label="Палети" data-required="true" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
@@ -2943,7 +2942,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
-      <td data-col="7" className={cn("relative px-0.5 py-0.5", (pulse && invalidNet) || netGtGross ? "field-invalid" : "")}>
+      <td data-col="7" data-label="Нетто, кг" data-required="true" className={cn("relative px-0.5 py-0.5", (pulse && invalidNet) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(netNum)}
           readOnly={readOnly}
@@ -2961,7 +2960,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           </div>
         )}
       </td>
-      <td data-col="8" className={cn("relative px-0.5 py-0.5", (pulse && invalidGross) || netGtGross ? "field-invalid" : "")}>
+      <td data-col="8" data-label="Брутто, кг" data-required="true" className={cn("relative px-0.5 py-0.5", (pulse && invalidGross) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(grossNum)}
           readOnly={readOnly}
@@ -2974,7 +2973,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
-      <td data-col="9" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
+      <td data-col="9" data-label="Ціна за кг" data-required="true" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
@@ -3436,7 +3435,7 @@ function PackageCell({
         const active = document.activeElement;
         if (active instanceof HTMLElement) active.blur();
       }}
-      placeholder="—"
+        placeholder="Упаковка"
       expandedMinWidth={200}
       browseLimit={50}
       searchLimit={3}
@@ -3474,7 +3473,7 @@ function VarietyCell({ value, onChange, productName, readOnly }: { value: string
         if (active instanceof HTMLElement) active.blur();
       }}
       varieties={varieties}
-      placeholder="—"
+      placeholder="Сорт"
       inputClassName={cn(
         "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
         readOnly && "cursor-default",
@@ -3504,7 +3503,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
       enterKeyHint={MOBILE_ENTER_KEY_HINT}
       step={step ?? "1"}
       value={text}
-      placeholder={focused ? "" : "—"}
+      placeholder={focused ? "" : "Палети/вага"}
       autoComplete="off"
       autoCorrect="off"
       autoCapitalize="off"
@@ -3566,7 +3565,7 @@ function PriceCell({ value, currency, onValueChange, onCurrencyChange, readOnly 
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
         value={text}
-        placeholder={focused ? "" : (isEmpty ? "Ціна*" : "—")}
+        placeholder={focused ? "" : "Ціна за кг"}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
