@@ -238,6 +238,21 @@ function MockupPage() {
         .pill-placeholder { color: rgba(255,255,255,0.30); }
         .pill-label-req { color: #d85a55; }
         .pill-label-opt { color: rgba(255,255,255,0.55); }
+        /* Size override only — fits the velvet "+Створити" into the existing grid slot
+           next to "+ Аналогічний" (h-11, full column width). Visual styling untouched. */
+        .draft-mockup-velvet-create.velvet-cosmic-button {
+          width: 100%;
+          height: 44px;
+          border-radius: 9999px;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 0 16px;
+        }
+        .draft-mockup-velvet-create.velvet-cosmic-button::before,
+        .draft-mockup-velvet-create.velvet-cosmic-button::after,
+        .draft-mockup-velvet-create .velvet-cosmic-press-bloom {
+          border-radius: 9999px;
+        }
       `}</style>
     </div>
   );
