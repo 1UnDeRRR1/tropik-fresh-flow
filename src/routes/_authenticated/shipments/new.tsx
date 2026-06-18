@@ -517,32 +517,16 @@ function NewShipment() {
     },
   });
 
-  // Build 3 — local draft state. NO DB writes until "Готово".
-  type DraftRow = {
-    localId: string;
-    source_offer_id: string | null;
-    source_position_id: string | null;
-    product_name: string;
-    variety: string;
-    origin_country: string;
-    caliber: string;
-    brand: string;
-    class: string;
-    package_used: string;
-    pallet_count: number;
-    // Real separate totals. Never derive gross from net at save time.
-    net_weight_kg: number;
-    gross_weight_kg: number;
-    resolver_net_per_pallet_kg: number | null;
-    resolver_gross_per_pallet_kg: number | null;
-    net_auto: boolean;
-    gross_auto: boolean;
-    unit_price: number;
-    price_currency: string;
-    offerLocked: boolean;
-  };
+  // Build B.2 — local draft state. NO DB writes until "Готово".
+  // Type lives at module scope (NewShipmentDraftRow) so DraftRowCard can reuse it.
   const [step, setStep] = useState<"header" | "products">("header");
-  const [draftRows, setDraftRows] = useState<DraftRow[]>([]);
+  const [draftRows, setDraftRows] = useState<NewShipmentDraftRow[]>([]);
+
+  // Build B.2 — ProductRef list for engine validation (canonical product names).
+  const productRefs = useMemo<ProductRef[]>(
+    () => productOptions.map((name) => ({ name })),
+    [productOptions],
+  );
 
   const isOfferFlow = !!search.fromOffer;
   const isOfferDraftMode = isOfferFlow && !!offerProductPrefill && !offerProductPrefill.blocked;
