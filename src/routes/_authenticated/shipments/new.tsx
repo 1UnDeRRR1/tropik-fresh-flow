@@ -1209,9 +1209,16 @@ function NewShipment() {
             variety: "",
             origin_country: country || "",
             caliber: "",
+            brand: "",
+            class: "",
             package_used: "",
             pallet_count: 1,
-            pallet_weight: 0,
+            net_weight_kg: 0,
+            gross_weight_kg: 0,
+            resolver_net_per_pallet_kg: null,
+            resolver_gross_per_pallet_kg: null,
+            net_auto: true,
+            gross_auto: true,
             unit_price: 0,
             price_currency: "EUR",
             offerLocked: false,
@@ -1229,9 +1236,16 @@ function NewShipment() {
               variety: last?.variety ?? "",
               origin_country: last?.origin_country ?? (country || ""),
               caliber: last?.caliber ?? "",
+              brand: last?.brand ?? "",
+              class: last?.class ?? "",
               package_used: last?.package_used ?? "",
               pallet_count: 1,
-              pallet_weight: 0,
+              net_weight_kg: last?.resolver_net_per_pallet_kg ? Number(last.resolver_net_per_pallet_kg) : 0,
+              gross_weight_kg: last?.resolver_gross_per_pallet_kg ? Number(last.resolver_gross_per_pallet_kg) : 0,
+              resolver_net_per_pallet_kg: last?.resolver_net_per_pallet_kg ?? null,
+              resolver_gross_per_pallet_kg: last?.resolver_gross_per_pallet_kg ?? null,
+              net_auto: true,
+              gross_auto: true,
               unit_price: 0,
               price_currency: last?.price_currency ?? "EUR",
               offerLocked: false,
@@ -1239,7 +1253,7 @@ function NewShipment() {
           ];
         });
         const totalPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
-        const totalGross = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0) * (Number(r.pallet_weight) || 0), 0);
+        const totalGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
         const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
         const capGross = TARGET_KG_PER_OFFER_DRAFT;
         const remainPallets = Math.max(0, capPallets - totalPallets);
