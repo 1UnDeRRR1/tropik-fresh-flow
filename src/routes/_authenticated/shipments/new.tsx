@@ -1368,12 +1368,33 @@ type DraftRowShape = {
   variety: string;
   origin_country: string;
   caliber: string;
+  brand: string;
+  class: string;
   package_used: string;
   pallet_count: number;
-  pallet_weight: number;
+  net_weight_kg: number;
+  gross_weight_kg: number;
+  resolver_net_per_pallet_kg: number | null;
+  resolver_gross_per_pallet_kg: number | null;
+  net_auto: boolean;
+  gross_auto: boolean;
   unit_price: number;
   price_currency: string;
   offerLocked: boolean;
+};
+
+// Permissive decimal pattern: "", "0", "0,", "0,5", "0.5", "12", "12.34".
+const DECIMAL_RE = /^[0-9]*[.,]?[0-9]*$/;
+const parseDecimal = (s: string): number | null => {
+  const t = s.trim().replace(",", ".");
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+const formatDecimal = (n: number): string => {
+  if (!Number.isFinite(n) || n === 0) return "";
+  // Preserve up to 4 decimals but trim trailing zeros.
+  return String(Math.round(n * 10000) / 10000);
 };
 
 function DraftRowCard({
@@ -1401,7 +1422,6 @@ function DraftRowCard({
   supplierBrand: string;
   shipmentCode: string;
 }) {
-  const netKg = row.pallet_count * row.pallet_weight;
   const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
   const varieties = useVarietiesFor(row.product_name);
   const { data: palletResolved } = usePalletResolver(row.product_name, row.origin_country);
@@ -1416,9 +1436,43 @@ function DraftRowCard({
     [packageOptions],
   );
 
+  // Local text states for price/net/gross — needed to accept partial entries
+  // like "0," before the user types the second digit.
+  const [priceText, setPriceText] = useState<string>(formatDecimal(row.unit_price));
+  const [netText, setNetText] = useState<string>(formatDecimal(row.net_weight_kg));
+  const [grossText, setGrossText] = useState<string>(formatDecimal(row.gross_weight_kg));
+  // Sync from external row changes (offer prefill, package auto-fill, pallet_count recompute).
+  useEffect(() => {
+    const parsed = parseDecimal(priceText);
+    if (parsed !== row.unit_price) setPriceText(formatDecimal(row.unit_price));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.unit_price]);
+  useEffect(() => {
+    const parsed = parseDecimal(netText);
+    if (parsed !== row.net_weight_kg) setNetText(formatDecimal(row.net_weight_kg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.net_weight_kg]);
+  useEffect(() => {
+    const parsed = parseDecimal(grossText);
+    if (parsed !== row.gross_weight_kg) setGrossText(formatDecimal(row.gross_weight_kg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.gross_weight_kg]);
+
   const pillInput = "snp-pill-input";
   const headerTitle = (supplierBrand || row.product_name || `Товар №${index + 1}`).toUpperCase();
-  const headerSub = shipmentCode || `${row.pallet_count || 0} пал · ${Math.round(netKg) || 0} кг`;
+  const headerSub = shipmentCode || `${row.pallet_count || 0} пал · ${Math.round(row.net_weight_kg) || 0} кг`;
+
+  const handlePalletCountChange = (raw: string) => {
+    const n = Number(raw) || 0;
+    const patch: Partial<DraftRowShape> = { pallet_count: n };
+    if (row.net_auto && row.resolver_net_per_pallet_kg && n > 0) {
+      patch.net_weight_kg = n * row.resolver_net_per_pallet_kg;
+    }
+    if (row.gross_auto && row.resolver_gross_per_pallet_kg && n > 0) {
+      patch.gross_weight_kg = n * row.resolver_gross_per_pallet_kg;
+    }
+    onChange(patch);
+  };
 
   return (
     <section className="snp-card rounded-2xl border border-border bg-card p-3 shadow">
@@ -1466,7 +1520,7 @@ function DraftRowCard({
           </PillSlot>
         </div>
 
-        {/* Row: Сорт / Бренд(deferred) */}
+        {/* Row: Сорт / Бренд */}
         <div className="grid grid-cols-2 gap-2">
           <PillSlot label="Сорт" hasValue={!!row.variety}>
             <VarietyAutocomplete
@@ -1479,10 +1533,17 @@ function DraftRowCard({
               inputClassName={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Бренд" hasValue={false} deferred />
+          <PillSlot label="Бренд" hasValue={!!row.brand}>
+            <input
+              value={row.brand}
+              onChange={(e) => onChange({ brand: e.target.value })}
+              placeholder="Бренд"
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
 
-        {/* Row: Калібр / Клас(deferred) */}
+        {/* Row: Калібр / Клас */}
         <div className="grid grid-cols-2 gap-2">
           <PillSlot label="Калібр" hasValue={!!row.caliber}>
             <input
@@ -1493,7 +1554,14 @@ function DraftRowCard({
               className={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Клас" hasValue={false} deferred />
+          <PillSlot label="Клас" hasValue={!!row.class}>
+            <input
+              value={row.class}
+              onChange={(e) => onChange({ class: e.target.value })}
+              placeholder="Клас"
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
 
         {/* Упаковка — full width */}
@@ -1507,10 +1575,14 @@ function DraftRowCard({
             getSearchStrings={(item) => item.searchStrings}
             onSelect={(item) => {
               const patch: Partial<DraftRowShape> = { package_used: item.package_used };
-              const gross = item.pallet_gross_kg;
-              if (gross != null && gross > 0 && (!row.pallet_weight || row.pallet_weight <= 0)) {
-                patch.pallet_weight = gross;
-              }
+              const pc = row.pallet_count > 0 ? row.pallet_count : 0;
+              const netPer = item.pallet_net_kg != null && item.pallet_net_kg > 0 ? Number(item.pallet_net_kg) : null;
+              const grossPer = item.pallet_gross_kg != null && item.pallet_gross_kg > 0 ? Number(item.pallet_gross_kg) : null;
+              patch.resolver_net_per_pallet_kg = netPer;
+              patch.resolver_gross_per_pallet_kg = grossPer;
+              // Auto-fill totals only when the field is in auto mode.
+              if (row.net_auto && netPer && pc > 0) patch.net_weight_kg = pc * netPer;
+              if (row.gross_auto && grossPer && pc > 0) patch.gross_weight_kg = pc * grossPer;
               onChange(patch);
             }}
             placeholder={row.product_name ? "Упаковка" : "Спочатку виберіть товар"}
@@ -1531,11 +1603,10 @@ function DraftRowCard({
           />
         </PillSlot>
 
-        {/* Row: Ящ./пал(deferred) / К-ть палет / Вага палети */}
+        {/* Row: К-ть палет / Нетто / Брутто */}
         <div className="grid grid-cols-3 gap-2">
-          <PillSlot label="Ящ./пал." hasValue={false} deferred />
           <PillSlot
-            label={offerPending != null ? `К-ть палет (${offerPending})` : "К-ть палет"}
+            label={offerPending != null ? `Палет (${offerPending})` : "Палет"}
             required
             hasValue={!!row.pallet_count}
             errored={tooManyOffer}
@@ -1545,48 +1616,60 @@ function DraftRowCard({
               inputMode="numeric"
               min={1}
               value={row.pallet_count || ""}
-              onChange={(e) => onChange({ pallet_count: Number(e.target.value) || 0 })}
+              onChange={(e) => handlePalletCountChange(e.target.value)}
               placeholder="Палет"
               className={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Вага палети" hasValue={!!row.pallet_weight}>
+          <PillSlot label="Нетто, кг" required hasValue={row.net_weight_kg > 0}>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              value={row.pallet_weight || ""}
-              onChange={(e) => onChange({ pallet_weight: Number(e.target.value) || 0 })}
-              placeholder="Вага палети"
+              value={netText}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!DECIMAL_RE.test(raw)) return;
+                setNetText(raw);
+                const n = parseDecimal(raw);
+                onChange({ net_weight_kg: n ?? 0, net_auto: false });
+              }}
+              placeholder="Нетто"
               className={pillInput}
             />
           </PillSlot>
-        </div>
-
-        {/* Row: Нетто (derived) / Брутто(deferred) */}
-        <div className="grid grid-cols-2 gap-2">
-          <PillSlot label="Нетто, кг" hasValue={netKg > 0}>
+          <PillSlot label="Брутто, кг" required hasValue={row.gross_weight_kg > 0}>
             <input
-              value={netKg > 0 ? Math.round(netKg).toString() : ""}
-              readOnly
-              placeholder="Нетто, кг"
+              type="text"
+              inputMode="decimal"
+              value={grossText}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!DECIMAL_RE.test(raw)) return;
+                setGrossText(raw);
+                const n = parseDecimal(raw);
+                onChange({ gross_weight_kg: n ?? 0, gross_auto: false });
+              }}
+              placeholder="Брутто"
               className={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Брутто, кг" hasValue={false} deferred />
         </div>
 
         {/* Row: Ціна за кг / Валюта */}
         <div className="grid grid-cols-2 gap-2">
-          <PillSlot label="Ціна за кг" required hasValue={!!row.unit_price}>
+          <PillSlot label="Ціна за кг" required hasValue={row.unit_price > 0}>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={row.unit_price || ""}
-              onChange={(e) => onChange({ unit_price: Number(e.target.value) || 0 })}
-              placeholder="Ціна за кг"
+              value={priceText}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!DECIMAL_RE.test(raw)) return;
+                setPriceText(raw);
+                const n = parseDecimal(raw);
+                onChange({ unit_price: n ?? 0 });
+              }}
+              placeholder="0,50"
               className={pillInput}
             />
           </PillSlot>
@@ -1595,18 +1678,17 @@ function DraftRowCard({
               value={row.price_currency}
               onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
               maxLength={3}
-              placeholder="Валюта"
+              placeholder="EUR"
               className={pillInput}
             />
           </PillSlot>
         </div>
 
-        {/* Розрахунок собівартості — структура з затвердженого превью.
-            Значення підставляться після створення поставки. */}
+        {/* Розрахунок собівартості — заповнюється після створення поставки. */}
         <div className="mt-2 rounded-xl border border-border/60 bg-background/40 p-2.5">
           <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Розрахунок собівартості</span>
-            <span className="text-[10px] font-normal text-muted-foreground/70">деталі</span>
+            <span className="text-[10px] font-normal text-muted-foreground/70">після створення</span>
           </div>
           <div className="space-y-0.5 text-[11.5px] tabular-nums">
             <div className="flex justify-between"><span className="text-muted-foreground">FX EUR/USD</span><span className="font-medium">—</span></div>
@@ -1622,6 +1704,7 @@ function DraftRowCard({
     </section>
   );
 }
+
 
 function PillSlot({
   label,
