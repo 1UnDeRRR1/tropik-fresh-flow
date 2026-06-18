@@ -646,32 +646,38 @@ function NewShipment() {
       toast.error("Додайте хоча б один товар");
       return;
     }
+    // Build B.2 — per-row required-field validation via shared engine helpers.
+    // product_name "known" check is intentionally NOT used here so unknown
+    // names still reach the rpc_resolve_offer_line_defaults gate below.
     for (const r of draftRows) {
       if (!r.product_name.trim()) {
         toast.error("Заповніть назву товару");
         return;
       }
-      if (!(r.pallet_count > 0)) {
+      const missing = getMissingDraftFields(r, productRefs).filter((k) => k !== "product_name");
+      if (missing.includes("pallet_count")) {
         toast.error(`«${r.product_name || "Товар"}»: кількість палет > 0`);
         return;
       }
-      if (!(r.net_weight_kg > 0)) {
-        toast.error(`«${r.product_name}»: нетто > 0`);
-        return;
+      if (missing.includes("total_weight")) {
+        if (!(r.net_weight_kg > 0)) {
+          toast.error(`«${r.product_name}»: нетто > 0`);
+          return;
+        }
+        if (!(r.gross_weight_kg > 0)) {
+          toast.error(`«${r.product_name}»: брутто > 0`);
+          return;
+        }
       }
-      if (!(r.gross_weight_kg > 0)) {
-        toast.error(`«${r.product_name}»: брутто > 0`);
-        return;
-      }
-      if (r.net_weight_kg > r.gross_weight_kg) {
+      if (isNetGreaterThanGross(r)) {
         toast.error(`«${r.product_name}»: нетто не може бути більше брутто`);
         return;
       }
-      if (!(r.unit_price > 0)) {
+      if (missing.includes("unit_price")) {
         toast.error(`«${r.product_name}»: ціна > 0`);
         return;
       }
-      if (!r.origin_country.trim()) {
+      if (missing.includes("origin_country")) {
         toast.error(`«${r.product_name}»: країна походження`);
         return;
       }
@@ -684,12 +690,13 @@ function NewShipment() {
     }
 
     // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
-    // Uses the shared existingVehicleLoad memo so the sticky strip and this
-    // gate never disagree.
+    // Build B.2 — draft capacity via shared sumCapacity; existingVehicleLoad
+    // keeps its legacy gross→net→pallet*pallet_weight fallback unchanged.
     const existingP = existingVehicleLoad.pallets;
     const existingKg = existingVehicleLoad.gross;
-    const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
-    const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
+    const draftCap = sumCapacity(draftRows);
+    const draftP = draftCap.pallets;
+    const draftKg = draftCap.grossKg;
     if (existingP + draftP > VEHICLE_MAX_PALLETS) {
       toast.error(`Перевищено палети авто: ${existingP + draftP} > ${VEHICLE_MAX_PALLETS}`);
       return;
