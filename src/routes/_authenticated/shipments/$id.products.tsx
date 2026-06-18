@@ -49,6 +49,8 @@ import {
   isDraftDirty,
   getMissingDraftFields,
   buildPayload as buildShipmentItemPayload,
+  isNetGreaterThanGross,
+  sumCapacity,
 } from "@/lib/shipment-row-engine";
 
 
@@ -856,12 +858,8 @@ function ProductsFullscreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
 
-  const loadedPallets = effectiveLoadedItems.reduce((sum, it) => sum + Number(it.pallet_count ?? 0), 0);
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
-  const loadedKg = effectiveLoadedItems.reduce((sum, it) => {
-    const g = Number(it.gross_weight_kg ?? 0);
-    return sum + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
-  }, 0);
+  const { pallets: loadedPallets, grossKg: loadedKg } = sumCapacity(effectiveLoadedItems);
   const remainingPallets = Math.max(0, MAX_PALLETS - loadedPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - loadedKg);
   const canEditTransport = !!sh && (!sh.vehicle_id
@@ -1093,9 +1091,7 @@ function ProductsFullscreen() {
       return;
     }
     // 1b. Mobile-typo guard: net must not exceed gross.
-    const anyNetGtGross = draftItems.some(
-      (d) => Number(d.net_weight_kg) > 0 && Number(d.gross_weight_kg) > 0 && Number(d.net_weight_kg) > Number(d.gross_weight_kg),
-    );
+    const anyNetGtGross = draftItems.some((d) => isNetGreaterThanGross(d));
     if (anyNetGtGross) {
       toast.error("Нетто не може бути більше брутто");
       triggerShake(false);
@@ -1103,11 +1099,7 @@ function ProductsFullscreen() {
     }
     // 2. D1-Fix v2.4 — capacity validation (vehicle-wide) BEFORE any DB writes.
     // No pallet_count clamp; only block "Готово".
-    const capPallets = effectiveLoadedItems.reduce((s, it) => s + Number(it.pallet_count ?? 0), 0);
-    const capGrossKg = effectiveLoadedItems.reduce((s, it) => {
-      const g = Number(it.gross_weight_kg ?? 0);
-      return s + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
-    }, 0);
+    const { pallets: capPallets, grossKg: capGrossKg } = sumCapacity(effectiveLoadedItems);
     if (capGrossKg > MAX_WEIGHT_KG) {
       toast.error(`Перевищено вагу авто: ${Math.round(capGrossKg)} кг > ${MAX_WEIGHT_KG} кг`);
       triggerShake(false);
@@ -2073,13 +2065,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   // D1-Fix v2.5.6 (Issue 1) — old expanded Auto duplicate list removed.
   // Product details live in the TopCalculationZone ("Собівартість · N позицій")
   // and in the editor table. Here we only keep compact capacity counters.
-  const totalPallets = vehicleContext.loadedItems.reduce(
-    (sum, it) => sum + Number(it.pallet_count ?? 0), 0,
-  );
-  const totalKg = vehicleContext.loadedItems.reduce((sum, it) => {
-    const g = Number(it.gross_weight_kg ?? 0);
-    return sum + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
-  }, 0);
+  const { pallets: totalPallets, grossKg: totalKg } = sumCapacity(vehicleContext.loadedItems);
   const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
   const tight = remainingPallets <= 1;
@@ -2181,12 +2167,8 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
         <tbody>
           {drafts.map((d) => {
             const ownKey = d.localId;
-            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === ownKey ? 0 : Number(x.pallet_count ?? 0)), 0);
-            const otherKg = capacitySource.reduce((a, x) => {
-              if (x.id === ownKey) return a;
-              const g = Number((x as { gross_weight_kg?: number | null }).gross_weight_kg ?? 0);
-              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
-            }, 0);
+            const others = capacitySource.filter((x) => x.id !== ownKey);
+            const { pallets: otherPallets, grossKg: otherKg } = sumCapacity(others);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
             const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
             return (
