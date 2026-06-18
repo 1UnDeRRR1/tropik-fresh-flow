@@ -72,6 +72,9 @@ type OpenVehicle = {
       variety: string | null;
       caliber: string | null;
       pallet_count: number | null;
+      pallet_weight: number | null;
+      net_weight_kg: number | null;
+      gross_weight_kg: number | null;
     }[] | null;
   }[] | null;
 };
