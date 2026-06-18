@@ -34,6 +34,7 @@ import { VarietyAutocomplete } from "@/components/VarietyAutocomplete";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
+import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
@@ -1042,7 +1043,8 @@ function NewShipment() {
 
   return (
     <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
-      <PageHeader title="Нова поставка" />
+      {step === "header" && <PageHeader title="Нова поставка" />}
+
 
       {step === "header" ? (
         <form onSubmit={onHeaderNext} noValidate className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}>
