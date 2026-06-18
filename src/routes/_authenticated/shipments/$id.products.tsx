@@ -1859,30 +1859,21 @@ function ProductsFullscreen() {
    <CustomsRefContext.Provider value={refById}>
     <FallbackSelectionContext.Provider value={fallbackSelection}>
     <div
-      className={cn("fixed inset-x-0 top-0 z-[100] flex flex-col overflow-x-hidden overscroll-contain bg-background", shake && "animate-shake")}
+      className={cn("shipment-product-preview fixed inset-x-0 top-0 z-[100] flex flex-col overflow-x-hidden overscroll-contain bg-background", shake && "animate-shake")}
       style={{ bottom: "var(--keyboard-inset, 0px)" }}
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-safe">
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-2 pt-safe">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[15px] font-semibold leading-tight">{sh?.supplier_name || "Постачальник"}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{sh?.code ?? "…"}</div>
+        </div>
         <button
           type="button"
           onClick={() => { if (tryLeave(null)) void leaveProducts(); }}
-          className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+          className="shrink-0 text-[12px] font-medium text-[color:var(--shipment-muted-red)] hover:opacity-80"
         >
-          <ArrowLeft className="h-4 w-4" /> Назад
+          Видалити
         </button>
-        <div className="min-w-0 flex-1 text-center">
-          <div className="truncate text-sm font-semibold">{sh?.code ?? "…"}</div>
-          <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide">
-            <span className={cn(incompleteCount > 0 ? "text-destructive" : "text-muted-foreground")}>
-              {country}
-              {incompleteCount > 0 && ` · ${incompleteCount} незаповн.`}
-            </span>
-          </div>
-        </div>
-
-        <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
-          <Plus className="h-4 w-4" />
-        </Button>
       </header>
 
       {sh && (
@@ -1983,46 +1974,53 @@ function ProductsFullscreen() {
       )}
 
       <footer className="border-t border-border bg-card px-3 py-2 pb-safe">
-        <button
-          type="button"
-          disabled={isSaving}
-          className="block w-full disabled:opacity-60"
-          onClick={(e) => {
-            if (isSaving) { e.preventDefault(); return; }
-            if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
-              e.preventDefault();
-              triggerShake(transportMissing);
-              return;
-            }
-            if (!tryLeave(e)) return;
-            void commitDraft();
-          }}
-        >
-          <Button
-            asChild={false}
-            disabled={isSaving}
-            className={cn(
-              "w-full",
-              (incompleteCount > 0 || (transportMissing && !canSaveForLater) || redUnconfirmedCount > 0)
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "bg-brand text-brand-foreground hover:bg-brand/90",
-            )}
-          >
-            {isSaving
-              ? "Збереження…"
-              : transportMissing
-                ? canSaveForLater
-                  ? "Зберегти зараз, перевезення додасте пізніше"
-                  : "Вкажіть вартість перевезення"
-                : incompleteCount > 0
-                  ? `Заповніть обов'язкові поля (${incompleteCount})`
-                  : redUnconfirmedCount > 0
-                    ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
-                    : canSaveForLater
-                      ? "Зберегти та вийти"
-                      : "Готово"}
-          </Button>
-        </button>
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={!currentShipmentEditable}
+              onClick={addItem}
+              className="h-11 rounded-full border-2 border-white/90 bg-primary px-3 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            >
+              + Додати товар
+            </button>
+            <button
+              type="button"
+              disabled={!currentShipmentEditable}
+              onClick={addItem}
+              className="h-11 rounded-full border-2 border-primary/70 bg-primary/10 px-3 text-[13px] font-semibold text-primary disabled:opacity-60"
+            >
+              + Аналогічний
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="min-h-[18px] px-1 text-[11px] leading-tight text-[color:var(--shipment-muted-red)]">
+              {isSaving
+                ? "Збереження…"
+                : transportMissing && !canSaveForLater
+                  ? "Вкажіть вартість перевезення"
+                  : incompleteCount > 0
+                    ? `Заповніть обов'язкові поля (${incompleteCount})`
+                    : redUnconfirmedCount > 0
+                      ? `Підтвердіть ручну суму митного збору (${redUnconfirmedCount})`
+                      : ""}
+            </div>
+            <VelvetCosmicCreateButton
+              label="+Створити"
+              disabled={isSaving}
+              onClick={() => {
+                if (isSaving) return;
+                if (incompleteCount > 0 || !hasRealPallets || (transportMissing && !canSaveForLater)) {
+                  triggerShake(transportMissing);
+                  return;
+                }
+                if (!tryLeave(null)) return;
+                void commitDraft();
+              }}
+              className="shipment-velvet-create"
+            />
+          </div>
+        </div>
       </footer>
 
     </div>
