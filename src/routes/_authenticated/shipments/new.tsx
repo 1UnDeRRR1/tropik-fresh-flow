@@ -1095,81 +1095,133 @@ function NewShipment() {
             Далі — товари
           </Button>
         </form>
-      ) : (
-        <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
-          {headerSummary}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Товари (чернетка)</div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setDraftRows((rows) => [
-                  ...rows,
-                  {
-                    localId: `tmp_${crypto.randomUUID()}`,
-                    source_offer_id: null,
-                    source_position_id: null,
-                    product_name: "",
-                    variety: "",
-                    origin_country: country || "",
-                    caliber: "",
-                    package_used: "",
-                    pallet_count: 1,
-                    pallet_weight: 0,
-                    unit_price: 0,
-                    price_currency: "EUR",
-                    offerLocked: false,
-                  },
-                ])}
-              >
-                <Plus className="mr-1 h-4 w-4" /> Додати товар
-              </Button>
+      ) : (() => {
+        // Approved /draft-mockup visual package wired to live draftRows.
+        const addEmptyRow = () => setDraftRows((rows) => [
+          ...rows,
+          {
+            localId: `tmp_${crypto.randomUUID()}`,
+            source_offer_id: null,
+            source_position_id: null,
+            product_name: "",
+            variety: "",
+            origin_country: country || "",
+            caliber: "",
+            package_used: "",
+            pallet_count: 1,
+            pallet_weight: 0,
+            unit_price: 0,
+            price_currency: "EUR",
+            offerLocked: false,
+          },
+        ]);
+        const addSimilarRow = () => setDraftRows((rows) => {
+          const last = rows[rows.length - 1];
+          return [
+            ...rows,
+            {
+              localId: `tmp_${crypto.randomUUID()}`,
+              source_offer_id: null,
+              source_position_id: null,
+              product_name: last?.product_name ?? "",
+              variety: last?.variety ?? "",
+              origin_country: last?.origin_country ?? (country || ""),
+              caliber: last?.caliber ?? "",
+              package_used: last?.package_used ?? "",
+              pallet_count: 1,
+              pallet_weight: 0,
+              unit_price: 0,
+              price_currency: last?.price_currency ?? "EUR",
+              offerLocked: false,
+            },
+          ];
+        });
+        const totalPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
+        const totalGross = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0) * (Number(r.pallet_weight) || 0), 0);
+        const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
+        const capGross = TARGET_KG_PER_OFFER_DRAFT;
+        const remainPallets = Math.max(0, capPallets - totalPallets);
+        const remainGross = Math.max(0, capGross - totalGross);
+        const fmt = (n: number) => Math.round(n).toLocaleString("uk-UA").replace(/,/g, " ");
+        return (
+        <div className="shipments-new-products -mx-4 md:mx-0">
+          {/* Sticky capacity strip — approved mockup */}
+          <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <div className="mx-auto flex w-full max-w-[460px] items-center justify-between gap-2 whitespace-nowrap text-[11.5px] leading-tight tabular-nums">
+              <span><span className="text-muted-foreground">Палети </span><span className="font-semibold">{totalPallets}/{capPallets}</span></span>
+              <span className="text-border">·</span>
+              <span><span className="text-muted-foreground">Брутто </span><span className="font-semibold">{fmt(totalGross)}/{fmt(capGross)}</span></span>
+              <span className="text-border">·</span>
+              <span><span className="text-muted-foreground">Залишок </span><span className="font-semibold">{remainPallets} / {fmt(remainGross)}</span></span>
             </div>
-
-            {draftRows.length === 0 && (
-              <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-center text-sm text-muted-foreground">
-                Додайте хоча б один товар і натисніть «Готово».
-              </div>
-            )}
-
-            {draftRows.map((r, idx) => (
-              <DraftRowCard
-                key={r.localId}
-                row={r}
-                index={idx}
-                onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
-                onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
-                offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
-                productOptions={productOptions}
-                productAliases={productAliases}
-                countryOptions={countryOptions}
-                countryAliases={countryAliases}
-              />
-            ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={submitting}
-              onClick={() => setStep("header")}
-            >
-              Назад
-            </Button>
-            <Button
-              type="button"
-              disabled={submitting || draftRows.length === 0}
-              onClick={finalSave}
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
-            >
-              {submitting ? "Створення…" : "Готово"}
-            </Button>
+          <div className="px-2 pb-6 pt-3">
+            <div className="mx-auto w-full max-w-[460px] space-y-2.5">
+              {draftRows.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-center text-sm text-muted-foreground">
+                  Додайте хоча б один товар і натисніть «Створити».
+                </div>
+              )}
+
+              {draftRows.map((r, idx) => (
+                <DraftRowCard
+                  key={r.localId}
+                  row={r}
+                  index={idx}
+                  onChange={(patch) => setDraftRows((rows) => rows.map((x) => x.localId === r.localId ? { ...x, ...patch } : x))}
+                  onRemove={() => setDraftRows((rows) => rows.filter((x) => x.localId !== r.localId))}
+                  offerPending={r.source_offer_id && offerProductPrefill && !offerProductPrefill.blocked ? offerProductPrefill.pending : null}
+                  productOptions={productOptions}
+                  productAliases={productAliases}
+                  countryOptions={countryOptions}
+                  countryAliases={countryAliases}
+                />
+              ))}
+
+              {/* Footer buttons — approved mockup */}
+              <div className="space-y-1.5 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={addEmptyRow}
+                    className="h-11 rounded-full border-2 border-white/90 bg-primary px-3 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    + Додати товар
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addSimilarRow}
+                    disabled={draftRows.length === 0}
+                    className="h-11 rounded-full border-2 border-primary/70 bg-primary/10 px-3 text-[13px] font-semibold text-primary disabled:opacity-50"
+                  >
+                    + Аналогічний
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={() => setStep("header")}
+                    className="h-11 rounded-full"
+                  >
+                    Назад
+                  </Button>
+                  <VelvetCosmicCreateButton
+                    label={submitting ? "Створення…" : "+Створити"}
+                    disabled={submitting || draftRows.length === 0}
+                    onClick={() => { if (!submitting && draftRows.length > 0) void finalSave(); }}
+                    className="shipments-new-velvet-create"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
+
 
       {mobileEditingLabel && step === "header" && (
         <div
