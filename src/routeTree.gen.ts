@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DraftMockupRouteImport } from './routes/draft-mockup'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as OTokenRouteImport } from './routes/o.$token'
@@ -72,6 +73,11 @@ import { Route as AuthenticatedDashboardAdminStatusesRouteImport } from './route
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DraftMockupRoute = DraftMockupRouteImport.update({
+  id: '/draft-mockup',
+  path: '/draft-mockup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -403,6 +409,7 @@ const AuthenticatedDashboardAdminStatusesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/draft-mockup': typeof DraftMockupRoute
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -462,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/shipments-lifecycle': typeof ApiPublicHooksShipmentsLifecycleRoute
 }
 export interface FileRoutesByTo {
+  '/draft-mockup': typeof DraftMockupRoute
   '/login': typeof LoginRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/archive': typeof AuthenticatedArchiveRoute
@@ -521,6 +529,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/draft-mockup': typeof DraftMockupRoute
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -584,6 +593,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/draft-mockup'
     | '/login'
     | '/admin'
     | '/analytics'
@@ -643,6 +653,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/shipments-lifecycle'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/draft-mockup'
     | '/login'
     | '/analytics'
     | '/archive'
@@ -701,6 +712,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/draft-mockup'
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
@@ -763,6 +775,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  DraftMockupRoute: typeof DraftMockupRoute
   LoginRoute: typeof LoginRoute
   OTokenRoute: typeof OTokenRoute
   ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
@@ -776,6 +789,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/draft-mockup': {
+      id: '/draft-mockup'
+      path: '/draft-mockup'
+      fullPath: '/draft-mockup'
+      preLoaderRoute: typeof DraftMockupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -1379,6 +1399,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  DraftMockupRoute: DraftMockupRoute,
   LoginRoute: LoginRoute,
   OTokenRoute: OTokenRoute,
   ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
@@ -1387,13 +1408,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
