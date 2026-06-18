@@ -2065,13 +2065,7 @@ function SharedVehicleSummary({ vehicleContext, currentShipmentId: _currentShipm
   // D1-Fix v2.5.6 (Issue 1) — old expanded Auto duplicate list removed.
   // Product details live in the TopCalculationZone ("Собівартість · N позицій")
   // and in the editor table. Here we only keep compact capacity counters.
-  const totalPallets = vehicleContext.loadedItems.reduce(
-    (sum, it) => sum + Number(it.pallet_count ?? 0), 0,
-  );
-  const totalKg = vehicleContext.loadedItems.reduce((sum, it) => {
-    const g = Number(it.gross_weight_kg ?? 0);
-    return sum + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
-  }, 0);
+  const { pallets: totalPallets, grossKg: totalKg } = sumCapacity(vehicleContext.loadedItems);
   const remainingPallets = Math.max(0, MAX_PALLETS - totalPallets);
   const remainingKg = Math.max(0, MAX_WEIGHT_KG - totalKg);
   const tight = remainingPallets <= 1;
