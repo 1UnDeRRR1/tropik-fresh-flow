@@ -474,9 +474,17 @@ function NewShipment() {
     variety: string;
     origin_country: string;
     caliber: string;
+    brand: string;
+    class: string;
     package_used: string;
     pallet_count: number;
-    pallet_weight: number; // kg per pallet
+    // Real separate totals. Never derive gross from net at save time.
+    net_weight_kg: number;
+    gross_weight_kg: number;
+    resolver_net_per_pallet_kg: number | null;
+    resolver_gross_per_pallet_kg: number | null;
+    net_auto: boolean;
+    gross_auto: boolean;
     unit_price: number;
     price_currency: string;
     offerLocked: boolean;
@@ -493,6 +501,9 @@ function NewShipment() {
     if (!offerProductPrefill || offerProductPrefill.blocked) return;
     if (draftRows.length > 0) return;
     const o = offerProductPrefill.offer;
+    const palWeight = Number(offerProductPrefill.palletWeight ?? 0);
+    const pallets = offerProductPrefill.safePalletCount > 0 ? offerProductPrefill.safePalletCount : 1;
+    const seedTotal = palWeight * pallets;
     setDraftRows([{
       localId: `tmp_${crypto.randomUUID()}`,
       source_offer_id: o.id,
@@ -501,9 +512,16 @@ function NewShipment() {
       variety: o.variety ?? "",
       origin_country: normalizeCountry(o.origin_country ?? "") || (o.origin_country ?? ""),
       caliber: o.caliber ?? "",
+      brand: "",
+      class: "",
       package_used: "",
-      pallet_count: offerProductPrefill.safePalletCount > 0 ? offerProductPrefill.safePalletCount : 1,
-      pallet_weight: Number(offerProductPrefill.palletWeight ?? 0),
+      pallet_count: pallets,
+      net_weight_kg: seedTotal,
+      gross_weight_kg: seedTotal,
+      resolver_net_per_pallet_kg: palWeight > 0 ? palWeight : null,
+      resolver_gross_per_pallet_kg: palWeight > 0 ? palWeight : null,
+      net_auto: true,
+      gross_auto: true,
       unit_price: Number(o.price_per_kg ?? 0),
       price_currency: ((o.price_currency ?? "EUR") as string),
       offerLocked: true,
