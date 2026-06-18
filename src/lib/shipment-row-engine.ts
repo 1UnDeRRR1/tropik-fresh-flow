@@ -106,6 +106,11 @@ export type DraftRow = {
   gross_auto: boolean;
   unit_price: number;
   price_currency: "EUR" | "USD";
+  // Build B — optional, additive. $id.products.tsx never sets these, so its
+  // dirty-detection and payload behavior are unchanged. /shipments/new wires
+  // these to live inputs and spreads them into the INSERT payload.
+  brand?: string;
+  class?: string;
 };
 
 export const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
@@ -113,6 +118,7 @@ export const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
   "pallet_count","net_weight_kg","gross_weight_kg",
   "resolver_net_per_pallet_kg","resolver_gross_per_pallet_kg",
   "net_auto","gross_auto","unit_price","price_currency",
+  "brand","class",
 ];
 
 export function itemRowToDraft(item: ItemRowLike): DraftRow {
@@ -329,6 +335,12 @@ export function computeRowPreview(
   products: ProductRef[],
   isClean: boolean,
   savedRefForClean: ActiveCustomsRef | null,
+  // Build B — additive. Local manual customs override held only in the
+  // /shipments/new draft state, before any INSERT exists. Honored exactly like
+  // a saved dbItem override (mirrors DB short-circuit; sets basis="manual";
+  // wins over any picked ref). All existing call sites omit this argument and
+  // get the previous behavior.
+  localOverride: { duty_usd: number; confirmed_at: string; by: string | null } | null = null,
 ): { value: { indicative: number; invoice: number } | null; components: RowComponents } {
   const components: RowComponents = {
     productName: d.product_name,
@@ -399,6 +411,8 @@ export function computeRowPreview(
   }
 
   // Confirmed manual override (only when product+country unchanged vs DB row).
+  // Build B — also honor localOverride (drafts not yet inserted on /shipments/new).
+  // dbItem wins if both happen to be set (existing-editor invariant unchanged).
   let overrideDuty: number | null = null;
   if (
     dbItem &&
@@ -408,6 +422,14 @@ export function computeRowPreview(
     (dbItem.origin_country ?? "").trim() === d.origin_country.trim()
   ) {
     overrideDuty = Number(dbItem.customs_override_duty_usd);
+    components.customsBasis = "manual";
+    components.matchedRef = null;
+  } else if (
+    localOverride &&
+    localOverride.confirmed_at &&
+    localOverride.duty_usd != null
+  ) {
+    overrideDuty = Number(localOverride.duty_usd);
     components.customsBasis = "manual";
     components.matchedRef = null;
   }
