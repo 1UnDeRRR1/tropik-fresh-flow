@@ -3435,7 +3435,7 @@ function PackageCell({
         const active = document.activeElement;
         if (active instanceof HTMLElement) active.blur();
       }}
-      placeholder="—"
+        placeholder="Упаковка"
       expandedMinWidth={200}
       browseLimit={50}
       searchLimit={3}
@@ -3473,7 +3473,7 @@ function VarietyCell({ value, onChange, productName, readOnly }: { value: string
         if (active instanceof HTMLElement) active.blur();
       }}
       varieties={varieties}
-      placeholder="—"
+      placeholder="Сорт"
       inputClassName={cn(
         "h-8 w-full border-transparent bg-transparent px-1.5 text-[12px] focus:border-input focus:bg-background",
         readOnly && "cursor-default",
@@ -3503,7 +3503,7 @@ function NumCell({ value, onChange, step, readOnly = false, invalid = false }: {
       enterKeyHint={MOBILE_ENTER_KEY_HINT}
       step={step ?? "1"}
       value={text}
-      placeholder={focused ? "" : "—"}
+      placeholder={focused ? "" : "Палети/вага"}
       autoComplete="off"
       autoCorrect="off"
       autoCapitalize="off"
