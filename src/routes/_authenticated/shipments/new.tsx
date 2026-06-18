@@ -818,24 +818,28 @@ function NewShipment() {
 
       // Per-row commit via the authoritative helper.
       for (const r of draftRows) {
-        const netKg = r.pallet_count * r.pallet_weight;
-        const grossKg = netKg;
+        const netKg = Number(r.net_weight_kg) || 0;
+        const grossKg = Number(r.gross_weight_kg) || 0;
+        // Legacy per-pallet shim (SQL cost trigger still reads pallet_weight).
+        const palletWeightShim = r.pallet_count > 0 ? netKg / r.pallet_count : 0;
         const itemPayload: Record<string, unknown> = {
           shipment_id: shipmentId,
           product_name: r.product_name,
           variety: r.variety || null,
           origin_country: normalizeCountry(r.origin_country) || null,
           caliber: r.caliber || null,
+          brand: r.brand.trim() || null,
+          class: r.class.trim() || null,
           sku: null,
           package_used: r.package_used || null,
           pallet_count: r.pallet_count,
           net_weight_kg: netKg,
           gross_weight_kg: grossKg,
-          resolver_net_per_pallet_kg: null,
-          resolver_gross_per_pallet_kg: null,
-          net_auto: false,
-          gross_auto: false,
-          pallet_weight: r.pallet_weight,
+          resolver_net_per_pallet_kg: r.resolver_net_per_pallet_kg,
+          resolver_gross_per_pallet_kg: r.resolver_gross_per_pallet_kg,
+          net_auto: r.net_auto,
+          gross_auto: r.gross_auto,
+          pallet_weight: palletWeightShim,
           qty: netKg,
           unit: "kg",
           unit_price: r.unit_price,
