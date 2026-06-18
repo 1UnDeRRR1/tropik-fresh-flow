@@ -1484,6 +1484,24 @@ function DraftRowCard({
             />
           </PillSlot>
         </div>
+
+        {/* Розрахунок собівартості — структура з затвердженого превью.
+            Значення підставляться після створення поставки. */}
+        <div className="mt-2 rounded-xl border border-border/60 bg-background/40 p-2.5">
+          <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Розрахунок собівартості</span>
+            <span className="text-[10px] font-normal text-muted-foreground/70">деталі</span>
+          </div>
+          <div className="space-y-0.5 text-[11.5px] tabular-nums">
+            <div className="flex justify-between"><span className="text-muted-foreground">FX EUR/USD</span><span className="font-medium">—</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Митниця</span><span className="font-medium text-muted-foreground/70">—</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Транспорт, $/кг</span><span className="font-medium">—</span></div>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between border-t border-border/40 pt-1.5 text-[12px] font-bold tabular-nums">
+            <span>Собівартість</span>
+            <span className="text-muted-foreground/70">— / —</span>
+          </div>
+        </div>
       </div>
     </section>
   );
