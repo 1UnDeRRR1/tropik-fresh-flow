@@ -1065,37 +1065,11 @@ function ProductsFullscreen() {
   };
 
   // D1 §6 — INSERT/UPDATE payload preserves current net/gross + legacy compat-shim.
+  // Pure builder lives in @/lib/shipment-row-engine (Build A); thin wrapper kept
+  // here so call sites stay byte-identical.
   const buildPayload = useCallback(
-    (d: DraftRow, opts: { forUpdate: boolean }): Record<string, unknown> => {
-      const pc = d.pallet_count;
-      const net = d.net_weight_kg;
-      const palletWeightShim = pc > 0 ? net / pc : 0;
-      const resolvedName =
-        resolveProductOption(d.product_name, products.map((p) => p.name)) ??
-        canonicalizeProductName(d.product_name);
-      const payload: Record<string, unknown> = {
-        product_name: resolvedName,
-        variety: d.variety || null,
-        origin_country: normalizeCountry(d.origin_country) || null,
-        caliber: d.caliber || null,
-        sku: d.sku || null,
-        package_used: d.package_used.trim() || null,
-        pallet_count: pc,
-        net_weight_kg: net,
-        gross_weight_kg: d.gross_weight_kg,
-        resolver_net_per_pallet_kg: d.resolver_net_per_pallet_kg,
-        resolver_gross_per_pallet_kg: d.resolver_gross_per_pallet_kg,
-        net_auto: d.net_auto,
-        gross_auto: d.gross_auto,
-        pallet_weight: palletWeightShim,
-        qty: net,
-        unit: "kg",
-        unit_price: d.unit_price,
-        price_currency: d.price_currency,
-      };
-      if (!opts.forUpdate) payload.shipment_id = id;
-      return payload;
-    },
+    (d: DraftRow, opts: { forUpdate: boolean }): Record<string, unknown> =>
+      buildShipmentItemPayload(d, { products, shipmentId: id }, opts),
     [products, id],
   );
 
