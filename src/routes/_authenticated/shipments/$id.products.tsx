@@ -2912,7 +2912,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
         />
       </td>
 
-      <td data-col="6" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
+      <td data-col="6" data-label="Палети" data-required="true" className={cn("relative px-0.5 py-0.5", pulse && invalidPallets && "field-invalid")}>
         <NumCell
           value={form.pallet_count}
           readOnly={readOnly}
@@ -2942,7 +2942,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
-      <td data-col="7" className={cn("relative px-0.5 py-0.5", (pulse && invalidNet) || netGtGross ? "field-invalid" : "")}>
+      <td data-col="7" data-label="Нетто, кг" data-required="true" className={cn("relative px-0.5 py-0.5", (pulse && invalidNet) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(netNum)}
           readOnly={readOnly}
@@ -2960,7 +2960,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           </div>
         )}
       </td>
-      <td data-col="8" className={cn("relative px-0.5 py-0.5", (pulse && invalidGross) || netGtGross ? "field-invalid" : "")}>
+      <td data-col="8" data-label="Брутто, кг" data-required="true" className={cn("relative px-0.5 py-0.5", (pulse && invalidGross) || netGtGross ? "field-invalid" : "")}>
         <NumCell
           value={Math.round(grossNum)}
           readOnly={readOnly}
@@ -2973,7 +2973,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           }}
         />
       </td>
-      <td data-col="9" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
+      <td data-col="9" data-label="Ціна за кг" data-required="true" className={cn("relative px-0.5 py-0.5 min-w-[96px]", pulse && invalidPrice && "field-invalid")}>
         <PriceCell
           value={form.unit_price}
           currency={form.price_currency}
