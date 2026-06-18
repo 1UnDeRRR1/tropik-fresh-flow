@@ -41,6 +41,7 @@ import { Route as AuthenticatedSuperAdminUsersRouteImport } from './routes/_auth
 import { Route as AuthenticatedSuperAdminLogsRouteImport } from './routes/_authenticated/super-admin/logs'
 import { Route as AuthenticatedSuperAdminActivityRouteImport } from './routes/_authenticated/super-admin/activity'
 import { Route as AuthenticatedShipmentsNewDraftTestRouteImport } from './routes/_authenticated/shipments/new-draft-test'
+import { Route as AuthenticatedShipmentsNewDraftMockupRouteImport } from './routes/_authenticated/shipments/new-draft-mockup'
 import { Route as AuthenticatedShipmentsNewRouteImport } from './routes/_authenticated/shipments/new'
 import { Route as AuthenticatedShipmentsIdRouteImport } from './routes/_authenticated/shipments/$id'
 import { Route as AuthenticatedOwnerStatisticsRouteImport } from './routes/_authenticated/owner/statistics'
@@ -238,6 +239,12 @@ const AuthenticatedShipmentsNewDraftTestRoute =
   AuthenticatedShipmentsNewDraftTestRouteImport.update({
     id: '/shipments/new-draft-test',
     path: '/shipments/new-draft-test',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedShipmentsNewDraftMockupRoute =
+  AuthenticatedShipmentsNewDraftMockupRouteImport.update({
+    id: '/shipments/new-draft-mockup',
+    path: '/shipments/new-draft-mockup',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedShipmentsNewRoute =
@@ -448,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/shipments/new-draft-mockup': typeof AuthenticatedShipmentsNewDraftMockupRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
@@ -505,6 +513,7 @@ export interface FileRoutesByTo {
   '/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/shipments/new-draft-mockup': typeof AuthenticatedShipmentsNewDraftMockupRoute
   '/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
@@ -567,6 +576,7 @@ export interface FileRoutesById {
   '/_authenticated/owner/statistics': typeof AuthenticatedOwnerStatisticsRoute
   '/_authenticated/shipments/$id': typeof AuthenticatedShipmentsIdRouteWithChildren
   '/_authenticated/shipments/new': typeof AuthenticatedShipmentsNewRoute
+  '/_authenticated/shipments/new-draft-mockup': typeof AuthenticatedShipmentsNewDraftMockupRoute
   '/_authenticated/shipments/new-draft-test': typeof AuthenticatedShipmentsNewDraftTestRoute
   '/_authenticated/super-admin/activity': typeof AuthenticatedSuperAdminActivityRoute
   '/_authenticated/super-admin/logs': typeof AuthenticatedSuperAdminLogsRoute
@@ -629,6 +639,7 @@ export interface FileRouteTypes {
     | '/owner/statistics'
     | '/shipments/$id'
     | '/shipments/new'
+    | '/shipments/new-draft-mockup'
     | '/shipments/new-draft-test'
     | '/super-admin/activity'
     | '/super-admin/logs'
@@ -686,6 +697,7 @@ export interface FileRouteTypes {
     | '/owner/statistics'
     | '/shipments/$id'
     | '/shipments/new'
+    | '/shipments/new-draft-mockup'
     | '/shipments/new-draft-test'
     | '/super-admin/activity'
     | '/super-admin/logs'
@@ -747,6 +759,7 @@ export interface FileRouteTypes {
     | '/_authenticated/owner/statistics'
     | '/_authenticated/shipments/$id'
     | '/_authenticated/shipments/new'
+    | '/_authenticated/shipments/new-draft-mockup'
     | '/_authenticated/shipments/new-draft-test'
     | '/_authenticated/super-admin/activity'
     | '/_authenticated/super-admin/logs'
@@ -993,6 +1006,13 @@ declare module '@tanstack/react-router' {
       path: '/shipments/new-draft-test'
       fullPath: '/shipments/new-draft-test'
       preLoaderRoute: typeof AuthenticatedShipmentsNewDraftTestRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/shipments/new-draft-mockup': {
+      id: '/_authenticated/shipments/new-draft-mockup'
+      path: '/shipments/new-draft-mockup'
+      fullPath: '/shipments/new-draft-mockup'
+      preLoaderRoute: typeof AuthenticatedShipmentsNewDraftMockupRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/shipments/new': {
@@ -1335,6 +1355,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardSuperAdminRoute: typeof AuthenticatedDashboardSuperAdminRoute
   AuthenticatedShipmentsIdRoute: typeof AuthenticatedShipmentsIdRouteWithChildren
   AuthenticatedShipmentsNewRoute: typeof AuthenticatedShipmentsNewRoute
+  AuthenticatedShipmentsNewDraftMockupRoute: typeof AuthenticatedShipmentsNewDraftMockupRoute
   AuthenticatedShipmentsNewDraftTestRoute: typeof AuthenticatedShipmentsNewDraftTestRoute
   AuthenticatedShipmentsIndexRoute: typeof AuthenticatedShipmentsIndexRoute
 }
@@ -1368,6 +1389,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardSuperAdminRoute: AuthenticatedDashboardSuperAdminRoute,
   AuthenticatedShipmentsIdRoute: AuthenticatedShipmentsIdRouteWithChildren,
   AuthenticatedShipmentsNewRoute: AuthenticatedShipmentsNewRoute,
+  AuthenticatedShipmentsNewDraftMockupRoute:
+    AuthenticatedShipmentsNewDraftMockupRoute,
   AuthenticatedShipmentsNewDraftTestRoute:
     AuthenticatedShipmentsNewDraftTestRoute,
   AuthenticatedShipmentsIndexRoute: AuthenticatedShipmentsIndexRoute,
@@ -1387,13 +1410,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
