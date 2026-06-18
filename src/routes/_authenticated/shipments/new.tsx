@@ -38,6 +38,8 @@ import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton"
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
+const VEHICLE_MAX_PALLETS = 26;
+const VEHICLE_MAX_KG = 21500;
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
