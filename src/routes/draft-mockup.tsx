@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_authenticated/shipments/new-draft-mockup")({
+export const Route = createFileRoute("/draft-mockup")({
   component: MockupPage,
 });
 
