@@ -256,41 +256,42 @@ function PillField({
   const showCornerLabel = focused || !isEmpty;
 
   return (
-    <div className="relative">
-      <div
-        key={blinkKey}
-        className={`relative flex h-11 items-center rounded-full border bg-muted/40 px-3 transition-colors ${
-          errored && saveAttempt > 0 ? "blink-error" : "border-border/70"
+    <div
+      key={blinkKey}
+      className={`relative h-11 rounded-full border bg-muted/50 transition-colors ${
+        errored && saveAttempt > 0
+          ? "blink-error"
+          : focused
+          ? "border-primary/60"
+          : "border-border/70"
+      }`}
+    >
+      {showCornerLabel && (
+        <span
+          className={`pointer-events-none absolute left-4 top-1 z-10 text-[9px] font-medium uppercase tracking-wide leading-none text-muted-foreground/80`}
+        >
+          {label}
+          {required && <span className="ml-0.5 text-destructive/70">*</span>}
+        </span>
+      )}
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{ appearance: "none", WebkitAppearance: "none", background: "transparent" }}
+        className={`absolute inset-0 h-full w-full rounded-full border-0 px-4 text-[13.5px] font-medium text-foreground outline-none focus:outline-none focus:ring-0 ${
+          focused ? "text-left pt-3" : "text-center"
         }`}
-      >
-        {showCornerLabel && (
-          <span
-            className={`pointer-events-none absolute left-3 top-1 text-[9.5px] leading-none ${
-              required ? "text-destructive/80" : "text-muted-foreground/70"
-            }`}
-          >
-            {label}
-          </span>
-        )}
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className={`h-full w-full bg-transparent text-[13.5px] font-medium text-foreground outline-none ${
-            focused ? "text-left" : "text-center"
-          }`}
-        />
-        {showCenterLabel && (
-          <span
-            className={`pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] blur-[1.2px] ${
-              required ? "text-destructive/70" : "text-muted-foreground/70"
-            }`}
-          >
-            {label}
-          </span>
-        )}
-      </div>
+      />
+      {showCenterLabel && (
+        <span
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-muted-foreground/55`}
+        >
+          {label}
+          {required && <span className="ml-0.5 text-muted-foreground/55">*</span>}
+        </span>
+      )}
     </div>
   );
 }
