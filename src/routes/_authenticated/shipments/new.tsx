@@ -35,11 +35,27 @@ import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { usePalletResolver, type PackageOption } from "@/hooks/usePackageOptions";
 import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
+import {
+  type DraftRow as EngineDraftRow,
+  type ProductRef,
+  getMissingDraftFields,
+  isNetGreaterThanGross,
+  sumCapacity,
+} from "@/lib/shipment-row-engine";
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
+
+// Build B.2 — route-specific extension of the shared engine DraftRow.
+// brand/class/offerLocked are required at this route; engine treats brand/class
+// as optional and never touches offerLocked.
+type NewShipmentDraftRow = EngineDraftRow & {
+  brand: string;
+  class: string;
+  offerLocked: boolean;
+};
 
 export const Route = createFileRoute("/_authenticated/shipments/new")({
   validateSearch: (search: Record<string, unknown>): { vehicleId?: string; fromOffer?: string } => ({
