@@ -1091,9 +1091,7 @@ function ProductsFullscreen() {
       return;
     }
     // 1b. Mobile-typo guard: net must not exceed gross.
-    const anyNetGtGross = draftItems.some(
-      (d) => Number(d.net_weight_kg) > 0 && Number(d.gross_weight_kg) > 0 && Number(d.net_weight_kg) > Number(d.gross_weight_kg),
-    );
+    const anyNetGtGross = draftItems.some((d) => isNetGreaterThanGross(d));
     if (anyNetGtGross) {
       toast.error("Нетто не може бути більше брутто");
       triggerShake(false);
@@ -1101,11 +1099,7 @@ function ProductsFullscreen() {
     }
     // 2. D1-Fix v2.4 — capacity validation (vehicle-wide) BEFORE any DB writes.
     // No pallet_count clamp; only block "Готово".
-    const capPallets = effectiveLoadedItems.reduce((s, it) => s + Number(it.pallet_count ?? 0), 0);
-    const capGrossKg = effectiveLoadedItems.reduce((s, it) => {
-      const g = Number(it.gross_weight_kg ?? 0);
-      return s + (g > 0 ? g : Number(it.pallet_count ?? 0) * Number(it.pallet_weight ?? 0));
-    }, 0);
+    const { pallets: capPallets, grossKg: capGrossKg } = sumCapacity(effectiveLoadedItems);
     if (capGrossKg > MAX_WEIGHT_KG) {
       toast.error(`Перевищено вагу авто: ${Math.round(capGrossKg)} кг > ${MAX_WEIGHT_KG} кг`);
       triggerShake(false);
