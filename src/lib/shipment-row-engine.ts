@@ -436,7 +436,12 @@ export function computeRowPreview(
   } else if (
     localOverride &&
     localOverride.confirmed_at &&
-    localOverride.duty_usd != null
+    localOverride.duty_usd != null &&
+    Number(localOverride.duty_usd) > 0 &&
+    normalizeProductValue(canonicalizeProductName(localOverride.product_name)) ===
+      normalizeProductValue(canonicalizeProductName(d.product_name)) &&
+    normalizeCustomsKey(normalizeCountry(localOverride.origin_country)) ===
+      normalizeCustomsKey(normalizeCountry(d.origin_country))
   ) {
     overrideDuty = Number(localOverride.duty_usd);
     components.customsBasis = "manual";
