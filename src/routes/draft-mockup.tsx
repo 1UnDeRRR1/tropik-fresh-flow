@@ -39,8 +39,8 @@ function MockupPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Sticky compact capacity strip */}
-      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+      {/* Fixed compact capacity strip — always visible while scrolling */}
+      <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         <div className="mx-auto w-full max-w-[460px] text-[12px] leading-tight">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular-nums">
             <span className="text-muted-foreground">Палети</span>
@@ -55,7 +55,7 @@ function MockupPage() {
         </div>
       </div>
 
-      <div className="px-2 pb-24 pt-2">
+      <div className="px-2 pb-24 pt-12">
         <div className="mx-auto w-full max-w-[460px] space-y-3">
           {/* Shipment summary — compact, full width */}
           <section className="rounded-2xl border border-border bg-card p-3 shadow">
