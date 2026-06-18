@@ -807,6 +807,9 @@ function NewShipment() {
           import_manager_id: assignedManagerId,
           created_by: user?.id ?? null,
           vehicle_id: vId,
+          // Transport: only the new-vehicle owner enters logistics.
+          logistics_cost: mode === "new" ? logisticsCostNum : null,
+          logistics_cost_currency: mode === "new" && logisticsCostNum != null ? logisticsCurrency : null,
         } as never);
       if (shipErr) {
         if (shipErr.code === "23505" || /duplicate|unique/i.test(shipErr.message)) {
