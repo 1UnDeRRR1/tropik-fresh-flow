@@ -106,6 +106,11 @@ export type DraftRow = {
   gross_auto: boolean;
   unit_price: number;
   price_currency: "EUR" | "USD";
+  // Build B — optional, additive. $id.products.tsx never sets these, so its
+  // dirty-detection and payload behavior are unchanged. /shipments/new wires
+  // these to live inputs and spreads them into the INSERT payload.
+  brand?: string;
+  class?: string;
 };
 
 export const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
@@ -113,6 +118,7 @@ export const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
   "pallet_count","net_weight_kg","gross_weight_kg",
   "resolver_net_per_pallet_kg","resolver_gross_per_pallet_kg",
   "net_auto","gross_auto","unit_price","price_currency",
+  "brand","class",
 ];
 
 export function itemRowToDraft(item: ItemRowLike): DraftRow {
