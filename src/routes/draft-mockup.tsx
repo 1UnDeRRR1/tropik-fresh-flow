@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ShinyButton } from "@/components/ui/shiny-button";
+import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
 
 export const Route = createFileRoute("/draft-mockup")({
   component: MockupPage,
@@ -200,22 +200,12 @@ function MockupPage() {
               <div className="min-h-[18px] px-1 text-[11px] leading-tight" style={{ color: MUTED_RED }}>
                 {errorMsg}
               </div>
-              {/*
-                "+ Створити" reuses the SAME ShinyButton component used by
-                Malekhiv's ShinyFilterSelect ("Усі товари" / "Усі країни"),
-                with --primary overridden locally to a muted dark red so
-                the velvet sweep tone matches without a new effect.
-              */}
-              <ShinyButton
+              {/* Velvet cosmic "+Створити" button from user-provided package. */}
+              <VelvetCosmicCreateButton
+                label="+Створити"
                 onClick={triggerSave}
-                shineDelay={3}
-                style={{ ["--primary" as string]: MUTED_RED, height: "44px" }}
-                className="!h-11 w-full !rounded-full !px-4 !py-0 border"
-              >
-                <span style={{ color: MUTED_RED }} className="text-[13px] font-semibold normal-case tracking-normal">
-                  + Створити
-                </span>
-              </ShinyButton>
+                className="draft-mockup-velvet-create"
+              />
             </div>
           </div>
         </div>
