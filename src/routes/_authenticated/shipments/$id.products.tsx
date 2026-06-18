@@ -2542,7 +2542,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
   } as { id: string; pallet_count: number | null; pallet_weight: number | null; gross_weight_kg: number | null }));
   return (
     <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
-      <table className="w-full min-w-[860px] text-[12px] tabular-nums">
+      <table className="shipment-products-table w-full min-w-[860px] text-[12px] tabular-nums">
         <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
           <tr className="border-b border-border">
             <th className={cn(headerCls(0), "text-left")}>Товар</th>
@@ -2818,14 +2818,14 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
   return (
     <>
     <tr
-      className="border-b border-border/40"
+      className="shipment-product-card border-b border-border/40"
       onFocusCapture={(e) => {
         const td = (e.target as HTMLElement).closest("td");
         if (td?.dataset.col) setFocused(Number(td.dataset.col));
       }}
       onBlurCapture={() => setFocused(null)}
     >
-      <td data-col="0" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
+      <td data-col="0" data-label="Товар" data-required="true" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && (invalidProduct || unknownProduct) && "field-invalid")}>
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => {
@@ -2839,7 +2839,7 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
 
           options={knownProductNames}
           aliases={productAliases}
-          placeholder={invalidProduct || unknownProduct ? "Товар*" : "Товар"}
+          placeholder="Товар"
           className={cn(
             "font-medium",
             (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80",
@@ -2854,10 +2854,10 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
           </div>
         )}
       </td>
-      <td data-col="1" className="relative px-0.5 py-0.5">
+      <td data-col="1" data-label="Сорт" className="relative px-0.5 py-0.5">
         <VarietyCell value={form.variety} onChange={(v) => set("variety", v)} productName={form.product_name} readOnly={readOnly} />
       </td>
-      <td data-col="2" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
+      <td data-col="2" data-label="Походження" data-required="true" onBlur={handleResolverBlur} className={cn("relative px-0.5 py-0.5", pulse && invalidCountry && "field-invalid")}>
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => {
@@ -2871,19 +2871,19 @@ function ProductRowEditor({ draft, dbItem, shipmentId, products, otherPallets, o
 
           options={COUNTRY_OPTIONS}
           aliases={countryAliases}
-          placeholder={invalidCountry ? "Країна*" : "Країна"}
+          placeholder="Походження"
           className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={180}
           readOnly={readOnly}
         />
       </td>
-      <td data-col="3" className="relative px-0.5 py-0.5">
-        <CellInput value={form.caliber} placeholder="—" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
+      <td data-col="3" data-label="Калібр" className="relative px-0.5 py-0.5">
+        <CellInput value={form.caliber} placeholder="Калібр" onChange={(v) => set("caliber", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td data-col="4" className="relative px-0.5 py-0.5">
-        <CellInput value={form.sku} placeholder="—" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
+      <td data-col="4" data-label="SKU" className="relative px-0.5 py-0.5">
+        <CellInput value={form.sku} placeholder="SKU" onChange={(v) => set("sku", v)} expandedMinWidth={120} readOnly={readOnly} />
       </td>
-      <td data-col="5" className="relative px-0.5 py-0.5">
+      <td data-col="5" data-label="Упаковка" data-required="true" className="relative px-0.5 py-0.5">
         <PackageCell
           value={form.package_used}
           productName={form.product_name}
