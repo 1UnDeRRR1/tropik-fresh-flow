@@ -126,29 +126,7 @@ type ItemRow = {
 // 9F Phase D1 — strict draft/confirm/save contract.
 // Manual rows live in local state until "Готово" commits them.
 // addItem / edit / delete never touch the DB on their own — only commitDraft does.
-type DraftRow = {
-  localId: string;          // "tmp_<uuid>" for new rows; dbId for existing rows
-  dbId: string | null;      // null = new row not yet inserted
-  source_offer_id?: string | null;
-  source_position_id?: string | null;
-  source_offer_freight_amount?: number | null;
-  source_offer_freight_currency?: string | null;
-  product_name: string;
-  variety: string;
-  origin_country: string;
-  caliber: string;
-  sku: string;
-  package_used: string;
-  pallet_count: number;
-  net_weight_kg: number;
-  gross_weight_kg: number;
-  resolver_net_per_pallet_kg: number | null;
-  resolver_gross_per_pallet_kg: number | null;
-  net_auto: boolean;
-  gross_auto: boolean;
-  unit_price: number;
-  price_currency: "EUR" | "USD";
-};
+// DraftRow moved to @/lib/shipment-row-engine (Build A).
 
 // D1-Fix v2.5.4 — recognition hint shared between row resolver and commit guard.
 // Stored per-localId in a ref. Keys identify which draft values produced the
