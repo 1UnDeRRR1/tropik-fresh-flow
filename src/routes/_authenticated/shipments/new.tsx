@@ -615,8 +615,16 @@ function NewShipment() {
         toast.error(`«${r.product_name || "Товар"}»: кількість палет > 0`);
         return;
       }
-      if (!(r.pallet_weight > 0)) {
-        toast.error(`«${r.product_name}»: вага палети > 0`);
+      if (!(r.net_weight_kg > 0)) {
+        toast.error(`«${r.product_name}»: нетто > 0`);
+        return;
+      }
+      if (!(r.gross_weight_kg > 0)) {
+        toast.error(`«${r.product_name}»: брутто > 0`);
+        return;
+      }
+      if (r.net_weight_kg > r.gross_weight_kg) {
+        toast.error(`«${r.product_name}»: нетто не може бути більше брутто`);
         return;
       }
       if (!(r.unit_price > 0)) {
@@ -632,6 +640,72 @@ function NewShipment() {
           toast.error(`Більше за залишок пропозиції (${offerProductPrefill.pending} пал)`);
           return;
         }
+      }
+    }
+
+    // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
+    const existingP = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_pallets ?? 0) : 0;
+    const existingKg = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_weight_kg ?? 0) : 0;
+    const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
+    const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
+    if (existingP + draftP > VEHICLE_MAX_PALLETS) {
+      toast.error(`Перевищено палети авто: ${existingP + draftP} > ${VEHICLE_MAX_PALLETS}`);
+      return;
+    }
+    if (existingKg + draftKg > VEHICLE_MAX_KG) {
+      toast.error(`Перевищено вагу авто: ${Math.round(existingKg + draftKg)} > ${VEHICLE_MAX_KG} кг`);
+      return;
+    }
+
+    // Recognition gate BEFORE any DB writes (vehicle/shipment/items).
+    const BLOCKING = new Set(["product_no_match", "product_ambiguous", "country_no_match"]);
+    for (const r of draftRows) {
+      const product = r.product_name.trim();
+      const ctry = r.origin_country.trim();
+      if (!product || !ctry) continue;
+      try {
+        const { data, error } = await supabase.rpc(
+          "rpc_resolve_offer_line_defaults" as never,
+          {
+            p_product_query: product,
+            p_country_query: ctry,
+            p_package_used: r.package_used.trim() || null,
+            p_include_reserve: false,
+          } as never,
+        );
+        if (error) {
+          toast.error("Не вдалося перевірити товар. Спробуйте ще раз.");
+          return;
+        }
+        const row = Array.isArray(data) ? (data as unknown[])[0] : data;
+        const status = row && typeof row === "object"
+          ? ((row as Record<string, unknown>).status as string | undefined)
+          : undefined;
+        if (status && BLOCKING.has(status)) {
+          toast.error(
+            status === "country_no_match"
+              ? `«${product}»: країну не розпізнано`
+              : `«${product}»: товар не розпізнано`,
+          );
+          return;
+        }
+      } catch {
+        toast.error("Не вдалося перевірити товар. Спробуйте ще раз.");
+        return;
+      }
+    }
+
+    // Parse transport (new vehicle only).
+    let logisticsCostNum: number | null = null;
+    if (mode === "new") {
+      const t = logisticsCostText.trim().replace(",", ".");
+      if (t) {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 0) {
+          toast.error("Вартість транспорту: некоректне число");
+          return;
+        }
+        logisticsCostNum = n;
       }
     }
 
