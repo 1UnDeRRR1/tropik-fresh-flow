@@ -1,0 +1,371 @@
+@property --velvet-cosmic-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.velvet-cosmic-button {
+  --press-x: 50%;
+  --press-y: 50%;
+  --velvet-cosmic-angle: 0deg;
+
+  position: relative;
+  width: 340px;
+  height: 86px;
+  border-radius: 32px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  isolation: isolate;
+
+  display: grid;
+  place-items: center;
+  padding: 0 28px;
+
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  outline: none;
+
+  color: #f4f1f3;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+
+  background:
+    radial-gradient(105% 130% at 16% 18%,
+      rgba(92, 18, 42, 0.18),
+      transparent 26%) padding-box,
+
+    radial-gradient(85% 110% at 84% 72%,
+      rgba(126, 24, 54, 0.13),
+      transparent 36%) padding-box,
+
+    linear-gradient(
+      115deg,
+      #010101 0%,
+      #010101 12%,
+      #070204 34%,
+      #070204 50%,
+      #0d0306 67%,
+      #070204 82%,
+      #070204 92%,
+      #010101 100%
+    ) padding-box,
+
+    conic-gradient(
+      from var(--velvet-cosmic-angle),
+      rgba(245, 198, 214, 0.50) 0deg,
+      rgba(160, 48, 82, 0.38) 52deg,
+      rgba(76, 11, 31, 0.34) 104deg,
+      rgba(214, 104, 136, 0.42) 166deg,
+      rgba(82, 12, 34, 0.32) 232deg,
+      rgba(230, 138, 166, 0.38) 292deg,
+      rgba(245, 198, 214, 0.50) 360deg
+    ) border-box;
+
+  background-size:
+    165% 165%,
+    160% 160%,
+    310% 310%,
+    100% 100%;
+
+  background-position:
+    12% 16%,
+    84% 74%,
+    0% 50%,
+    50% 50%;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 -14px 24px rgba(0, 0, 0, 0.26),
+    inset 0 0 18px rgba(214, 104, 136, 0.13),
+    inset 0 0 0 1px rgba(255, 220, 232, 0.035),
+    inset 0 0 0 2px rgba(0, 0, 0, 0.58);
+
+  transform: translateZ(0);
+
+  animation:
+    velvetCosmicButtonShift 14s cubic-bezier(.46, .08, .28, .98) infinite,
+    velvetCosmicInnerFrame 12s cubic-bezier(.46, .08, .28, .98) infinite;
+}
+
+.velvet-cosmic-button::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 30px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.022),
+      transparent 24%
+    ),
+    radial-gradient(
+      42% 55% at 82% 18%,
+      rgba(126, 24, 54, 0.17),
+      transparent 48%
+    );
+  opacity: 0.84;
+}
+
+.velvet-cosmic-button::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 28% 35%,
+      rgba(245, 170, 210, 0.10),
+      transparent 20%),
+
+    radial-gradient(circle at 68% 60%,
+      rgba(116, 22, 52, 0.13),
+      transparent 28%),
+
+    radial-gradient(circle at 56% 42%,
+      rgba(214, 92, 146, 0.07),
+      transparent 14%);
+
+  filter: blur(14px) saturate(1.10);
+  opacity: 0.26;
+  mix-blend-mode: screen;
+
+  animation: velvetCosmicAmbient 12s cubic-bezier(.46, .08, .28, .98) infinite;
+}
+
+.velvet-cosmic-press-bloom {
+  position: absolute;
+  inset: 2px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.08);
+  transform-origin: var(--press-x) var(--press-y);
+  border-radius: 30px;
+
+  background:
+    radial-gradient(circle at var(--press-x) var(--press-y),
+      rgba(245, 218, 234, 0.30) 0%,
+      rgba(186, 60, 112, 0.24) 12%,
+      rgba(104, 22, 54, 0.22) 25%,
+      rgba(48, 8, 24, 0.15) 40%,
+      rgba(8, 2, 6, 0) 68%);
+
+  filter: blur(14px) saturate(1.06);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.velvet-cosmic-button.is-bursting .velvet-cosmic-press-bloom {
+  animation: velvetCosmicPressReduced 4.5s linear forwards;
+}
+
+.velvet-cosmic-button.is-bursting {
+  animation:
+    velvetCosmicButtonShift 14s cubic-bezier(.46, .08, .28, .98) infinite,
+    velvetCosmicInnerFrame 12s cubic-bezier(.46, .08, .28, .98) infinite,
+    velvetCosmicPulse 4.5s linear forwards;
+}
+
+.velvet-cosmic-label {
+  position: relative;
+  z-index: 5;
+  color: #f4f1f3;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.64),
+    0 0 12px rgba(255, 210, 230, 0.03);
+  pointer-events: none;
+}
+
+.velvet-cosmic-button.is-bursting .velvet-cosmic-label {
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.62),
+    0 0 18px rgba(245, 186, 214, 0.12);
+}
+
+.velvet-cosmic-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+@keyframes velvetCosmicInnerFrame {
+  0% {
+    --velvet-cosmic-angle: 0deg;
+  }
+
+  50% {
+    --velvet-cosmic-angle: 180deg;
+  }
+
+  100% {
+    --velvet-cosmic-angle: 360deg;
+  }
+}
+
+@keyframes velvetCosmicButtonShift {
+  0% {
+    background-position:
+      12% 16%,
+      84% 74%,
+      0% 50%,
+      50% 50%;
+  }
+
+  50% {
+    background-position:
+      24% 25%,
+      70% 58%,
+      70% 50%,
+      50% 50%;
+  }
+
+  100% {
+    background-position:
+      12% 16%,
+      84% 74%,
+      0% 50%,
+      50% 50%;
+  }
+}
+
+@keyframes velvetCosmicAmbient {
+  0% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+    opacity: 0.18;
+  }
+
+  50% {
+    transform: translate3d(4%, 2%, 0) scale(1.08);
+    opacity: 0.30;
+  }
+
+  100% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+    opacity: 0.18;
+  }
+}
+
+/* The press effect stays inside the button perimeter.
+   No outer glow, no demo background, no shell outside the oval. */
+@keyframes velvetCosmicPressReduced {
+  0% {
+    opacity: 0;
+    transform: scale(0.08);
+  }
+
+  8% {
+    opacity: 0.14;
+    transform: scale(0.18);
+  }
+
+  16% {
+    opacity: 0.32;
+    transform: scale(0.32);
+  }
+
+  24% {
+    opacity: 0.50;
+    transform: scale(0.50);
+  }
+
+  30% {
+    opacity: 0.66;
+    transform: scale(0.72);
+  }
+
+  34% {
+    opacity: 0.76;
+    transform: scale(0.92);
+  }
+
+  42% {
+    opacity: 0.70;
+    transform: scale(0.88);
+  }
+
+  52% {
+    opacity: 0.58;
+    transform: scale(0.80);
+  }
+
+  62% {
+    opacity: 0.44;
+    transform: scale(0.72);
+  }
+
+  72% {
+    opacity: 0.30;
+    transform: scale(0.64);
+  }
+
+  84% {
+    opacity: 0.15;
+    transform: scale(0.56);
+  }
+
+  94% {
+    opacity: 0.05;
+    transform: scale(0.50);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.48);
+  }
+}
+
+@keyframes velvetCosmicPulse {
+  0% {
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
+  }
+
+  12% {
+    transform: scale(0.988);
+    filter: brightness(1.07) saturate(1.04);
+  }
+
+  34% {
+    transform: scale(0.994);
+    filter: brightness(1.05) saturate(1.03);
+  }
+
+  60% {
+    transform: scale(0.998);
+    filter: brightness(1.02) saturate(1.01);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .velvet-cosmic-button {
+    width: 300px;
+    height: 76px;
+    border-radius: 29px;
+    font-size: 20px;
+  }
+
+  .velvet-cosmic-button::before,
+  .velvet-cosmic-button::after,
+  .velvet-cosmic-press-bloom {
+    border-radius: 27px;
+  }
+}

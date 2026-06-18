@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ShinyButton } from "@/components/ui/shiny-button";
+import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton";
 
 export const Route = createFileRoute("/draft-mockup")({
   component: MockupPage,
@@ -200,22 +200,12 @@ function MockupPage() {
               <div className="min-h-[18px] px-1 text-[11px] leading-tight" style={{ color: MUTED_RED }}>
                 {errorMsg}
               </div>
-              {/*
-                "+ Створити" reuses the SAME ShinyButton component used by
-                Malekhiv's ShinyFilterSelect ("Усі товари" / "Усі країни"),
-                with --primary overridden locally to a muted dark red so
-                the velvet sweep tone matches without a new effect.
-              */}
-              <ShinyButton
+              {/* Velvet cosmic "+Створити" button from user-provided package. */}
+              <VelvetCosmicCreateButton
+                label="+Створити"
                 onClick={triggerSave}
-                shineDelay={3}
-                style={{ ["--primary" as string]: MUTED_RED, height: "44px" }}
-                className="!h-11 w-full !rounded-full !px-4 !py-0 border"
-              >
-                <span style={{ color: MUTED_RED }} className="text-[13px] font-semibold normal-case tracking-normal">
-                  + Створити
-                </span>
-              </ShinyButton>
+                className="draft-mockup-velvet-create"
+              />
             </div>
           </div>
         </div>
@@ -248,6 +238,21 @@ function MockupPage() {
         .pill-placeholder { color: rgba(255,255,255,0.30); }
         .pill-label-req { color: #d85a55; }
         .pill-label-opt { color: rgba(255,255,255,0.55); }
+        /* Size override only — fits the velvet "+Створити" into the existing grid slot
+           next to "+ Аналогічний" (h-11, full column width). Visual styling untouched. */
+        .draft-mockup-velvet-create.velvet-cosmic-button {
+          width: 100%;
+          height: 44px;
+          border-radius: 9999px;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 0 16px;
+        }
+        .draft-mockup-velvet-create.velvet-cosmic-button::before,
+        .draft-mockup-velvet-create.velvet-cosmic-button::after,
+        .draft-mockup-velvet-create .velvet-cosmic-press-bloom {
+          border-radius: 9999px;
+        }
       `}</style>
     </div>
   );
