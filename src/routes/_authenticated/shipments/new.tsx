@@ -109,6 +109,9 @@ function NewShipment() {
   const [submitting, setSubmitting] = useState(false);
   const [etaOverride, setEtaOverride] = useState<string>("");
   const [etaTouched, setEtaTouched] = useState(false);
+  // Transport (new vehicle only). Persisted to shipments on final save.
+  const [logisticsCostText, setLogisticsCostText] = useState<string>("");
+  const [logisticsCurrency, setLogisticsCurrency] = useState<string>("EUR");
 
   const [supplierInput, setSupplierInput] = useState("");
   const [countryInput, setCountryInput] = useState("");
@@ -471,9 +474,17 @@ function NewShipment() {
     variety: string;
     origin_country: string;
     caliber: string;
+    brand: string;
+    class: string;
     package_used: string;
     pallet_count: number;
-    pallet_weight: number; // kg per pallet
+    // Real separate totals. Never derive gross from net at save time.
+    net_weight_kg: number;
+    gross_weight_kg: number;
+    resolver_net_per_pallet_kg: number | null;
+    resolver_gross_per_pallet_kg: number | null;
+    net_auto: boolean;
+    gross_auto: boolean;
     unit_price: number;
     price_currency: string;
     offerLocked: boolean;
@@ -490,6 +501,9 @@ function NewShipment() {
     if (!offerProductPrefill || offerProductPrefill.blocked) return;
     if (draftRows.length > 0) return;
     const o = offerProductPrefill.offer;
+    const palWeight = Number(offerProductPrefill.palletWeight ?? 0);
+    const pallets = offerProductPrefill.safePalletCount > 0 ? offerProductPrefill.safePalletCount : 1;
+    const seedTotal = palWeight * pallets;
     setDraftRows([{
       localId: `tmp_${crypto.randomUUID()}`,
       source_offer_id: o.id,
@@ -498,9 +512,16 @@ function NewShipment() {
       variety: o.variety ?? "",
       origin_country: normalizeCountry(o.origin_country ?? "") || (o.origin_country ?? ""),
       caliber: o.caliber ?? "",
+      brand: "",
+      class: "",
       package_used: "",
-      pallet_count: offerProductPrefill.safePalletCount > 0 ? offerProductPrefill.safePalletCount : 1,
-      pallet_weight: Number(offerProductPrefill.palletWeight ?? 0),
+      pallet_count: pallets,
+      net_weight_kg: seedTotal,
+      gross_weight_kg: seedTotal,
+      resolver_net_per_pallet_kg: palWeight > 0 ? palWeight : null,
+      resolver_gross_per_pallet_kg: palWeight > 0 ? palWeight : null,
+      net_auto: true,
+      gross_auto: true,
       unit_price: Number(o.price_per_kg ?? 0),
       price_currency: ((o.price_currency ?? "EUR") as string),
       offerLocked: true,
@@ -594,8 +615,16 @@ function NewShipment() {
         toast.error(`«${r.product_name || "Товар"}»: кількість палет > 0`);
         return;
       }
-      if (!(r.pallet_weight > 0)) {
-        toast.error(`«${r.product_name}»: вага палети > 0`);
+      if (!(r.net_weight_kg > 0)) {
+        toast.error(`«${r.product_name}»: нетто > 0`);
+        return;
+      }
+      if (!(r.gross_weight_kg > 0)) {
+        toast.error(`«${r.product_name}»: брутто > 0`);
+        return;
+      }
+      if (r.net_weight_kg > r.gross_weight_kg) {
+        toast.error(`«${r.product_name}»: нетто не може бути більше брутто`);
         return;
       }
       if (!(r.unit_price > 0)) {
@@ -611,6 +640,72 @@ function NewShipment() {
           toast.error(`Більше за залишок пропозиції (${offerProductPrefill.pending} пал)`);
           return;
         }
+      }
+    }
+
+    // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
+    const existingP = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_pallets ?? 0) : 0;
+    const existingKg = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_weight_kg ?? 0) : 0;
+    const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
+    const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
+    if (existingP + draftP > VEHICLE_MAX_PALLETS) {
+      toast.error(`Перевищено палети авто: ${existingP + draftP} > ${VEHICLE_MAX_PALLETS}`);
+      return;
+    }
+    if (existingKg + draftKg > VEHICLE_MAX_KG) {
+      toast.error(`Перевищено вагу авто: ${Math.round(existingKg + draftKg)} > ${VEHICLE_MAX_KG} кг`);
+      return;
+    }
+
+    // Recognition gate BEFORE any DB writes (vehicle/shipment/items).
+    const BLOCKING = new Set(["product_no_match", "product_ambiguous", "country_no_match"]);
+    for (const r of draftRows) {
+      const product = r.product_name.trim();
+      const ctry = r.origin_country.trim();
+      if (!product || !ctry) continue;
+      try {
+        const { data, error } = await supabase.rpc(
+          "rpc_resolve_offer_line_defaults" as never,
+          {
+            p_product_query: product,
+            p_country_query: ctry,
+            p_package_used: r.package_used.trim() || null,
+            p_include_reserve: false,
+          } as never,
+        );
+        if (error) {
+          toast.error("Не вдалося перевірити товар. Спробуйте ще раз.");
+          return;
+        }
+        const row = Array.isArray(data) ? (data as unknown[])[0] : data;
+        const status = row && typeof row === "object"
+          ? ((row as Record<string, unknown>).status as string | undefined)
+          : undefined;
+        if (status && BLOCKING.has(status)) {
+          toast.error(
+            status === "country_no_match"
+              ? `«${product}»: країну не розпізнано`
+              : `«${product}»: товар не розпізнано`,
+          );
+          return;
+        }
+      } catch {
+        toast.error("Не вдалося перевірити товар. Спробуйте ще раз.");
+        return;
+      }
+    }
+
+    // Parse transport (new vehicle only).
+    let logisticsCostNum: number | null = null;
+    if (mode === "new") {
+      const t = logisticsCostText.trim().replace(",", ".");
+      if (t) {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 0) {
+          toast.error("Вартість транспорту: некоректне число");
+          return;
+        }
+        logisticsCostNum = n;
       }
     }
 
@@ -712,6 +807,9 @@ function NewShipment() {
           import_manager_id: assignedManagerId,
           created_by: user?.id ?? null,
           vehicle_id: vId,
+          // Transport: only the new-vehicle owner enters logistics.
+          logistics_cost: mode === "new" ? logisticsCostNum : null,
+          logistics_cost_currency: mode === "new" && logisticsCostNum != null ? logisticsCurrency : null,
         } as never);
       if (shipErr) {
         if (shipErr.code === "23505" || /duplicate|unique/i.test(shipErr.message)) {
@@ -723,24 +821,28 @@ function NewShipment() {
 
       // Per-row commit via the authoritative helper.
       for (const r of draftRows) {
-        const netKg = r.pallet_count * r.pallet_weight;
-        const grossKg = netKg;
+        const netKg = Number(r.net_weight_kg) || 0;
+        const grossKg = Number(r.gross_weight_kg) || 0;
+        // Legacy per-pallet shim (SQL cost trigger still reads pallet_weight).
+        const palletWeightShim = r.pallet_count > 0 ? netKg / r.pallet_count : 0;
         const itemPayload: Record<string, unknown> = {
           shipment_id: shipmentId,
           product_name: r.product_name,
           variety: r.variety || null,
           origin_country: normalizeCountry(r.origin_country) || null,
           caliber: r.caliber || null,
+          brand: r.brand.trim() || null,
+          class: r.class.trim() || null,
           sku: null,
           package_used: r.package_used || null,
           pallet_count: r.pallet_count,
           net_weight_kg: netKg,
           gross_weight_kg: grossKg,
-          resolver_net_per_pallet_kg: null,
-          resolver_gross_per_pallet_kg: null,
-          net_auto: false,
-          gross_auto: false,
-          pallet_weight: r.pallet_weight,
+          resolver_net_per_pallet_kg: r.resolver_net_per_pallet_kg,
+          resolver_gross_per_pallet_kg: r.resolver_gross_per_pallet_kg,
+          net_auto: r.net_auto,
+          gross_auto: r.gross_auto,
+          pallet_weight: palletWeightShim,
           qty: netKg,
           unit: "kg",
           unit_price: r.unit_price,
@@ -982,6 +1084,40 @@ function NewShipment() {
     </div>
   );
 
+  // Transport entry — new vehicle only. Persisted to shipments on final save.
+  const transportField = (
+    <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+        Вартість транспорту (опційно)
+      </Label>
+      <div className="flex gap-2">
+        <Input
+          inputMode="decimal"
+          placeholder="0,00"
+          value={logisticsCostText}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "" || /^[0-9]*[.,]?[0-9]*$/.test(raw)) setLogisticsCostText(raw);
+          }}
+          className="flex-1"
+        />
+        <select
+          value={logisticsCurrency}
+          onChange={(e) => setLogisticsCurrency(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+          <option value="UAH">UAH</option>
+        </select>
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        Збережеться при натисканні «Створити». Розрахунок $/кг — після створення поставки.
+      </div>
+    </div>
+  );
+
+
   const vehicleField = (
     <div className={cn("space-y-1.5", invalid.has("vehicle") && "field-invalid")}>
       <Label>Відкрите авто</Label>
@@ -1065,6 +1201,7 @@ function NewShipment() {
               {codeField}
               {loadingDateField}
               {etaField}
+              {transportField}
             </>
           ) : (
             <>
@@ -1107,9 +1244,16 @@ function NewShipment() {
             variety: "",
             origin_country: country || "",
             caliber: "",
+            brand: "",
+            class: "",
             package_used: "",
             pallet_count: 1,
-            pallet_weight: 0,
+            net_weight_kg: 0,
+            gross_weight_kg: 0,
+            resolver_net_per_pallet_kg: null,
+            resolver_gross_per_pallet_kg: null,
+            net_auto: true,
+            gross_auto: true,
             unit_price: 0,
             price_currency: "EUR",
             offerLocked: false,
@@ -1127,9 +1271,16 @@ function NewShipment() {
               variety: last?.variety ?? "",
               origin_country: last?.origin_country ?? (country || ""),
               caliber: last?.caliber ?? "",
+              brand: last?.brand ?? "",
+              class: last?.class ?? "",
               package_used: last?.package_used ?? "",
               pallet_count: 1,
-              pallet_weight: 0,
+              net_weight_kg: last?.resolver_net_per_pallet_kg ? Number(last.resolver_net_per_pallet_kg) : 0,
+              gross_weight_kg: last?.resolver_gross_per_pallet_kg ? Number(last.resolver_gross_per_pallet_kg) : 0,
+              resolver_net_per_pallet_kg: last?.resolver_net_per_pallet_kg ?? null,
+              resolver_gross_per_pallet_kg: last?.resolver_gross_per_pallet_kg ?? null,
+              net_auto: true,
+              gross_auto: true,
               unit_price: 0,
               price_currency: last?.price_currency ?? "EUR",
               offerLocked: false,
@@ -1137,7 +1288,7 @@ function NewShipment() {
           ];
         });
         const totalPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
-        const totalGross = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0) * (Number(r.pallet_weight) || 0), 0);
+        const totalGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
         const capPallets = MAX_PALLETS_PER_OFFER_DRAFT;
         const capGross = TARGET_KG_PER_OFFER_DRAFT;
         const remainPallets = Math.max(0, capPallets - totalPallets);
@@ -1252,12 +1403,33 @@ type DraftRowShape = {
   variety: string;
   origin_country: string;
   caliber: string;
+  brand: string;
+  class: string;
   package_used: string;
   pallet_count: number;
-  pallet_weight: number;
+  net_weight_kg: number;
+  gross_weight_kg: number;
+  resolver_net_per_pallet_kg: number | null;
+  resolver_gross_per_pallet_kg: number | null;
+  net_auto: boolean;
+  gross_auto: boolean;
   unit_price: number;
   price_currency: string;
   offerLocked: boolean;
+};
+
+// Permissive decimal pattern: "", "0", "0,", "0,5", "0.5", "12", "12.34".
+const DECIMAL_RE = /^[0-9]*[.,]?[0-9]*$/;
+const parseDecimal = (s: string): number | null => {
+  const t = s.trim().replace(",", ".");
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+const formatDecimal = (n: number): string => {
+  if (!Number.isFinite(n) || n === 0) return "";
+  // Preserve up to 4 decimals but trim trailing zeros.
+  return String(Math.round(n * 10000) / 10000);
 };
 
 function DraftRowCard({
@@ -1285,7 +1457,6 @@ function DraftRowCard({
   supplierBrand: string;
   shipmentCode: string;
 }) {
-  const netKg = row.pallet_count * row.pallet_weight;
   const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
   const varieties = useVarietiesFor(row.product_name);
   const { data: palletResolved } = usePalletResolver(row.product_name, row.origin_country);
@@ -1300,9 +1471,43 @@ function DraftRowCard({
     [packageOptions],
   );
 
+  // Local text states for price/net/gross — needed to accept partial entries
+  // like "0," before the user types the second digit.
+  const [priceText, setPriceText] = useState<string>(formatDecimal(row.unit_price));
+  const [netText, setNetText] = useState<string>(formatDecimal(row.net_weight_kg));
+  const [grossText, setGrossText] = useState<string>(formatDecimal(row.gross_weight_kg));
+  // Sync from external row changes (offer prefill, package auto-fill, pallet_count recompute).
+  useEffect(() => {
+    const parsed = parseDecimal(priceText);
+    if (parsed !== row.unit_price) setPriceText(formatDecimal(row.unit_price));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.unit_price]);
+  useEffect(() => {
+    const parsed = parseDecimal(netText);
+    if (parsed !== row.net_weight_kg) setNetText(formatDecimal(row.net_weight_kg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.net_weight_kg]);
+  useEffect(() => {
+    const parsed = parseDecimal(grossText);
+    if (parsed !== row.gross_weight_kg) setGrossText(formatDecimal(row.gross_weight_kg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.gross_weight_kg]);
+
   const pillInput = "snp-pill-input";
   const headerTitle = (supplierBrand || row.product_name || `Товар №${index + 1}`).toUpperCase();
-  const headerSub = shipmentCode || `${row.pallet_count || 0} пал · ${Math.round(netKg) || 0} кг`;
+  const headerSub = shipmentCode || `${row.pallet_count || 0} пал · ${Math.round(row.net_weight_kg) || 0} кг`;
+
+  const handlePalletCountChange = (raw: string) => {
+    const n = Number(raw) || 0;
+    const patch: Partial<DraftRowShape> = { pallet_count: n };
+    if (row.net_auto && row.resolver_net_per_pallet_kg && n > 0) {
+      patch.net_weight_kg = n * row.resolver_net_per_pallet_kg;
+    }
+    if (row.gross_auto && row.resolver_gross_per_pallet_kg && n > 0) {
+      patch.gross_weight_kg = n * row.resolver_gross_per_pallet_kg;
+    }
+    onChange(patch);
+  };
 
   return (
     <section className="snp-card rounded-2xl border border-border bg-card p-3 shadow">
@@ -1350,7 +1555,7 @@ function DraftRowCard({
           </PillSlot>
         </div>
 
-        {/* Row: Сорт / Бренд(deferred) */}
+        {/* Row: Сорт / Бренд */}
         <div className="grid grid-cols-2 gap-2">
           <PillSlot label="Сорт" hasValue={!!row.variety}>
             <VarietyAutocomplete
@@ -1363,10 +1568,17 @@ function DraftRowCard({
               inputClassName={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Бренд" hasValue={false} deferred />
+          <PillSlot label="Бренд" hasValue={!!row.brand}>
+            <input
+              value={row.brand}
+              onChange={(e) => onChange({ brand: e.target.value })}
+              placeholder="Бренд"
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
 
-        {/* Row: Калібр / Клас(deferred) */}
+        {/* Row: Калібр / Клас */}
         <div className="grid grid-cols-2 gap-2">
           <PillSlot label="Калібр" hasValue={!!row.caliber}>
             <input
@@ -1377,7 +1589,14 @@ function DraftRowCard({
               className={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Клас" hasValue={false} deferred />
+          <PillSlot label="Клас" hasValue={!!row.class}>
+            <input
+              value={row.class}
+              onChange={(e) => onChange({ class: e.target.value })}
+              placeholder="Клас"
+              className={pillInput}
+            />
+          </PillSlot>
         </div>
 
         {/* Упаковка — full width */}
@@ -1391,10 +1610,14 @@ function DraftRowCard({
             getSearchStrings={(item) => item.searchStrings}
             onSelect={(item) => {
               const patch: Partial<DraftRowShape> = { package_used: item.package_used };
-              const gross = item.pallet_gross_kg;
-              if (gross != null && gross > 0 && (!row.pallet_weight || row.pallet_weight <= 0)) {
-                patch.pallet_weight = gross;
-              }
+              const pc = row.pallet_count > 0 ? row.pallet_count : 0;
+              const netPer = item.pallet_net_kg != null && item.pallet_net_kg > 0 ? Number(item.pallet_net_kg) : null;
+              const grossPer = item.pallet_gross_kg != null && item.pallet_gross_kg > 0 ? Number(item.pallet_gross_kg) : null;
+              patch.resolver_net_per_pallet_kg = netPer;
+              patch.resolver_gross_per_pallet_kg = grossPer;
+              // Auto-fill totals only when the field is in auto mode.
+              if (row.net_auto && netPer && pc > 0) patch.net_weight_kg = pc * netPer;
+              if (row.gross_auto && grossPer && pc > 0) patch.gross_weight_kg = pc * grossPer;
               onChange(patch);
             }}
             placeholder={row.product_name ? "Упаковка" : "Спочатку виберіть товар"}
@@ -1415,11 +1638,10 @@ function DraftRowCard({
           />
         </PillSlot>
 
-        {/* Row: Ящ./пал(deferred) / К-ть палет / Вага палети */}
+        {/* Row: К-ть палет / Нетто / Брутто */}
         <div className="grid grid-cols-3 gap-2">
-          <PillSlot label="Ящ./пал." hasValue={false} deferred />
           <PillSlot
-            label={offerPending != null ? `К-ть палет (${offerPending})` : "К-ть палет"}
+            label={offerPending != null ? `Палет (${offerPending})` : "Палет"}
             required
             hasValue={!!row.pallet_count}
             errored={tooManyOffer}
@@ -1429,48 +1651,60 @@ function DraftRowCard({
               inputMode="numeric"
               min={1}
               value={row.pallet_count || ""}
-              onChange={(e) => onChange({ pallet_count: Number(e.target.value) || 0 })}
+              onChange={(e) => handlePalletCountChange(e.target.value)}
               placeholder="Палет"
               className={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Вага палети" hasValue={!!row.pallet_weight}>
+          <PillSlot label="Нетто, кг" required hasValue={row.net_weight_kg > 0}>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              value={row.pallet_weight || ""}
-              onChange={(e) => onChange({ pallet_weight: Number(e.target.value) || 0 })}
-              placeholder="Вага палети"
+              value={netText}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!DECIMAL_RE.test(raw)) return;
+                setNetText(raw);
+                const n = parseDecimal(raw);
+                onChange({ net_weight_kg: n ?? 0, net_auto: false });
+              }}
+              placeholder="Нетто"
               className={pillInput}
             />
           </PillSlot>
-        </div>
-
-        {/* Row: Нетто (derived) / Брутто(deferred) */}
-        <div className="grid grid-cols-2 gap-2">
-          <PillSlot label="Нетто, кг" hasValue={netKg > 0}>
+          <PillSlot label="Брутто, кг" required hasValue={row.gross_weight_kg > 0}>
             <input
-              value={netKg > 0 ? Math.round(netKg).toString() : ""}
-              readOnly
-              placeholder="Нетто, кг"
+              type="text"
+              inputMode="decimal"
+              value={grossText}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!DECIMAL_RE.test(raw)) return;
+                setGrossText(raw);
+                const n = parseDecimal(raw);
+                onChange({ gross_weight_kg: n ?? 0, gross_auto: false });
+              }}
+              placeholder="Брутто"
               className={pillInput}
             />
           </PillSlot>
-          <PillSlot label="Брутто, кг" hasValue={false} deferred />
         </div>
 
         {/* Row: Ціна за кг / Валюта */}
         <div className="grid grid-cols-2 gap-2">
-          <PillSlot label="Ціна за кг" required hasValue={!!row.unit_price}>
+          <PillSlot label="Ціна за кг" required hasValue={row.unit_price > 0}>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={row.unit_price || ""}
-              onChange={(e) => onChange({ unit_price: Number(e.target.value) || 0 })}
-              placeholder="Ціна за кг"
+              value={priceText}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!DECIMAL_RE.test(raw)) return;
+                setPriceText(raw);
+                const n = parseDecimal(raw);
+                onChange({ unit_price: n ?? 0 });
+              }}
+              placeholder="0,50"
               className={pillInput}
             />
           </PillSlot>
@@ -1479,18 +1713,17 @@ function DraftRowCard({
               value={row.price_currency}
               onChange={(e) => onChange({ price_currency: e.target.value.toUpperCase() })}
               maxLength={3}
-              placeholder="Валюта"
+              placeholder="EUR"
               className={pillInput}
             />
           </PillSlot>
         </div>
 
-        {/* Розрахунок собівартості — структура з затвердженого превью.
-            Значення підставляться після створення поставки. */}
+        {/* Розрахунок собівартості — заповнюється після створення поставки. */}
         <div className="mt-2 rounded-xl border border-border/60 bg-background/40 p-2.5">
           <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Розрахунок собівартості</span>
-            <span className="text-[10px] font-normal text-muted-foreground/70">деталі</span>
+            <span className="text-[10px] font-normal text-muted-foreground/70">після створення</span>
           </div>
           <div className="space-y-0.5 text-[11.5px] tabular-nums">
             <div className="flex justify-between"><span className="text-muted-foreground">FX EUR/USD</span><span className="font-medium">—</span></div>
@@ -1506,6 +1739,7 @@ function DraftRowCard({
     </section>
   );
 }
+
 
 function PillSlot({
   label,
