@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/draft-mockup")({
@@ -6,25 +7,13 @@ export const Route = createFileRoute("/draft-mockup")({
 });
 
 /**
- * VISUAL-ONLY PROTOTYPE for /shipments/new product step — stage 2.
+ * VISUAL-ONLY PROTOTYPE for /shipments/new product step — stage 3.
  * Static values. No Supabase, no save, no nav. Not wired into real flow.
- *
- * Changes vs stage 1:
- *  - removed shipment summary card; supplier + shipment number sit in card header
- *  - capacity strip is one line
- *  - "Видалити" is red
- *  - labels live INSIDE inputs, centered; vanish on focus, return when empty on blur
- *  - required field labels are red; missing required → shake + red ring on save
- *  - net > gross → shake + red ring + inline warning, blocks save
- *  - customs/cost calc block adapted from current editor (without removed lines)
- *  - "Назад" removed; two equal full-width buttons: Додати товар / Додати товар аналогічний
- *  - tuned to fit one mobile screen incl. footer
  */
 function MockupPage() {
   const [showCustoms, setShowCustoms] = useState(false);
   const [saveAttempt, setSaveAttempt] = useState(0);
 
-  // Static test values (one product card).
   const [v, setV] = useState({
     product: "Ківі",
     origin: "Італія",
@@ -51,17 +40,24 @@ function MockupPage() {
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [shake, setShake] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   function triggerSave() {
     setSaveAttempt((n) => n + 1);
     if (missing.length > 0 || netOverGross) {
       setShake(true);
       window.setTimeout(() => setShake(false), 450);
+      if (netOverGross) setErrorMsg("Нетто не може перевищувати брутто");
+      else setErrorMsg(`Заповніть обов'язкові поля (${missing.length})`);
+      window.setTimeout(() => setErrorMsg(null), 3000);
+    } else {
+      setErrorMsg(null);
     }
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Fixed compact capacity strip — single line */}
+      {/* Fixed compact capacity strip */}
       <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         <div className="mx-auto flex w-full max-w-[460px] items-center justify-between gap-2 whitespace-nowrap text-[11.5px] leading-tight tabular-nums">
           <span><span className="text-muted-foreground">Палети </span><span className="font-semibold">12/26</span></span>
@@ -76,11 +72,11 @@ function MockupPage() {
         <div className="mx-auto w-full max-w-[460px] space-y-2.5">
           <section
             ref={cardRef}
-            className={`rounded-2xl border bg-card p-3 shadow transition-all ${
+            className={`rounded-2xl border border-border bg-card p-3 shadow transition-all ${
               shake ? "animate-[shake_0.4s_ease-in-out]" : ""
-            } ${missing.length > 0 || netOverGross ? "border-border" : "border-border"}`}
+            }`}
           >
-            {/* Header — supplier + shipment number, no labels */}
+            {/* Header */}
             <div className="mb-2.5 flex items-center justify-between gap-3 border-b border-border/60 pb-2">
               <div className="min-w-0">
                 <div className="truncate text-[15px] font-semibold leading-tight">3FRUTTI</div>
@@ -96,53 +92,34 @@ function MockupPage() {
 
             <div className="space-y-2">
               <Row2>
-                <FloatField label="Товар" required value={v.product} onChange={(x) => setV({ ...v, product: x })} saveAttempt={saveAttempt} />
-                <FloatField label="Походження" required value={v.origin} onChange={(x) => setV({ ...v, origin: x })} saveAttempt={saveAttempt} />
+                <PillField label="Товар" required value={v.product} onChange={(x) => setV({ ...v, product: x })} saveAttempt={saveAttempt} />
+                <PillField label="Походження" required value={v.origin} onChange={(x) => setV({ ...v, origin: x })} saveAttempt={saveAttempt} />
               </Row2>
               <Row2>
-                <FloatField label="Сорт" value={v.sort} onChange={(x) => setV({ ...v, sort: x })} />
-                <FloatField label="Бренд" value={v.brand} onChange={(x) => setV({ ...v, brand: x })} />
+                <PillField label="Сорт" value={v.sort} onChange={(x) => setV({ ...v, sort: x })} />
+                <PillField label="Бренд" value={v.brand} onChange={(x) => setV({ ...v, brand: x })} />
               </Row2>
               <Row2>
-                <FloatField label="Калібр" value={v.caliber} onChange={(x) => setV({ ...v, caliber: x })} />
-                <FloatField label="Клас" value={v.cls} onChange={(x) => setV({ ...v, cls: x })} />
+                <PillField label="Калібр" value={v.caliber} onChange={(x) => setV({ ...v, caliber: x })} />
+                <PillField label="Клас" value={v.cls} onChange={(x) => setV({ ...v, cls: x })} />
               </Row2>
-              <FloatField label="Упаковка" required value={v.pack} onChange={(x) => setV({ ...v, pack: x })} saveAttempt={saveAttempt} />
+              <PillField label="Упаковка" required value={v.pack} onChange={(x) => setV({ ...v, pack: x })} saveAttempt={saveAttempt} />
               <Row3>
-                <FloatField label="Ящ./пал." value={v.boxes} onChange={(x) => setV({ ...v, boxes: x })} />
-                <FloatField label="К-ть палет" required value={v.pallets} onChange={(x) => setV({ ...v, pallets: x })} saveAttempt={saveAttempt} />
-                <FloatField label="Вага палети" value={v.palletW} onChange={(x) => setV({ ...v, palletW: x })} />
+                <PillField label="Ящ./пал." value={v.boxes} onChange={(x) => setV({ ...v, boxes: x })} />
+                <PillField label="К-ть палет" required value={v.pallets} onChange={(x) => setV({ ...v, pallets: x })} saveAttempt={saveAttempt} />
+                <PillField label="Вага палети" value={v.palletW} onChange={(x) => setV({ ...v, palletW: x })} />
               </Row3>
               <Row2>
-                <FloatField
-                  label="Нетто, кг"
-                  required
-                  value={v.net}
-                  onChange={(x) => setV({ ...v, net: x })}
-                  saveAttempt={saveAttempt}
-                  invalid={netOverGross}
-                />
-                <FloatField
-                  label="Брутто, кг"
-                  required
-                  value={v.gross}
-                  onChange={(x) => setV({ ...v, gross: x })}
-                  saveAttempt={saveAttempt}
-                  invalid={netOverGross}
-                />
+                <PillField label="Нетто, кг" required value={v.net} onChange={(x) => setV({ ...v, net: x })} saveAttempt={saveAttempt} invalid={netOverGross} />
+                <PillField label="Брутто, кг" required value={v.gross} onChange={(x) => setV({ ...v, gross: x })} saveAttempt={saveAttempt} invalid={netOverGross} />
               </Row2>
-              {netOverGross && (
-                <div className="text-[11px] font-medium text-destructive">
-                  Нетто не може перевищувати брутто
-                </div>
-              )}
               <Row2>
-                <FloatField label="Ціна за кг" required value={v.price} onChange={(x) => setV({ ...v, price: x })} saveAttempt={saveAttempt} />
-                <FloatField label="Валюта" value={v.currency} onChange={(x) => setV({ ...v, currency: x })} />
+                <PillField label="Ціна за кг" required value={v.price} onChange={(x) => setV({ ...v, price: x })} saveAttempt={saveAttempt} />
+                <PillField label="Валюта" value={v.currency} onChange={(x) => setV({ ...v, currency: x })} />
               </Row2>
 
-              {/* Customs / cost calc — adapted from current editor */}
-              <div className="mt-1 rounded-lg border border-border/60 bg-background/40 p-2.5">
+              {/* Customs / cost calc */}
+              <div className="mt-1 rounded-xl border border-border/60 bg-background/40 p-2.5">
                 <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <span>Розрахунок собівартості</span>
                   <button
@@ -187,27 +164,36 @@ function MockupPage() {
             </div>
           </section>
 
-          {/* Footer — two equal full-width buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={triggerSave}
-              className="h-11 rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground"
-            >
-              + Додати товар
-            </button>
-            <button
-              type="button"
-              onClick={triggerSave}
-              className="h-11 rounded-xl border border-primary/60 bg-primary/10 text-[13px] font-semibold text-primary"
-            >
-              + Аналогічний
-            </button>
+          {/* Footer buttons */}
+          <div className="space-y-1.5 pt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={triggerSave}
+                className="h-11 rounded-full border border-white/70 bg-primary text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                + Додати товар
+              </button>
+              <button
+                type="button"
+                onClick={triggerSave}
+                className="h-11 rounded-full border border-primary/60 bg-primary/10 text-[13px] font-semibold text-primary"
+              >
+                + Аналогічний
+              </button>
+            </div>
+
+            {/* Reserved error slot under "+ Додати товар" — left column width */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="min-h-[18px] px-1 text-[11px] leading-tight text-destructive/80">
+                {errorMsg}
+              </div>
+              <ShinyRedButton onClick={triggerSave}>+ Створити</ShinyRedButton>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* keyframes for shake */}
       <style>{`
         @keyframes shake {
           0%,100% { transform: translateX(0); }
@@ -217,8 +203,8 @@ function MockupPage() {
           80% { transform: translateX(4px); }
         }
         @keyframes blink-ring {
-          0%,100% { box-shadow: 0 0 0 0 hsl(var(--destructive) / 0); border-color: hsl(var(--destructive)); }
-          50% { box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.35); border-color: hsl(var(--destructive)); }
+          0%,100% { box-shadow: 0 0 0 0 hsl(var(--destructive) / 0); }
+          50% { box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.45); }
         }
         .blink-error { animation: blink-ring 0.45s ease-in-out 2; border-color: hsl(var(--destructive)) !important; }
       `}</style>
@@ -233,7 +219,15 @@ function Row3({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-3 gap-2">{children}</div>;
 }
 
-function FloatField({
+/**
+ * Pill-shaped input field with floating-label behavior.
+ *  - Empty + not focused: label centered, slightly blurred.
+ *  - Focused: center label hides; corner label appears sharp at top-left;
+ *             text input is left-aligned so typing flows naturally from the left.
+ *  - Has value + not focused: corner label sharp at top-left;
+ *             value centered horizontally and vertically.
+ */
+function PillField({
   label,
   value,
   onChange,
@@ -250,32 +244,28 @@ function FloatField({
 }) {
   const [focused, setFocused] = useState(false);
   const [blinkKey, setBlinkKey] = useState(0);
-
   const isEmpty = !String(value ?? "").trim();
   const missingRequired = required && isEmpty;
   const errored = missingRequired || invalid;
 
-  // Trigger blink whenever the user attempts to save while invalid.
   useEffect(() => {
     if (saveAttempt > 0 && errored) setBlinkKey((k) => k + 1);
   }, [saveAttempt, errored]);
 
-  // Label visibility: hidden on focus; visible otherwise (whether empty or filled — sits centered above value).
-  // When focused → input shows value only. When blurred → if empty, show label centered; if filled, show value centered with label as tiny tag.
-  const showLabelCentered = !focused && isEmpty;
+  const showCenterLabel = !focused && isEmpty;
+  const showCornerLabel = focused || !isEmpty;
 
   return (
     <div className="relative">
       <div
         key={blinkKey}
-        className={`relative flex h-11 items-center justify-center rounded-lg border bg-background/40 px-2 transition-colors ${
+        className={`relative flex h-11 items-center rounded-full border bg-muted/40 px-3 transition-colors ${
           errored && saveAttempt > 0 ? "blink-error" : "border-border/70"
         }`}
       >
-        {/* Tiny corner label when field has a value and isn't focused */}
-        {!focused && !isEmpty && (
+        {showCornerLabel && (
           <span
-            className={`absolute left-2 top-0.5 text-[9.5px] leading-none ${
+            className={`pointer-events-none absolute left-3 top-1 text-[9.5px] leading-none ${
               required ? "text-destructive/80" : "text-muted-foreground/70"
             }`}
           >
@@ -287,15 +277,14 @@ function FloatField({
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="h-full w-full bg-transparent text-center text-[13.5px] font-medium text-foreground outline-none placeholder:font-normal"
-          placeholder={
-            showLabelCentered ? "" /* placeholder replaced by overlay */ : ""
-          }
+          className={`h-full w-full bg-transparent text-[13.5px] font-medium text-foreground outline-none ${
+            focused ? "text-left" : "text-center"
+          }`}
         />
-        {showLabelCentered && (
+        {showCenterLabel && (
           <span
-            className={`pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] ${
-              required ? "text-destructive" : "text-muted-foreground"
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] blur-[1.2px] ${
+              required ? "text-destructive/70" : "text-muted-foreground/70"
             }`}
           >
             {label}
@@ -303,6 +292,63 @@ function FloatField({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Red shiny button — mirrors the Malekhiv ShinyFilterSelect motion/sweep,
+ * but tinted destructive (smoky red/crimson sweep) instead of grey.
+ */
+function ShinyRedButton({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  const labelMask =
+    "linear-gradient(-75deg, hsl(var(--destructive)) calc(var(--x) + 20%), transparent calc(var(--x) + 30%), hsl(var(--destructive)) calc(var(--x) + 100%))";
+  const ringGradient =
+    "linear-gradient(-75deg, hsl(var(--destructive) / 0.15) calc(var(--x) + 20%), hsl(var(--destructive) / 0.65) calc(var(--x) + 25%), hsl(var(--destructive) / 0.15) calc(var(--x) + 100%))";
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      initial={{ "--x": "100%", scale: 0.98 } as any}
+      animate={{ "--x": "-100%", scale: 1 } as any}
+      whileTap={{ scale: 0.96 }}
+      transition={{
+        repeat: Infinity,
+        repeatType: "loop",
+        repeatDelay: 1,
+        type: "spring",
+        stiffness: 20,
+        damping: 15,
+        mass: 2,
+        scale: { type: "spring", stiffness: 200, damping: 5, mass: 0.5 },
+      }}
+      style={{ ["--x" as string]: "100%" }}
+      className="relative h-11 w-full rounded-full border border-destructive/50 bg-destructive/10 px-4 text-[13px] font-semibold backdrop-blur-xl transition-shadow duration-300 hover:shadow-[0_0_20px_hsl(var(--destructive)/0.25)]"
+    >
+      <span
+        className="relative flex size-full items-center justify-center leading-none tracking-wide text-destructive"
+        style={{ maskImage: labelMask, WebkitMaskImage: labelMask }}
+      >
+        {children}
+      </span>
+      <span
+        aria-hidden="true"
+        style={{
+          mask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
+          WebkitMask: "linear-gradient(#000, #000) content-box, linear-gradient(#000, #000)",
+          maskComposite: "exclude",
+          WebkitMaskComposite: "xor",
+          backgroundImage: ringGradient,
+        }}
+        className="absolute inset-0 z-10 block rounded-[inherit] p-px"
+      />
+    </motion.button>
   );
 }
 
