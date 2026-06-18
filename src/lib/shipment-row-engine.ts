@@ -411,6 +411,8 @@ export function computeRowPreview(
   }
 
   // Confirmed manual override (only when product+country unchanged vs DB row).
+  // Build B — also honor localOverride (drafts not yet inserted on /shipments/new).
+  // dbItem wins if both happen to be set (existing-editor invariant unchanged).
   let overrideDuty: number | null = null;
   if (
     dbItem &&
@@ -420,6 +422,14 @@ export function computeRowPreview(
     (dbItem.origin_country ?? "").trim() === d.origin_country.trim()
   ) {
     overrideDuty = Number(dbItem.customs_override_duty_usd);
+    components.customsBasis = "manual";
+    components.matchedRef = null;
+  } else if (
+    localOverride &&
+    localOverride.confirmed_at &&
+    localOverride.duty_usd != null
+  ) {
+    overrideDuty = Number(localOverride.duty_usd);
     components.customsBasis = "manual";
     components.matchedRef = null;
   }
