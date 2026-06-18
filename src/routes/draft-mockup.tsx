@@ -308,9 +308,9 @@ function ShinyRedButton({
   onClick?: () => void;
 }) {
   const labelMask =
-    "linear-gradient(-75deg, hsl(var(--destructive)) calc(var(--x) + 20%), transparent calc(var(--x) + 30%), hsl(var(--destructive)) calc(var(--x) + 100%))";
+    "linear-gradient(-75deg, hsl(var(--destructive)) calc(var(--x) + 20%), hsl(0 0% 100%) calc(var(--x) + 25%), hsl(var(--destructive)) calc(var(--x) + 100%))";
   const ringGradient =
-    "linear-gradient(-75deg, hsl(var(--destructive) / 0.15) calc(var(--x) + 20%), hsl(var(--destructive) / 0.65) calc(var(--x) + 25%), hsl(var(--destructive) / 0.15) calc(var(--x) + 100%))";
+    "linear-gradient(-75deg, hsl(var(--destructive) / 0.3) calc(var(--x) + 20%), hsl(var(--destructive) / 1) calc(var(--x) + 25%), hsl(var(--destructive) / 0.3) calc(var(--x) + 100%))";
 
   return (
     <motion.button
