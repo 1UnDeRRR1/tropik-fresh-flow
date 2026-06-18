@@ -72,6 +72,9 @@ type OpenVehicle = {
       variety: string | null;
       caliber: string | null;
       pallet_count: number | null;
+      pallet_weight: number | null;
+      net_weight_kg: number | null;
+      gross_weight_kg: number | null;
     }[] | null;
   }[] | null;
 };
@@ -181,7 +184,7 @@ function NewShipment() {
     queryFn: async () => {
       let q = supabase
         .from("vehicles" as never)
-        .select("id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(id,code,logistics_cost,logistics_cost_currency,created_by,suppliers(name),shipment_items(id,product_name,variety,caliber,pallet_count))")
+        .select("id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(id,code,logistics_cost,logistics_cost_currency,created_by,suppliers(name),shipment_items(id,product_name,variety,caliber,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (country) q = q.eq("country", country);
@@ -644,8 +647,33 @@ function NewShipment() {
     }
 
     // Capacity hard-block BEFORE any DB writes (incl. existing vehicle load).
-    const existingP = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_pallets ?? 0) : 0;
-    const existingKg = mode === "existing" && selectedVehicle ? Number(selectedVehicle.total_weight_kg ?? 0) : 0;
+    // Derive existing vehicle load from shipment_items (gross-first) to match
+    // shipments/index.tsx aggregateVehicleFromItems; fall back to vehicle totals
+    // only when no items exist (legacy: total_weight_kg is net-ish).
+    let existingP = 0;
+    let existingKg = 0;
+    if (mode === "existing" && selectedVehicle) {
+      let sawAny = false;
+      for (const s of selectedVehicle.shipments ?? []) {
+        for (const it of s.shipment_items ?? []) {
+          sawAny = true;
+          const pc = Number(it.pallet_count ?? 0);
+          existingP += pc;
+          const g = Number(it.gross_weight_kg ?? 0);
+          if (g > 0) {
+            existingKg += g;
+          } else {
+            const net = Number(it.net_weight_kg ?? 0);
+            const pw = Number(it.pallet_weight ?? 0);
+            existingKg += net > 0 ? net : pc * pw;
+          }
+        }
+      }
+      if (!sawAny) {
+        existingP = Number(selectedVehicle.total_pallets ?? 0);
+        existingKg = Number(selectedVehicle.total_weight_kg ?? 0);
+      }
+    }
     const draftP = draftRows.reduce((s, r) => s + Number(r.pallet_count || 0), 0);
     const draftKg = draftRows.reduce((s, r) => s + Number(r.gross_weight_kg || 0), 0);
     if (existingP + draftP > VEHICLE_MAX_PALLETS) {
@@ -809,7 +837,8 @@ function NewShipment() {
           vehicle_id: vId,
           // Transport: only the new-vehicle owner enters logistics.
           logistics_cost: mode === "new" ? logisticsCostNum : null,
-          logistics_cost_currency: mode === "new" && logisticsCostNum != null ? logisticsCurrency : null,
+          // NOT NULL with DEFAULT 'EUR' — never send null. Pass selected/default currency.
+          logistics_cost_currency: logisticsCurrency || "EUR",
         } as never);
       if (shipErr) {
         if (shipErr.code === "23505" || /duplicate|unique/i.test(shipErr.message)) {
