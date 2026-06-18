@@ -1,214 +1,324 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/draft-mockup")({
   component: MockupPage,
 });
 
 /**
- * VISUAL-ONLY PROTOTYPE for /shipments/new product step — stage 1.
- * Static values. No Supabase, no hooks, no save, no nav.
- * Not wired into the real shipment flow.
+ * VISUAL-ONLY PROTOTYPE for /shipments/new product step — stage 2.
+ * Static values. No Supabase, no save, no nav. Not wired into real flow.
  *
- * Stage 1 changes vs previous prototype:
- *  - Removed: page title, "Товари" heading, top "+ Додати товар".
- *  - Added:   sticky compact capacity strip (pallets / gross / remaining).
- *  - Resized: product card now fills full useful width of the container.
- *  - Moved:   "+ Додати товар" sits below last card, above Назад/Готово.
- *  - Customs / cost logic intentionally NOT built in this stage.
+ * Changes vs stage 1:
+ *  - removed shipment summary card; supplier + shipment number sit in card header
+ *  - capacity strip is one line
+ *  - "Видалити" is red
+ *  - labels live INSIDE inputs, centered; vanish on focus, return when empty on blur
+ *  - required field labels are red; missing required → shake + red ring on save
+ *  - net > gross → shake + red ring + inline warning, blocks save
+ *  - customs/cost calc block adapted from current editor (without removed lines)
+ *  - "Назад" removed; two equal full-width buttons: Додати товар / Додати товар аналогічний
+ *  - tuned to fit one mobile screen incl. footer
  */
 function MockupPage() {
-  const products = [
-    {
-      n: 1,
-      product: "Ківі",
-      origin: "Італія",
-      sort: "Hayward",
-      brand: "3Frutti",
-      caliber: "27",
-      cls: "I",
-      pack: "Ящик 3.3 кг",
-      boxesPerPallet: "84",
-      pallets: "1",
-      palletWeight: "277.2",
-      net: "277.2",
-      gross: "305.0",
-      price: "1.85",
-      currency: "EUR",
-    },
-  ];
+  const [showCustoms, setShowCustoms] = useState(false);
+  const [saveAttempt, setSaveAttempt] = useState(0);
+
+  // Static test values (one product card).
+  const [v, setV] = useState({
+    product: "Ківі",
+    origin: "Італія",
+    sort: "Hayward",
+    brand: "3Frutti",
+    caliber: "27",
+    cls: "I",
+    pack: "Ящик 3.3 кг",
+    boxes: "84",
+    pallets: "1",
+    palletW: "277.2",
+    net: "277.2",
+    gross: "305.0",
+    price: "1.85",
+    currency: "EUR",
+  });
+
+  const netNum = Number(v.net) || 0;
+  const grossNum = Number(v.gross) || 0;
+  const netOverGross = netNum > 0 && grossNum > 0 && netNum > grossNum;
+
+  const requiredKeys: (keyof typeof v)[] = ["product", "origin", "pack", "pallets", "net", "gross", "price"];
+  const missing = requiredKeys.filter((k) => !String(v[k] ?? "").trim());
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [shake, setShake] = useState(false);
+  function triggerSave() {
+    setSaveAttempt((n) => n + 1);
+    if (missing.length > 0 || netOverGross) {
+      setShake(true);
+      window.setTimeout(() => setShake(false), 450);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Fixed compact capacity strip — always visible while scrolling */}
+      {/* Fixed compact capacity strip — single line */}
       <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <div className="mx-auto w-full max-w-[460px] text-[12px] leading-tight">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular-nums">
-            <span className="text-muted-foreground">Палети</span>
-            <span className="font-semibold text-foreground">12/26</span>
-            <span className="text-border">·</span>
-            <span className="text-muted-foreground">Брутто</span>
-            <span className="font-semibold text-foreground">9 870/21 500</span>
-            <span className="text-border">·</span>
-            <span className="text-muted-foreground">Залишок</span>
-            <span className="font-semibold text-foreground">14 пал / 11 630 кг</span>
-          </div>
+        <div className="mx-auto flex w-full max-w-[460px] items-center justify-between gap-2 whitespace-nowrap text-[11.5px] leading-tight tabular-nums">
+          <span><span className="text-muted-foreground">Палети </span><span className="font-semibold">12/26</span></span>
+          <span className="text-border">·</span>
+          <span><span className="text-muted-foreground">Брутто </span><span className="font-semibold">9 870/21 500</span></span>
+          <span className="text-border">·</span>
+          <span><span className="text-muted-foreground">Залишок </span><span className="font-semibold">14 / 11 630</span></span>
         </div>
       </div>
 
-      <div className="px-2 pb-24 pt-12">
-        <div className="mx-auto w-full max-w-[460px] space-y-3">
-          {/* Shipment summary — compact, full width */}
-          <section className="rounded-2xl border border-border bg-card p-3 shadow">
-            <SummaryRow left={["Постачальник", "3FRUTTI"]} right={["Номер", "FRUTT-025-ITA-073"]} />
-            <Divider />
-            <SummaryRow left={["Країна", "Італія"]} right={["Завантаження", "2026-06-27"]} />
-            <Divider />
-            <SummaryRow left={["Транспорт", "3 200"]} right={["Валюта", "EUR"]} />
+      <div className="px-2 pb-20 pt-11">
+        <div className="mx-auto w-full max-w-[460px] space-y-2.5">
+          <section
+            ref={cardRef}
+            className={`rounded-2xl border bg-card p-3 shadow transition-all ${
+              shake ? "animate-[shake_0.4s_ease-in-out]" : ""
+            } ${missing.length > 0 || netOverGross ? "border-border" : "border-border"}`}
+          >
+            {/* Header — supplier + shipment number, no labels */}
+            <div className="mb-2.5 flex items-center justify-between gap-3 border-b border-border/60 pb-2">
+              <div className="min-w-0">
+                <div className="truncate text-[15px] font-semibold leading-tight">3FRUTTI</div>
+                <div className="truncate text-[11px] text-muted-foreground">FRUTT-025-ITA-073</div>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-[12px] font-medium text-destructive hover:text-destructive/80"
+              >
+                Видалити
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <Row2>
+                <FloatField label="Товар" required value={v.product} onChange={(x) => setV({ ...v, product: x })} saveAttempt={saveAttempt} />
+                <FloatField label="Походження" required value={v.origin} onChange={(x) => setV({ ...v, origin: x })} saveAttempt={saveAttempt} />
+              </Row2>
+              <Row2>
+                <FloatField label="Сорт" value={v.sort} onChange={(x) => setV({ ...v, sort: x })} />
+                <FloatField label="Бренд" value={v.brand} onChange={(x) => setV({ ...v, brand: x })} />
+              </Row2>
+              <Row2>
+                <FloatField label="Калібр" value={v.caliber} onChange={(x) => setV({ ...v, caliber: x })} />
+                <FloatField label="Клас" value={v.cls} onChange={(x) => setV({ ...v, cls: x })} />
+              </Row2>
+              <FloatField label="Упаковка" required value={v.pack} onChange={(x) => setV({ ...v, pack: x })} saveAttempt={saveAttempt} />
+              <Row3>
+                <FloatField label="Ящ./пал." value={v.boxes} onChange={(x) => setV({ ...v, boxes: x })} />
+                <FloatField label="К-ть палет" required value={v.pallets} onChange={(x) => setV({ ...v, pallets: x })} saveAttempt={saveAttempt} />
+                <FloatField label="Вага палети" value={v.palletW} onChange={(x) => setV({ ...v, palletW: x })} />
+              </Row3>
+              <Row2>
+                <FloatField
+                  label="Нетто, кг"
+                  required
+                  value={v.net}
+                  onChange={(x) => setV({ ...v, net: x })}
+                  saveAttempt={saveAttempt}
+                  invalid={netOverGross}
+                />
+                <FloatField
+                  label="Брутто, кг"
+                  required
+                  value={v.gross}
+                  onChange={(x) => setV({ ...v, gross: x })}
+                  saveAttempt={saveAttempt}
+                  invalid={netOverGross}
+                />
+              </Row2>
+              {netOverGross && (
+                <div className="text-[11px] font-medium text-destructive">
+                  Нетто не може перевищувати брутто
+                </div>
+              )}
+              <Row2>
+                <FloatField label="Ціна за кг" required value={v.price} onChange={(x) => setV({ ...v, price: x })} saveAttempt={saveAttempt} />
+                <FloatField label="Валюта" value={v.currency} onChange={(x) => setV({ ...v, currency: x })} />
+              </Row2>
+
+              {/* Customs / cost calc — adapted from current editor */}
+              <div className="mt-1 rounded-lg border border-border/60 bg-background/40 p-2.5">
+                <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span>Розрахунок собівартості</span>
+                  <button
+                    type="button"
+                    className="text-[10px] font-normal text-primary hover:underline"
+                    onClick={() => setShowCustoms((s) => !s)}
+                  >
+                    {showCustoms ? "сховати" : "деталі"}
+                  </button>
+                </div>
+                <div className="space-y-0.5 text-[11.5px] tabular-nums">
+                  <KV k="FX EUR/USD" v="1.1591 (2026-06-17)" />
+                  <KVChip k="Митниця" chip={<span className="rounded-full border border-success/40 bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold text-success">Митна база: знайдено</span>} />
+                  <KV k="Транспорт, $/кг" v="$0.1412" />
+                </div>
+                <div className="mt-1.5 flex items-center justify-between border-t border-border/40 pt-1.5 text-[12px] font-bold tabular-nums">
+                  <span>Собівартість</span>
+                  <span>
+                    <span className="text-success">$1.59</span>
+                    <span className="px-1 text-muted-foreground">/</span>
+                    <span className="text-destructive">$1.59</span>
+                  </span>
+                </div>
+
+                {showCustoms && (
+                  <div className="mt-2 rounded-md border border-border/50 bg-card/60 p-2 text-[11px] tabular-nums">
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Розрахунок митниці
+                    </div>
+                    <KV k="Аналог (товар)" v="Апельсин" />
+                    <KV k="Аналог (країна)" v="АЛБАНІЯ (ЄС)" />
+                    <KV k="Поріг ціни" v="$1.30/кг" />
+                    <KV k="EUR1 %" v="0.00%" />
+                    <div className="my-1 h-px bg-border/50" />
+                    <KV k="Ціна за кг (USD)" v="$1.1591" />
+                    <div className="text-muted-foreground">Ціна ≤ порогу → мито = індикатив = <b className="text-foreground">$0.2850</b></div>
+                    <div className="mt-1 flex justify-between font-semibold text-success"><span>Індикативне мито</span><span>$0.2850</span></div>
+                    <div className="flex justify-between font-semibold text-destructive"><span>Інвойсне мито</span><span>$0.2850</span></div>
+                  </div>
+                )}
+              </div>
+            </div>
           </section>
 
-          {/* Product cards — one per product, full width, stacked */}
-          {products.map((p) => (
-            <ProductCard key={p.n} p={p} />
-          ))}
-
-          {/* Add product — below last card, above footer */}
-          <button
-            type="button"
-            className="w-full rounded-xl border border-dashed border-border bg-card/40 px-4 py-3 text-[13px] text-muted-foreground hover:bg-card"
-          >
-            + Додати товар
-          </button>
-
-          {/* Footer */}
-          <div className="flex items-center gap-3 pt-2">
+          {/* Footer — two equal full-width buttons */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
-              className="h-11 flex-1 rounded-xl border border-border bg-card text-[14px] font-medium"
+              onClick={triggerSave}
+              className="h-11 rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground"
             >
-              Назад
+              + Додати товар
             </button>
             <button
               type="button"
-              className="h-11 flex-[2] rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground"
+              onClick={triggerSave}
+              className="h-11 rounded-xl border border-primary/60 bg-primary/10 text-[13px] font-semibold text-primary"
             >
-              Готово
+              + Аналогічний
             </button>
           </div>
-
-          <p className="pt-3 text-center text-[11px] text-muted-foreground/70">
-            Візуальний прототип. Статичні дані. Не інтегровано.
-          </p>
         </div>
       </div>
+
+      {/* keyframes for shake */}
+      <style>{`
+        @keyframes shake {
+          0%,100% { transform: translateX(0); }
+          20% { transform: translateX(-6px); }
+          40% { transform: translateX(6px); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
+        }
+        @keyframes blink-ring {
+          0%,100% { box-shadow: 0 0 0 0 hsl(var(--destructive) / 0); border-color: hsl(var(--destructive)); }
+          50% { box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.35); border-color: hsl(var(--destructive)); }
+        }
+        .blink-error { animation: blink-ring 0.45s ease-in-out 2; border-color: hsl(var(--destructive)) !important; }
+      `}</style>
     </div>
   );
-}
-
-function ProductCard({
-  p,
-}: {
-  p: {
-    n: number;
-    product: string;
-    origin: string;
-    sort: string;
-    brand: string;
-    caliber: string;
-    cls: string;
-    pack: string;
-    boxesPerPallet: string;
-    pallets: string;
-    palletWeight: string;
-    net: string;
-    gross: string;
-    price: string;
-    currency: string;
-  };
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-muted-foreground">#{p.n}</span>
-        <button type="button" className="text-[12px] text-muted-foreground hover:text-foreground">
-          Видалити
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        <Row2>
-          <Field label="Товар" value={p.product} />
-          <Field label="Походження" value={p.origin} />
-        </Row2>
-        <Row2>
-          <Field label="Сорт" value={p.sort} />
-          <Field label="Бренд" value={p.brand} />
-        </Row2>
-        <Row2>
-          <Field label="Калібр" value={p.caliber} />
-          <Field label="Клас" value={p.cls} />
-        </Row2>
-        <Field label="Упаковка" value={p.pack} full />
-        <Row3>
-          <Field label="Ящ./пал." value={p.boxesPerPallet} />
-          <Field label="К-ть палет" value={p.pallets} />
-          <Field label="Вага палети" value={p.palletWeight} />
-        </Row3>
-        <Row2>
-          <Field label="Нетто, кг" value={p.net} />
-          <Field label="Брутто, кг" value={p.gross} />
-        </Row2>
-        <Row2>
-          <Field label="Ціна за кг" value={p.price} />
-          <Field label="Валюта" value={p.currency} />
-        </Row2>
-
-        {/* Reserved slot for future customs/cost line — visual only, no logic. */}
-        <div className="mt-1 flex h-9 items-center justify-between rounded-lg border border-dashed border-border/60 bg-background/30 px-3 text-[11px] text-muted-foreground/70">
-          <span>Митниця / собівартість</span>
-          <span>зарезервовано</span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SummaryRow({ left, right }: { left: [string, string]; right: [string, string] }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 py-1.5">
-      <SummaryCell label={left[0]} value={left[1]} />
-      <SummaryCell label={right[0]} value={right[1]} />
-    </div>
-  );
-}
-
-function SummaryCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="truncate text-[13px] font-semibold text-foreground">{value}</div>
-    </div>
-  );
-}
-
-function Divider() {
-  return <div className="h-px bg-border/60" />;
 }
 
 function Row2({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3">{children}</div>;
+  return <div className="grid grid-cols-2 gap-2">{children}</div>;
 }
-
 function Row3({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-[1fr_1fr_1.2fr] gap-3">{children}</div>;
+  return <div className="grid grid-cols-3 gap-2">{children}</div>;
 }
 
-function Field({ label, value, full = false }: { label: string; value?: string; full?: boolean }) {
+function FloatField({
+  label,
+  value,
+  onChange,
+  required = false,
+  saveAttempt = 0,
+  invalid = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  saveAttempt?: number;
+  invalid?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [blinkKey, setBlinkKey] = useState(0);
+
+  const isEmpty = !String(value ?? "").trim();
+  const missingRequired = required && isEmpty;
+  const errored = missingRequired || invalid;
+
+  // Trigger blink whenever the user attempts to save while invalid.
+  useEffect(() => {
+    if (saveAttempt > 0 && errored) setBlinkKey((k) => k + 1);
+  }, [saveAttempt, errored]);
+
+  // Label visibility: hidden on focus; visible otherwise (whether empty or filled — sits centered above value).
+  // When focused → input shows value only. When blurred → if empty, show label centered; if filled, show value centered with label as tiny tag.
+  const showLabelCentered = !focused && isEmpty;
+
   return (
-    <div className={full ? "col-span-full" : "min-w-0"}>
-      <div className="mb-1 text-[11px] text-muted-foreground">{label}</div>
-      <div className="flex h-10 items-center rounded-lg border border-border/70 bg-background/40 px-3 text-[13px] text-foreground">
-        {value ?? <span className="text-muted-foreground/60">—</span>}
+    <div className="relative">
+      <div
+        key={blinkKey}
+        className={`relative flex h-11 items-center justify-center rounded-lg border bg-background/40 px-2 transition-colors ${
+          errored && saveAttempt > 0 ? "blink-error" : "border-border/70"
+        }`}
+      >
+        {/* Tiny corner label when field has a value and isn't focused */}
+        {!focused && !isEmpty && (
+          <span
+            className={`absolute left-2 top-0.5 text-[9.5px] leading-none ${
+              required ? "text-destructive/80" : "text-muted-foreground/70"
+            }`}
+          >
+            {label}
+          </span>
+        )}
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="h-full w-full bg-transparent text-center text-[13.5px] font-medium text-foreground outline-none placeholder:font-normal"
+          placeholder={
+            showLabelCentered ? "" /* placeholder replaced by overlay */ : ""
+          }
+        />
+        {showLabelCentered && (
+          <span
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] ${
+              required ? "text-destructive" : "text-muted-foreground"
+            }`}
+          >
+            {label}
+          </span>
+        )}
       </div>
+    </div>
+  );
+}
+
+function KV({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{k}</span>
+      <span className="font-medium">{v}</span>
+    </div>
+  );
+}
+function KVChip({ k, chip }: { k: string; chip: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{k}</span>
+      {chip}
     </div>
   );
 }
