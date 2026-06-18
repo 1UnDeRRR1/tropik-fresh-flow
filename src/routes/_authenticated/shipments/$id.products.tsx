@@ -2167,12 +2167,8 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
         <tbody>
           {drafts.map((d) => {
             const ownKey = d.localId;
-            const otherPallets = capacitySource.reduce((a, x) => a + (x.id === ownKey ? 0 : Number(x.pallet_count ?? 0)), 0);
-            const otherKg = capacitySource.reduce((a, x) => {
-              if (x.id === ownKey) return a;
-              const g = Number((x as { gross_weight_kg?: number | null }).gross_weight_kg ?? 0);
-              return a + (g > 0 ? g : Number(x.pallet_count ?? 0) * Number((x as { pallet_weight?: number | null }).pallet_weight ?? 0));
-            }, 0);
+            const others = capacitySource.filter((x) => x.id !== ownKey);
+            const { pallets: otherPallets, grossKg: otherKg } = sumCapacity(others);
             const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
             const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
             return (
