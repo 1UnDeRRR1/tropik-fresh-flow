@@ -1281,12 +1281,16 @@ function NewShipment() {
           ...rows,
           {
             localId: `tmp_${crypto.randomUUID()}`,
+            dbId: null,
             source_offer_id: null,
             source_position_id: null,
+            source_offer_freight_amount: null,
+            source_offer_freight_currency: null,
             product_name: "",
             variety: "",
             origin_country: country || "",
             caliber: "",
+            sku: "",
             brand: "",
             class: "",
             package_used: "",
@@ -1308,12 +1312,16 @@ function NewShipment() {
             ...rows,
             {
               localId: `tmp_${crypto.randomUUID()}`,
+              dbId: null,
               source_offer_id: null,
               source_position_id: null,
+              source_offer_freight_amount: null,
+              source_offer_freight_currency: null,
               product_name: last?.product_name ?? "",
               variety: last?.variety ?? "",
               origin_country: last?.origin_country ?? (country || ""),
               caliber: last?.caliber ?? "",
+              sku: "",
               brand: last?.brand ?? "",
               class: last?.class ?? "",
               package_used: last?.package_used ?? "",
@@ -1325,13 +1333,15 @@ function NewShipment() {
               net_auto: true,
               gross_auto: true,
               unit_price: 0,
-              price_currency: last?.price_currency ?? "EUR",
+              price_currency: (last?.price_currency ?? "EUR") as "EUR" | "USD",
               offerLocked: false,
             },
           ];
         });
-        const draftPallets = draftRows.reduce((a, r) => a + (Number(r.pallet_count) || 0), 0);
-        const draftGross = draftRows.reduce((a, r) => a + (Number(r.gross_weight_kg) || 0), 0);
+        // Build B.2 — shared draft capacity via engine sumCapacity.
+        const draftCap = sumCapacity(draftRows);
+        const draftPallets = draftCap.pallets;
+        const draftGross = draftCap.grossKg;
         // Combine with existing committed load when topping up an open vehicle,
         // so the strip never hides an overload behind a positive remainder.
         const totalPallets = draftPallets + existingVehicleLoad.pallets;
