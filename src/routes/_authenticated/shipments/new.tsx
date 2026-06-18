@@ -542,12 +542,16 @@ function NewShipment() {
     const seedTotal = palWeight * pallets;
     setDraftRows([{
       localId: `tmp_${crypto.randomUUID()}`,
+      dbId: null,
       source_offer_id: o.id,
       source_position_id: offerProductPrefill.positionId,
+      source_offer_freight_amount: null,
+      source_offer_freight_currency: null,
       product_name: canonicalizeProductName(o.product_name ?? "") || (o.product_name ?? ""),
       variety: o.variety ?? "",
       origin_country: normalizeCountry(o.origin_country ?? "") || (o.origin_country ?? ""),
       caliber: o.caliber ?? "",
+      sku: "",
       brand: "",
       class: "",
       package_used: "",
@@ -559,7 +563,7 @@ function NewShipment() {
       net_auto: true,
       gross_auto: true,
       unit_price: Number(o.price_per_kg ?? 0),
-      price_currency: ((o.price_currency ?? "EUR") as string),
+      price_currency: ((o.price_currency ?? "EUR") as "EUR" | "USD"),
       offerLocked: true,
     }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
