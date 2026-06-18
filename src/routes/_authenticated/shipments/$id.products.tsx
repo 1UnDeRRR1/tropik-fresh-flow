@@ -222,26 +222,13 @@ type VehicleContext = {
 
 // Phase 0 — legacy products.default_pallet_weight removed. Pallet/net/gross
 // come from pallet_standards via DB resolver only. No product-only fallback.
-type ProductRef = { name: string };
-
-function normalizeProductValue(value: string | null | undefined) {
-  return normalizeProductKey(value);
-}
-
-function isKnownProductName(value: string | null | undefined, products: ProductRef[]) {
-  const normalized = normalizeProductValue(canonicalizeProductName(value));
-  if (!normalized) return false;
-  if (products.some((product) => normalizeProductValue(product.name) === normalized)) return true;
-  // Accept unique prefix match (e.g. "ків" → "Ківі")
-  const resolved = resolveProductOption(value, products.map((p) => p.name));
-  return !!resolved;
-}
+// ProductRef + isKnownProductName moved to @/lib/shipment-row-engine (Build A).
 
 function isValidShipmentItem(item: Pick<ItemRow, "product_name" | "pallet_count">) {
   return (item.product_name ?? "").trim().length > 0 && Number(item.pallet_count ?? 0) > 0;
 }
 
-type RequiredField = "product_name" | "origin_country" | "pallet_count" | "total_weight" | "unit_price";
+// RequiredField moved to @/lib/shipment-row-engine (Build A).
 
 function getMissingFields(item: ItemRow): RequiredField[] {
   const missing: RequiredField[] = [];
