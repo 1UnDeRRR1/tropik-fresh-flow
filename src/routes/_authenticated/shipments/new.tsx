@@ -1084,6 +1084,40 @@ function NewShipment() {
     </div>
   );
 
+  // Transport entry — new vehicle only. Persisted to shipments on final save.
+  const transportField = (
+    <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+        Вартість транспорту (опційно)
+      </Label>
+      <div className="flex gap-2">
+        <Input
+          inputMode="decimal"
+          placeholder="0,00"
+          value={logisticsCostText}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "" || /^[0-9]*[.,]?[0-9]*$/.test(raw)) setLogisticsCostText(raw);
+          }}
+          className="flex-1"
+        />
+        <select
+          value={logisticsCurrency}
+          onChange={(e) => setLogisticsCurrency(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+          <option value="UAH">UAH</option>
+        </select>
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        Збережеться при натисканні «Створити». Розрахунок $/кг — після створення поставки.
+      </div>
+    </div>
+  );
+
+
   const vehicleField = (
     <div className={cn("space-y-1.5", invalid.has("vehicle") && "field-invalid")}>
       <Label>Відкрите авто</Label>
