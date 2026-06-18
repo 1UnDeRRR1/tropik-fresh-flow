@@ -1847,8 +1847,6 @@ function ModeButton({ active, onClick, children }: { active: boolean; onClick: (
   );
 }
 
-const VEHICLE_MAX_PALLETS = 26;
-const VEHICLE_MAX_KG = 21500;
 
 function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
   const loadedP = Number(vehicle.total_pallets ?? 0);
