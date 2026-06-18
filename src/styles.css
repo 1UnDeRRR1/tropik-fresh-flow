@@ -885,7 +885,7 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 .shipment-products-table tbody,
 .shipment-product-card {
   display: block;
-  min-width: 0;
+  min-width: 0 !important;
   width: 100%;
 }
 .shipment-product-card {
