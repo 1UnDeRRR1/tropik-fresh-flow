@@ -2,17 +2,10 @@
 // React Query option factories only. No React, no JSX, no business formulas
 // (those live in src/lib/shipment-row-engine.ts).
 //
-// Scope (frozen for Build B):
-//   * activeCustomsRefsQuery()        — same fetch as $id.products.tsx L627-L638.
-//   * latestEurUsdQuery()             — same fetch as $id.products.tsx L641-L655.
-//   * vehicleContextQuery(vehicleId)  — minimal context shape used by
-//                                       computeRowPreview for new-mode preview
-//                                       on /shipments/new (existing-vehicle).
-//   * palletStandardBoxesPerPalletQuery(productLabel, packageUsed)
-//                                     — read-only boxes_per_pallet for the
-//                                       ящ./пал. chip in /shipments/new.
-//
-// No writes, no schema changes, no new RPCs.
+// Error policy: every factory checks the Supabase `error` and throws it. A
+// failed customs query must surface as a query error — never collapse into
+// empty refs (which would render as a false RED customs result), null FX, or
+// empty vehicle context.
 
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,13 +19,14 @@ export function activeCustomsRefsQuery() {
     queryKey: ["customs-reference-active"] as const,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<ActiveCustomsRef[]> => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("customs_reference")
         .select(
           "id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_markup_usd,euro1_percent",
         )
         .eq("active", true)
         .range(0, 1999);
+      if (error) throw error;
       return (data ?? []) as ActiveCustomsRef[];
     },
   });
@@ -43,7 +37,7 @@ export function latestEurUsdQuery() {
     queryKey: ["fx-eur-usd-latest"] as const,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<number | null> => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("exchange_rates")
         .select("rate")
         .eq("base_currency", "EUR")
@@ -51,6 +45,7 @@ export function latestEurUsdQuery() {
         .order("rate_date", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) throw error;
       return data ? Number((data as { rate: number }).rate) : null;
     },
   });
@@ -63,7 +58,7 @@ export function vehicleContextQuery(vehicleId: string | null | undefined) {
     staleTime: 30_000,
     queryFn: async (): Promise<VehicleContextLike | null> => {
       if (!vehicleId) return null;
-      const [{ data: v }, { data: siblings }] = await Promise.all([
+      const [vRes, sRes] = await Promise.all([
         supabase
           .from("vehicles" as never)
           .select("id,total_pallets,status")
@@ -75,12 +70,15 @@ export function vehicleContextQuery(vehicleId: string | null | undefined) {
           .eq("vehicle_id", vehicleId)
           .order("created_at"),
       ]);
+      if (vRes.error) throw vRes.error;
+      if (sRes.error) throw sRes.error;
+      const v = vRes.data;
       if (!v) return null;
       const vehicle = v as { total_pallets: number | null; status: string | null };
-      // Dedupe shipments by id (same defensive shape used by $id.products.tsx).
+      const siblings = sRes.data ?? [];
       const dedup = Array.from(
         new Map(
-          (siblings ?? []).map((row) => [
+          siblings.map((row) => [
             row.id,
             {
               id: row.id as string,
@@ -99,30 +97,30 @@ export function vehicleContextQuery(vehicleId: string | null | undefined) {
   });
 }
 
-function trimLower(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
-}
-
-export function palletStandardBoxesPerPalletQuery(
-  productLabel: string | null | undefined,
-  packageUsed: string | null | undefined,
+/**
+ * Read boxes_per_pallet for a SPECIFIC pallet_standards row, by exact id.
+ *
+ * The previous draft of this helper guessed a row from
+ * (product_label + package_used + limit(1)), which is non-deterministic and
+ * ignores country. That lookup has been removed. Callers must pass an exact
+ * pallet_standards.id selected by the resolver. Until such an id exists,
+ * /shipments/new must show "—" for Ящ./пал.
+ */
+export function palletStandardBoxesPerPalletByIdQuery(
+  palletStandardId: string | null | undefined,
 ) {
-  const labelKey = trimLower(productLabel);
-  const pkgKey = trimLower(packageUsed);
   return queryOptions({
-    queryKey: ["shipment-row-engine", "pallet-standard-bpp", labelKey, pkgKey] as const,
-    enabled: !!labelKey && !!pkgKey,
+    queryKey: ["shipment-row-engine", "pallet-standard-bpp-by-id", palletStandardId ?? null] as const,
+    enabled: !!palletStandardId,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<number | null> => {
-      if (!labelKey || !pkgKey) return null;
-      // Case-insensitive equality on product_label + package_used.
-      const { data } = await supabase
+      if (!palletStandardId) return null;
+      const { data, error } = await supabase
         .from("pallet_standards")
         .select("boxes_per_pallet")
-        .ilike("product_label", labelKey)
-        .ilike("package_used", pkgKey)
-        .limit(1)
+        .eq("id", palletStandardId)
         .maybeSingle();
+      if (error) throw error;
       const bpp = (data as { boxes_per_pallet?: number | null } | null)?.boxes_per_pallet;
       return bpp != null ? Number(bpp) : null;
     },
