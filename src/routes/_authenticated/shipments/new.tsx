@@ -1294,7 +1294,6 @@ function NewShipment() {
               {vehicleField}
               {vehicleDatesReadOnly}
               {codeField}
-              {etaField}
             </>
           )}
 
