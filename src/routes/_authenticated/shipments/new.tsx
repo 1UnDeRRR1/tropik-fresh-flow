@@ -1284,7 +1284,7 @@ function NewShipment() {
               {countryField}
               {codeField}
               {loadingDateField}
-              {vehicleDatesReadOnly}
+              {etaField}
               {transportField}
             </>
           ) : (
@@ -1292,6 +1292,7 @@ function NewShipment() {
               {supplierField}
               {selectedVehicle ? <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} /> : countryField}
               {vehicleField}
+              {vehicleDatesReadOnly}
               {codeField}
               {etaField}
             </>
