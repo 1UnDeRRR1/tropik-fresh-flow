@@ -1284,7 +1284,7 @@ function NewShipment() {
               {countryField}
               {codeField}
               {loadingDateField}
-              {etaField}
+              {vehicleDatesReadOnly}
               {transportField}
             </>
           ) : (
