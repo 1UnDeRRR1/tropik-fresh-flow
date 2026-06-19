@@ -1210,10 +1210,19 @@ function NewShipment() {
   ) : null;
 
   // Transport entry — new vehicle only. Persisted to shipments on final save.
+  // Build B.3.2B — MANDATORY for a new vehicle. Empty / 0 / negative blocks
+  // header "Далі" and final "+Створити". Field shows red when invalid;
+  // clears the red as soon as a valid positive value is typed.
+  const transportInvalid = invalid.has("logisticsCost");
   const transportField = (
-    <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
+    <div
+      className={cn(
+        "space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3",
+        transportInvalid && "field-invalid",
+      )}
+    >
       <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-        Вартість транспорту (опційно)
+        Вартість перевезення <span className="text-destructive">*</span>
       </Label>
       <div className="flex gap-2">
         <Input
@@ -1222,7 +1231,13 @@ function NewShipment() {
           value={logisticsCostText}
           onChange={(e) => {
             const raw = e.target.value;
-            if (raw === "" || /^[0-9]*[.,]?[0-9]*$/.test(raw)) setLogisticsCostText(raw);
+            if (raw === "" || /^[0-9]*[.,]?[0-9]*$/.test(raw)) {
+              setLogisticsCostText(raw);
+              const n = Number(raw.replace(",", "."));
+              if (raw.trim() !== "" && Number.isFinite(n) && n > 0) {
+                clearInvalid("logisticsCost");
+              }
+            }
           }}
           className="flex-1"
         />
@@ -1233,14 +1248,14 @@ function NewShipment() {
         >
           <option value="EUR">EUR</option>
           <option value="USD">USD</option>
-          <option value="UAH">UAH</option>
         </select>
       </div>
       <div className="text-[11px] text-muted-foreground">
-        Збережеться при натисканні «Створити». Розрахунок $/кг — після створення поставки.
+        Обовʼязково для нового авто. Збережеться при натисканні «Створити».
       </div>
     </div>
   );
+
 
 
   const vehicleField = (
