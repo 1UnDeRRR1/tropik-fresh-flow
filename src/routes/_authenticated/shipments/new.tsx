@@ -613,10 +613,22 @@ function NewShipment() {
     if (mode === "new") {
       if (!country) missing.push("country");
       if (!loadingDate) missing.push("loadingDate");
+      // ETA is mandatory for a new vehicle and must be >= ETD + 1 day.
+      // Re-check at submit time — covers the case where ETD was moved
+      // forward AFTER a valid ETA was chosen.
+      if (!computedEta) {
+        missing.push("eta");
+      } else if (minEta && computedEta < minEta) {
+        missing.push("eta");
+      }
     } else {
       if (!selectedVehicle) missing.push("vehicle");
     }
     if (missing.length) {
+      if (missing.includes("eta") && mode === "new") {
+        if (!computedEta) toast.error("Вкажіть дату прибуття (ETA)");
+        else toast.error("ETA не може бути раніше за ETD + 1 день");
+      }
       triggerShake(missing);
       return;
     }
