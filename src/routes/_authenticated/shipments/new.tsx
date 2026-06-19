@@ -1581,7 +1581,10 @@ function NewShipment() {
                   countryAliases={countryAliases}
                   supplierName={selectedSupplier?.name || ""}
                   shipmentCode={code}
+                  preview={previewByLocalId.get(r.localId) ?? null}
+                  vehicleTransportLabel={vehicleTransportLabel}
                 />
+
               ))}
 
               {/* Footer buttons — approved mockup */}
