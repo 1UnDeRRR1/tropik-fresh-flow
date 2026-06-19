@@ -1679,6 +1679,8 @@ function DraftRowCard({
   countryAliases,
   supplierName,
   shipmentCode,
+  preview,
+  vehicleTransportLabel,
 }: {
   row: DraftRowShape;
   index: number;
@@ -1691,7 +1693,10 @@ function DraftRowCard({
   countryAliases: Record<string, string>;
   supplierName: string;
   shipmentCode: string;
+  preview: DraftPreview | null;
+  vehicleTransportLabel: string | null;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
   const varieties = useVarietiesFor(row.product_name);
   const { data: palletResolved } = usePalletResolver(row.product_name, row.origin_country);
