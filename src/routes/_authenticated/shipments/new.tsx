@@ -633,6 +633,90 @@ function NewShipment() {
     return { ok: true, value: n };
   };
 
+  // B.3.2C.1 — live preview wiring. Existing engine + service only. No new
+  // queries, no formulas, no DB writes. Reuses computeRowPreview verbatim.
+  const customsRefsQ = useQuery(activeCustomsRefsQuery());
+  const fxQ = useQuery(latestEurUsdQuery());
+  const vehicleContextQ = useQuery(
+    vehicleContextQuery(mode === "existing" ? (vehicleId || null) : null),
+  );
+  const fx = fxQ.data ?? null;
+  const fxFailed = !!fxQ.error || fx == null;
+
+  // Vehicle transport → USD (new vehicle only). USD: passthrough. EUR: needs FX.
+  const transportUsd = useMemo<number | null>(() => {
+    if (mode !== "new") return null;
+    const t = logisticsCostText.trim().replace(",", ".");
+    if (!t) return null;
+    const n = Number(t);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    if (logisticsCurrency === "USD") return n;
+    if (logisticsCurrency === "EUR") {
+      if (!fx) return null;
+      return n * fx;
+    }
+    return null;
+  }, [mode, logisticsCostText, logisticsCurrency, fx]);
+
+  // Preview shipment context (LOCAL only — never persisted before +Створити).
+  const previewSh = useMemo(() => {
+    if (mode === "new") {
+      if (transportUsd == null) return null;
+      return { eur_usd_rate: fx, vehicle_id: null, logistics_cost_usd: transportUsd };
+    }
+    // existing: vehicle freight comes from vehicleContext.shipments; new
+    // shipment row's own logistics is null and stays null until +Створити.
+    return { eur_usd_rate: fx, vehicle_id: vehicleId || null, logistics_cost_usd: null };
+  }, [mode, transportUsd, fx, vehicleId]);
+
+  const previewByLocalId = useMemo(() => {
+    const map = new Map<string, DraftPreview>();
+    const refs = customsRefsQ.data ?? null;
+    const vctx = vehicleContextQ.data ?? null;
+    for (const r of draftRows) {
+      const { value, components } = computeRowPreview(
+        r,
+        null,
+        previewSh,
+        vctx,
+        refs,
+        fx,
+        productRefs,
+        false,
+        null,
+      );
+      let reason: string | null = null;
+      if (customsRefsQ.error) {
+        reason = "Митні дані недоступні.";
+      } else if (r.price_currency === "EUR" && r.unit_price > 0 && !fx) {
+        reason = "Курс EUR/USD недоступний. Введіть значення вручну в USD";
+      } else if (mode === "new" && logisticsCurrency === "EUR" && logisticsCostText.trim() && !fx) {
+        reason = "Курс EUR/USD недоступний. Введіть значення вручну в USD";
+      } else if (!value) {
+        reason = "Заповніть обов'язкові поля";
+      }
+      map.set(r.localId, { value, components, reason });
+    }
+    return map;
+  }, [
+    draftRows,
+    previewSh,
+    vehicleContextQ.data,
+    customsRefsQ.data,
+    customsRefsQ.error,
+    fx,
+    productRefs,
+    mode,
+    logisticsCurrency,
+    logisticsCostText,
+  ]);
+
+  // Used by Details to show the whole-vehicle transport line.
+  const vehicleTransportLabel = mode === "new" && logisticsCostText.trim()
+    ? `${logisticsCostText.trim()} ${logisticsCurrency}`
+    : null;
+
+
   const onHeaderNext = (e: FormEvent) => {
     e.preventDefault();
     const missing: string[] = [];
