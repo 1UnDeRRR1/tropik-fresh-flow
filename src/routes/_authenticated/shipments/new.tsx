@@ -1971,22 +1971,116 @@ function DraftRowCard({
           </PillSlot>
         </div>
 
-        {/* Розрахунок собівартості — заповнюється після створення поставки. */}
-        <div className="mt-2 rounded-xl border border-border/60 bg-background/40 p-2.5">
-          <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <span>Розрахунок собівартості</span>
-            <span className="text-[10px] font-normal text-muted-foreground/70">після створення</span>
-          </div>
-          <div className="space-y-0.5 text-[11.5px] tabular-nums">
-            <div className="flex justify-between"><span className="text-muted-foreground">FX EUR/USD</span><span className="font-medium">—</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Митниця</span><span className="font-medium text-muted-foreground/70">—</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Транспорт, $/кг</span><span className="font-medium">—</span></div>
-          </div>
-          <div className="mt-1.5 flex items-center justify-between border-t border-border/40 pt-1.5 text-[12px] font-bold tabular-nums">
-            <span>Собівартість</span>
-            <span className="text-muted-foreground/70">— / —</span>
-          </div>
-        </div>
+        {/* B.3.2C.1 — live cost block. All values come from computeRowPreview
+            in the parent; this card never recomputes FX/customs/transport. */}
+        {(() => {
+          const c = preview?.components;
+          const v = preview?.value ?? null;
+          const reason = preview?.reason ?? null;
+          const fmt2 = (n: number | null | undefined) =>
+            n != null && Number.isFinite(n) ? n.toFixed(2) : "—";
+          const fmt4 = (n: number | null | undefined) =>
+            n != null && Number.isFinite(n) ? n.toFixed(4) : "—";
+          const showFxLine =
+            !!(c?.fxRate) ||
+            (vehicleTransportLabel ? /EUR/i.test(vehicleTransportLabel) : false);
+          const basisLabel =
+            c?.customsBasis === "exact" ? "знайдено"
+            : c?.customsBasis === "fallback" ? "країну не знайдено"
+            : c?.customsBasis === "manual" ? "вручну"
+            : "не знайдена";
+          const usedEur = c?.inputCurrency === "EUR" || (vehicleTransportLabel ? /EUR/i.test(vehicleTransportLabel) : false);
+          return (
+            <div className="mt-2 rounded-xl border border-border/60 bg-background/40 p-2.5">
+              <div className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Розрахунок собівартості</span>
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((x) => !x)}
+                  className="inline-flex items-center gap-0.5 text-[10px] font-medium text-primary hover:opacity-80"
+                >
+                  Деталі {detailsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+              </div>
+
+              <div className="space-y-0.5 text-[11.5px] tabular-nums">
+                {showFxLine && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Курс EUR/USD</span>
+                    <span className="font-medium">{fmt4(c?.fxRate ?? null)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Митна база</span>
+                  <span className="font-medium">{basisLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Вартість перевезення, $/кг</span>
+                  <span className="font-medium">{fmt4(c?.transportPerKg ?? null)}</span>
+                </div>
+              </div>
+
+              <div className="mt-1.5 flex items-center justify-between border-t border-border/40 pt-1.5 text-[12px] font-bold tabular-nums">
+                <span>Собівартість, $/кг</span>
+                {v ? (
+                  <CostPair indicative={v.indicative} invoice={v.invoice} size="sm" />
+                ) : (
+                  <span className="text-[10px] font-medium text-muted-foreground/80">
+                    {reason ?? "Заповніть обов'язкові поля"}
+                  </span>
+                )}
+              </div>
+
+              {detailsOpen && (
+                <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2 text-[11px] tabular-nums">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ціна товару</span>
+                    <span className="font-medium">
+                      {c?.inputPrice != null ? `${fmt2(c.inputPrice)} ${c.inputCurrency ?? ""}` : "—"}
+                    </span>
+                  </div>
+                  {usedEur && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Курс EUR/USD</span>
+                      <span className="font-medium">{fmt4(c?.fxRate ?? null)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ціна товару, $/кг</span>
+                    <span className="font-medium">{fmt4(c?.unitUsd ?? null)}</span>
+                  </div>
+                  {vehicleTransportLabel && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Вартість транспорту (авто)</span>
+                      <span className="font-medium">{vehicleTransportLabel}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Вартість перевезення, $/кг</span>
+                    <span className="font-medium">{fmt4(c?.transportPerKg ?? null)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Мито індикатив, $/кг</span>
+                    <span className="font-medium">{fmt4(c?.customsIndicative ?? null)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Мито інвойс, $/кг</span>
+                    <span className="font-medium">{fmt4(c?.customsInvoice ?? null)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Собівартість індикативна, $/кг</span>
+                    <span className="font-medium">{v ? fmt4(v.indicative) : "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Собівартість інвойсна, $/кг</span>
+                    <span className="font-medium">{v ? fmt4(v.invoice) : "—"}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       </div>
     </section>
   );
