@@ -1,8 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, useCallback, type FormEvent } from "react";
-import { Truck, Plus, Lock, AlertTriangle } from "lucide-react";
+import { Truck, Plus, Lock, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { CostPair } from "@/components/CostPair";
+import {
+  activeCustomsRefsQuery,
+  latestEurUsdQuery,
+  vehicleContextQuery,
+} from "@/lib/shipment-row-service";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -38,10 +44,18 @@ import { VelvetCosmicCreateButton } from "@/components/VelvetCosmicCreateButton"
 import {
   type DraftRow as EngineDraftRow,
   type ProductRef,
+  type RowComponents,
+  computeRowPreview,
   getMissingDraftFields,
   isNetGreaterThanGross,
   sumCapacity,
 } from "@/lib/shipment-row-engine";
+
+type DraftPreview = {
+  value: { indicative: number; invoice: number } | null;
+  components: RowComponents;
+  reason: string | null;
+};
 
 const MAX_PALLETS_PER_OFFER_DRAFT = 26;
 const TARGET_KG_PER_OFFER_DRAFT = 21000;
