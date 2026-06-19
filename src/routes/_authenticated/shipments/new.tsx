@@ -784,18 +784,30 @@ function NewShipment() {
     }
 
     // Parse transport (new vehicle only).
+    // Build B.3.2B — defensive gate. Transport is MANDATORY for a new
+    // vehicle: empty / 0 / negative / non-finite all block the save and
+    // create NO vehicle / shipment / items / positions / FIFO parts.
     let logisticsCostNum: number | null = null;
     if (mode === "new") {
-      const t = logisticsCostText.trim().replace(",", ".");
-      if (t) {
-        const n = Number(t);
-        if (!Number.isFinite(n) || n < 0) {
-          toast.error("Вартість транспорту: некоректне число");
-          return;
-        }
-        logisticsCostNum = n;
+      const tp = parseLogisticsCost();
+      if (!tp.ok) {
+        toast.error(
+          tp.reason === "empty"
+            ? "Вкажіть вартість перевезення"
+            : tp.reason === "non_positive"
+              ? "Вартість перевезення має бути більше 0"
+              : "Вартість перевезення: некоректне число",
+        );
+        setInvalid((prev) => {
+          const next = new Set(prev);
+          next.add("logisticsCost");
+          return next;
+        });
+        return;
       }
+      logisticsCostNum = tp.value;
     }
+
 
     setSubmitting(true);
     let createdVehicleId: string | null = null;
