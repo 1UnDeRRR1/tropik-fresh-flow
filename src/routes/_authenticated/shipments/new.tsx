@@ -1108,7 +1108,7 @@ function NewShipment() {
     return toDateInputValue(d);
   })();
   const etaField = (
-    <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
+    <div className={cn("space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3", invalid.has("eta") && "field-invalid")}>
       <Label htmlFor="eta-new" className="text-xs uppercase tracking-wider text-muted-foreground">
         Дата прибуття (ETA)
       </Label>
@@ -1125,6 +1125,7 @@ function NewShipment() {
           }
           setEtaOverride(v);
           setEtaTouched(true);
+          if (v) clearInvalid("eta");
         }}
       />
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -1150,6 +1151,22 @@ function NewShipment() {
       </div>
     </div>
   );
+
+  // Read-only ETD/ETA rows for "existing vehicle" mode. Dates belong to the
+  // selected open vehicle and MUST NOT be editable here — no input, no
+  // picker, no override state copy.
+  const vehicleDatesReadOnly = selectedVehicle ? (
+    <div className="rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-xs space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground uppercase tracking-wider text-[11px]">ETD (завантаження авто)</span>
+        <span className="font-semibold tabular-nums">{selectedVehicle.loading_date ?? "—"}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground uppercase tracking-wider text-[11px]">ETA (прибуття авто)</span>
+        <span className="font-semibold tabular-nums">{selectedVehicle.eta ?? "—"}</span>
+      </div>
+    </div>
+  ) : null;
 
   // Transport entry — new vehicle only. Persisted to shipments on final save.
   const transportField = (
