@@ -606,6 +606,19 @@ function NewShipment() {
   // Build 3 — header step does NO DB writes. Just validates the header form
   // and advances to the product-draft step. The single save boundary is
   // finalSave() invoked by "Готово" on the draft step.
+  // Build B.3.2B — parses the transport input the same way finalSave does.
+  // Returns the parsed number when valid, or a reason code otherwise.
+  const parseLogisticsCost = ():
+    | { ok: true; value: number }
+    | { ok: false; reason: "empty" | "invalid" | "non_positive" } => {
+    const t = logisticsCostText.trim().replace(",", ".");
+    if (!t) return { ok: false, reason: "empty" };
+    const n = Number(t);
+    if (!Number.isFinite(n)) return { ok: false, reason: "invalid" };
+    if (n <= 0) return { ok: false, reason: "non_positive" };
+    return { ok: true, value: n };
+  };
+
   const onHeaderNext = (e: FormEvent) => {
     e.preventDefault();
     const missing: string[] = [];
@@ -621,6 +634,10 @@ function NewShipment() {
       } else if (minEta && computedEta < minEta) {
         missing.push("eta");
       }
+      // Build B.3.2B — transport is MANDATORY for a new vehicle.
+      // Empty / 0 / negative / non-finite all block the transition.
+      const tp = parseLogisticsCost();
+      if (!tp.ok) missing.push("logisticsCost");
     } else {
       if (!selectedVehicle) missing.push("vehicle");
     }
@@ -628,6 +645,18 @@ function NewShipment() {
       if (missing.includes("eta") && mode === "new") {
         if (!computedEta) toast.error("Вкажіть дату прибуття (ETA)");
         else toast.error("ETA не може бути раніше за ETD + 1 день");
+      }
+      if (missing.includes("logisticsCost") && mode === "new") {
+        const tp = parseLogisticsCost();
+        if (!tp.ok) {
+          toast.error(
+            tp.reason === "empty"
+              ? "Вкажіть вартість перевезення"
+              : tp.reason === "non_positive"
+                ? "Вартість перевезення має бути більше 0"
+                : "Вартість перевезення: некоректне число",
+          );
+        }
       }
       triggerShake(missing);
       return;
