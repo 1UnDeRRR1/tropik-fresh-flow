@@ -126,7 +126,6 @@ function NewShipment() {
   const [loadingDate, setLoadingDate] = useState<string>("");
   const [supplierId, setSupplierId] = useState<string>("");
   const [code, setCode] = useState<string>("");
-  const [codeOverride, setCodeOverride] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [etaOverride, setEtaOverride] = useState<string>("");
   const [etaTouched, setEtaTouched] = useState(false);
@@ -587,9 +586,8 @@ function NewShipment() {
     enabled: !loading && !!user && isStaff && !!supplierId,
   });
 
-  // Auto-generate code preview: ALIAS-XXX-VVV-YYY
+  // Auto-generate code preview: ALIAS-XXX-VVV-YYY (always automatic, no manual override).
   useEffect(() => {
-    if (codeOverride) return;
     if (!selectedSupplier) { setCode(""); return; }
     const alias = getSupplierAlias(selectedSupplier);
     const supSeqStr = previewSupSeq ? String(previewSupSeq).padStart(3, "0") : "···";
@@ -603,7 +601,7 @@ function NewShipment() {
     } else {
       setCode("");
     }
-  }, [mode, selectedVehicle, selectedSupplier, country, codeOverride, previewSeq, previewSupSeq]);
+  }, [mode, selectedVehicle, selectedSupplier, country, previewSeq, previewSupSeq]);
 
   // Build 3 — header step does NO DB writes. Just validates the header form
   // and advances to the product-draft step. The single save boundary is
@@ -821,7 +819,7 @@ function NewShipment() {
       const alias = getSupplierAlias(selectedSupplier!);
       const supplierSeq = await fetchNextSupplierSequence(supplierId);
       const autoCode = formatShipmentCode({ alias, supplierSeq, vehicleCode: vCode });
-      const finalCode = codeOverride && code.trim() ? code.trim() : autoCode;
+      const finalCode = autoCode;
 
       const shipmentId = crypto.randomUUID();
 
@@ -1046,23 +1044,15 @@ function NewShipment() {
   const codeField = (
     <div className="space-y-1.5">
       <Label htmlFor="code">Номер поставки</Label>
-      <div className="flex gap-2">
-        <Input
-          id="code"
-          value={code}
-          onChange={(e) => { setCode(e.target.value); setCodeOverride(true); }}
-          readOnly={!codeOverride}
-          placeholder="GR29-OLI"
-          className={cn(!codeOverride && "bg-secondary/40 font-mono")}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setCodeOverride((v) => !v)}
-        >
-          {codeOverride ? "Авто" : "✎"}
-        </Button>
+      <Input
+        id="code"
+        value={code}
+        readOnly
+        placeholder="GR29-OLI"
+        className="bg-secondary/40 font-mono"
+      />
+      <div className="text-[11px] text-muted-foreground">
+        Номер формується автоматично. Остаточний — після створення.
       </div>
     </div>
   );
@@ -1096,6 +1086,15 @@ function NewShipment() {
     </div>
   );
 
+  // ETA cannot be earlier than ETD + 1 day.
+  const minEta = (() => {
+    const base = loadingDate || minLoadingDate;
+    if (!base) return "";
+    const d = new Date(base);
+    if (Number.isNaN(d.getTime())) return "";
+    d.setDate(d.getDate() + 1);
+    return toDateInputValue(d);
+  })();
   const etaField = (
     <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
       <Label htmlFor="eta-new" className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -1104,9 +1103,15 @@ function NewShipment() {
       <Input
         id="eta-new"
         type="date"
+        min={minEta || undefined}
         value={computedEta}
         onChange={(e) => {
-          setEtaOverride(e.target.value);
+          const v = e.target.value;
+          if (v && minEta && v < minEta) {
+            toast.error("ETA не може бути раніше за ETD + 1 день");
+            return;
+          }
+          setEtaOverride(v);
           setEtaTouched(true);
         }}
       />
@@ -1295,7 +1300,7 @@ function NewShipment() {
             source_offer_freight_currency: null,
             product_name: "",
             variety: "",
-            origin_country: country || "",
+            origin_country: "",
             caliber: "",
             sku: "",
             brand: "",
@@ -1326,7 +1331,7 @@ function NewShipment() {
               source_offer_freight_currency: null,
               product_name: last?.product_name ?? "",
               variety: last?.variety ?? "",
-              origin_country: last?.origin_country ?? (country || ""),
+              origin_country: last?.origin_country ?? "",
               caliber: last?.caliber ?? "",
               sku: "",
               brand: last?.brand ?? "",
@@ -1391,7 +1396,7 @@ function NewShipment() {
                   productAliases={productAliases}
                   countryOptions={countryOptions}
                   countryAliases={countryAliases}
-                  supplierBrand={selectedSupplier?.alias || selectedSupplier?.name || ""}
+                  supplierName={selectedSupplier?.name || ""}
                   shipmentCode={code}
                 />
               ))}
@@ -1486,7 +1491,7 @@ function DraftRowCard({
   productAliases,
   countryOptions,
   countryAliases,
-  supplierBrand,
+  supplierName,
   shipmentCode,
 }: {
   row: DraftRowShape;
@@ -1498,7 +1503,7 @@ function DraftRowCard({
   productAliases: Record<string, string>;
   countryOptions: string[];
   countryAliases: Record<string, string>;
-  supplierBrand: string;
+  supplierName: string;
   shipmentCode: string;
 }) {
   const tooManyOffer = offerPending != null && row.pallet_count > offerPending;
@@ -1538,8 +1543,9 @@ function DraftRowCard({
   }, [row.gross_weight_kg]);
 
   const pillInput = "snp-pill-input";
-  const headerTitle = (supplierBrand || row.product_name || `Товар №${index + 1}`).toUpperCase();
-  const headerSub = shipmentCode || `${row.pallet_count || 0} пал · ${Math.round(row.net_weight_kg) || 0} кг`;
+  // Header shows ONLY supplier name. No fallback to product/brand. Empty supplier → dash.
+  const headerTitle = (supplierName || "—").toUpperCase();
+  const headerSub = shipmentCode || `Товар №${index + 1}`;
 
   const handlePalletCountChange = (raw: string) => {
     const n = Number(raw) || 0;
@@ -1555,11 +1561,12 @@ function DraftRowCard({
 
   return (
     <section className="snp-card rounded-2xl border border-border bg-card p-3 shadow">
-      {/* Header */}
+      {/* Header — single row: Постачальник · Номер · Видалити */}
       <div className="mb-2.5 flex items-center justify-between gap-3 border-b border-border/60 pb-2">
-        <div className="min-w-0">
-          <div className="truncate text-[15px] font-semibold leading-tight uppercase">{headerTitle}</div>
-          <div className="truncate text-[11px] text-muted-foreground">{headerSub}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate text-[15px] font-semibold leading-tight uppercase">{headerTitle}</span>
+          <span className="shrink-0 text-border">·</span>
+          <span className="truncate text-[11px] font-medium text-muted-foreground tabular-nums">{headerSub}</span>
         </div>
         <button
           type="button"
@@ -1634,17 +1641,23 @@ function DraftRowCard({
             />
           </PillSlot>
           <PillSlot label="Клас" hasValue={!!row.class}>
-            <input
+            <select
               value={row.class}
               onChange={(e) => onChange({ class: e.target.value })}
-              placeholder="Клас"
-              className={pillInput}
-            />
+              className={cn(pillInput, "appearance-none bg-transparent")}
+            >
+              <option value="">Клас</option>
+              <option value="екстра">екстра</option>
+              <option value="1ий">1ий</option>
+              <option value="1біс">1біс</option>
+              <option value="2ий">2ий</option>
+              <option value="індустрі">індустрі</option>
+            </select>
           </PillSlot>
         </div>
 
         {/* Упаковка — full width */}
-        <PillSlot label="Упаковка" required hasValue={!!row.package_used}>
+        <PillSlot label="Пакування" required hasValue={!!row.package_used}>
           <InlineAutocomplete
             value={row.package_used}
             onValueChange={(v) => onChange({ package_used: v })}
@@ -1664,7 +1677,7 @@ function DraftRowCard({
               if (row.gross_auto && grossPer && pc > 0) patch.gross_weight_kg = pc * grossPer;
               onChange(patch);
             }}
-            placeholder={row.product_name ? "Упаковка" : "Спочатку виберіть товар"}
+            placeholder={row.product_name ? "Пакування" : "Спочатку виберіть товар"}
             expandedMinWidth={240}
             browseLimit={50}
             searchLimit={3}
@@ -1691,11 +1704,15 @@ function DraftRowCard({
             errored={tooManyOffer}
           >
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={1}
               value={row.pallet_count || ""}
-              onChange={(e) => handlePalletCountChange(e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Pallet count is an integer; allow only digits.
+                if (raw !== "" && !/^[0-9]+$/.test(raw)) return;
+                handlePalletCountChange(raw);
+              }}
               placeholder="Палет"
               className={pillInput}
             />
