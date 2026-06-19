@@ -606,6 +606,19 @@ function NewShipment() {
   // Build 3 — header step does NO DB writes. Just validates the header form
   // and advances to the product-draft step. The single save boundary is
   // finalSave() invoked by "Готово" on the draft step.
+  // Build B.3.2B — parses the transport input the same way finalSave does.
+  // Returns the parsed number when valid, or a reason code otherwise.
+  const parseLogisticsCost = ():
+    | { ok: true; value: number }
+    | { ok: false; reason: "empty" | "invalid" | "non_positive" } => {
+    const t = logisticsCostText.trim().replace(",", ".");
+    if (!t) return { ok: false, reason: "empty" };
+    const n = Number(t);
+    if (!Number.isFinite(n)) return { ok: false, reason: "invalid" };
+    if (n <= 0) return { ok: false, reason: "non_positive" };
+    return { ok: true, value: n };
+  };
+
   const onHeaderNext = (e: FormEvent) => {
     e.preventDefault();
     const missing: string[] = [];
@@ -621,6 +634,10 @@ function NewShipment() {
       } else if (minEta && computedEta < minEta) {
         missing.push("eta");
       }
+      // Build B.3.2B — transport is MANDATORY for a new vehicle.
+      // Empty / 0 / negative / non-finite all block the transition.
+      const tp = parseLogisticsCost();
+      if (!tp.ok) missing.push("logisticsCost");
     } else {
       if (!selectedVehicle) missing.push("vehicle");
     }
@@ -628,6 +645,18 @@ function NewShipment() {
       if (missing.includes("eta") && mode === "new") {
         if (!computedEta) toast.error("Вкажіть дату прибуття (ETA)");
         else toast.error("ETA не може бути раніше за ETD + 1 день");
+      }
+      if (missing.includes("logisticsCost") && mode === "new") {
+        const tp = parseLogisticsCost();
+        if (!tp.ok) {
+          toast.error(
+            tp.reason === "empty"
+              ? "Вкажіть вартість перевезення"
+              : tp.reason === "non_positive"
+                ? "Вартість перевезення має бути більше 0"
+                : "Вартість перевезення: некоректне число",
+          );
+        }
       }
       triggerShake(missing);
       return;
@@ -755,18 +784,30 @@ function NewShipment() {
     }
 
     // Parse transport (new vehicle only).
+    // Build B.3.2B — defensive gate. Transport is MANDATORY for a new
+    // vehicle: empty / 0 / negative / non-finite all block the save and
+    // create NO vehicle / shipment / items / positions / FIFO parts.
     let logisticsCostNum: number | null = null;
     if (mode === "new") {
-      const t = logisticsCostText.trim().replace(",", ".");
-      if (t) {
-        const n = Number(t);
-        if (!Number.isFinite(n) || n < 0) {
-          toast.error("Вартість транспорту: некоректне число");
-          return;
-        }
-        logisticsCostNum = n;
+      const tp = parseLogisticsCost();
+      if (!tp.ok) {
+        toast.error(
+          tp.reason === "empty"
+            ? "Вкажіть вартість перевезення"
+            : tp.reason === "non_positive"
+              ? "Вартість перевезення має бути більше 0"
+              : "Вартість перевезення: некоректне число",
+        );
+        setInvalid((prev) => {
+          const next = new Set(prev);
+          next.add("logisticsCost");
+          return next;
+        });
+        return;
       }
+      logisticsCostNum = tp.value;
     }
+
 
     setSubmitting(true);
     let createdVehicleId: string | null = null;
@@ -1169,10 +1210,19 @@ function NewShipment() {
   ) : null;
 
   // Transport entry — new vehicle only. Persisted to shipments on final save.
+  // Build B.3.2B — MANDATORY for a new vehicle. Empty / 0 / negative blocks
+  // header "Далі" and final "+Створити". Field shows red when invalid;
+  // clears the red as soon as a valid positive value is typed.
+  const transportInvalid = invalid.has("logisticsCost");
   const transportField = (
-    <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3">
+    <div
+      className={cn(
+        "space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3",
+        transportInvalid && "field-invalid",
+      )}
+    >
       <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-        Вартість транспорту (опційно)
+        Вартість перевезення <span className="text-destructive">*</span>
       </Label>
       <div className="flex gap-2">
         <Input
@@ -1181,7 +1231,13 @@ function NewShipment() {
           value={logisticsCostText}
           onChange={(e) => {
             const raw = e.target.value;
-            if (raw === "" || /^[0-9]*[.,]?[0-9]*$/.test(raw)) setLogisticsCostText(raw);
+            if (raw === "" || /^[0-9]*[.,]?[0-9]*$/.test(raw)) {
+              setLogisticsCostText(raw);
+              const n = Number(raw.replace(",", "."));
+              if (raw.trim() !== "" && Number.isFinite(n) && n > 0) {
+                clearInvalid("logisticsCost");
+              }
+            }
           }}
           className="flex-1"
         />
@@ -1192,14 +1248,14 @@ function NewShipment() {
         >
           <option value="EUR">EUR</option>
           <option value="USD">USD</option>
-          <option value="UAH">UAH</option>
         </select>
       </div>
       <div className="text-[11px] text-muted-foreground">
-        Збережеться при натисканні «Створити». Розрахунок $/кг — після створення поставки.
+        Обовʼязково для нового авто. Збережеться при натисканні «Створити».
       </div>
     </div>
   );
+
 
 
   const vehicleField = (
