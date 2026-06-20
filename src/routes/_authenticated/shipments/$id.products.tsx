@@ -1644,6 +1644,15 @@ function ProductsFullscreen() {
           vehicleContext={effectiveVehicleContext}
           canEditTransport={canEditTransport}
           flash={flashTransport}
+          value={
+            draftTransport
+              ? draftTransport.amount
+              : baselineTransport.amount == null || Number(baselineTransport.amount) === 0
+                ? ""
+                : String(baselineTransport.amount)
+          }
+          currency={draftTransport ? draftTransport.currency : baselineTransport.currency}
+          onChange={(amount, currency) => setDraftTransport({ amount, currency })}
         />
       )}
       {effectiveVehicleContext && (
