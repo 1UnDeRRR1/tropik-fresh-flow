@@ -1799,68 +1799,39 @@ function TransportBar({
   vehicleContext,
   canEditTransport,
   flash,
+  value,
+  currency,
+  onChange,
 }: {
   shipment: ShipmentRow;
   currentUserId: string | null;
   vehicleContext: VehicleContext | null;
   canEditTransport: boolean;
   flash?: boolean;
+  value: string;
+  currency: "EUR" | "USD";
+  onChange: (amount: string, currency: "EUR" | "USD") => void;
 }) {
+  // SURGICAL RECOVERY — controlled component. No useState/useRef/useEffect for the
+  // amount/currency, no debounce, no supabase, no autosave. The parent owns
+  // draftTransport and only commitDraft writes to the DB.
   const lockedByOwner =
     !!shipment.vehicle_id &&
     !!shipment.vehicle_owner_id &&
     !!currentUserId &&
     shipment.vehicle_owner_id !== currentUserId;
-  const qc = useQueryClient();
-  const transportShipment = vehicleContext?.ownerShipment?.id === shipment.id
-    ? shipment
-    : vehicleContext?.ownerShipment
-      ? {
-          logistics_cost: vehicleContext.ownerShipment.logistics_cost,
-          logistics_cost_currency: vehicleContext.ownerShipment.logistics_cost_currency,
-        }
-      : shipment;
-  const [val, setVal] = useState<string>(
-    transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0 ? "" : String(transportShipment.logistics_cost),
-  );
-  const [cur, setCur] = useState<string>(transportShipment.logistics_cost_currency ?? "EUR");
-  const dirty = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const isEmpty = val === "" || Number(val.replace(",", ".")) <= 0;
-
-  useEffect(() => {
-    if (dirty.current) return;
-    setVal(
-      transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0
-        ? ""
-        : String(transportShipment.logistics_cost),
-    );
-    setCur(transportShipment.logistics_cost_currency ?? "EUR");
-  }, [transportShipment.logistics_cost, transportShipment.logistics_cost_currency]);
-
-  useEffect(() => {
-    if (!dirty.current) return;
-    const t = setTimeout(async () => {
-      const normalized = val.replace(",", ".");
-      // Skip incomplete numbers like "1." or "1,"
-      if (/[.,]$/.test(val)) return;
-      const num = normalized === "" ? 0 : Number(normalized);
-      if (Number.isNaN(num)) return;
-      const { error } = await supabase
-        .from("shipments")
-        .update({ logistics_cost: num, logistics_cost_currency: cur })
-        .eq("id", shipment.id);
-      if (error) toast.error(error.message);
-      else {
-        dirty.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipment.id] });
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [val, cur, shipment.id, qc]);
+  const isEmpty = value === "" || Number(value.replace(",", ".")) <= 0;
 
   if (lockedByOwner || !canEditTransport) {
+    // Read-only view always reflects the persisted DB value, not the controlled draft.
+    const baseAmount =
+      vehicleContext?.ownerShipment?.logistics_cost ?? shipment.logistics_cost;
+    const baseCur =
+      vehicleContext?.ownerShipment?.logistics_cost_currency ??
+      shipment.logistics_cost_currency ??
+      "EUR";
+    const baseEmpty = baseAmount == null || Number(baseAmount) <= 0;
     const route = toUaCountry(vehicleContext?.vehicle.country ?? shipment.country) || "—";
     return (
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1">
@@ -1868,7 +1839,7 @@ function TransportBar({
           Транспорт
         </span>
         <span className="text-[12px] font-semibold text-foreground">
-          {isEmpty ? "—" : `${val} ${cur}`}
+          {baseEmpty ? "—" : `${baseAmount} ${baseCur}`}
         </span>
         <span className="truncate text-[10px] text-muted-foreground">
           · {route}{vehicleContext?.ownerName ? ` · ${vehicleContext.ownerName}` : ""}
@@ -1898,7 +1869,7 @@ function TransportBar({
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
         placeholder="Перевезення авто"
-        value={val}
+        value={value}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -1912,8 +1883,8 @@ function TransportBar({
           // Visual cue only: the field already pulses red while empty.
         }}
         onChange={(e) => {
-          dirty.current = true;
-          setVal(e.target.value.replace(/[^\d.,-]/g, ""));
+          const next = e.target.value.replace(/[^\d.,-]/g, "");
+          onChange(next, currency);
         }}
         className={cn(
           "h-7 flex-1 px-2 text-[12px]",
@@ -1921,8 +1892,8 @@ function TransportBar({
         )}
       />
       <select
-        value={cur}
-        onChange={(e) => { dirty.current = true; setCur(e.target.value); }}
+        value={currency}
+        onChange={(e) => onChange(value, e.target.value as "EUR" | "USD")}
         className="h-7 rounded-md border border-input bg-background px-1.5 text-[11px]"
       >
         <option value="EUR">EUR</option>
