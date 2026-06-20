@@ -832,13 +832,18 @@ function ProductsFullscreen() {
   const draftCurrency: "EUR" | "USD" = draftTransport?.currency ?? baselineTransport.currency;
 
   // FX selection mirrors DB calc_shipment_logistics_usd: snapshot first, latest fallback.
+  // SURGICAL RECOVERY — after a successful transport UPDATE we may still be
+  // mid-commit (downstream step failed); `sh` is stale until refetch lands,
+  // so the freshly-persisted snapshot (persistedTransport.eurUsdRate) wins.
   const isValidFx = (x: number | null | undefined): x is number =>
     typeof x === "number" && Number.isFinite(x) && x > 0;
-  const effectiveFx = isValidFx(sh?.eur_usd_rate)
-    ? Number(sh!.eur_usd_rate)
-    : isValidFx(latestEurUsd ?? null)
-      ? Number(latestEurUsd)
-      : null;
+  const effectiveFx = isValidFx(persistedTransport?.eurUsdRate ?? null)
+    ? Number(persistedTransport!.eurUsdRate)
+    : isValidFx(sh?.eur_usd_rate)
+      ? Number(sh!.eur_usd_rate)
+      : isValidFx(latestEurUsd ?? null)
+        ? Number(latestEurUsd)
+        : null;
 
   // Local preview USD for the transport amount.
   // null = "no working FX for EUR" -> do NOT override persisted preview.
@@ -894,12 +899,16 @@ function ProductsFullscreen() {
     for (const d of draftItems) {
       const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
       const baseline = d.dbId ? baselinesRef.current.get(d.dbId) ?? null : null;
-      const isDirty = d.dbId == null || !baseline || isDraftDirty(d, baseline);
+      // SURGICAL RECOVERY — split two notions:
+      //  - rowDirty:        row-level field changes (drives customs safety).
+      //  - useLiveCost:     also true when only transport draft changed, so
+      //                     the main CostPair shows preview.value instead of
+      //                     stale dbItem.final_cost_* values.
+      const rowDirty = d.dbId == null || !baseline || isDraftDirty(d, baseline);
+      const isCleanForCustoms = !rowDirty;
+      const useLiveCost = rowDirty || draftTransport !== null;
 
-      // D1-Fix v2.5.3 — clean-row customs safety: look up the exact saved
-      // customs_match_id row from refById (4-col widened select includes the
-      // numeric fields needed for indicative/invoice computation).
-      const isClean = !isDirty;
+      const isClean = isCleanForCustoms;
       let savedRefForClean: ActiveCustomsRef | null = null;
       if (isClean && dbItem?.customs_match_id) {
         const r = refById.get(dbItem.customs_match_id);
@@ -941,12 +950,12 @@ function ProductsFullscreen() {
         // "manual" leaves chip null — the manual override widget owns the UI.
       }
 
-      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus, components });
+      m.set(d.localId, { isDirty: useLiveCost, value, hasCustomsInputs, liveCustomsStatus, components });
     }
     return m;
     // baselinesRef and refById are intentionally excluded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftItems, dbItemById, shForPreview, vehicleContextForPreview, activeCustomsRefs, latestEurUsd, products]);
+  }, [draftItems, dbItemById, shForPreview, vehicleContextForPreview, activeCustomsRefs, latestEurUsd, products, draftTransport]);
 
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
   const { pallets: loadedPallets, grossKg: loadedKg } = sumCapacity(effectiveLoadedItems);
