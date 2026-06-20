@@ -673,6 +673,16 @@ function ProductsFullscreen() {
   // re-renders the disabled button).
   const savingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
+  // SURGICAL RECOVERY — transport is now local draft. No autosave.
+  // Persisted mirror lets retry of "Готово" after a downstream failure
+  // skip re-running the transport UPDATE (diff vs. last server response).
+  const [draftTransport, setDraftTransport] = useState<{ amount: string; currency: "EUR" | "USD" } | null>(null);
+  const [persistedTransport, setPersistedTransport] = useState<{
+    amount: number | null;
+    currency: "EUR" | "USD";
+    amountUsd: number | null;
+    eurUsdRate: number | null;
+  } | null>(null);
   // P-Fix #6 — bumping this tick auto-collapses expanded cost/details panels
   // (e.g. ItemCustomsOverride) when a new row is added, so a stale expanded
   // block can never overlap freshly added rows.
@@ -787,6 +797,86 @@ function ProductsFullscreen() {
     ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
     : null;
 
+  // SURGICAL RECOVERY — baseline + parsed-draft + preview-context patch.
+  // baselineTransport: persisted mirror (after successful UPDATE) ?? DB row.
+  const baselineTransport = useMemo(() => {
+    if (persistedTransport) return persistedTransport;
+    const baseAmount =
+      vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost ?? null;
+    const baseCur =
+      (vehicleContext?.ownerShipment?.logistics_cost_currency ?? sh?.logistics_cost_currency ?? "EUR") as
+        | "EUR"
+        | "USD";
+    return {
+      amount: baseAmount,
+      currency: baseCur,
+      amountUsd: sh?.logistics_cost_usd ?? null,
+      eurUsdRate: sh?.eur_usd_rate ?? null,
+    };
+  }, [persistedTransport, vehicleContext?.ownerShipment, sh]);
+
+  // Parse the draft amount: supports "2000", "2000.50", "2000,50".
+  // Trailing "." or "," is held back as "invalid" so it cannot be saved
+  // and cannot drive a preview number.
+  const draftParsed = useMemo(() => {
+    if (!draftTransport) return null;
+    const trimmed = draftTransport.amount.trim();
+    if (trimmed === "") return { valid: true, num: 0, empty: true } as const;
+    if (/[.,]$/.test(trimmed)) return { valid: false, num: Number.NaN, empty: false } as const;
+    const n = Number(trimmed.replace(",", "."));
+    if (!Number.isFinite(n)) return { valid: false, num: Number.NaN, empty: false } as const;
+    return { valid: true, num: n, empty: false } as const;
+  }, [draftTransport]);
+
+  const hasPositiveManualTransport = !!draftTransport && !!draftParsed?.valid && draftParsed.num > 0;
+  const draftCurrency: "EUR" | "USD" = draftTransport?.currency ?? baselineTransport.currency;
+
+  // FX selection mirrors DB calc_shipment_logistics_usd: snapshot first, latest fallback.
+  const isValidFx = (x: number | null | undefined): x is number =>
+    typeof x === "number" && Number.isFinite(x) && x > 0;
+  const effectiveFx = isValidFx(sh?.eur_usd_rate)
+    ? Number(sh!.eur_usd_rate)
+    : isValidFx(latestEurUsd ?? null)
+      ? Number(latestEurUsd)
+      : null;
+
+  // Local preview USD for the transport amount.
+  // null = "no working FX for EUR" -> do NOT override persisted preview.
+  let effectiveTransportUsd: number | null = null;
+  if (draftTransport) {
+    if (!hasPositiveManualTransport) {
+      // empty / 0 / invalid → user-cleared transport → preview shows 0
+      effectiveTransportUsd = 0;
+    } else if (draftCurrency === "USD") {
+      effectiveTransportUsd = draftParsed!.num;
+    } else if (effectiveFx != null) {
+      effectiveTransportUsd = draftParsed!.num * effectiveFx;
+    } else {
+      effectiveTransportUsd = null;
+    }
+  }
+
+  const transportTargetId = vehicleContext?.ownerShipment?.id ?? sh?.id ?? null;
+  const hasVehicle = !!sh?.vehicle_id;
+
+  // Patched preview contexts (point-replace only the owner's logistics_cost_usd).
+  const shForPreview = useMemo(() => {
+    if (!sh || !draftTransport || hasVehicle || effectiveTransportUsd == null) return sh ?? null;
+    return { ...sh, logistics_cost_usd: effectiveTransportUsd };
+  }, [sh, draftTransport, hasVehicle, effectiveTransportUsd]);
+
+  const vehicleContextForPreview = useMemo(() => {
+    if (!vehicleContext || !draftTransport || !hasVehicle || effectiveTransportUsd == null || !transportTargetId) {
+      return vehicleContext;
+    }
+    return {
+      ...vehicleContext,
+      shipments: vehicleContext.shipments.map((row) =>
+        row.id === transportTargetId ? { ...row, logistics_cost_usd: effectiveTransportUsd } : row,
+      ),
+    };
+  }, [vehicleContext, draftTransport, hasVehicle, effectiveTransportUsd, transportTargetId]);
+
   // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value, components }).
   // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
   // D1-Fix v2.5.2 — also carries live customs status.
@@ -829,8 +919,8 @@ function ProductsFullscreen() {
       const { value, components } = computeRowPreview(
         d,
         dbItem,
-        sh ?? null,
-        vehicleContext,
+        shForPreview ?? null,
+        vehicleContextForPreview,
         activeCustomsRefs ?? null,
         latestEurUsd ?? null,
         products,
@@ -856,7 +946,7 @@ function ProductsFullscreen() {
     return m;
     // baselinesRef and refById are intentionally excluded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
+  }, [draftItems, dbItemById, shForPreview, vehicleContextForPreview, activeCustomsRefs, latestEurUsd, products]);
 
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
   const { pallets: loadedPallets, grossKg: loadedKg } = sumCapacity(effectiveLoadedItems);
@@ -866,9 +956,11 @@ function ProductsFullscreen() {
     ? currentShipmentEditable
     : !!user?.id && !!vehicleContext?.ownerShipment && vehicleContext.ownerShipment.id === sh.id && sh.vehicle_owner_id === user.id);
 
-  const transportCostValue = Number(
-    (vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost) ?? 0,
-  );
+  // SURGICAL RECOVERY — UI transport value reflects local draft (if any),
+  // otherwise the persisted baseline. Cleared draft hides the old DB number.
+  const transportCostValue = draftTransport
+    ? (draftParsed!.valid ? draftParsed!.num : 0)
+    : Number(baselineTransport.amount ?? 0);
   const transportMissing = canEditTransport && transportCostValue <= 0;
   const canSaveForLater = !!fromOfferId && hasRealPallets && incompleteCount === 0;
 
@@ -1195,6 +1287,54 @@ function ProductsFullscreen() {
     }
 
     try {
+      // SURGICAL RECOVERY — step 5: validate manual transport draft.
+      if (draftTransport && draftParsed && !draftParsed.valid) {
+        toast.error("Невірна сума перевезення");
+        triggerShake(true);
+        return;
+      }
+      // SURGICAL RECOVERY — step 6: verified transport UPDATE.
+      // Runs ONLY for a positive manual draft AND a diff vs. baseline.
+      // Must complete BEFORE any shipment_items / position / FIFO writes.
+      if (hasPositiveManualTransport && transportTargetId) {
+        const baselineAmount = Number(baselineTransport.amount ?? 0);
+        const baselineCurrency = baselineTransport.currency;
+        const changed =
+          draftParsed!.num !== baselineAmount || draftCurrency !== baselineCurrency;
+        if (changed) {
+          const { data: updRows, error: updErr } = await supabase
+            .from("shipments")
+            .update({
+              logistics_cost: draftParsed!.num,
+              logistics_cost_currency: draftCurrency,
+            })
+            .eq("id", transportTargetId)
+            .select("id, logistics_cost, logistics_cost_currency, logistics_cost_usd, eur_usd_rate");
+          if (updErr) {
+            toast.error(translateError(updErr));
+            return;
+          }
+          const rows = (updRows ?? []) as Array<{
+            id: string;
+            logistics_cost: number | null;
+            logistics_cost_currency: string | null;
+            logistics_cost_usd: number | null;
+            eur_usd_rate: number | null;
+          }>;
+          if (rows.length !== 1 || rows[0].id !== transportTargetId) {
+            toast.error("Не вдалося оновити вартість перевезення");
+            return;
+          }
+          const u = rows[0];
+          setPersistedTransport({
+            amount: u.logistics_cost,
+            currency: ((u.logistics_cost_currency ?? "EUR") as "EUR" | "USD"),
+            amountUsd: u.logistics_cost_usd,
+            eurUsdRate: u.eur_usd_rate,
+          });
+        }
+      }
+
       // 3. Phase 2: INSERT new rows ONE BY ONE with position anchor.
       // For each new draft: create operational_position (draft) → insert
       // shipment_item → attach to position via RPC. On any failure, delete
@@ -1340,6 +1480,7 @@ function ProductsFullscreen() {
         (d) => d.source_offer_id && Number(d.source_offer_freight_amount ?? 0) > 0,
       );
       if (
+        !hasPositiveManualTransport &&
         offerFreightDraft &&
         (sh?.logistics_cost == null || Number(sh.logistics_cost) <= 0)
       ) {
@@ -1359,6 +1500,7 @@ function ProductsFullscreen() {
       // 6. Clear local state so hydration takes over after refetch.
       setDraftItems([]);
       setPendingDeletes([]);
+      setDraftTransport(null);
       baselinesRef.current = new Map();
 
       await syncVehicleStateForShipment(id);
@@ -1502,6 +1644,15 @@ function ProductsFullscreen() {
           vehicleContext={effectiveVehicleContext}
           canEditTransport={canEditTransport}
           flash={flashTransport}
+          value={
+            draftTransport
+              ? draftTransport.amount
+              : baselineTransport.amount == null || Number(baselineTransport.amount) === 0
+                ? ""
+                : String(baselineTransport.amount)
+          }
+          currency={draftTransport ? draftTransport.currency : baselineTransport.currency}
+          onChange={(amount, currency) => setDraftTransport({ amount, currency })}
         />
       )}
       {effectiveVehicleContext && (
@@ -1648,68 +1799,39 @@ function TransportBar({
   vehicleContext,
   canEditTransport,
   flash,
+  value,
+  currency,
+  onChange,
 }: {
   shipment: ShipmentRow;
   currentUserId: string | null;
   vehicleContext: VehicleContext | null;
   canEditTransport: boolean;
   flash?: boolean;
+  value: string;
+  currency: "EUR" | "USD";
+  onChange: (amount: string, currency: "EUR" | "USD") => void;
 }) {
+  // SURGICAL RECOVERY — controlled component. No useState/useRef/useEffect for the
+  // amount/currency, no debounce, no supabase, no autosave. The parent owns
+  // draftTransport and only commitDraft writes to the DB.
   const lockedByOwner =
     !!shipment.vehicle_id &&
     !!shipment.vehicle_owner_id &&
     !!currentUserId &&
     shipment.vehicle_owner_id !== currentUserId;
-  const qc = useQueryClient();
-  const transportShipment = vehicleContext?.ownerShipment?.id === shipment.id
-    ? shipment
-    : vehicleContext?.ownerShipment
-      ? {
-          logistics_cost: vehicleContext.ownerShipment.logistics_cost,
-          logistics_cost_currency: vehicleContext.ownerShipment.logistics_cost_currency,
-        }
-      : shipment;
-  const [val, setVal] = useState<string>(
-    transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0 ? "" : String(transportShipment.logistics_cost),
-  );
-  const [cur, setCur] = useState<string>(transportShipment.logistics_cost_currency ?? "EUR");
-  const dirty = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const isEmpty = val === "" || Number(val.replace(",", ".")) <= 0;
-
-  useEffect(() => {
-    if (dirty.current) return;
-    setVal(
-      transportShipment.logistics_cost == null || Number(transportShipment.logistics_cost) === 0
-        ? ""
-        : String(transportShipment.logistics_cost),
-    );
-    setCur(transportShipment.logistics_cost_currency ?? "EUR");
-  }, [transportShipment.logistics_cost, transportShipment.logistics_cost_currency]);
-
-  useEffect(() => {
-    if (!dirty.current) return;
-    const t = setTimeout(async () => {
-      const normalized = val.replace(",", ".");
-      // Skip incomplete numbers like "1." or "1,"
-      if (/[.,]$/.test(val)) return;
-      const num = normalized === "" ? 0 : Number(normalized);
-      if (Number.isNaN(num)) return;
-      const { error } = await supabase
-        .from("shipments")
-        .update({ logistics_cost: num, logistics_cost_currency: cur })
-        .eq("id", shipment.id);
-      if (error) toast.error(error.message);
-      else {
-        dirty.current = false;
-        qc.invalidateQueries({ queryKey: ["shipment-products"] }); qc.invalidateQueries({ queryKey: ["shipment", shipment.id] });
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [val, cur, shipment.id, qc]);
+  const isEmpty = value === "" || Number(value.replace(",", ".")) <= 0;
 
   if (lockedByOwner || !canEditTransport) {
+    // Read-only view always reflects the persisted DB value, not the controlled draft.
+    const baseAmount =
+      vehicleContext?.ownerShipment?.logistics_cost ?? shipment.logistics_cost;
+    const baseCur =
+      vehicleContext?.ownerShipment?.logistics_cost_currency ??
+      shipment.logistics_cost_currency ??
+      "EUR";
+    const baseEmpty = baseAmount == null || Number(baseAmount) <= 0;
     const route = toUaCountry(vehicleContext?.vehicle.country ?? shipment.country) || "—";
     return (
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1">
@@ -1717,7 +1839,7 @@ function TransportBar({
           Транспорт
         </span>
         <span className="text-[12px] font-semibold text-foreground">
-          {isEmpty ? "—" : `${val} ${cur}`}
+          {baseEmpty ? "—" : `${baseAmount} ${baseCur}`}
         </span>
         <span className="truncate text-[10px] text-muted-foreground">
           · {route}{vehicleContext?.ownerName ? ` · ${vehicleContext.ownerName}` : ""}
@@ -1747,7 +1869,7 @@ function TransportBar({
         inputMode="decimal"
         enterKeyHint={MOBILE_ENTER_KEY_HINT}
         placeholder="Перевезення авто"
-        value={val}
+        value={value}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -1761,8 +1883,8 @@ function TransportBar({
           // Visual cue only: the field already pulses red while empty.
         }}
         onChange={(e) => {
-          dirty.current = true;
-          setVal(e.target.value.replace(/[^\d.,-]/g, ""));
+          const next = e.target.value.replace(/[^\d.,-]/g, "");
+          onChange(next, currency);
         }}
         className={cn(
           "h-7 flex-1 px-2 text-[12px]",
@@ -1770,8 +1892,8 @@ function TransportBar({
         )}
       />
       <select
-        value={cur}
-        onChange={(e) => { dirty.current = true; setCur(e.target.value); }}
+        value={currency}
+        onChange={(e) => onChange(value, e.target.value as "EUR" | "USD")}
         className="h-7 rounded-md border border-input bg-background px-1.5 text-[11px]"
       >
         <option value="EUR">EUR</option>
