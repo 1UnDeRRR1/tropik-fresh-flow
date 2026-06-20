@@ -955,7 +955,7 @@ function ProductsFullscreen() {
     return m;
     // baselinesRef and refById are intentionally excluded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftItems, dbItemById, shForPreview, vehicleContextForPreview, activeCustomsRefs, latestEurUsd, products]);
+  }, [draftItems, dbItemById, shForPreview, vehicleContextForPreview, activeCustomsRefs, latestEurUsd, products, draftTransport]);
 
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
   const { pallets: loadedPallets, grossKg: loadedKg } = sumCapacity(effectiveLoadedItems);
