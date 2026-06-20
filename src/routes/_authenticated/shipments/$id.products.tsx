@@ -832,13 +832,18 @@ function ProductsFullscreen() {
   const draftCurrency: "EUR" | "USD" = draftTransport?.currency ?? baselineTransport.currency;
 
   // FX selection mirrors DB calc_shipment_logistics_usd: snapshot first, latest fallback.
+  // SURGICAL RECOVERY — after a successful transport UPDATE we may still be
+  // mid-commit (downstream step failed); `sh` is stale until refetch lands,
+  // so the freshly-persisted snapshot (persistedTransport.eurUsdRate) wins.
   const isValidFx = (x: number | null | undefined): x is number =>
     typeof x === "number" && Number.isFinite(x) && x > 0;
-  const effectiveFx = isValidFx(sh?.eur_usd_rate)
-    ? Number(sh!.eur_usd_rate)
-    : isValidFx(latestEurUsd ?? null)
-      ? Number(latestEurUsd)
-      : null;
+  const effectiveFx = isValidFx(persistedTransport?.eurUsdRate ?? null)
+    ? Number(persistedTransport!.eurUsdRate)
+    : isValidFx(sh?.eur_usd_rate)
+      ? Number(sh!.eur_usd_rate)
+      : isValidFx(latestEurUsd ?? null)
+        ? Number(latestEurUsd)
+        : null;
 
   // Local preview USD for the transport amount.
   // null = "no working FX for EUR" -> do NOT override persisted preview.
