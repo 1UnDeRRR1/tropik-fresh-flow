@@ -1,129 +1,454 @@
-## Build B — integration plan for `/shipments/new`
 
-Goal: make the existing card editor on `/shipments/new` fully active and back its math with `shipment-row-engine`. No new form, no early shipment INSERT, no formula duplication, no `$id.products.tsx` changes.
+Режим: **Plan / Preview only.** Нічого не застосовуємо. Це оновлений Preview із усіма 13 поправками. Після нього зупиняємось і чекаємо явного дозволу на Build.
 
-### Files to touch (allowed scope only)
+Підтверджено вашими рішеннями:
+- Sensitive fields → **варіант A** (повний old/new, доступ лише `super_admin`).
+- Scope → **INSERT / UPDATE / DELETE**.
+- `actor_roles text[]` — усі ролі стабільно відсортовані.
 
-1. `src/routes/_authenticated/shipments/new.tsx` — wire to engine, remove local duplication.
-2. `src/lib/shipment-row-engine.ts` — backward-compatible additions only (see §3).
-3. NEW `src/lib/shipment-row-service.ts` — pure data-loading helpers (customs refs, FX, vehicle context, pallet standard lookup) reused by both editors; no React, no JSX.
-4. `src/lib/commit-shipment-row.ts` — widen INSERT payload typing only (passthrough), no behavior change.
-5. `src/styles.css` — only `.shipments-new-products` scoped tweaks if a row card needs them.
+---
 
-Explicitly NOT touching this Build: `$id.products.tsx`, AppShell, AutocompleteCell, InlineAutocomplete, manager-offers, branch screens, loading plan, distribution, any DB schema/RLS/RPC/trigger, reference data.
+## 1. Безпечний CASE для NEW/OLD і повернення з тригера
 
-### 1. Local `DraftRow` ↔ engine `DraftRow` reconciliation
+- AFTER-тригер має повертати `NULL` (значення NEW/OLD ігнорується для AFTER row-level — повертаємо `NULL` явно).
+- Виклики `to_jsonb(NEW)` всередині гілки `TG_OP='DELETE'` і `to_jsonb(OLD)` всередині `TG_OP='INSERT'` неприпустимі (NEW/OLD `NULL`). Беремо проєкції лише в межах відповідної гілки:
 
-Current `new.tsx` `DraftRow` (line ~505) has extras that engine doesn't: `brand`, `class`, `source_offer_freight_amount`, `source_offer_freight_currency`, **no** `resolver_*`/`auto` flags (uses different totals model).
-
-Decision: **extend engine `DraftRow` with optional `brand?: string` and `class?: string`** (backward-compatible — `$id.products.tsx` ignores undefined). Keep `source_offer_freight_*` already present on engine. Do NOT collapse the two flows yet. `new.tsx` will use engine `DraftRow` directly, and add `brand`/`class` fields wired to UI inputs that were previously dead.
-
-Why: avoids two parallel contracts; preserves $id.products invariants because new optional fields never reach update path there.
-
-### 2. Engine helpers `new.tsx` will call (all already exist except as noted)
-
-- `isNetGreaterThanGross(d)` — replaces inline `r.net_weight_kg > r.gross_weight_kg` check at L662.
-- `sumCapacity(rows)` — replaces the local `gross` reducer at L1330 and the 21500/26 derivations.
-- `getMissingDraftFields(d, products)` — replaces the per-row validation block L654–L680.
-- `computeRowPreview(d, dbItem=null, sh, vehicleContext, refs, latestEurUsd, products, isClean=false, savedRefForClean=null)` — drives indicative/invoice and the customs chip basis (`exact|fallback|none|manual`).
-- `pickCustomsRefForDraft`, `computeCustomsPreview` — used indirectly through `computeRowPreview`.
-- `buildPayload(d, ctx, { forUpdate: false })` — replaces the ad-hoc payload at L863–L890, but `new.tsx` still appends `brand`, `class`, and the manual-customs fields (see §3) after the engine payload, because the engine excludes trigger-owned columns and brand/class are not in the engine contract today.
-
-**Backward-compatible engine additions** (only what's strictly needed):
-
-- Add optional `brand?: string` and `class?: string` to `DraftRow` and `DRAFT_EDITABLE_KEYS`.
-- Add optional `appendBrandClass?: boolean` to `buildPayload` opts, OR (preferred) keep `buildPayload` untouched and let `new.tsx` spread `{ brand, class }` after the engine payload. Preferred = no engine change for this.
-
-### 3. Manual customs override (red → confirm)
-
-Local-only until final `Створити`. State held in `new.tsx` per `localId`:
+```text
+IF TG_OP = 'INSERT' THEN
+  n_full := to_jsonb(NEW); o_full := NULL;
+ELSIF TG_OP = 'DELETE' THEN
+  n_full := NULL;          o_full := to_jsonb(OLD);
+ELSE -- UPDATE
+  n_full := to_jsonb(NEW); o_full := to_jsonb(OLD);
+END IF;
 ```
-manualOverride: Record<localId, { duty_usd: number; confirmed_at: string; by: string }>
+
+`COALESCE(NEW.id, OLD.id)` зберігається (валідно для всіх трьох операцій).
+
+---
+
+## 2. Явні алиаси `AS t(k)` і пост-фільтрація
+
+`jsonb_object_keys(...)` і `unnest(...)` завжди з явним алиасом і виключенням `updated_at`:
+
+```text
+SELECT COALESCE(array_agg(k ORDER BY k), ARRAY[]::text[])
+  INTO changed
+  FROM jsonb_object_keys(n_full) AS t(k)
+ WHERE k <> 'updated_at'
+   AND (n_full -> k) IS DISTINCT FROM (o_full -> k);
 ```
-On INSERT, when present for a row, `new.tsx` adds `customs_override_duty_usd`, `customs_override_confirmed_at`, `customs_override_by` to the payload sent through `commitNewShipmentItem`. The engine's `computeRowPreview` already honors `dbItem.customs_override_*` for clean rows; here `dbItem` is `null`, so `new.tsx` passes a synthetic `dbItem`-like object for the preview when manual override is active, OR (cleaner) we extend `computeRowPreview` with optional `localOverride: { duty_usd, confirmed_at, by } | null` — purely additive parameter, default `null`, $id.products.tsx call sites untouched.
 
-Decision: **additive `localOverride` parameter on `computeRowPreview`**. Smaller blast radius than synthesizing a fake `ItemRowLike`.
+Для INSERT/DELETE — той самий патерн із виключенням `'updated_at'`, `'created_at'`, `'id'` зі списку (id і так у `shipment_id`):
 
-Red status blocks `Створити` for that row until override confirmed in UI. Yellow and green do not block.
+```text
+FROM jsonb_object_keys(n_full) AS t(k)
+WHERE k NOT IN ('updated_at')
+  AND (n_full -> k) IS NOT NULL AND (n_full -> k) <> 'null'::jsonb
+```
 
-`commit-shipment-row.ts` payload typing widened (passthrough) to permit the three override columns + `brand` + `class` to flow through unchanged. No logic added.
+Проєкції old/new по `changed`:
 
-### 4. `shipment-row-service.ts` (new, pure)
+```text
+SELECT COALESCE(jsonb_object_agg(k, n_full -> k), '{}'::jsonb)
+  INTO n_proj
+  FROM unnest(changed) AS t(k);
+```
 
-Exports React Query option factories used by both editors. For Build B only the new ones `new.tsx` needs:
-- `activeCustomsRefsQuery()` → `ActiveCustomsRef[]`
-- `latestEurUsdQuery()` → `number | null`
-- `vehicleContextQuery(vehicleId)` → `VehicleContextLike | null`
-- `palletStandardBoxesPerPalletQuery(productName, packageUsed)` → `number | null` (read-only `boxes_per_pallet`)
+Порівняння завжди JSONB-значеннями (`-> k`), не `->> k` (типи зберігаються).
 
-`new.tsx` consumes these via existing `useQuery` plumbing. No new RPCs, no new tables, no schema. `$id.products.tsx` is not modified — it can adopt the service later in a separate task.
+---
 
-### 5. Brand / class
+## 3. Grants на `shipment_changes` — service_role тільки SELECT
 
-- Inputs in card become live and feed `draftRow.brand` / `draftRow.class`.
-- INSERT payload spreads them after the engine payload.
-- Shared engine `DraftRow` gains optional `brand?` / `class?` only. `itemRowToDraft` does not populate them (so $id.products.tsx round-trip is unchanged and cannot null-out existing DB values from old editor).
+```sql
+REVOKE ALL ON public.shipment_changes FROM PUBLIC, anon, authenticated, service_role;
+GRANT  SELECT ON public.shipment_changes TO authenticated;   -- доступ гейтиться RLS
+GRANT  SELECT ON public.shipment_changes TO service_role;    -- тільки читання
+-- запис у таблицю — виключно через SECURITY DEFINER trigger function (owner=postgres).
+-- INSERT/UPDATE/DELETE НЕ надаються нікому, RLS-policy теж відсутні для них.
+```
 
-### 6. Ящ./пал.
+`service_role` свідомо НЕ отримує `INSERT/UPDATE/DELETE`. Audit-таблиця immutable з точки зору будь-якого application path.
 
-- Read-only chip in card, fed by `shipment-row-service.palletStandardBoxesPerPalletQuery(product, package_used)`. Returns `boxes_per_pallet` directly from `pallet_standards`.
-- No edit, no fake value, no new column.
+RLS:
 
-### 7. Preview context
+```sql
+ALTER TABLE public.shipment_changes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "shipment_changes_select_super_admin"
+  ON public.shipment_changes FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'super_admin'));
+-- INSERT/UPDATE/DELETE policies — НЕМАЄ.
+```
 
-- `mode === "new"`: `sh = { eur_usd_rate: localFx ?? latestEurUsd, vehicle_id: null, logistics_cost_usd: localTransportUsd }`, `vehicleContext = null`.
-- `mode === "existing"`: real `sh` and `vehicleContext` from existing vehicle/shipment queries that `new.tsx` already runs (L189). No new query for shipments-share-vehicle since it's already in scope.
+---
 
-### 8. Preserved invariants
+## 4. client_source / client_action / client_route — недовірений контекст
 
-- Header "Далі" stays UI-only (0 DB writes).
-- Back button → 0 DB writes (no temp shipment).
-- Single final `Створити` boundary calls existing `commitNewShipmentItem` per row.
-- `position_id` flow unchanged (already passed via `source_position_id` → `commitNewShipmentItem`).
-- FIFO offer link unchanged (commit helper handles it).
-- Capacity 26 / 21500 enforced via `sumCapacity` + same toast text.
-- Recognition gate (product/country must resolve before first INSERT) unchanged.
+Перейменування в схемі підкреслює недовіру:
 
-### 9. Removed as dead duplication
+| Колонка | Джерело | Довіра |
+|---|---|---|
+| `client_source`  | header `x-audit-source`  | UNTRUSTED — клієнт може підмінити |
+| `client_action`  | header `x-audit-action`  | UNTRUSTED |
+| `client_route`   | header `x-audit-route`   | UNTRUSTED |
+| `client_request_id` | header `x-request-id` | UNTRUSTED, лише для кореляції |
+| `request_role`   | `current_setting('request.jwt.claims', true)::jsonb ->> 'role'` | TRUSTED (PostgREST) |
+| `request_method` | `current_setting('request.method', true)`  | TRUSTED |
+| `request_path`   | `current_setting('request.path',   true)`  | TRUSTED |
+| `actor_id`       | `auth.uid()` | TRUSTED |
+| `actor_roles`    | `user_roles` lookup за `auth.uid()` | TRUSTED |
+| `txid`           | `txid_current()` | TRUSTED |
 
-- Local `gross` reducer at L1330 → `sumCapacity`.
-- Inline net>gross check at L662 → `isNetGreaterThanGross`.
-- Per-row required-fields block L654–L680 → `getMissingDraftFields`.
-- Any hardcoded "—" in numeric preview cells (replaced by real engine values or genuine "потрібно заповнити" placeholder).
-- Local `DraftRow` definition L505 → engine `DraftRow`.
+`super_admin` UI повинен явно маркувати `client_*` як «з клієнта, перевірці не підлягає».
 
-Not removed in this Build:
-- `/draft-mockup` route, `new-draft-test` route — per instruction, deferred to cleanup task after acceptance.
-- Existing supplier/vehicle/code/loadingDate/eta UI in the header — unchanged.
+---
 
-### Test checklist (executed after edits)
+## 5. Ліміти довжини header-полів (захист від abuse)
 
-1. `bunx tsc --noEmit` clean.
-2. `bun run build` clean.
-3. UI: Product/Country/Variety/Brand/Class/Caliber/Packaging/Pallets/Net/Gross/Price/Currency all editable.
-4. Back from /shipments/new → 0 rows in `shipments` & `shipment_items` for this attempt (verified by `SELECT count(*) WHERE created_at > <start>` diff).
-5. Net=1000 / Gross=900 → `Створити` blocked with toast.
-6. 27 pallets → blocked; 21500+ kg → blocked (same toast strings as $id.products).
-7. Customs green (Avocado + Peru), yellow (Avocado + a recognized country absent from avocado customs list, e.g. Azerbaijan via dropdown selection), red (fake product or a recognized product+country pair with no customs row).
-8. Red → row blocks creation until manual override confirmed; after confirm, preview shows manual indicative=invoice=override.
-9. Indicative/invoice pair rendered in row & header.
-10. After `Створити` succeeds: DB row has `customs_match_id` and `final_cost_*` populated by trigger (preview never wrote them).
-11. Offer-derived row: `shipment_items.position_id` == offer's `position_id`; exactly one `manager_offer_allocation_parts` row created.
+У тригері перед `INSERT`:
 
-### Risks and mitigations
+```text
+client_source     := left(NULLIF(headers ->> 'x-audit-source', ''), 64);
+client_action     := left(NULLIF(headers ->> 'x-audit-action', ''), 128);
+client_route      := left(NULLIF(headers ->> 'x-audit-route',  ''), 256);
+client_request_id := left(NULLIF(headers ->> 'x-request-id',   ''), 64);
+```
 
-- **DraftRow contract drift**: mitigated by additive optional fields (`brand?`, `class?`) and additive optional `localOverride` param on `computeRowPreview`. $id.products.tsx call sites compile and behave identically.
-- **Local manual override leakage**: stored only in `new.tsx` state, included in INSERT payload only on final commit. Never persisted as a draft anywhere.
-- **commit-shipment-row payload widening**: passthrough typing only. Existing offer path unaffected.
-- **Preview context mismatch for "new vehicle"**: synthesized `sh` matches the field shape engine reads (`eur_usd_rate`, `vehicle_id`, `logistics_cost_usd`); other engine fields read from `vehicleContext` are guarded behind `vehicle_id` check.
-- **No early shipment row** confirmed via Back-flow test (#4).
+Жодних `CHECK`-constraint на таблиці (зайва жорсткість на runtime), обрізаємо м'яко в тригері.
 
-### What I need from you to start
+---
 
-Confirm:
-- (a) **engine `DraftRow` gets optional `brand?` / `class?`** (no other shape change), and **`computeRowPreview` gets optional `localOverride` param** — both purely additive;
-- (b) `new.tsx` uses engine `DraftRow` directly (not a local type), keeping all current header/back/save boundaries;
-- (c) `shipment-row-service.ts` scope limited to the four query factories listed in §4 (no other helpers);
-- (d) the red-block UX is "Створити" stays disabled for that row's contribution until `Підтвердити митну ставку вручну` is clicked in the inline manual-override field (same component as `$id.products.tsx`: `CustomsManualOverrideField`).
+## 6. Fail-closed поведінка audit-тригера
 
-On `yes`, I implement and return the Build report. On `no` or partial, tell me which point to revise.
+Аудит — джерело істини. Якщо тригер не може записати — UPDATE shipments **повинен впасти**.
+
+- Функція `public.log_shipments_changes()` НЕ обгортає `INSERT` у `BEGIN ... EXCEPTION WHEN OTHERS THEN ... END`. Будь-яка помилка піднімається наверх → транзакція UPDATE rollback'неться.
+- Це явно зафіксовано в коментарі функції: `-- Fail-closed: any error here ABORTS the originating shipments mutation.`
+- Наслідок: проблеми з audit видно одразу як помилки UI, а не як «тиха втрата сліду».
+
+Альтернативу (fail-open `BEGIN ... EXCEPTION ... NULL`) свідомо **відкидаємо**.
+
+---
+
+## 7. Повний SQL міграції (Preview, **НЕ виконуємо**)
+
+```sql
+-- =========================================================
+-- AUDIT INFRASTRUCTURE (без увімкнення тригера)
+-- =========================================================
+CREATE TABLE public.shipment_changes (
+  id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  shipment_id         uuid        NOT NULL,
+  op                  text        NOT NULL CHECK (op IN ('INSERT','UPDATE','DELETE')),
+  actor_id            uuid,
+  actor_roles         text[]      NOT NULL DEFAULT ARRAY[]::text[],
+  changed_fields      text[]      NOT NULL,
+  old_values          jsonb,
+  new_values          jsonb,
+  client_source       text,
+  client_action       text,
+  client_route        text,
+  client_request_id   text,
+  request_role        text,
+  request_method      text,
+  request_path        text,
+  txid                bigint      NOT NULL DEFAULT txid_current(),
+  created_at          timestamptz NOT NULL DEFAULT now()
+);
+
+REVOKE ALL ON public.shipment_changes FROM PUBLIC, anon, authenticated, service_role;
+GRANT  SELECT ON public.shipment_changes TO authenticated;
+GRANT  SELECT ON public.shipment_changes TO service_role;
+
+ALTER TABLE public.shipment_changes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "shipment_changes_select_super_admin"
+  ON public.shipment_changes FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'super_admin'));
+
+CREATE INDEX shipment_changes_shipment_created_idx
+  ON public.shipment_changes (shipment_id, created_at DESC);
+CREATE INDEX shipment_changes_request_idx
+  ON public.shipment_changes (client_request_id) WHERE client_request_id IS NOT NULL;
+CREATE INDEX shipment_changes_txid_idx
+  ON public.shipment_changes (txid);
+CREATE INDEX shipment_changes_actor_created_idx
+  ON public.shipment_changes (actor_id, created_at DESC) WHERE actor_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.log_shipments_changes()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $fn$
+DECLARE
+  headers     jsonb := COALESCE(NULLIF(current_setting('request.headers',     true), '')::jsonb, '{}'::jsonb);
+  claims      jsonb := COALESCE(NULLIF(current_setting('request.jwt.claims',  true), '')::jsonb, '{}'::jsonb);
+  uid         uuid  := auth.uid();
+  roles       text[];
+  o_full      jsonb;
+  n_full      jsonb;
+  changed     text[];
+  o_proj      jsonb;
+  n_proj      jsonb;
+BEGIN
+  -- Fail-closed: any error here ABORTS the originating shipments mutation.
+
+  IF TG_OP = 'INSERT' THEN
+    n_full := to_jsonb(NEW); o_full := NULL;
+  ELSIF TG_OP = 'DELETE' THEN
+    n_full := NULL;          o_full := to_jsonb(OLD);
+  ELSE
+    n_full := to_jsonb(NEW); o_full := to_jsonb(OLD);
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    SELECT COALESCE(array_agg(k ORDER BY k), ARRAY[]::text[])
+      INTO changed
+      FROM jsonb_object_keys(n_full) AS t(k)
+     WHERE k <> 'updated_at'
+       AND (n_full -> k) IS DISTINCT FROM (o_full -> k);
+    IF cardinality(changed) = 0 THEN
+      RETURN NULL; -- no-op UPDATE (тільки updated_at) → запис не створюється
+    END IF;
+  ELSIF TG_OP = 'INSERT' THEN
+    SELECT COALESCE(array_agg(k ORDER BY k), ARRAY[]::text[])
+      INTO changed
+      FROM jsonb_object_keys(n_full) AS t(k)
+     WHERE k <> 'updated_at'
+       AND (n_full -> k) IS NOT NULL AND (n_full -> k) <> 'null'::jsonb;
+  ELSE -- DELETE
+    SELECT COALESCE(array_agg(k ORDER BY k), ARRAY[]::text[])
+      INTO changed
+      FROM jsonb_object_keys(o_full) AS t(k)
+     WHERE k <> 'updated_at'
+       AND (o_full -> k) IS NOT NULL AND (o_full -> k) <> 'null'::jsonb;
+  END IF;
+
+  IF o_full IS NOT NULL THEN
+    SELECT COALESCE(jsonb_object_agg(k, o_full -> k), '{}'::jsonb)
+      INTO o_proj FROM unnest(changed) AS t(k);
+  END IF;
+  IF n_full IS NOT NULL THEN
+    SELECT COALESCE(jsonb_object_agg(k, n_full -> k), '{}'::jsonb)
+      INTO n_proj FROM unnest(changed) AS t(k);
+  END IF;
+
+  SELECT COALESCE(array_agg(role::text ORDER BY role::text), ARRAY[]::text[])
+    INTO roles
+    FROM public.user_roles WHERE user_id = uid;
+
+  INSERT INTO public.shipment_changes(
+    shipment_id, op, actor_id, actor_roles,
+    changed_fields, old_values, new_values,
+    client_source, client_action, client_route, client_request_id,
+    request_role, request_method, request_path
+  ) VALUES (
+    COALESCE(NEW.id, OLD.id), TG_OP, uid, roles,
+    changed, o_proj, n_proj,
+    left(NULLIF(headers ->> 'x-audit-source', ''), 64),
+    left(NULLIF(headers ->> 'x-audit-action', ''), 128),
+    left(NULLIF(headers ->> 'x-audit-route',  ''), 256),
+    left(NULLIF(headers ->> 'x-request-id',   ''), 64),
+    NULLIF(claims ->> 'role', ''),
+    NULLIF(current_setting('request.method', true), ''),
+    NULLIF(current_setting('request.path',   true), '')
+  );
+
+  RETURN NULL; -- AFTER row-level: повертаємо NULL, значення ігнорується ядром
+END
+$fn$;
+
+ALTER FUNCTION public.log_shipments_changes() OWNER TO postgres;
+REVOKE EXECUTE ON FUNCTION public.log_shipments_changes()
+  FROM PUBLIC, anon, authenticated;
+-- Власник (postgres) і service_role можуть викликати; решта — лише через тригер.
+```
+
+**Тригер у цій міграції НЕ створюється.** Це — окрема друга міграція (див. §8).
+
+---
+
+## 8. Apply розбито на дві окремі міграції
+
+**Apply-1 — `audit_infra_shipments`:** усе зі схеми вище (table, indexes, RLS, function). Тригер НЕ створюється. Жодні існуючі UPDATE на shipments не зачіпаються. Безпечно відкатуватись.
+
+**Apply-2 — `audit_enable_trigger_shipments`:**
+
+```sql
+DROP TRIGGER IF EXISTS zz_99_log_shipment_changes ON public.shipments;
+CREATE TRIGGER zz_99_log_shipment_changes
+  AFTER INSERT OR UPDATE OR DELETE ON public.shipments
+  FOR EACH ROW EXECUTE FUNCTION public.log_shipments_changes();
+```
+
+Виконується ОКРЕМО після того як Apply-1 проходить QA. Якщо тригер ламає прод — миттєвий rollback `DROP TRIGGER`, інфраструктура залишається.
+
+---
+
+## 9. Browser PATCH smoke — ДО будь-якої інтеграції wrapper'а у код
+
+Перед заміною прямих `.update()` на wrapper потрібен **окремий ручний smoke** у Build-етапі (один тимчасовий test-only call site):
+
+1. У DevTools з працюючим user-session виконати:
+   ```text
+   await supabase
+     .from('shipments')
+     .update({ updated_at: new Date().toISOString() }) // no-op для no-op test
+     .eq('id', '<test-shipment-id>')
+     .setHeader('x-request-id', 'smoke-' + crypto.randomUUID())
+     .setHeader('x-audit-source', 'smoke')
+     .setHeader('x-audit-action', 'smoke:patch')
+     .setHeader('x-audit-route',  '/__smoke')
+     .select('id');
+   ```
+2. У Network: підтвердити, що PATCH `…/rest/v1/shipments?id=eq.<id>` містить усі 4 заголовки в **одному** запиті.
+3. Виконати **реальний** UPDATE (наприклад, `notes`) із тими ж headers.
+4. У `psql`: переконатись що `shipment_changes` отримала рядок із `client_request_id='smoke-…'`, `client_source='smoke'`, `request_method='PATCH'`, `request_path` непорожній.
+5. Тільки після цього починаємо масову заміну прямих `.update()` на wrapper.
+
+Якщо смок провалюється — інтеграція wrapper не починається. Fallback fall back на варіант "B" (transactional RPC) — окремий план.
+
+---
+
+## 10. Повний інвентар update-точок (runtime, не тільки UI)
+
+`rg -nU "from\(['\"]shipments['\"]\)[\s\S]{0,120}\.update\("` по всьому `src/` + `supabase/functions/` + `src/routes/api/`:
+
+| # | Файл : рядок | Контекст | Поля | UI/Server action | Wrapper застосовний? |
+|---|---|---|---|---|---|
+| 1 | `src/routes/_authenticated/shipments/$id.products.tsx:1314` | Surgical Recovery commit | `logistics_cost`, `logistics_cost_currency` | `shipments/$id.products:commit-transport` | Так |
+| 2 | `src/routes/_authenticated/shipments/$id.products.tsx:1496` | Offer freight auto-fill | `logistics_cost`, `logistics_cost_currency` | `shipments/$id.products:offer-freight-fill` | Так |
+| 3 | `src/routes/_authenticated/logistics.tsx:537` | Logistics board row save | динамічний `patch` (driver/vehicle/freight/loading/...) | `logistics:row-save` | Так |
+| 4 | `src/routes/_authenticated/distribution/$shipmentId.tsx:244` | Старт розподілу | `status='distributing'` | `distribution:start` | Так |
+| 5 | `src/lib/shipments.functions.ts:93` (server fn, **supabaseAdmin**) | `cancelShipment` soft cancel | `status`, `cancelled_by`, `updated_at` | server fn | Так, **server-side wrapper** (див. §11) |
+| 6 | `src/lib/shipments.functions.ts:118` (server fn, **supabaseAdmin**) | `cancelShipment` rollback | те саме | server fn | Так, server-side wrapper |
+
+Окремі **INSERT / DELETE** на shipments (для повноти аудиту з §scope):
+- INSERT: `src/routes/_authenticated/shipments/new.tsx:994` — створення поставки.
+- DELETE: `src/routes/_authenticated/shipments/new.tsx:924` (cleanup при невдачі), `src/lib/cleanup-empty-shipment.ts:197`, `src/lib/shipments.functions.ts:309` (`deleteEmptyDraftShipment`).
+
+Edge functions, що пишуть у shipments: `rg -n "shipments" supabase/functions` — **немає** (поточні edge functions: `admin-users`, `calendar-account-admin`).
+
+Server route hooks: `src/routes/api/public/hooks/shipments-lifecycle.ts` — перевіримо в Build (передбачаю UPDATE по статусах життєвого циклу; буде доданий до wrapper-server варіанта).
+
+**Жодних інших прямих `.update()` на `shipments` у репозиторії не знайдено.**
+
+---
+
+## 11. Wrapper — клієнтський і серверний
+
+### 11.1 `src/lib/shipments-update.ts` (browser)
+
+Сигнатура:
+
+```text
+updateShipment({
+  id, patch, action, route, returning?
+}) → Promise<{ data, error, requestId }>
+```
+
+Поведінка (відповідає §12):
+1. `const requestId = crypto.randomUUID()`.
+2. Виконати `supabase.from('shipments').update(patch).eq('id', id).setHeader(...).select(returning ?? 'id')`.
+3. **Тільки після відповіді**:
+   - success → `logSystem({ level:'info', action:'shipments.update:success', ... })`;
+   - error → `logSystem({ level:'warning', action:'shipments.update:error', ... })`.
+4. **Жодного `update_attempt`** перед запитом (зайвий шум, можливі orphan attempts без resolution).
+
+### 11.2 `src/lib/shipments-update.server.ts` (server fn helpers)
+
+Для server fn із `supabaseAdmin`: маленький helper, що проставляє ті самі headers на `supabaseAdmin.from('shipments').update(...).setHeader(...)`. Source — `'server:<fn-name>'`. Кореляція з `system_logs` рядком, що містить `user_id` фактичного caller'а.
+
+---
+
+## 12. Client log — лише `success` / `error`
+
+`system_logs` отримує **рівно один** рядок на ефективну спробу UPDATE:
+
+| Подія | level | message |
+|---|---|---|
+| Успішний UPDATE | `info` | `shipments.update:success` |
+| Помилка UPDATE | `warning` | `shipments.update:error` |
+
+`context` містить тільки: `shipment_id`, `request_id`, `route`, `action`, `payload_keys` (НЕ значення), `affected` (для success), `error_code` + `error_message_short` (для error). Заборонено: повний `patch`, headers, токени, cookies, повне тіло помилки.
+
+**Жодного `update_attempt` рядка.** Якщо UPDATE здох на network — `error` обробник усе одно спрацює; якщо браузер впав — це покриває глобальний `installGlobalErrorLogger`.
+
+---
+
+## 13. Sensitive fields — варіант A (затверджено)
+
+Чутливі колонки (`driver_name`, `driver_phone`, `loading_address`, `loading_reference`, `logistics_comment`, `notes`, `vehicle_plate`, `tractor_plate`, `trailer_plate`) зберігаються в `old_values`/`new_values` **як є**. Доступ — лише `super_admin` через RLS (§7). Жодних редакцій у тригері.
+
+---
+
+## 14. Семантика порядку та nested updates
+
+- `zz_99_log_shipment_changes` бачить `NEW` після всіх BEFORE-тригерів → trigger-derived поля (`pipeline_status`, `logistics_status`, `logistics_cost_usd`, `eur_usd_rate*`) потрапляють у `changed_fields`.
+- Вкладений UPDATE із AFTER-тригера в межах тієї ж транзакції створює **окремий audit-row** із тим самим `txid`. Один audit-row != фінальний стан після всіх AFTER. Кореляція в межах транзакції — за `txid`.
+
+---
+
+## 15. Поведінка по джерелах
+
+| Джерело | actor_id | client_source | client_request_id | request_role | Створюється audit-row? |
+|---|---|---|---|---|---|
+| UI | `auth.uid()` | `'ui'` | UUID із UI | `'authenticated'` | Так |
+| `requireSupabaseAuth` server fn | `auth.uid()` | `'server:<name>'` | UUID із server fn | `'authenticated'` | Так |
+| `supabaseAdmin` server fn | NULL | `'server:<name>'` | UUID із server fn | `'service_role'` | Так; user_id — у парному `system_logs` |
+| Cron / `/api/public/hooks/*` | NULL | `'cron:<endpoint>'` | UUID із route | `'service_role'` | Так |
+| psql / SQL editor | NULL | NULL | NULL | NULL | Так (анонімний, видно по NULL) |
+| Вкладений UPDATE із AFTER-тригера | той самий | той самий | той самий | той самий | Так, окремий рядок, той самий `txid` |
+
+---
+
+## 16. Кореляція UI ↔ DB і обмеження поточного Build
+
+- **UI кореляція для UPDATE shipments — у scope.** Однозначна пара `system_logs.context.request_id` ↔ `shipment_changes.client_request_id`.
+- **UI кореляція для INSERT і DELETE shipments — НЕ в scope** цього Build. Server audit їх запише (op=INSERT/DELETE), але `client_request_id` буде NULL, бо `INSERT` (`shipments/new`) і `DELETE` (`cleanupEmptyShipment`, `deleteEmptyDraftShipment`, `cancelShipment`) не проходитимуть через UI-wrapper із headers. Це фіксуємо явно як обмеження; окреме розширення — наступний tasked Plan.
+
+---
+
+## 17. Retention
+
+Поки нічого не видаляємо. Очікуваний обсяг невеликий (≤ 1 рядок на ефективну зміну). Індекси покривають shipment/request/txid/actor. Опція 12-місячного retention із `DELETE WHERE created_at < now() - interval '12 months'` — окремий, не реалізуємо.
+
+---
+
+## 18. Test plan (виконується після Apply-2, не зараз)
+
+1. **Browser PATCH smoke** (§9) — обов'язковий gate перед інтеграцією wrapper.
+2. UI UPDATE одного поля → один audit-row з очікуваним `changed_fields`, `client_request_id` збігається з парним `system_logs`.
+3. UI UPDATE із trigger-derived побічними ефектами (`logistics_cost`) → `changed_fields` містить також похідні.
+4. No-op UPDATE (тільки `updated_at`) → жодного audit-row.
+5. psql UPDATE → audit-row з NULL `actor_id`/`client_*`, не-NULL `txid`.
+6. `cancelShipment` (admin) → audit-row UPDATE з `actor_id=NULL`, `client_source='server:cancelShipment'`, парний `system_logs` із реальним `user_id`.
+7. INSERT shipment через `/shipments/new` → audit-row op=INSERT, `client_request_id=NULL` (очікувано, §16).
+8. DELETE через `deleteEmptyDraftShipment` → audit-row op=DELETE, `client_request_id=NULL`.
+9. **Fail-closed test:** штучно зробити `INSERT` у `shipment_changes` неможливим (наприклад, тимчасово `REVOKE` у транзакції) → UPDATE shipments має впасти, а не «тихо» втратити аудит.
+10. Nested update перевірка — якщо нічого з AFTER-тригерів не робить vложений UPDATE shipments, фіксуємо це як «cascade чистий».
+
+---
+
+## Що НЕ робимо
+
+- Не змінюємо формули cost/customs/freight/FX.
+- Не чіпаємо `position_id`, FIFO, allocations, RLS на `shipments`/`vehicles`/`shipment_items`.
+- Не змінюємо UI/layout.
+- Не аудитимо `vehicles` (окреме завдання).
+- Не реалізуємо retention.
+- Не пишемо код у Plan/Preview.
+
+---
+
+## Послідовність наступних кроків (після вашого ОК на цей Preview)
+
+1. **Apply-1** — `audit_infra_shipments` (table + RLS + indexes + function, без тригера). Зупинка.
+2. **Browser PATCH smoke** із одного тимчасового call site. Зупинка з результатом.
+3. **Apply-2** — `audit_enable_trigger_shipments`. Зупинка.
+4. **Build** wrapper'ів + точкова заміна 6 call sites із §10 + парні server-side helpers для `cancelShipment` і lifecycle hook. UI-логіка не змінюється.
+5. QA smoke по §18.
+6. Звіт.
+
+Кожен крок — окремий запит на ваше схвалення.
