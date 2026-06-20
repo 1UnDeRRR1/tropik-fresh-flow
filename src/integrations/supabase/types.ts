@@ -2378,6 +2378,66 @@ export type Database = {
           },
         ]
       }
+      shipment_changes: {
+        Row: {
+          actor_id: string | null
+          actor_roles: string[]
+          changed_fields: string[]
+          client_action: string | null
+          client_request_id: string | null
+          client_route: string | null
+          client_source: string | null
+          created_at: string
+          id: number
+          new_values: Json | null
+          old_values: Json | null
+          op: string
+          request_method: string | null
+          request_path: string | null
+          request_role: string | null
+          shipment_id: string
+          txid: number
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_roles?: string[]
+          changed_fields?: string[]
+          client_action?: string | null
+          client_request_id?: string | null
+          client_route?: string | null
+          client_source?: string | null
+          created_at?: string
+          id?: number
+          new_values?: Json | null
+          old_values?: Json | null
+          op: string
+          request_method?: string | null
+          request_path?: string | null
+          request_role?: string | null
+          shipment_id: string
+          txid?: number
+        }
+        Update: {
+          actor_id?: string | null
+          actor_roles?: string[]
+          changed_fields?: string[]
+          client_action?: string | null
+          client_request_id?: string | null
+          client_route?: string | null
+          client_source?: string | null
+          created_at?: string
+          id?: number
+          new_values?: Json | null
+          old_values?: Json | null
+          op?: string
+          request_method?: string | null
+          request_path?: string | null
+          request_role?: string | null
+          shipment_id?: string
+          txid?: number
+        }
+        Relationships: []
+      }
       shipment_item_changes: {
         Row: {
           changed_by: string | null
