@@ -1480,6 +1480,7 @@ function ProductsFullscreen() {
         (d) => d.source_offer_id && Number(d.source_offer_freight_amount ?? 0) > 0,
       );
       if (
+        !hasPositiveManualTransport &&
         offerFreightDraft &&
         (sh?.logistics_cost == null || Number(sh.logistics_cost) <= 0)
       ) {
@@ -1499,6 +1500,7 @@ function ProductsFullscreen() {
       // 6. Clear local state so hydration takes over after refetch.
       setDraftItems([]);
       setPendingDeletes([]);
+      setDraftTransport(null);
       baselinesRef.current = new Map();
 
       await syncVehicleStateForShipment(id);
