@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.log_shipments_changes() FROM service_role;
