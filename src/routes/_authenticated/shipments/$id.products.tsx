@@ -797,6 +797,86 @@ function ProductsFullscreen() {
     ? { ...vehicleContext, loadedItems: effectiveLoadedItems }
     : null;
 
+  // SURGICAL RECOVERY — baseline + parsed-draft + preview-context patch.
+  // baselineTransport: persisted mirror (after successful UPDATE) ?? DB row.
+  const baselineTransport = useMemo(() => {
+    if (persistedTransport) return persistedTransport;
+    const baseAmount =
+      vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost ?? null;
+    const baseCur =
+      (vehicleContext?.ownerShipment?.logistics_cost_currency ?? sh?.logistics_cost_currency ?? "EUR") as
+        | "EUR"
+        | "USD";
+    return {
+      amount: baseAmount,
+      currency: baseCur,
+      amountUsd: sh?.logistics_cost_usd ?? null,
+      eurUsdRate: sh?.eur_usd_rate ?? null,
+    };
+  }, [persistedTransport, vehicleContext?.ownerShipment, sh]);
+
+  // Parse the draft amount: supports "2000", "2000.50", "2000,50".
+  // Trailing "." or "," is held back as "invalid" so it cannot be saved
+  // and cannot drive a preview number.
+  const draftParsed = useMemo(() => {
+    if (!draftTransport) return null;
+    const trimmed = draftTransport.amount.trim();
+    if (trimmed === "") return { valid: true, num: 0, empty: true } as const;
+    if (/[.,]$/.test(trimmed)) return { valid: false, num: Number.NaN, empty: false } as const;
+    const n = Number(trimmed.replace(",", "."));
+    if (!Number.isFinite(n)) return { valid: false, num: Number.NaN, empty: false } as const;
+    return { valid: true, num: n, empty: false } as const;
+  }, [draftTransport]);
+
+  const hasPositiveManualTransport = !!draftTransport && !!draftParsed?.valid && draftParsed.num > 0;
+  const draftCurrency: "EUR" | "USD" = draftTransport?.currency ?? baselineTransport.currency;
+
+  // FX selection mirrors DB calc_shipment_logistics_usd: snapshot first, latest fallback.
+  const isValidFx = (x: number | null | undefined): x is number =>
+    typeof x === "number" && Number.isFinite(x) && x > 0;
+  const effectiveFx = isValidFx(sh?.eur_usd_rate)
+    ? Number(sh!.eur_usd_rate)
+    : isValidFx(latestEurUsd ?? null)
+      ? Number(latestEurUsd)
+      : null;
+
+  // Local preview USD for the transport amount.
+  // null = "no working FX for EUR" -> do NOT override persisted preview.
+  let effectiveTransportUsd: number | null = null;
+  if (draftTransport) {
+    if (!hasPositiveManualTransport) {
+      // empty / 0 / invalid → user-cleared transport → preview shows 0
+      effectiveTransportUsd = 0;
+    } else if (draftCurrency === "USD") {
+      effectiveTransportUsd = draftParsed!.num;
+    } else if (effectiveFx != null) {
+      effectiveTransportUsd = draftParsed!.num * effectiveFx;
+    } else {
+      effectiveTransportUsd = null;
+    }
+  }
+
+  const transportTargetId = vehicleContext?.ownerShipment?.id ?? sh?.id ?? null;
+  const hasVehicle = !!sh?.vehicle_id;
+
+  // Patched preview contexts (point-replace only the owner's logistics_cost_usd).
+  const shForPreview = useMemo(() => {
+    if (!sh || !draftTransport || hasVehicle || effectiveTransportUsd == null) return sh ?? null;
+    return { ...sh, logistics_cost_usd: effectiveTransportUsd };
+  }, [sh, draftTransport, hasVehicle, effectiveTransportUsd]);
+
+  const vehicleContextForPreview = useMemo(() => {
+    if (!vehicleContext || !draftTransport || !hasVehicle || effectiveTransportUsd == null || !transportTargetId) {
+      return vehicleContext;
+    }
+    return {
+      ...vehicleContext,
+      shipments: vehicleContext.shipments.map((row) =>
+        row.id === transportTargetId ? { ...row, logistics_cost_usd: effectiveTransportUsd } : row,
+      ),
+    };
+  }, [vehicleContext, draftTransport, hasVehicle, effectiveTransportUsd, transportTargetId]);
+
   // D1-Fix v2.5.1 — live preview map (localId -> { isDirty, value, components }).
   // Clean existing row -> show DB final_cost_*; dirty/new row -> show preview value (or "—").
   // D1-Fix v2.5.2 — also carries live customs status.
@@ -839,8 +919,8 @@ function ProductsFullscreen() {
       const { value, components } = computeRowPreview(
         d,
         dbItem,
-        sh ?? null,
-        vehicleContext,
+        shForPreview ?? null,
+        vehicleContextForPreview,
         activeCustomsRefs ?? null,
         latestEurUsd ?? null,
         products,
@@ -866,7 +946,7 @@ function ProductsFullscreen() {
     return m;
     // baselinesRef and refById are intentionally excluded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftItems, dbItemById, sh, vehicleContext, activeCustomsRefs, latestEurUsd, products]);
+  }, [draftItems, dbItemById, shForPreview, vehicleContextForPreview, activeCustomsRefs, latestEurUsd, products]);
 
   // 9F Phase C2b — truck capacity uses gross_weight_kg; fallback to legacy pc*pallet_weight when gross missing.
   const { pallets: loadedPallets, grossKg: loadedKg } = sumCapacity(effectiveLoadedItems);
@@ -876,8 +956,11 @@ function ProductsFullscreen() {
     ? currentShipmentEditable
     : !!user?.id && !!vehicleContext?.ownerShipment && vehicleContext.ownerShipment.id === sh.id && sh.vehicle_owner_id === user.id);
 
-  const transportCostValue = Number(
-    (vehicleContext?.ownerShipment?.logistics_cost ?? sh?.logistics_cost) ?? 0,
+  // SURGICAL RECOVERY — UI transport value reflects local draft (if any),
+  // otherwise the persisted baseline. Cleared draft hides the old DB number.
+  const transportCostValue = draftTransport
+    ? (draftParsed!.valid ? draftParsed!.num : 0)
+    : Number(baselineTransport.amount ?? 0);
   );
   const transportMissing = canEditTransport && transportCostValue <= 0;
   const canSaveForLater = !!fromOfferId && hasRealPallets && incompleteCount === 0;
