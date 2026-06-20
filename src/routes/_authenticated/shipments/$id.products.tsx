@@ -673,6 +673,16 @@ function ProductsFullscreen() {
   // re-renders the disabled button).
   const savingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
+  // SURGICAL RECOVERY — transport is now local draft. No autosave.
+  // Persisted mirror lets retry of "Готово" after a downstream failure
+  // skip re-running the transport UPDATE (diff vs. last server response).
+  const [draftTransport, setDraftTransport] = useState<{ amount: string; currency: "EUR" | "USD" } | null>(null);
+  const [persistedTransport, setPersistedTransport] = useState<{
+    amount: number | null;
+    currency: "EUR" | "USD";
+    amountUsd: number | null;
+    eurUsdRate: number | null;
+  } | null>(null);
   // P-Fix #6 — bumping this tick auto-collapses expanded cost/details panels
   // (e.g. ItemCustomsOverride) when a new row is added, so a stale expanded
   // block can never overlap freshly added rows.
