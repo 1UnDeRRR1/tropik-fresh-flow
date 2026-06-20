@@ -1287,6 +1287,54 @@ function ProductsFullscreen() {
     }
 
     try {
+      // SURGICAL RECOVERY — step 5: validate manual transport draft.
+      if (draftTransport && draftParsed && !draftParsed.valid) {
+        toast.error("Невірна сума перевезення");
+        triggerShake(true);
+        return;
+      }
+      // SURGICAL RECOVERY — step 6: verified transport UPDATE.
+      // Runs ONLY for a positive manual draft AND a diff vs. baseline.
+      // Must complete BEFORE any shipment_items / position / FIFO writes.
+      if (hasPositiveManualTransport && transportTargetId) {
+        const baselineAmount = Number(baselineTransport.amount ?? 0);
+        const baselineCurrency = baselineTransport.currency;
+        const changed =
+          draftParsed!.num !== baselineAmount || draftCurrency !== baselineCurrency;
+        if (changed) {
+          const { data: updRows, error: updErr } = await supabase
+            .from("shipments")
+            .update({
+              logistics_cost: draftParsed!.num,
+              logistics_cost_currency: draftCurrency,
+            })
+            .eq("id", transportTargetId)
+            .select("id, logistics_cost, logistics_cost_currency, logistics_cost_usd, eur_usd_rate");
+          if (updErr) {
+            toast.error(translateError(updErr));
+            return;
+          }
+          const rows = (updRows ?? []) as Array<{
+            id: string;
+            logistics_cost: number | null;
+            logistics_cost_currency: string | null;
+            logistics_cost_usd: number | null;
+            eur_usd_rate: number | null;
+          }>;
+          if (rows.length !== 1 || rows[0].id !== transportTargetId) {
+            toast.error("Не вдалося оновити вартість перевезення");
+            return;
+          }
+          const u = rows[0];
+          setPersistedTransport({
+            amount: u.logistics_cost,
+            currency: ((u.logistics_cost_currency ?? "EUR") as "EUR" | "USD"),
+            amountUsd: u.logistics_cost_usd,
+            eurUsdRate: u.eur_usd_rate,
+          });
+        }
+      }
+
       // 3. Phase 2: INSERT new rows ONE BY ONE with position anchor.
       // For each new draft: create operational_position (draft) → insert
       // shipment_item → attach to position via RPC. On any failure, delete
