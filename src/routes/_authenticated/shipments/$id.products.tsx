@@ -961,7 +961,6 @@ function ProductsFullscreen() {
   const transportCostValue = draftTransport
     ? (draftParsed!.valid ? draftParsed!.num : 0)
     : Number(baselineTransport.amount ?? 0);
-  );
   const transportMissing = canEditTransport && transportCostValue <= 0;
   const canSaveForLater = !!fromOfferId && hasRealPallets && incompleteCount === 0;
 
