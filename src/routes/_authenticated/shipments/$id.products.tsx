@@ -950,7 +950,7 @@ function ProductsFullscreen() {
         // "manual" leaves chip null — the manual override widget owns the UI.
       }
 
-      m.set(d.localId, { isDirty, value, hasCustomsInputs, liveCustomsStatus, components });
+      m.set(d.localId, { isDirty: useLiveCost, value, hasCustomsInputs, liveCustomsStatus, components });
     }
     return m;
     // baselinesRef and refById are intentionally excluded.
