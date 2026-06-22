@@ -123,6 +123,10 @@ type ItemRow = {
   resolver_gross_per_pallet_kg: number | null;
   net_auto: boolean | null;
   gross_auto: boolean | null;
+  // R1A — brand/class persistence plumbing (SELECT + payload only;
+  // no UI fields added to the editor in R1A).
+  brand: string | null;
+  class: string | null;
 };
 
 // 9F Phase D1 — strict draft/confirm/save contract.
@@ -478,7 +482,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,brand,class,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
         Promise.all([
           supabase.from("product_dictionary").select("product_name_ua").order("product_name_ua"),
           supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
@@ -989,21 +993,69 @@ function ProductsFullscreen() {
     }, 1500);
   };
 
-  // Build E: pagehide hard-cleanup removed. It fired without confirmation and
-  // could race with async prefill (fromOffer), risking hard delete of a
-  // shipment that already had business links but no real item row yet.
-  // Empty-draft cleanup now happens only via the explicit Back button
-  // (leaveProducts), through the guarded server-side deleteEmptyDraftShipment helper.
+  // R1A — offer-prefill state machine.
+  // States:
+  //   idle      — no fromOffer in URL
+  //   loading   — prefill request in flight (or about to start)
+  //   applied   — prefilled row exists (or items already populated)
+  //   blocked: no_position_id — source offer has no position anchor (legacy)
+  //   blocked: zero_pending  — offer has no remaining approved pallets
+  //   failed    — fetch/RPC error; Retry button is the only way out
+  // prefillRunRef is the single-attempt guard. offerPrefillAttempt is the
+  // reactive retry nonce — bumping it re-runs the effect after Retry resets
+  // prefillRunRef. prefillSeqRef is the stale-response guard: every attempt
+  // captures its sequence and discards mutations that arrive after a newer
+  // attempt (or after id/fromOfferId change).
+  type OfferPrefillState =
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "applied"; offerId: string | null }
+    | { kind: "blocked"; reason: "no_position_id" | "zero_pending"; offerId: string }
+    | { kind: "failed"; offerId: string; error: string | null };
+  const [offerPrefill, setOfferPrefill] = useState<OfferPrefillState>(
+    () => (fromOfferId ? { kind: "loading" } : { kind: "idle" }),
+  );
+  const [offerPrefillAttempt, setOfferPrefillAttempt] = useState(0);
+  const prefillRunRef = useRef(false);
+  const prefillSeqRef = useRef(0);
+
+  // R1A — leavingRef gates the auto-first-row effect during Back cleanup so
+  // a fresh empty draft cannot reappear after deleteEmptyDraftShipment runs.
+  // autoFirstRowSpawnedRef is a single-shot guard per shipment id.
+  const leavingRef = useRef(false);
+  const autoFirstRowSpawnedRef = useRef(false);
+
+  // R1A — reset prefill/auto-first-row state on shipment id or fromOfferId
+  // change. Must run before any effect that reads these refs/state.
+  useEffect(() => {
+    prefillRunRef.current = false;
+    autoFirstRowSpawnedRef.current = false;
+    leavingRef.current = false;
+    setOfferPrefill(fromOfferId ? { kind: "loading" } : { kind: "idle" });
+    setOfferPrefillAttempt(0);
+    // prefillSeqRef is bumped on entry of the prefill effect; we also bump
+    // here so any in-flight handler from a previous route becomes stale.
+    prefillSeqRef.current += 1;
+  }, [id, fromOfferId]);
 
   // Auto-prefill a product row + freight from the source manager offer when
   // creating a new shipment directly under that offer ("Створити нову
-  // поставку" button). Runs once per shipment.
-  const prefillRunRef = useRef(false);
+  // поставку" button). Runs once per shipment. Retry via offerPrefillAttempt.
   useEffect(() => {
     if (!fromOfferId || !sh || !currentShipmentEditable) return;
-    if (items.length > 0) return;
+    // Already-resolved guard: shipment already has rows → no-op, never
+    // remain stuck in loading.
+    if (items.length > 0) {
+      if (!prefillRunRef.current) {
+        prefillRunRef.current = true;
+        setOfferPrefill({ kind: "applied", offerId: fromOfferId });
+      }
+      return;
+    }
     if (prefillRunRef.current) return;
     prefillRunRef.current = true;
+    const seq = ++prefillSeqRef.current;
+    const isStale = () => prefillSeqRef.current !== seq;
     (async () => {
       try {
         const { data: offer, error: offerErr } = await supabase
@@ -1013,7 +1065,11 @@ function ProductsFullscreen() {
           )
           .eq("id", fromOfferId)
           .maybeSingle();
-        if (offerErr || !offer) return;
+        if (isStale()) return;
+        if (offerErr || !offer) {
+          setOfferPrefill({ kind: "failed", offerId: fromOfferId, error: offerErr?.message ?? "Не вдалося завантажити пропозицію" });
+          return;
+        }
 
         // Phase 2 hard guard: offers without a position anchor are legacy.
         // Do NOT silently mint a new product identity here — block the
@@ -1021,10 +1077,10 @@ function ProductsFullscreen() {
         const offerPositionId =
           (offer as { position_id?: string | null }).position_id ?? null;
         if (!offerPositionId) {
-          prefillRunRef.current = false;
           toast.error(
             "Пропозиція без position_id (legacy). Створення поставки за пропозицією заблоковано.",
           );
+          setOfferPrefill({ kind: "blocked", reason: "no_position_id", offerId: fromOfferId });
           return;
         }
 
@@ -1035,6 +1091,7 @@ function ProductsFullscreen() {
           .from("manager_offer_responses")
           .select("approved_pallets")
           .eq("offer_id", offer.id);
+        if (isStale()) return;
         const approvedTotal = (responses ?? []).reduce(
           (s, r) =>
             s + Number((r as { approved_pallets: number | null }).approved_pallets ?? 0),
@@ -1045,6 +1102,7 @@ function ProductsFullscreen() {
           .from("manager_offer_allocation_parts")
           .select("pallets, status")
           .eq("offer_id", offer.id);
+        if (isStale()) return;
         const orderedTotal = (allocParts ?? [])
           .filter((p) => (p as { status: string }).status === "ordered")
           .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
@@ -1062,8 +1120,8 @@ function ProductsFullscreen() {
         const safePalletCount = Math.min(desiredPalletCount, pending);
 
         if (safePalletCount <= 0) {
-          prefillRunRef.current = false;
           toast.error("Немає вільних палет за цією пропозицією");
+          setOfferPrefill({ kind: "blocked", reason: "zero_pending", offerId: fromOfferId });
           return;
         }
         if (safePalletCount < desiredPalletCount) {
@@ -1076,6 +1134,7 @@ function ProductsFullscreen() {
         const netKg = safePalletCount * palletWeightShim;
         const grossKg = netKg;
 
+        if (isStale()) return;
         setDraftItems((prev) => {
           if (prev.some((draft) => draft.source_offer_id === offer.id)) return prev;
           return [
@@ -1098,6 +1157,7 @@ function ProductsFullscreen() {
             },
           ];
         });
+        setOfferPrefill({ kind: "applied", offerId: fromOfferId });
 
         qc.invalidateQueries({ queryKey: ["shipment-products", user?.id, id] });
         qc.invalidateQueries({ queryKey: ["shipment", id] });
@@ -1114,11 +1174,28 @@ function ProductsFullscreen() {
         qc.invalidateQueries({ queryKey: ["nav-pending-manager-responses"] });
         qc.invalidateQueries({ queryKey: ["dash-manager"] });
         invalidateVehicleAndShipmentCaches(qc);
-      } catch {
-        prefillRunRef.current = false;
+      } catch (err) {
+        if (isStale()) return;
+        setOfferPrefill({
+          kind: "failed",
+          offerId: fromOfferId,
+          error: err instanceof Error ? err.message : null,
+        });
       }
     })();
-  }, [fromOfferId, sh, items.length, currentShipmentEditable, id, qc, user?.id]);
+  }, [fromOfferId, sh, items.length, currentShipmentEditable, id, qc, user?.id, offerPrefillAttempt]);
+
+  // R1A — Retry handler for offer-prefill failures. Resets the single-shot
+  // guard, flips state back to loading, and bumps the reactive attempt nonce
+  // so the prefill effect re-runs exactly once.
+  const retryOfferPrefill = useCallback(() => {
+    if (!fromOfferId) return;
+    prefillRunRef.current = false;
+    setOfferPrefill({ kind: "loading" });
+    setOfferPrefillAttempt((n) => n + 1);
+  }, [fromOfferId]);
+
+
 
 
 
@@ -1127,6 +1204,10 @@ function ProductsFullscreen() {
   // (it checks the DB; under D1 manual rows never reach DB until "Готово", so a fresh
   // shipment with no prefill and no committed rows stays eligible for cleanup).
   const leaveProducts = async () => {
+    // R1A — gate auto-first-row effect immediately; cleanup is async and a
+    // local empty row must not be re-spawned between setDraftItems([]) and
+    // the navigate call below.
+    leavingRef.current = true;
     setDraftItems([]);
     setPendingDeletes([]);
     baselinesRef.current = new Map();
@@ -1149,6 +1230,13 @@ function ProductsFullscreen() {
 
   // D1 — manual addItem: local draft only, NO INSERT.
   const addItem = () => {
+    // R1A — hard guard: while a fromOffer prefill is loading / blocked /
+    // failed, no Add entry point may create a manual draft row. Every UI
+    // trigger (header +, empty-state button, footer Add, keyboard shortcut)
+    // must route through this single function.
+    if (fromOfferId && offerPrefill.kind !== "applied") {
+      return;
+    }
     if (!currentShipmentEditable) {
       toast.error("Ви можете додавати товари лише у власну поставку");
       return;
@@ -1162,6 +1250,38 @@ function ProductsFullscreen() {
     setCollapseExpandedTick((t) => t + 1);
     setDraftItems((prev) => [...prev, emptyDraftRow()]);
   };
+
+  // R1A — auto-first local row. After /shipments/new becomes header-only it
+  // creates a draft shipment and navigates here with zero shipment_items.
+  // The editor must show one ready-to-fill row immediately, locally — no DB
+  // write. Predicate uses every guard from the contract; setDraftItems uses
+  // a functional updater + length check so a concurrent local row cannot be
+  // replaced. Located AFTER the hydration effect (line ~704), so hydration
+  // can't overwrite the spawned row once autoFirstRowSpawnedRef is set.
+  useEffect(() => {
+    if (!data) return; // shipment query must be successful
+    if (items.length !== 0) return;
+    if (draftItems.length !== 0) return;
+    if (pendingDeletes.length !== 0) return;
+    if (!currentShipmentEditable) return;
+    if (fromOfferId) return;
+    if (offerPrefill.kind !== "idle") return;
+    if (savingRef.current) return;
+    if (leavingRef.current) return;
+    if (autoFirstRowSpawnedRef.current) return;
+    autoFirstRowSpawnedRef.current = true;
+    setDraftItems((prev) => (prev.length > 0 ? prev : [emptyDraftRow()]));
+  }, [
+    data,
+    items.length,
+    draftItems.length,
+    pendingDeletes.length,
+    currentShipmentEditable,
+    fromOfferId,
+    offerPrefill,
+  ]);
+
+
 
   // D1 §6 — INSERT/UPDATE payload preserves current net/gross + legacy compat-shim.
   // Pure builder lives in @/lib/shipment-row-engine (Build A); thin wrapper kept
@@ -1641,10 +1761,19 @@ function ProductsFullscreen() {
           </div>
         </div>
 
-        <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
-          <Plus className="h-4 w-4" />
-        </Button>
+        {/* R1A — while a fromOffer prefill is loading/blocked/failed, hide
+            the Add (+) button entirely. Back stays available via the left
+            chevron. Manual addItem is also hard-blocked at the function. */}
+        {!(fromOfferId && offerPrefill.kind !== "applied") && (
+          <Button size="sm" onClick={addItem} disabled={!currentShipmentEditable} className="bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
+        {fromOfferId && offerPrefill.kind !== "applied" && (
+          <span className="w-9" aria-hidden="true" />
+        )}
       </header>
+
 
       {sh && (
         <TransportBar
@@ -1687,12 +1816,40 @@ function ProductsFullscreen() {
         empty={draftItems.length === 0}
         editingToolbarVisible={!!mobileEditingLabel}
         emptyContent={
-          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-            <p className="text-sm text-muted-foreground">Позицій ще немає</p>
-            <Button onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
-              <Plus className="mr-1 h-4 w-4" /> Додати товар
-            </Button>
-          </div>
+          fromOfferId && offerPrefill.kind !== "applied" ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+              {offerPrefill.kind === "loading" && (
+                <p className="text-sm text-muted-foreground">Завантаження товару з пропозиції…</p>
+              )}
+              {offerPrefill.kind === "blocked" && offerPrefill.reason === "no_position_id" && (
+                <p className="text-sm text-destructive">
+                  Пропозиція без position_id (legacy). Створення поставки за пропозицією заблоковано.
+                </p>
+              )}
+              {offerPrefill.kind === "blocked" && offerPrefill.reason === "zero_pending" && (
+                <p className="text-sm text-destructive">
+                  Немає вільних палет за цією пропозицією.
+                </p>
+              )}
+              {offerPrefill.kind === "failed" && (
+                <>
+                  <p className="text-sm text-destructive">
+                    Не вдалося завантажити товар з пропозиції{offerPrefill.error ? `: ${offerPrefill.error}` : ""}.
+                  </p>
+                  <Button onClick={retryOfferPrefill} className="bg-brand text-brand-foreground hover:bg-brand/90">
+                    Повторити
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+              <p className="text-sm text-muted-foreground">Позицій ще немає</p>
+              <Button onClick={addItem} className="bg-brand text-brand-foreground hover:bg-brand/90">
+                <Plus className="mr-1 h-4 w-4" /> Додати товар
+              </Button>
+            </div>
+          )
         }
       >
         <ProductsTable
@@ -1712,7 +1869,7 @@ function ProductsFullscreen() {
         />
 
 
-        {currentShipmentEditable && (
+        {currentShipmentEditable && !(fromOfferId && offerPrefill.kind !== "applied") && (
           <div className="sticky left-0 flex justify-center pb-2 pt-3" style={{ width: "100vw" }}>
             <Button
               type="button"
@@ -1724,6 +1881,7 @@ function ProductsFullscreen() {
             </Button>
           </div>
         )}
+
 
 
       </ProductsScrollArea>

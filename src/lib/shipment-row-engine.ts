@@ -37,6 +37,10 @@ export type ItemRowLike = {
   resolver_gross_per_pallet_kg: number | null;
   net_auto: boolean | null;
   gross_auto: boolean | null;
+  // R1A — optional brand/class plumbing. Editor SELECT may or may not include
+  // these columns; persistence helpers below treat them as optional inputs.
+  brand?: string | null;
+  class?: string | null;
 };
 
 export type ShipmentRowLike = {
@@ -144,6 +148,8 @@ export function itemRowToDraft(item: ItemRowLike): DraftRow {
     gross_auto: item.gross_auto ?? false,
     unit_price: Number(item.unit_price ?? 0),
     price_currency: ((item.price_currency ?? "EUR") as "EUR" | "USD"),
+    brand: item.brand ?? "",
+    class: item.class ?? "",
   };
 }
 
@@ -173,6 +179,8 @@ export function emptyDraftRow(): DraftRow {
     gross_auto: false,
     unit_price: 0,
     price_currency: "EUR",
+    brand: "",
+    class: "",
   };
 }
 
@@ -546,6 +554,11 @@ export function buildPayload(
     unit: "kg",
     unit_price: d.unit_price,
     price_currency: d.price_currency,
+    // R1A — brand/class persisted for both INSERT and UPDATE. Trimmed value
+    // or NULL when blank. Optional in DraftRow (defaults to "" via
+    // emptyDraftRow / itemRowToDraft).
+    brand: d.brand?.trim() ? d.brand.trim() : null,
+    class: d.class?.trim() ? d.class.trim() : null,
   };
   if (!opts.forUpdate) payload.shipment_id = ctx.shipmentId;
   return payload;
