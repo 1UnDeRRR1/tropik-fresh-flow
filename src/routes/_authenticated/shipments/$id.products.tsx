@@ -1109,11 +1109,22 @@ function ProductsFullscreen() {
           0,
         );
 
-        const { data: allocParts } = await supabase
+        const {
+          data: allocParts,
+          error: allocPartsError,
+        } = await supabase
           .from("manager_offer_allocation_parts")
           .select("pallets, status")
           .eq("offer_id", offer.id);
         if (isStale()) return;
+        if (allocPartsError) {
+          setOfferPrefill({
+            kind: "failed",
+            offerId: fromOfferId,
+            error: "Не вдалося завантажити розподіл пропозиції",
+          });
+          return;
+        }
         const orderedTotal = (allocParts ?? [])
           .filter((p) => (p as { status: string }).status === "ordered")
           .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
