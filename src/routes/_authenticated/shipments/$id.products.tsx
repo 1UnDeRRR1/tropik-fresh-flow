@@ -1106,10 +1106,7 @@ function ProductsFullscreen() {
           0,
         );
 
-        const {
-          data: allocParts,
-          error: allocPartsError,
-        } = await supabase
+        const { data: allocParts, error: allocPartsError } = await supabase
           .from("manager_offer_allocation_parts")
           .select("pallets, status")
           .eq("offer_id", offer.id);
