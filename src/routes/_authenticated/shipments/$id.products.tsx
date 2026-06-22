@@ -1087,11 +1087,22 @@ function ProductsFullscreen() {
         const palletWeight = Number(offer.pallet_weight ?? 0);
 
         // Pending по всьому offer: approved - ordered - cancelled (через allocation_parts).
-        const { data: responses } = await supabase
+        const {
+          data: responses,
+          error: responsesError,
+        } = await supabase
           .from("manager_offer_responses")
           .select("approved_pallets")
           .eq("offer_id", offer.id);
         if (isStale()) return;
+        if (responsesError) {
+          setOfferPrefill({
+            kind: "failed",
+            offerId: fromOfferId,
+            error: "Не вдалося завантажити відповіді по пропозиції",
+          });
+          return;
+        }
         const approvedTotal = (responses ?? []).reduce(
           (s, r) =>
             s + Number((r as { approved_pallets: number | null }).approved_pallets ?? 0),
