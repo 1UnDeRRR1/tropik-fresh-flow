@@ -1087,10 +1087,7 @@ function ProductsFullscreen() {
         const palletWeight = Number(offer.pallet_weight ?? 0);
 
         // Pending по всьому offer: approved - ordered - cancelled (через allocation_parts).
-        const {
-          data: responses,
-          error: responsesError,
-        } = await supabase
+        const { data: responses, error: responsesError } = await supabase
           .from("manager_offer_responses")
           .select("approved_pallets")
           .eq("offer_id", offer.id);
