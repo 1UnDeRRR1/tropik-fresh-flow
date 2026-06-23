@@ -16,6 +16,21 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
 });
 
+function BuildInfo() {
+  const raw = import.meta.env.VITE_APP_VERSION ?? "unknown";
+  const version =
+    raw !== "unknown" && /^[0-9a-f]{7,40}$/i.test(raw)
+      ? raw.slice(0, 7)
+      : "unknown";
+  const time = import.meta.env.VITE_BUILD_TIME ?? "";
+  return (
+    <div className="pt-2 text-center text-[10px] leading-tight text-muted-foreground/70">
+      <div>Версія збірки: {version}</div>
+      {time ? <div>{time}</div> : null}
+    </div>
+  );
+}
+
 function Settings() {
   const { profile, primaryRole, signOut } = useAuth();
   const navigate = useNavigate();
@@ -109,6 +124,7 @@ function Settings() {
           >
             <LogOut className="mr-2 h-4 w-4" /> Вийти
           </Button>
+          <BuildInfo />
         </div>
 
         {/* Desktop owner: plain button only, no artwork. */}
@@ -121,6 +137,7 @@ function Settings() {
           >
             <LogOut className="mr-2 h-4 w-4" /> Вийти
           </Button>
+          <BuildInfo />
         </div>
       </>
     );
@@ -166,6 +183,7 @@ function Settings() {
           <LogOut className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <span className="block w-full text-center">Вийти</span>
         </ShinyButton>
+        <BuildInfo />
 
       </div>
     </div>

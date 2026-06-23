@@ -107,6 +107,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/805976f7-23db-4ab0-a216-6b4a0201ea18/id-preview-0f5b11be--1e88bdf2-4c3c-407d-937e-c134ac58990b.lovable.app-1778646625470.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/805976f7-23db-4ab0-a216-6b4a0201ea18/id-preview-0f5b11be--1e88bdf2-4c3c-407d-937e-c134ac58990b.lovable.app-1778646625470.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      {
+        name: "x-tropik-build-version",
+        content: import.meta.env.VITE_APP_VERSION ?? "unknown",
+      },
+      {
+        name: "x-tropik-build-time",
+        content: import.meta.env.VITE_BUILD_TIME ?? "",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -150,6 +158,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
     installGlobalErrorLogger();
+    console.info(
+      "[tropik] build",
+      import.meta.env.VITE_APP_VERSION ?? "unknown",
+      import.meta.env.VITE_BUILD_TIME ?? "",
+    );
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
