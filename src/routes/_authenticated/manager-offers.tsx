@@ -1364,6 +1364,10 @@ function ManagerOffersPage() {
                           className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
                           title="Немає підходящої поставки — створіть нову"
                           onClick={async () => {
+                            if (!isValidNetGross(o.pallet_net_kg, o.pallet_gross_kg)) {
+                              toast.error(NET_GROSS_INVALID_MSG);
+                              return;
+                            }
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
