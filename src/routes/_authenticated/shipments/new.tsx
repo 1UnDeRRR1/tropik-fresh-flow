@@ -48,6 +48,7 @@ import {
   getCountryCode,
 } from "@/lib/shipment-code";
 import { StaffOnly } from "@/components/StaffOnly";
+import { isValidNetGross, NET_GROSS_INVALID_MSG } from "@/lib/manager-offers";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
 
