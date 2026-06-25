@@ -1061,7 +1061,7 @@ function ProductsFullscreen() {
         const { data: offer, error: offerErr } = await supabase
           .from("manager_offers")
           .select(
-            "id,product_name,origin_country,caliber,variety,pallet_weight,price_per_kg,price_currency,freight_amount,freight_currency,position_id,import_manager_id",
+            "id,product_name,origin_country,caliber,variety,pallet_net_kg,pallet_gross_kg,price_per_kg,price_currency,freight_amount,freight_currency,position_id,import_manager_id",
           )
           .eq("id", fromOfferId)
           .maybeSingle();
@@ -1084,7 +1084,23 @@ function ProductsFullscreen() {
           return;
         }
 
-        const palletWeight = Number(offer.pallet_weight ?? 0);
+        // Defense-in-depth Net/Gross gate. shipments/new.tsx already guards
+        // creation, but the products screen may be reached directly.
+        // Require net > 0 and gross > net. NO fallback to pallet_weight.
+        const offerNet = Number((offer as { pallet_net_kg?: number | null }).pallet_net_kg ?? NaN);
+        const offerGross = Number((offer as { pallet_gross_kg?: number | null }).pallet_gross_kg ?? NaN);
+        const netGrossOk =
+          Number.isFinite(offerNet) &&
+          Number.isFinite(offerGross) &&
+          offerNet > 0 &&
+          offerGross > offerNet;
+        if (!netGrossOk) {
+          toast.error(
+            "У пропозиції не заповнено коректні нетто та брутто. Спочатку відредагуйте пропозицію.",
+          );
+          setOfferPrefill({ kind: "blocked", reason: "no_position_id", offerId: fromOfferId });
+          return;
+        }
 
         // Pending по всьому offer: approved - ordered - cancelled (через allocation_parts).
         const { data: responses, error: responsesError } = await supabase
@@ -1128,11 +1144,13 @@ function ProductsFullscreen() {
 
         const pending = approvedTotal - orderedTotal - cancelledTotal;
 
+        // Capacity uses GROSS (truck KG ceiling); pallet count then drives
+        // both net and gross totals from per-pallet values.
         const TARGET_KG = 21000;
-        const desiredPalletCount =
-          palletWeight > 0
-            ? Math.min(MAX_PALLETS, Math.max(1, Math.floor(TARGET_KG / palletWeight)))
-            : 0;
+        const desiredPalletCount = Math.min(
+          MAX_PALLETS,
+          Math.max(1, Math.floor(TARGET_KG / offerGross)),
+        );
         const safePalletCount = Math.min(desiredPalletCount, pending);
 
         if (safePalletCount <= 0) {
@@ -1146,9 +1164,8 @@ function ProductsFullscreen() {
           );
         }
 
-        const palletWeightShim = palletWeight > 0 ? palletWeight : 0;
-        const netKg = safePalletCount * palletWeightShim;
-        const grossKg = netKg;
+        const netKg = safePalletCount * offerNet;
+        const grossKg = safePalletCount * offerGross;
 
         if (isStale()) return;
         setDraftItems((prev) => {
