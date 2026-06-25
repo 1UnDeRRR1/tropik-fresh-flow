@@ -1582,11 +1582,20 @@ type FormState = {
   price_currency: "EUR" | "USD";
   freight_amount: string;
   freight_currency: "EUR" | "USD";
-  pallet_weight: string;
+  pallet_net_kg: string;
+  pallet_gross_kg: string;
   offered_pallets: string;
   expires_in_hours: string;
   expected_eta: string;
   notes: string;
+  /** Stage B — manual EUR/USD FX (used only when no FX is available). */
+  manual_fx: string;
+  /** Stage B — manual customs duty (USD/kg) used as BOTH indicative and invoice. */
+  manual_customs: string;
+  /** Stage C — final manual indicative cost (USD/kg). */
+  manual_indicative: string;
+  /** Stage C — final manual invoice cost (USD/kg). */
+  manual_invoice: string;
 };
 
 // Local YYYY-MM-DD for tomorrow (business date, avoids UTC off-by-one).
@@ -1611,11 +1620,16 @@ const emptyForm = (): FormState => ({
   price_currency: "EUR",
   freight_amount: "",
   freight_currency: "EUR",
-  pallet_weight: "",
+  pallet_net_kg: "",
+  pallet_gross_kg: "",
   offered_pallets: "",
   expires_in_hours: "",
   expected_eta: "",
   notes: "",
+  manual_fx: "",
+  manual_customs: "",
+  manual_indicative: "",
+  manual_invoice: "",
 });
 
 function offerToForm(offer: ManagerOffer): FormState {
@@ -1624,7 +1638,6 @@ function offerToForm(offer: ManagerOffer): FormState {
     price_currency?: "EUR" | "USD" | null;
     freight_amount?: number | null;
     freight_currency?: "EUR" | "USD" | null;
-    pallet_weight?: number | null;
   };
   return {
     product_name: o.product_name ?? "",
@@ -1637,11 +1650,19 @@ function offerToForm(offer: ManagerOffer): FormState {
     price_currency: (o.price_currency ?? "EUR") as "EUR" | "USD",
     freight_amount: o.freight_amount != null ? String(o.freight_amount) : "",
     freight_currency: (o.freight_currency ?? "EUR") as "EUR" | "USD",
-    pallet_weight: o.pallet_weight != null ? String(o.pallet_weight) : "",
+    // Hydrate ONLY from new pallet_net_kg/pallet_gross_kg columns. Never
+    // hydrate either Net or Gross from legacy pallet_weight. A legacy
+    // NULL/NULL offer opens with both fields empty.
+    pallet_net_kg: o.pallet_net_kg != null ? String(o.pallet_net_kg) : "",
+    pallet_gross_kg: o.pallet_gross_kg != null ? String(o.pallet_gross_kg) : "",
     offered_pallets: o.offered_pallets != null ? String(o.offered_pallets) : "",
     expires_in_hours: "",
     expected_eta: o.expected_eta ?? "",
     notes: o.notes ?? "",
+    manual_fx: "",
+    manual_customs: "",
+    manual_indicative: "",
+    manual_invoice: "",
   };
 }
 
