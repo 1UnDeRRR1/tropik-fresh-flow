@@ -263,7 +263,7 @@ function BranchDashboard() {
       const { data, error } = await (supabase as any)
         .from("manager_offer_responses")
         .select(`id,offer_id,approved_pallets,requested_pallets,
-          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,pallet_weight,created_by)`)
+          manager_offers!inner(id,position_id,product_name,origin_country,caliber,variety,expected_eta,indicative_cost_usd,invoice_cost_usd,linked_shipment_id,status,import_manager_id,created_by)`)
         .eq("branch_id", branchId!);
       if (error) throw error;
       return (data ?? []) as Array<{
@@ -273,7 +273,7 @@ function BranchDashboard() {
           caliber: string | null; variety: string | null; expected_eta: string | null;
           indicative_cost_usd: number | null; invoice_cost_usd: number | null;
           linked_shipment_id: string | null; status: string;
-          import_manager_id: string | null; pallet_weight: number | null;
+          import_manager_id: string | null;
           created_by: string | null;
         };
       }>;
@@ -655,7 +655,9 @@ function BranchDashboard() {
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
               }
               const pallets = Number(approved ?? requested ?? 0);
-              const weight = pallets * Number(o.pallet_weight ?? 0);
+              // Pending manager-offer rows no longer expose pallet_weight to
+              // branch UI; weight stays 0 and `кг` is hidden by drill render.
+              const weight = 0;
               return {
                 key: `mor-${p.id}`,
                 shipment_item_id: `mor-${p.id}`,

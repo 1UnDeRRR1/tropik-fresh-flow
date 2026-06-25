@@ -1,15 +1,15 @@
 // Live cost calculation for Import Manager Offers.
-// Mirrors the shipment-side logic in calc_shipment_item_costs():
-//   - Convert price/freight from EUR→USD using the latest exchange rate snapshot.
-//   - Look up customs_reference by product+country.
-//   - Indicative duty = euro1_markup_usd (if a reference matched).
-//   - If unit_price_usd ≤ threshold: invoice duty = euro1_markup_usd.
-//   - Else: invoice duty = unit*1.20*pct/100 + unit*0.20 + 0.02
-//          (pct = euro1_percent for EU countries, customs_fee_percent otherwise).
-//   - transport_per_kg = (freight_usd / expected_pallets) / pallet_weight,
-//     expected_pallets = min(26, floor(21500 / pallet_weight)).
+// Uses split Net/Gross per pallet:
+//   - gross controls vehicle capacity:
+//       expected_pallets = min(26, floor(21500 / gross_per_pallet))
+//   - net is the transport $/kg denominator:
+//       transport_per_kg = (freight_usd / expected_pallets) / net_per_pallet
 //   - indicative_cost = unit_usd + transport_per_kg + indicative_duty
 //   - invoice_cost    = unit_usd + transport_per_kg + invoice_duty
+//
+// Fallback policy: NO FX=0, NO customs=0, NO pallet_weight fallback. If a
+// required input is missing the result is `null` and the caller must surface
+// the targeted Stage B / Stage C manual fields.
 
 import { supabase } from "@/integrations/supabase/client";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
@@ -34,13 +34,9 @@ export type CustomsRefRow = {
   euro1_markup_usd: number;
   product_name?: string;
   country?: string;
-  /** True only when an exact product+country row matched. Fallback (same
-   * product, any country) sets this to false so the UI can still show
-   * "не знайдено" while the calculation uses the highest indicative. */
   exact?: boolean;
 };
 
-/** Patch 6B: GREEN/YELLOW/RED status from a customs lookup result. */
 export function getCustomsStatus(
   ref: CustomsRefRow | null | undefined,
 ): "green" | "yellow" | "red" {
@@ -48,7 +44,6 @@ export function getCustomsStatus(
   return ref.exact === true ? "green" : "yellow";
 }
 
-// Product aliases for customs lookup: treat key as if it were value
 const PRODUCT_CUSTOMS_ALIASES: Record<string, string> = {
   "інжирний персик": "персик",
   "платерина нектарин": "нектарин",
@@ -62,17 +57,10 @@ function resolveCustomsProductName(name: string): string {
 export async function fetchCustomsRef(productName: string, country: string): Promise<CustomsRefRow | null> {
   const name = resolveCustomsProductName(productName.trim());
   if (!name) return null;
-  // 1) exact product + country match. Expand country to all alias forms so
-  //    customs_reference rows stored under any alias (e.g. "ПАР" for canonical
-  //    "Південна Африка") are matched. Uses cached reverse alias index — no
-  //    extra network call.
   const trimmedCountry = country.trim();
   if (trimmedCountry) {
     const candidates = getCountryAliasTargets(trimmedCountry);
     const list = candidates.length > 0 ? candidates : [trimmedCountry];
-    // Case-insensitive country match: customs_reference rows are stored in
-    // UPPERCASE (e.g. "ЧИЛІ") while countries.name is mixed case ("Чилі").
-    // Using `.in()` would miss every row. Build an OR of ilike per candidate.
     const orExpr = list
       .map((c) => `country.ilike.${c.replace(/,/g, "")}`)
       .join(",");
@@ -87,7 +75,6 @@ export async function fetchCustomsRef(productName: string, country: string): Pro
       .maybeSingle();
     if (data) return { ...(data as CustomsRefRow), exact: true };
   }
-  // 2) fallback: same product, any country — pick row with highest indicative
   const { data: fb } = await supabase
     .from("customs_reference")
     .select("id,product_name,country,threshold_price_usd,customs_fee_percent,euro1_percent,euro1_markup_usd")
@@ -105,10 +92,19 @@ export type OfferCostInput = {
   priceCurrency: "EUR" | "USD";
   freight: number;
   freightCurrency: "EUR" | "USD";
-  palletWeight: number;
+  /** Net weight per pallet (kg). Transport $/kg denominator. */
+  netPerPalletKg: number;
+  /** Gross weight per pallet (kg). Vehicle-capacity driver. */
+  grossPerPalletKg: number;
   fxRate: number | null;
   country: string;
   ref: CustomsRefRow | null;
+  /**
+   * Optional confirmed/local manual customs duty (USD/kg). When present and
+   * positive, short-circuits both indicative AND invoice duty regardless of
+   * customs reference availability.
+   */
+  manualCustomsDuty?: number | null;
 };
 
 export type OfferCostResult = {
@@ -123,27 +119,82 @@ export type OfferCostResult = {
   invoiceCost: number;
 };
 
-export function computeOfferCost(input: OfferCostInput): OfferCostResult {
-  const fx = Number(input.fxRate ?? 0);
-  const unitUsd = input.priceCurrency === "USD"
-    ? Number(input.pricePerKg || 0)
-    : Number(input.pricePerKg || 0) * fx;
-  const freightUsd = input.freightCurrency === "USD"
-    ? Number(input.freight || 0)
-    : Number(input.freight || 0) * fx;
+/**
+ * Resolution state exposed to UI so it can decide whether to surface Stage B
+ * (manual FX / manual customs) or Stage C (final manual cost pair) fields.
+ */
+export type OfferCostResolution = {
+  /** EUR/USD rate is needed (any EUR input) but no positive finite FX provided. */
+  needsFx: boolean;
+  /** Customs reference unavailable and no manual override provided. */
+  needsCustoms: boolean;
+  /** Net/Gross pair is missing or invalid. */
+  needsNetGross: boolean;
+  /** Stage A/B produced a finite positive (indicative, invoice) pair. */
+  ok: boolean;
+  /** Computed result when ok=true. */
+  result: OfferCostResult | null;
+};
 
-  const pw = Number(input.palletWeight || 0);
-  let expectedPallets = 26;
-  if (pw > 0) {
-    expectedPallets = Math.min(26, Math.floor(21500 / pw));
-    if (expectedPallets < 1) expectedPallets = 1;
+const VEHICLE_MAX_PALLETS = 26;
+const VEHICLE_MAX_KG = 21500;
+
+/**
+ * Pure auto-calculation. Returns the cost result when every input that is
+ * truly required for the inputs given is valid; otherwise returns null.
+ * Use {@link resolveOfferCost} for a state object suitable for staged UIs.
+ */
+export function computeOfferCost(input: OfferCostInput): OfferCostResult | null {
+  const r = resolveOfferCost(input);
+  return r.ok ? r.result : null;
+}
+
+export function resolveOfferCost(input: OfferCostInput): OfferCostResolution {
+  const net = Number(input.netPerPalletKg);
+  const gross = Number(input.grossPerPalletKg);
+  const needsNetGross =
+    !Number.isFinite(net) || !Number.isFinite(gross) || !(net > 0) || !(gross > net);
+
+  const eurInPrice = input.priceCurrency === "EUR";
+  const eurInFreight = input.freightCurrency === "EUR";
+  const fx = Number(input.fxRate ?? 0);
+  const fxValid = Number.isFinite(fx) && fx > 0;
+  const needsFx = (eurInPrice || eurInFreight) && !fxValid;
+
+  const manualDuty =
+    input.manualCustomsDuty != null && Number.isFinite(Number(input.manualCustomsDuty))
+      ? Number(input.manualCustomsDuty)
+      : 0;
+  const hasManualDuty = manualDuty > 0;
+  const needsCustoms = !hasManualDuty && !input.ref;
+
+  if (needsNetGross || needsFx || needsCustoms) {
+    return { needsFx, needsCustoms, needsNetGross, ok: false, result: null };
   }
+
+  const unitUsd =
+    input.priceCurrency === "USD"
+      ? Number(input.pricePerKg || 0)
+      : Number(input.pricePerKg || 0) * fx;
+  const freightUsd =
+    input.freightCurrency === "USD"
+      ? Number(input.freight || 0)
+      : Number(input.freight || 0) * fx;
+
+  let expectedPallets = Math.min(
+    VEHICLE_MAX_PALLETS,
+    Math.floor(VEHICLE_MAX_KG / gross),
+  );
+  if (expectedPallets < 1) expectedPallets = 1;
   const freightPerPallet = expectedPallets > 0 ? freightUsd / expectedPallets : 0;
-  const transportPerKg = pw > 0 ? freightPerPallet / pw : 0;
+  const transportPerKg = net > 0 ? freightPerPallet / net : 0;
 
   let indicativeDuty = 0;
   let invoiceDuty = 0;
-  if (input.ref) {
+  if (hasManualDuty) {
+    indicativeDuty = manualDuty;
+    invoiceDuty = manualDuty;
+  } else if (input.ref) {
     indicativeDuty = Number(input.ref.euro1_markup_usd || 0);
     if (unitUsd <= Number(input.ref.threshold_price_usd || 0)) {
       invoiceDuty = Number(input.ref.euro1_markup_usd || 0);
@@ -151,19 +202,36 @@ export function computeOfferCost(input: OfferCostInput): OfferCostResult {
       const pct = isEuCountry(input.country)
         ? Number(input.ref.euro1_percent || 0)
         : Number(input.ref.customs_fee_percent || 0);
-      invoiceDuty = unitUsd * 1.20 * pct / 100 + unitUsd * 0.20 + 0.02;
+      invoiceDuty = unitUsd * 1.2 * pct / 100 + unitUsd * 0.2 + 0.02;
     }
   }
 
+  const indicativeCost = unitUsd + transportPerKg + indicativeDuty;
+  const invoiceCost = unitUsd + transportPerKg + invoiceDuty;
+
+  const ok =
+    Number.isFinite(indicativeCost) &&
+    Number.isFinite(invoiceCost) &&
+    indicativeCost > 0 &&
+    invoiceCost > 0;
+
   return {
-    unitUsd,
-    freightUsd,
-    expectedPallets,
-    freightPerPallet,
-    transportPerKg,
-    indicativeDuty,
-    invoiceDuty,
-    indicativeCost: unitUsd + transportPerKg + indicativeDuty,
-    invoiceCost: unitUsd + transportPerKg + invoiceDuty,
+    needsFx: false,
+    needsCustoms: false,
+    needsNetGross: false,
+    ok,
+    result: ok
+      ? {
+          unitUsd,
+          freightUsd,
+          expectedPallets,
+          freightPerPallet,
+          transportPerKg,
+          indicativeDuty,
+          invoiceDuty,
+          indicativeCost,
+          invoiceCost,
+        }
+      : null,
   };
 }

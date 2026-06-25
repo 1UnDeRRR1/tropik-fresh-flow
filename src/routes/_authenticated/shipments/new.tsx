@@ -48,6 +48,7 @@ import {
   getCountryCode,
 } from "@/lib/shipment-code";
 import { StaffOnly } from "@/components/StaffOnly";
+import { isValidNetGross, NET_GROSS_INVALID_MSG } from "@/lib/manager-offers";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
 
@@ -391,24 +392,41 @@ function NewShipment() {
   // never read offer.origin_country here, never read offer.import_manager_id
   // to drive UI, and never auto-select supplier. A missing linked shipment
   // means no automatic loading-country prefill — manager picks it manually.
-  const { data: fromOfferPrefill } = useQuery({
+  const { data: fromOfferPrefill, isLoading: fromOfferLoading, isError: fromOfferIsError } = useQuery({
     queryKey: ["new-shipment-from-offer-header", search.fromOffer],
     enabled: !!search.fromOffer,
     queryFn: async () => {
+      // Net/Gross MUST be projected regardless of linked_shipment_id so the
+      // zero-write guard below can validate every fromOffer creation path.
       const { data: offer, error } = await supabase
         .from("manager_offers")
-        .select("linked_shipment_id")
+        .select("linked_shipment_id,pallet_net_kg,pallet_gross_kg")
         .eq("id", search.fromOffer!)
         .maybeSingle();
       if (error) throw error;
-      if (!offer || !offer.linked_shipment_id) return { country: null as string | null };
+      if (!offer) {
+        return {
+          country: null as string | null,
+          pallet_net_kg: null as number | null,
+          pallet_gross_kg: null as number | null,
+          found: false,
+        };
+      }
+      const base = {
+        pallet_net_kg: offer.pallet_net_kg as number | null,
+        pallet_gross_kg: offer.pallet_gross_kg as number | null,
+        found: true,
+      };
+      if (!offer.linked_shipment_id) {
+        return { country: null as string | null, ...base };
+      }
       const { data: shipment, error: shipmentError } = await supabase
         .from("shipments")
         .select("country")
         .eq("id", offer.linked_shipment_id)
         .maybeSingle();
       if (shipmentError) throw shipmentError;
-      return { country: shipment?.country ?? null };
+      return { country: shipment?.country ?? null, ...base };
     },
   });
   useEffect(() => {
@@ -496,6 +514,24 @@ function NewShipment() {
       }
       triggerShake(missing);
       return;
+    }
+
+    // Zero-write Net/Gross guard for fromOffer creation. Must run BEFORE
+    // setSubmitting(true), BEFORE any sequence-number fetch, BEFORE vehicle
+    // INSERT, BEFORE shipment INSERT. Non-fromOffer flows are unaffected.
+    if (search.fromOffer) {
+      if (fromOfferLoading) {
+        toast.error("Зачекайте — завантажуються дані пропозиції.");
+        return;
+      }
+      if (fromOfferIsError || !fromOfferPrefill || fromOfferPrefill.found !== true) {
+        toast.error("Не вдалося завантажити пропозицію. Спробуйте ще раз.");
+        return;
+      }
+      if (!isValidNetGross(fromOfferPrefill.pallet_net_kg, fromOfferPrefill.pallet_gross_kg)) {
+        toast.error(NET_GROSS_INVALID_MSG);
+        return;
+      }
     }
 
     setSubmitting(true);

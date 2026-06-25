@@ -22,6 +22,8 @@ import {
   STATUS_LABEL,
   STATUS_CLASS,
   formatRemaining,
+  isValidNetGross,
+  NET_GROSS_INVALID_MSG,
   type ManagerOffer,
   type ManagerOfferResponse,
   type ManagerOfferStatus,
@@ -31,7 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
-import { computeOfferCost, fetchCustomsRef, isEuCountry, type CustomsRefRow } from "@/lib/offer-cost";
+import { computeOfferCost, resolveOfferCost, fetchCustomsRef, isEuCountry, type CustomsRefRow } from "@/lib/offer-cost";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { resolveCountry } from "@/lib/country-search";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
@@ -1317,6 +1319,13 @@ function ManagerOffersPage() {
                         <Button
                           size="sm"
                           onClick={async () => {
+                            // Early guard: refuse navigation when the saved
+                            // Net/Gross pair is missing or invalid. No state
+                            // mutation, no dialog close, no navigate.
+                            if (!isValidNetGross(o.pallet_net_kg, o.pallet_gross_kg)) {
+                              toast.error(NET_GROSS_INVALID_MSG);
+                              return;
+                            }
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
@@ -1355,6 +1364,10 @@ function ManagerOffersPage() {
                           className="border-destructive/40 bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
                           title="Немає підходящої поставки — створіть нову"
                           onClick={async () => {
+                            if (!isValidNetGross(o.pallet_net_kg, o.pallet_gross_kg)) {
+                              toast.error(NET_GROSS_INVALID_MSG);
+                              return;
+                            }
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
@@ -1582,11 +1595,20 @@ type FormState = {
   price_currency: "EUR" | "USD";
   freight_amount: string;
   freight_currency: "EUR" | "USD";
-  pallet_weight: string;
+  pallet_net_kg: string;
+  pallet_gross_kg: string;
   offered_pallets: string;
   expires_in_hours: string;
   expected_eta: string;
   notes: string;
+  /** Stage B — manual EUR/USD FX (used only when no FX is available). */
+  manual_fx: string;
+  /** Stage B — manual customs duty (USD/kg) used as BOTH indicative and invoice. */
+  manual_customs: string;
+  /** Stage C — final manual indicative cost (USD/kg). */
+  manual_indicative: string;
+  /** Stage C — final manual invoice cost (USD/kg). */
+  manual_invoice: string;
 };
 
 // Local YYYY-MM-DD for tomorrow (business date, avoids UTC off-by-one).
@@ -1611,11 +1633,16 @@ const emptyForm = (): FormState => ({
   price_currency: "EUR",
   freight_amount: "",
   freight_currency: "EUR",
-  pallet_weight: "",
+  pallet_net_kg: "",
+  pallet_gross_kg: "",
   offered_pallets: "",
   expires_in_hours: "",
   expected_eta: "",
   notes: "",
+  manual_fx: "",
+  manual_customs: "",
+  manual_indicative: "",
+  manual_invoice: "",
 });
 
 function offerToForm(offer: ManagerOffer): FormState {
@@ -1624,7 +1651,6 @@ function offerToForm(offer: ManagerOffer): FormState {
     price_currency?: "EUR" | "USD" | null;
     freight_amount?: number | null;
     freight_currency?: "EUR" | "USD" | null;
-    pallet_weight?: number | null;
   };
   return {
     product_name: o.product_name ?? "",
@@ -1637,11 +1663,19 @@ function offerToForm(offer: ManagerOffer): FormState {
     price_currency: (o.price_currency ?? "EUR") as "EUR" | "USD",
     freight_amount: o.freight_amount != null ? String(o.freight_amount) : "",
     freight_currency: (o.freight_currency ?? "EUR") as "EUR" | "USD",
-    pallet_weight: o.pallet_weight != null ? String(o.pallet_weight) : "",
+    // Hydrate ONLY from new pallet_net_kg/pallet_gross_kg columns. Never
+    // hydrate either Net or Gross from legacy pallet_weight. A legacy
+    // NULL/NULL offer opens with both fields empty.
+    pallet_net_kg: o.pallet_net_kg != null ? String(o.pallet_net_kg) : "",
+    pallet_gross_kg: o.pallet_gross_kg != null ? String(o.pallet_gross_kg) : "",
     offered_pallets: o.offered_pallets != null ? String(o.offered_pallets) : "",
     expires_in_hours: "",
     expected_eta: o.expected_eta ?? "",
     notes: o.notes ?? "",
+    manual_fx: "",
+    manual_customs: "",
+    manual_indicative: "",
+    manual_invoice: "",
   };
 }
 
@@ -2356,11 +2390,16 @@ function OfferItemEditor({
 
   const priceNum = Number(form.price_per_kg);
   const freightNum = Number(form.freight_amount);
-  const palletWeightNum = Number(form.pallet_weight);
+  const netNum = Number(form.pallet_net_kg);
+  const grossNum = Number(form.pallet_gross_kg);
   const priceValid = form.price_per_kg !== "" && Number.isFinite(priceNum) && priceNum > 0;
   const freightValid = form.freight_amount !== "" && Number.isFinite(freightNum) && freightNum > 0;
-  const palletValid =
-    form.pallet_weight !== "" && Number.isFinite(palletWeightNum) && palletWeightNum > 0;
+  const netValid =
+    form.pallet_net_kg !== "" && Number.isFinite(netNum) && netNum > 0;
+  const grossValid =
+    form.pallet_gross_kg !== "" && Number.isFinite(grossNum) && grossNum > 0;
+  // Strict rule: gross MUST be > net (not >=).
+  const netGrossPairValid = netValid && grossValid && grossNum > netNum;
 
   const fxRate = fxRow?.rate ?? null;
 
@@ -2370,31 +2409,98 @@ function OfferItemEditor({
     queryFn: () => fetchCustomsRef(productCanonical!, countryCanonical!),
   });
 
-  const calc = useMemo(() => {
-    if (!priceValid || !freightValid || !palletValid || !countryCanonical) return null;
-    return computeOfferCost({
+  // Stage A (auto) → Stage B (manual FX / manual customs in local state)
+  // → Stage C (final manual cost pair). Each later stage only matters when
+  // the earlier stage cannot resolve.
+  const manualFxNum = Number(form.manual_fx);
+  const manualFxValid =
+    form.manual_fx !== "" && Number.isFinite(manualFxNum) && manualFxNum > 0;
+  const manualCustomsNum = Number(form.manual_customs);
+  const manualCustomsValid =
+    form.manual_customs !== "" && Number.isFinite(manualCustomsNum) && manualCustomsNum > 0;
+  const manualIndNum = Number(form.manual_indicative);
+  const manualInvNum = Number(form.manual_invoice);
+  const manualIndValid =
+    form.manual_indicative !== "" && Number.isFinite(manualIndNum) && manualIndNum > 0;
+  const manualInvValid =
+    form.manual_invoice !== "" && Number.isFinite(manualInvNum) && manualInvNum > 0;
+
+  // Confirmed RED customs override (saved on the offer) is reused automatically.
+  const savedOverrideDuty: number | null =
+    existingOffer &&
+    (existingOffer as ManagerOffer).customs_override_duty_usd != null &&
+    (existingOffer as ManagerOffer).customs_override_confirmed_at != null &&
+    Number((existingOffer as ManagerOffer).customs_override_duty_usd) > 0
+      ? Number((existingOffer as ManagerOffer).customs_override_duty_usd)
+      : null;
+  // Local manual customs duty available in current form (Stage B) wins over
+  // saved/pending if user explicitly typed one.
+  const effectiveManualDuty: number | null = manualCustomsValid
+    ? manualCustomsNum
+    : savedOverrideDuty != null
+      ? savedOverrideDuty
+      : pendingDuty != null && pendingDuty > 0
+        ? pendingDuty
+        : null;
+
+  // FX: prefer live FX, else local manual FX. No 0 fallback.
+  const effectiveFx: number | null =
+    fxRate != null && fxRate > 0 ? fxRate : manualFxValid ? manualFxNum : null;
+
+  const autoResolution = useMemo(() => {
+    if (!priceValid || !freightValid || !netGrossPairValid || !countryCanonical) {
+      return null;
+    }
+    return resolveOfferCost({
       pricePerKg: priceNum,
       priceCurrency: form.price_currency,
       freight: freightNum,
       freightCurrency: form.freight_currency,
-      palletWeight: palletWeightNum,
-      fxRate,
+      netPerPalletKg: netNum,
+      grossPerPalletKg: grossNum,
+      fxRate: effectiveFx,
       country: countryCanonical,
       ref: customsRef ?? null,
+      manualCustomsDuty: effectiveManualDuty,
     });
   }, [
     priceValid,
     freightValid,
-    palletValid,
+    netGrossPairValid,
     countryCanonical,
     priceNum,
     form.price_currency,
     freightNum,
     form.freight_currency,
-    palletWeightNum,
-    fxRate,
+    netNum,
+    grossNum,
+    effectiveFx,
     customsRef,
+    effectiveManualDuty,
   ]);
+
+  // Stage C — final manual cost pair is allowed only when Stage A/B cannot
+  // produce a finite positive (indicative, invoice) pair even with all
+  // applicable Stage B values supplied.
+  const stageBSatisfied =
+    autoResolution != null &&
+    !autoResolution.needsFx &&
+    !autoResolution.needsCustoms &&
+    !autoResolution.needsNetGross;
+  const stageCAvailable = autoResolution != null && !autoResolution.ok && stageBSatisfied;
+  const stageCActive = stageCAvailable && manualIndValid && manualInvValid;
+
+  const calc = autoResolution?.ok ? autoResolution.result : null;
+  const finalIndicative = calc
+    ? calc.indicativeCost
+    : stageCActive
+      ? manualIndNum
+      : null;
+  const finalInvoice = calc
+    ? calc.invoiceCost
+    : stageCActive
+      ? manualInvNum
+      : null;
 
   const payload = useMemo(() => {
     if (
@@ -2402,8 +2508,9 @@ function OfferItemEditor({
       !countryCanonical ||
       !priceValid ||
       !freightValid ||
-      !palletValid ||
-      !calc
+      !netGrossPairValid ||
+      finalIndicative == null ||
+      finalInvoice == null
     )
       return null;
     return {
@@ -2417,11 +2524,14 @@ function OfferItemEditor({
       price_currency: form.price_currency,
       freight_amount: freightNum,
       freight_currency: form.freight_currency,
-      pallet_weight: palletWeightNum,
-      fx_rate_snapshot: fxRate,
+      // New Net/Gross columns. pallet_weight is intentionally NOT included
+      // in the OfferEditor payload: legacy column stays unchanged on UPDATE.
+      pallet_net_kg: netNum,
+      pallet_gross_kg: grossNum,
+      fx_rate_snapshot: effectiveFx,
       fx_rate_date: fxRow?.date ?? null,
-      indicative_cost_usd: Number(calc.indicativeCost.toFixed(4)),
-      invoice_cost_usd: Number(calc.invoiceCost.toFixed(4)),
+      indicative_cost_usd: Number(finalIndicative.toFixed(4)),
+      invoice_cost_usd: Number(finalInvoice.toFixed(4)),
       offered_pallets: form.offered_pallets === "" ? null : Number(form.offered_pallets),
       expires_at:
         form.expires_in_hours === ""
@@ -2435,8 +2545,9 @@ function OfferItemEditor({
     countryCanonical,
     priceValid,
     freightValid,
-    palletValid,
-    calc,
+    netGrossPairValid,
+    finalIndicative,
+    finalInvoice,
     form.caliber,
     form.packaging,
     form.specification,
@@ -2445,8 +2556,9 @@ function OfferItemEditor({
     form.price_currency,
     freightNum,
     form.freight_currency,
-    palletWeightNum,
-    fxRate,
+    netNum,
+    grossNum,
+    effectiveFx,
     fxRow?.date,
     form.offered_pallets,
     form.expires_in_hours,
@@ -2624,17 +2736,102 @@ function OfferItemEditor({
             </select>
           </label>
         </div>
-        <label className="block text-sm">
-          <span className="mb-1 block text-muted-foreground">Вага палети, кг *</span>
-          <Input
-            type="number"
-            step="0.1"
-            value={form.pallet_weight}
-            placeholder="напр. 750"
-            onChange={(e) => update({ pallet_weight: e.target.value })}
-            className={cn(!palletValid && "border-destructive bg-destructive/10")}
-          />
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Нетто на палету, кг *</span>
+            <Input
+              type="number"
+              step="0.1"
+              value={form.pallet_net_kg}
+              placeholder="напр. 720"
+              onChange={(e) => update({ pallet_net_kg: e.target.value })}
+              className={cn(!netValid && "border-destructive bg-destructive/10")}
+            />
+            {!netValid && form.pallet_net_kg !== "" && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Вкажіть нетто на палету (&gt; 0).
+              </span>
+            )}
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Брутто на палету, кг *</span>
+            <Input
+              type="number"
+              step="0.1"
+              value={form.pallet_gross_kg}
+              placeholder="напр. 750"
+              onChange={(e) => update({ pallet_gross_kg: e.target.value })}
+              className={cn(
+                (!grossValid || (netValid && grossValid && grossNum <= netNum)) &&
+                  "border-destructive bg-destructive/10",
+              )}
+            />
+            {!grossValid && form.pallet_gross_kg !== "" && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Вкажіть брутто на палету (&gt; 0).
+              </span>
+            )}
+            {netValid && grossValid && grossNum <= netNum && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Брутто має бути більше за нетто.
+              </span>
+            )}
+          </label>
+        </div>
+
+        {/* Stage B — local manual EUR/USD FX (no DB write). */}
+        {autoResolution?.needsFx && (
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Курс EUR/USD вручну *</span>
+            <Input
+              type="number"
+              step="0.0001"
+              value={form.manual_fx}
+              placeholder="напр. 1.08"
+              onChange={(e) => update({ manual_fx: e.target.value })}
+              className={cn(!manualFxValid && "border-destructive bg-destructive/10")}
+            />
+          </label>
+        )}
+        {/* Stage B — local manual customs duty (no RPC, no DB write). */}
+        {autoResolution?.needsCustoms && (
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Митний збір вручну, $/кг *</span>
+            <Input
+              type="number"
+              step="0.0001"
+              value={form.manual_customs}
+              placeholder="напр. 0.25"
+              onChange={(e) => update({ manual_customs: e.target.value })}
+              className={cn(!manualCustomsValid && "border-destructive bg-destructive/10")}
+            />
+          </label>
+        )}
+        {/* Stage C — final manual cost pair. */}
+        {stageCAvailable && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Індикативна собівартість, $/кг *</span>
+              <Input
+                type="number"
+                step="0.0001"
+                value={form.manual_indicative}
+                onChange={(e) => update({ manual_indicative: e.target.value })}
+                className={cn(!manualIndValid && "border-destructive bg-destructive/10")}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Інвойсна собівартість, $/кг *</span>
+              <Input
+                type="number"
+                step="0.0001"
+                value={form.manual_invoice}
+                onChange={(e) => update({ manual_invoice: e.target.value })}
+                className={cn(!manualInvValid && "border-destructive bg-destructive/10")}
+              />
+            </label>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-1">
           <div className="flex justify-between">
