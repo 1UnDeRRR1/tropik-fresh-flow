@@ -515,6 +515,24 @@ function NewShipment() {
       return;
     }
 
+    // Zero-write Net/Gross guard for fromOffer creation. Must run BEFORE
+    // setSubmitting(true), BEFORE any sequence-number fetch, BEFORE vehicle
+    // INSERT, BEFORE shipment INSERT. Non-fromOffer flows are unaffected.
+    if (search.fromOffer) {
+      if (fromOfferLoading) {
+        toast.error("Зачекайте — завантажуються дані пропозиції.");
+        return;
+      }
+      if (fromOfferIsError || !fromOfferPrefill || fromOfferPrefill.found !== true) {
+        toast.error("Не вдалося завантажити пропозицію. Спробуйте ще раз.");
+        return;
+      }
+      if (!isValidNetGross(fromOfferPrefill.pallet_net_kg, fromOfferPrefill.pallet_gross_kg)) {
+        toast.error(NET_GROSS_INVALID_MSG);
+        return;
+      }
+    }
+
     setSubmitting(true);
     // Local-only handle. Used by the compensation rollback when shipment
     // INSERT fails AFTER vehicle INSERT succeeded. Never persisted, never
