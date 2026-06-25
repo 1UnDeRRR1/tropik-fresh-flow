@@ -2723,17 +2723,102 @@ function OfferItemEditor({
             </select>
           </label>
         </div>
-        <label className="block text-sm">
-          <span className="mb-1 block text-muted-foreground">Вага палети, кг *</span>
-          <Input
-            type="number"
-            step="0.1"
-            value={form.pallet_weight}
-            placeholder="напр. 750"
-            onChange={(e) => update({ pallet_weight: e.target.value })}
-            className={cn(!palletValid && "border-destructive bg-destructive/10")}
-          />
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Нетто на палету, кг *</span>
+            <Input
+              type="number"
+              step="0.1"
+              value={form.pallet_net_kg}
+              placeholder="напр. 720"
+              onChange={(e) => update({ pallet_net_kg: e.target.value })}
+              className={cn(!netValid && "border-destructive bg-destructive/10")}
+            />
+            {!netValid && form.pallet_net_kg !== "" && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Вкажіть нетто на палету (&gt; 0).
+              </span>
+            )}
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Брутто на палету, кг *</span>
+            <Input
+              type="number"
+              step="0.1"
+              value={form.pallet_gross_kg}
+              placeholder="напр. 750"
+              onChange={(e) => update({ pallet_gross_kg: e.target.value })}
+              className={cn(
+                (!grossValid || (netValid && grossValid && grossNum <= netNum)) &&
+                  "border-destructive bg-destructive/10",
+              )}
+            />
+            {!grossValid && form.pallet_gross_kg !== "" && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Вкажіть брутто на палету (&gt; 0).
+              </span>
+            )}
+            {netValid && grossValid && grossNum <= netNum && (
+              <span className="mt-1 block text-[11px] text-destructive">
+                Брутто має бути більше за нетто.
+              </span>
+            )}
+          </label>
+        </div>
+
+        {/* Stage B — local manual EUR/USD FX (no DB write). */}
+        {autoResolution?.needsFx && (
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Курс EUR/USD вручну *</span>
+            <Input
+              type="number"
+              step="0.0001"
+              value={form.manual_fx}
+              placeholder="напр. 1.08"
+              onChange={(e) => update({ manual_fx: e.target.value })}
+              className={cn(!manualFxValid && "border-destructive bg-destructive/10")}
+            />
+          </label>
+        )}
+        {/* Stage B — local manual customs duty (no RPC, no DB write). */}
+        {autoResolution?.needsCustoms && (
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">Митний збір вручну, $/кг *</span>
+            <Input
+              type="number"
+              step="0.0001"
+              value={form.manual_customs}
+              placeholder="напр. 0.25"
+              onChange={(e) => update({ manual_customs: e.target.value })}
+              className={cn(!manualCustomsValid && "border-destructive bg-destructive/10")}
+            />
+          </label>
+        )}
+        {/* Stage C — final manual cost pair. */}
+        {stageCAvailable && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Індикативна собівартість, $/кг *</span>
+              <Input
+                type="number"
+                step="0.0001"
+                value={form.manual_indicative}
+                onChange={(e) => update({ manual_indicative: e.target.value })}
+                className={cn(!manualIndValid && "border-destructive bg-destructive/10")}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Інвойсна собівартість, $/кг *</span>
+              <Input
+                type="number"
+                step="0.0001"
+                value={form.manual_invoice}
+                onChange={(e) => update({ manual_invoice: e.target.value })}
+                className={cn(!manualInvValid && "border-destructive bg-destructive/10")}
+              />
+            </label>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-1">
           <div className="flex justify-between">
