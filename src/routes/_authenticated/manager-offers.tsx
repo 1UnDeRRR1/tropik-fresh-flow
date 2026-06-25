@@ -22,6 +22,8 @@ import {
   STATUS_LABEL,
   STATUS_CLASS,
   formatRemaining,
+  isValidNetGross,
+  NET_GROSS_INVALID_MSG,
   type ManagerOffer,
   type ManagerOfferResponse,
   type ManagerOfferStatus,
