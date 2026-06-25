@@ -53,6 +53,14 @@ export type ManagerOffer = {
   target_mode: "all" | "selected";
   created_at: string;
   updated_at: string;
+  /** Net per pallet (kg). Required pair with pallet_gross_kg. */
+  pallet_net_kg: number | null;
+  /** Gross per pallet (kg). Must be strictly > pallet_net_kg. */
+  pallet_gross_kg: number | null;
+  /** Confirmed RED-stage manual customs duty in USD/kg. */
+  customs_override_duty_usd: number | null;
+  /** Timestamp of last confirmed manual customs override. */
+  customs_override_confirmed_at: string | null;
 };
 
 export type ManagerOfferTarget = {
@@ -90,3 +98,22 @@ export function formatRemaining(expiresAt: string | null): string {
   const mm = m % 60;
   return `${h} год ${mm} хв`;
 }
+
+/**
+ * Shared Net/Gross validity helper.
+ * Both values must be finite, net > 0, and gross strictly greater than net.
+ * gross === net is INVALID.
+ */
+export function isValidNetGross(
+  net: number | string | null | undefined,
+  gross: number | string | null | undefined,
+): boolean {
+  if (net == null || gross == null || net === "" || gross === "") return false;
+  const n = Number(net);
+  const g = Number(gross);
+  return Number.isFinite(n) && Number.isFinite(g) && n > 0 && g > n;
+}
+
+/** Ukrainian toast/error message for invalid saved offer Net/Gross. */
+export const NET_GROSS_INVALID_MSG =
+  "У пропозиції не заповнено коректні нетто та брутто. Спочатку відредагуйте пропозицію.";
