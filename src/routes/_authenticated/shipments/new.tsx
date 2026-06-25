@@ -391,24 +391,41 @@ function NewShipment() {
   // never read offer.origin_country here, never read offer.import_manager_id
   // to drive UI, and never auto-select supplier. A missing linked shipment
   // means no automatic loading-country prefill — manager picks it manually.
-  const { data: fromOfferPrefill } = useQuery({
+  const { data: fromOfferPrefill, isLoading: fromOfferLoading, isError: fromOfferIsError } = useQuery({
     queryKey: ["new-shipment-from-offer-header", search.fromOffer],
     enabled: !!search.fromOffer,
     queryFn: async () => {
+      // Net/Gross MUST be projected regardless of linked_shipment_id so the
+      // zero-write guard below can validate every fromOffer creation path.
       const { data: offer, error } = await supabase
         .from("manager_offers")
-        .select("linked_shipment_id")
+        .select("linked_shipment_id,pallet_net_kg,pallet_gross_kg")
         .eq("id", search.fromOffer!)
         .maybeSingle();
       if (error) throw error;
-      if (!offer || !offer.linked_shipment_id) return { country: null as string | null };
+      if (!offer) {
+        return {
+          country: null as string | null,
+          pallet_net_kg: null as number | null,
+          pallet_gross_kg: null as number | null,
+          found: false,
+        };
+      }
+      const base = {
+        pallet_net_kg: offer.pallet_net_kg as number | null,
+        pallet_gross_kg: offer.pallet_gross_kg as number | null,
+        found: true,
+      };
+      if (!offer.linked_shipment_id) {
+        return { country: null as string | null, ...base };
+      }
       const { data: shipment, error: shipmentError } = await supabase
         .from("shipments")
         .select("country")
         .eq("id", offer.linked_shipment_id)
         .maybeSingle();
       if (shipmentError) throw shipmentError;
-      return { country: shipment?.country ?? null };
+      return { country: shipment?.country ?? null, ...base };
     },
   });
   useEffect(() => {
