@@ -655,7 +655,9 @@ function BranchDashboard() {
                 if (Number(approved) < requested) note = `${approved} з ${requested}п`;
               }
               const pallets = Number(approved ?? requested ?? 0);
-              const weight = pallets * Number(o.pallet_weight ?? 0);
+              // Pending manager-offer rows no longer expose pallet_weight to
+              // branch UI; weight stays 0 and `кг` is hidden by drill render.
+              const weight = 0;
               return {
                 key: `mor-${p.id}`,
                 shipment_item_id: `mor-${p.id}`,
