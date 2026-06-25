@@ -1319,6 +1319,13 @@ function ManagerOffersPage() {
                         <Button
                           size="sm"
                           onClick={async () => {
+                            // Early guard: refuse navigation when the saved
+                            // Net/Gross pair is missing or invalid. No state
+                            // mutation, no dialog close, no navigate.
+                            if (!isValidNetGross(o.pallet_net_kg, o.pallet_gross_kg)) {
+                              toast.error(NET_GROSS_INVALID_MSG);
+                              return;
+                            }
                             setDetailOfferId(null);
                             navigate({ to: "/shipments/new", search: { fromOffer: o.id } as never });
                           }}
