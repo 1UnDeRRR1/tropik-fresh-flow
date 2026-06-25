@@ -1291,6 +1291,8 @@ export type Database = {
           offered_pallets: number | null
           origin_country: string | null
           packaging: string | null
+          pallet_gross_kg: number | null
+          pallet_net_kg: number | null
           pallet_weight: number | null
           pipeline_status: Database["public"]["Enums"]["pipeline_status"]
           position_id: string | null
@@ -1329,6 +1331,8 @@ export type Database = {
           offered_pallets?: number | null
           origin_country?: string | null
           packaging?: string | null
+          pallet_gross_kg?: number | null
+          pallet_net_kg?: number | null
           pallet_weight?: number | null
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           position_id?: string | null
@@ -1367,6 +1371,8 @@ export type Database = {
           offered_pallets?: number | null
           origin_country?: string | null
           packaging?: string | null
+          pallet_gross_kg?: number | null
+          pallet_net_kg?: number | null
           pallet_weight?: number | null
           pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
           position_id?: string | null
@@ -3662,6 +3668,8 @@ export type Database = {
           offered_pallets: number | null
           origin_country: string | null
           packaging: string | null
+          pallet_gross_kg: number | null
+          pallet_net_kg: number | null
           pallet_weight: number | null
           pipeline_status: Database["public"]["Enums"]["pipeline_status"]
           position_id: string | null
