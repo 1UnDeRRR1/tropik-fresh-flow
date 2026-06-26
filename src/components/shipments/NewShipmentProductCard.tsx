@@ -335,7 +335,7 @@ export function NewShipmentProductCard({
           />
         </div>
         <div>
-          <FieldLabel>Вага палети</FieldLabel>
+          <FieldLabel>Вага палети брутто</FieldLabel>
           <NumCell
             value={
               form.pallet_weight_override_kg != null
@@ -431,7 +431,6 @@ export function NewShipmentProductCard({
           </span>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground">FX / Митниця / Транспорт</span>
-            <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">—</span>
             <button
               type="button"
               onClick={() => setDetailsOpen((v) => !v)}
@@ -442,13 +441,18 @@ export function NewShipmentProductCard({
             </button>
           </div>
         </div>
+        {/* Final cost output row — always visible. Placeholder until Build 2B. */}
+        <div className="mt-2 flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+            Собівартість, $/кг
+          </span>
+          <span className="text-sm font-bold tabular-nums text-foreground">—</span>
+        </div>
         {detailsOpen && (
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             <div>FX EUR→USD</div><div className="text-right">—</div>
             <div>Митниця, $/кг</div><div className="text-right">—</div>
             <div>Транспорт, $/кг</div><div className="text-right">—</div>
-            <div className="font-semibold text-foreground">Собівартість</div>
-            <div className="text-right font-semibold text-foreground">—</div>
             <div className="col-span-2 mt-1 text-[10px] italic">
               Повний розрахунок підключається у Build 2B.
             </div>

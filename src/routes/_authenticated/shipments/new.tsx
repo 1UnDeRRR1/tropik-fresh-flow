@@ -17,7 +17,7 @@
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Plus, Lock, ArrowLeft, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -599,6 +599,37 @@ function NewShipment() {
 
   // Build 2A.2 — capacity summary is a compact sticky top line; no shake/pulse.
 
+  // Build 2A.7 — measure the real AppShell <header> height (mobile uses a
+  // fixed banner header that is much taller than the desktop 56px default).
+  // We do not modify AppShell; we just read the rendered element height so
+  // the sticky capacity bar parks exactly below it on every viewport.
+  const [stickyTop, setStickyTop] = useState<number>(56);
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const measure = () => {
+      const el = document.querySelector("header");
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      // If the header is fixed at top (mobile banner), its bottom = its height.
+      // If sticky/static at top of doc, rect.top is ~0 and bottom is height too.
+      const next = Math.max(0, Math.round(rect.bottom));
+      setStickyTop((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    const el = document.querySelector("header");
+    if (el) ro.observe(el);
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    const t = window.setTimeout(measure, 250);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      window.clearTimeout(t);
+    };
+  }, []);
+
 
   if (loading || !isStaff) {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
@@ -610,8 +641,8 @@ function NewShipment() {
   const inlineInputCls = "h-9 w-full bg-background text-[13px]";
 
   const supplierField = (
-    <div className={cn(invalid.has("supplier") && "field-invalid")}>
-      <div className={fieldLabelCls}>Постачальник <span className="text-destructive">*</span></div>
+    <div>
+      <div className={fieldLabelCls}>Постачальник</div>
       <InlineAutocomplete
         value={supplierInput}
         onValueChange={(next) => {
@@ -643,7 +674,10 @@ function NewShipment() {
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName={inlineInputCls}
+        inputClassName={cn(
+          inlineInputCls,
+          invalid.has("supplier") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
         inputProps={{ "data-mobile-edit-label": "Постачальник" }}
         renderItem={(item) => (
           <div className="flex flex-col">
@@ -658,8 +692,8 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div className={cn(invalid.has("country") && "field-invalid")}>
-      <div className={fieldLabelCls}>Країна завантаження <span className="text-destructive">*</span></div>
+    <div>
+      <div className={fieldLabelCls}>Країна завантаження</div>
       <InlineAutocomplete
         value={countryInput}
         onValueChange={setCountryInput}
@@ -690,7 +724,10 @@ function NewShipment() {
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName={inlineInputCls}
+        inputClassName={cn(
+          inlineInputCls,
+          invalid.has("country") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
         inputProps={{ "data-mobile-edit-label": "Країна завантаження" }}
         renderItem={(item) => <span className="block truncate">{item.label}</span>}
       />
@@ -734,11 +771,12 @@ function NewShipment() {
   );
 
   const loadingDateField = (
-    <div className={cn("min-w-0", invalid.has("loadingDate") && "field-invalid")}>
-      <div className={fieldLabelCls}>Дата завантаження <span className="text-destructive">*</span></div>
+    <div className="min-w-0">
+      <div className={fieldLabelCls}>Дата завантаження</div>
       <Input
         id="ld"
         type="date"
+        lang="uk-UA"
         min={minLoadingDate}
         value={loadingDate}
         onChange={(e) => {
@@ -750,17 +788,22 @@ function NewShipment() {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
-        className="h-10 w-full min-w-0 px-2"
+        style={{ fontSize: "13px" }}
+        className={cn(
+          "h-9 w-full min-w-0 px-2 text-[13px] tabular-nums",
+          invalid.has("loadingDate") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
       />
     </div>
   );
 
   const etaField = (
-    <div className={cn("min-w-0", invalid.has("eta") && "field-invalid")}>
+    <div className="min-w-0">
       <div className={fieldLabelCls}>ETA (прибуття)</div>
       <Input
         id="eta-new"
         type="date"
+        lang="uk-UA"
         min={minEta || undefined}
         value={computedEta}
         onChange={(e) => {
@@ -773,7 +816,11 @@ function NewShipment() {
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
-        className="h-10 w-full min-w-0 px-2"
+        style={{ fontSize: "13px" }}
+        className={cn(
+          "h-9 w-full min-w-0 px-2 text-[13px] tabular-nums",
+          invalid.has("eta") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
       />
     </div>
   );
@@ -860,7 +907,10 @@ function NewShipment() {
       {/* Build 2A.4 — sticky capacity summary at the very top of the route.
           No PageHeader above it so it reliably sticks to viewport top:0 on
           mobile. Compact, non-blocking warning lives inside the same bar. */}
-      <div className="sticky top-[var(--app-header-h,56px)] z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+      <div
+        style={{ top: stickyTop }}
+        className="sticky z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border"
+      >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <span className="mr-2 text-[12px] font-black tracking-tight">Нова поставка</span>
           <span className={cn("font-semibold", overPallets && "text-destructive")}>
