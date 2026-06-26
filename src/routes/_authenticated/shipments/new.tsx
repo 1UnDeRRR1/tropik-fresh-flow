@@ -18,7 +18,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Lock, ArrowLeft, Copy, ChevronUp } from "lucide-react";
+import { Plus, Lock, ArrowLeft, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -49,16 +49,11 @@ import {
 import { StaffOnly } from "@/components/StaffOnly";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
-import {
-  ShipmentProductCard,
-  type ShipmentCardPreview,
-  type ResolverHintInfo,
-} from "@/components/shipments/ShipmentProductCard";
+import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import {
   emptyDraftRow,
   type DraftRow,
   type ProductRef,
-  type RowComponents,
 } from "@/lib/shipment-row-engine";
 
 const VEHICLE_MAX_PALLETS = 26;
@@ -104,29 +99,8 @@ type OpenVehicle = {
   }[] | null;
 };
 
-// Build 2A — stub preview for ShipmentProductCard. Cost/customs/FX/transport
-// breakdown is intentionally not wired here; full cost engine wiring is
-// scheduled for Build 2B alongside the final Create orchestrator.
-const STUB_ROW_COMPONENTS: RowComponents = {
-  productName: "",
-  country: "",
-  inputPrice: null,
-  inputCurrency: null,
-  fxRate: null,
-  unitUsd: null,
-  transportPerKg: null,
-  customsIndicative: null,
-  customsInvoice: null,
-  customsBasis: "none",
-  matchedRef: null,
-};
-const STUB_PREVIEW: ShipmentCardPreview = {
-  isDirty: false,
-  value: null,
-  hasCustomsInputs: false,
-  liveCustomsStatus: null,
-  components: STUB_ROW_COMPONENTS,
-};
+// Build 2A.5 — cost/customs/FX/transport preview is rendered inside
+// NewShipmentProductCard as a placeholder; full wiring lands in Build 2B.
 
 function NewShipment() {
   const navigate = useNavigate();
@@ -169,19 +143,10 @@ function NewShipment() {
   // Build 2A — local draft state.
   // ---------------------------------------------------------------------------
   const [drafts, setDrafts] = useState<DraftRow[]>(() => [emptyDraftRow()]);
-  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(() => new Set());
   // Build 2A.1 — local-only transport. NOT persisted in Build 2A.1; wired
   // into the commit payload in Build 2B.
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportCurrency, setTransportCurrency] = useState<"EUR" | "USD">("EUR");
-  const toggleDetails = (localId: string) =>
-    setExpandedDetails((prev) => {
-      const next = new Set(prev);
-      if (next.has(localId)) next.delete(localId);
-      else next.add(localId);
-      return next;
-    });
-
 
   const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
@@ -190,12 +155,6 @@ function NewShipment() {
     setDrafts((prev) => {
       const next = prev.filter((d) => d.localId !== localId);
       return next.length ? next : [emptyDraftRow()];
-    });
-    setExpandedDetails((prev) => {
-      if (!prev.has(localId)) return prev;
-      const next = new Set(prev);
-      next.delete(localId);
-      return next;
     });
   }, []);
   const addManualDraft = () => setDrafts((prev) => [...prev, emptyDraftRow()]);
@@ -886,9 +845,6 @@ function NewShipment() {
     </div>
   );
 
-  const onResolverHint = (_info: ResolverHintInfo | null) => {
-    // Build 2A: hint surfaced inside the card; parent does not aggregate.
-  };
 
   const onBack = () => {
     // Build 2A: nothing is persisted in DB, so back is a pure navigation.
@@ -1010,44 +966,18 @@ function NewShipment() {
             otherKg += g > 0 ? g : n;
           }
           const locked = Boolean(d.source_position_id);
-          const isOpen = expandedDetails.has(d.localId);
           return (
-            <div key={d.localId} className="space-y-1.5">
-              <ShipmentProductCard
-                draft={d}
-                dbItem={null}
-                shipmentId=""
-                products={products}
-                otherPallets={otherPallets}
-                otherKg={otherKg}
-                preview={STUB_PREVIEW}
-                readOnly={false}
-                productOriginLocked={locked}
-                pulse={false}
-                collapseExpandedTick={0}
-                index={idx}
-                onShowBreakdown={() => toggleDetails(d.localId)}
-                onPatch={(patch) => patchDraft(d.localId, patch)}
-                onRemove={() => removeDraft(d.localId)}
-                onResolverHint={onResolverHint}
-              />
-              {isOpen && (
-                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-                  <div className="mb-1 flex items-center justify-between font-semibold uppercase tracking-wide text-foreground">
-                    <span>Деталі / FX / Митниця / Транспорт / Собівартість</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleDetails(d.localId)}
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label="Згорнути"
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </button>
-                  </div>
-                  Повний розрахунок собівартості, FX і митниці буде доступний у наступному Build (2B).
-                </div>
-              )}
-            </div>
+            <NewShipmentProductCard
+              key={d.localId}
+              draft={d}
+              products={products}
+              otherPallets={otherPallets}
+              otherKg={otherKg}
+              productOriginLocked={locked}
+              index={idx}
+              onPatch={(patch) => patchDraft(d.localId, patch)}
+              onRemove={() => removeDraft(d.localId)}
+            />
           );
         })}
       </div>
