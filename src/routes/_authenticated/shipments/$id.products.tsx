@@ -26,6 +26,7 @@ import { allocateTransport } from "@/lib/transport";
 import { rollbackBirthPosition } from "@/lib/position-attach";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
+import { ShipmentProductCard } from "@/components/shipments/ShipmentProductCard";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
 import {
   type DraftRow,
@@ -2468,56 +2469,41 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
     pallet_weight: d.pallet_count > 0 ? d.net_weight_kg / d.pallet_count : 0,
     gross_weight_kg: d.gross_weight_kg,
   } as { id: string; pallet_count: number | null; pallet_weight: number | null; gross_weight_kg: number | null }));
+  // Phase 1 — card list replaces the legacy row-editor table. Cards still
+  // write straight into DraftRow via the same onPatch/onRemove callbacks, so
+  // the existing save/commit flow is preserved without changes.
+  void focused; void setFocusedCb; void headerCls;
   return (
     <FocusedColContext.Provider value={{ focused, setFocused: setFocusedCb }}>
-      <table className="shipment-products-table w-full min-w-[860px] text-[12px] tabular-nums">
-        <thead className="sticky top-0 z-10 text-muted-foreground shadow-sm [&_th]:bg-table-head [&_th]:font-bold">
-          <tr className="border-b border-border">
-            <th className={cn(headerCls(0), "text-left")}>Товар</th>
-            <th className={cn(headerCls(1), "text-left")}>Сорт</th>
-            <th className={cn(headerCls(2), "text-left")}>Країна</th>
-            <th className={cn(headerCls(3), "text-left")}>Калібр</th>
-            <th className={cn(headerCls(4), "text-left")}>SKU</th>
-            <th className={cn(headerCls(5), "text-left")}>Упаковка</th>
-            <th className={cn(headerCls(6), "text-right")}>Пал.</th>
-            <th className={cn(headerCls(7), "text-right")}>Нетто</th>
-            <th className={cn(headerCls(8), "text-right")}>Брутто</th>
-            <th className={cn(headerCls(9), "text-right min-w-[92px]")}>Ціна</th>
-            <th className="sticky right-0 z-20 w-12 min-w-[3rem] bg-card px-1 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {drafts.map((d) => {
-            const ownKey = d.localId;
-            const others = capacitySource.filter((x) => x.id !== ownKey);
-            const { pallets: otherPallets, grossKg: otherKg } = sumCapacity(others);
-            const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
-            const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
-            return (
-              <ProductRowEditor
-                key={d.localId}
-                draft={d}
-                dbItem={dbItem}
-                shipmentId={shipmentId}
-                products={products}
-                otherPallets={otherPallets}
-                otherKg={otherKg}
-                preview={preview}
-                readOnly={!currentShipmentEditable}
-                pulse={pulseFields}
-                collapseExpandedTick={collapseExpandedTick}
-                onShowBreakdown={() => onShowBreakdown(d.localId)}
-                onPatch={(patch) => onPatch(d.localId, patch)}
-                onRemove={() => onRemove(d.localId)}
-                onResolverHint={(info) => onResolverHint(d.localId, info)}
-
-              />
-
-
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="space-y-3">
+        {drafts.map((d, idx) => {
+          const ownKey = d.localId;
+          const others = capacitySource.filter((x) => x.id !== ownKey);
+          const { pallets: otherPallets, grossKg: otherKg } = sumCapacity(others);
+          const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
+          const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
+          return (
+            <ShipmentProductCard
+              key={d.localId}
+              index={idx}
+              draft={d}
+              dbItem={dbItem}
+              shipmentId={shipmentId}
+              products={products}
+              otherPallets={otherPallets}
+              otherKg={otherKg}
+              preview={preview}
+              readOnly={!currentShipmentEditable}
+              pulse={pulseFields}
+              collapseExpandedTick={collapseExpandedTick}
+              onShowBreakdown={() => onShowBreakdown(d.localId)}
+              onPatch={(patch: Partial<DraftRow>) => onPatch(d.localId, patch)}
+              onRemove={() => onRemove(d.localId)}
+              onResolverHint={(info: ResolverHintInfo | null) => onResolverHint(d.localId, info)}
+            />
+          );
+        })}
+      </div>
       <span hidden>{String(currentShipmentEditable)}</span>
     </FocusedColContext.Provider>
   );
