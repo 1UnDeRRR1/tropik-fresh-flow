@@ -934,70 +934,84 @@ function NewShipment() {
 
       {/* Header form — unified compact card style matching ShipmentProductCard */}
       <div
-        className="shipment-header-card space-y-3 rounded-xl border border-border bg-card p-3 text-[13px] shadow-sm [&_label]:text-[10px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-muted-foreground [&_input]:h-9 [&_input]:text-[13px]"
+        className="shipment-header-card space-y-2 rounded-xl border border-border bg-card p-3 shadow-sm"
         onSubmit={(e) => e.preventDefault()}
       >
-        <div className="grid grid-cols-2 gap-2">
-          <ModeButton
-            active={mode === "new"}
-            onClick={() => {
-              setMode("new");
-              setVehicleId("");
-            }}
-          >
-            <Plus className="mr-1 h-4 w-4" /> Нове авто
-          </ModeButton>
-          <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
-            <Truck className="mr-1 h-4 w-4" /> До відкритого
-          </ModeButton>
+        {/* Compact inline mode toggle */}
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Поставка
+          </div>
+          <div className="inline-flex rounded-md border border-border bg-background p-0.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => { setMode("new"); setVehicleId(""); }}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
+                mode === "new" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Plus className="h-3 w-3" /> Нове авто
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("existing")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
+                mode === "existing" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Truck className="h-3 w-3" /> До відкритого
+            </button>
+          </div>
         </div>
 
         {mode === "new" ? (
           <>
-            {supplierField}
-            {countryField}
-            {codeField}
-            {loadingDateField}
-            {etaField}
+            <div className="grid grid-cols-2 gap-2">
+              {supplierField}
+              {countryField}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {codeField}
+              {transportField}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {loadingDateField}
+              {etaField}
+            </div>
           </>
         ) : (
           <>
-            {supplierField}
+            <div className="grid grid-cols-2 gap-2">
+              {supplierField}
+              {selectedVehicle ? (
+                <div>
+                  <div className={fieldLabelCls}>
+                    <Lock className="mr-1 inline h-3 w-3" /> Країна (зафіксовано)
+                  </div>
+                  <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold">
+                    {selectedVehicle.country}
+                  </div>
+                </div>
+              ) : (
+                countryField
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {vehicleField}
+              {codeField}
+            </div>
+            {vehicleDatesReadOnly}
+            <div className="grid grid-cols-2 gap-2">
+              <div />
+              {transportField}
+            </div>
             {selectedVehicle ? (
               <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} />
-            ) : (
-              countryField
-            )}
-            {vehicleField}
-            {vehicleDatesReadOnly}
-            {codeField}
+            ) : null}
           </>
         )}
-
-        {/* Transport (local-only, Build 2A.1) — unified card-field style */}
-        <div className="space-y-1.5">
-          <Label>Транспорт (фрахт)</Label>
-          <div className="flex items-center gap-1 rounded-md border border-input bg-background">
-            <Input
-              inputMode="decimal"
-              value={transportAmount}
-              onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
-              placeholder="Сума фрахту"
-              className="h-9 flex-1 border-transparent bg-transparent text-right tabular-nums"
-            />
-            <select
-              value={transportCurrency}
-              onChange={(e) => setTransportCurrency(e.target.value as "EUR" | "USD")}
-              className="h-9 rounded border-transparent bg-transparent px-2 text-[13px]"
-            >
-              <option value="EUR">€</option>
-              <option value="USD">$</option>
-            </select>
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            Локальне поле. У БД зберігається в Build 2B разом із «Створити».
-          </div>
-        </div>
       </div>
 
       {/* Products section */}
