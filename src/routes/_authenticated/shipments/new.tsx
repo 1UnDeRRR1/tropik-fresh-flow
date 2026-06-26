@@ -599,6 +599,37 @@ function NewShipment() {
 
   // Build 2A.2 — capacity summary is a compact sticky top line; no shake/pulse.
 
+  // Build 2A.7 — measure the real AppShell <header> height (mobile uses a
+  // fixed banner header that is much taller than the desktop 56px default).
+  // We do not modify AppShell; we just read the rendered element height so
+  // the sticky capacity bar parks exactly below it on every viewport.
+  const [stickyTop, setStickyTop] = useState<number>(56);
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const measure = () => {
+      const el = document.querySelector("header");
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      // If the header is fixed at top (mobile banner), its bottom = its height.
+      // If sticky/static at top of doc, rect.top is ~0 and bottom is height too.
+      const next = Math.max(0, Math.round(rect.bottom));
+      setStickyTop((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    const el = document.querySelector("header");
+    if (el) ro.observe(el);
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    const t = window.setTimeout(measure, 250);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      window.clearTimeout(t);
+    };
+  }, []);
+
 
   if (loading || !isStaff) {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
