@@ -1113,60 +1113,6 @@ function NewShipment() {
 }
 
 
-function Metric({
-  label,
-  value,
-  ok,
-  warn,
-  bad,
-}: {
-  label: string;
-  value: string;
-  ok?: boolean;
-  warn?: boolean;
-  bad?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-start">
-      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "font-semibold",
-          bad && "text-destructive",
-          warn && !bad && "text-amber-600 dark:text-amber-400",
-          ok && !warn && !bad && "text-success",
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex h-10 items-center justify-center rounded-md border px-3 text-sm font-semibold transition",
-        active
-          ? "border-brand bg-brand text-brand-foreground"
-          : "border-border bg-card text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
   const loadedP = Number(vehicle.total_pallets ?? 0);
