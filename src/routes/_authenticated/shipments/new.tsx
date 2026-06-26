@@ -530,11 +530,8 @@ function NewShipment() {
             .eq("id", offer.linked_shipment_id)
             .maybeSingle();
           if (!cancelled && linkedShip?.country) {
-            setCountry((prev) => {
-              if (prev) return prev;
-              setCountryTouched(false);
-              return toUaCountry(linkedShip.country) || linkedShip.country;
-            });
+            const ua = toUaCountry(linkedShip.country) || linkedShip.country || "";
+            setCountry((prev) => (prev ? prev : ua));
           }
         }
         if (cancelled) return;
