@@ -907,7 +907,10 @@ function NewShipment() {
       {/* Build 2A.4 — sticky capacity summary at the very top of the route.
           No PageHeader above it so it reliably sticks to viewport top:0 on
           mobile. Compact, non-blocking warning lives inside the same bar. */}
-      <div className="sticky top-[var(--app-header-h,56px)] z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+      <div
+        style={{ top: stickyTop }}
+        className="sticky z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border"
+      >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <span className="mr-2 text-[12px] font-black tracking-tight">Нова поставка</span>
           <span className={cn("font-semibold", overPallets && "text-destructive")}>
