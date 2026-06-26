@@ -1062,10 +1062,22 @@ function NewShipment() {
         </div>
       </div>
 
-      {/* Sticky capacity bar */}
+      {/* Sticky capacity bar — Build 2A.1: sits ABOVE bottom nav on mobile,
+          respects keyboard inset and iOS safe area, pulses on over-limit. */}
       <div
-        className="fixed inset-x-0 z-30 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur"
-        style={{ bottom: "var(--keyboard-inset, 0px)" }}
+        key={shakeTick}
+        className={cn(
+          "fixed inset-x-0 z-30 border-t bg-background/95 px-3 py-2 shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur",
+          overLimit
+            ? "border-destructive/60 bg-destructive/5 animate-pulse"
+            : "border-border",
+        )}
+        style={{
+          bottom: isMobile
+            ? "calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px) + 4rem)"
+            : "calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "0.5rem",
+        }}
       >
         <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -1094,6 +1106,20 @@ function NewShipment() {
               bad={overKg}
             />
           </div>
+          {overLimit && (
+            <div className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {overPallets
+                  ? `Перевищено ліміт авто: ${totalPallets}/${VEHICLE_MAX_PALLETS} палет. `
+                  : ""}
+                {overKg
+                  ? `Перевищено ліміт ваги: ${Math.round(totalKg)}/${VEHICLE_MAX_KG} кг. `
+                  : ""}
+                У Build 2B «Створити» буде заблоковано, поки ліміт не виправите.
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2 pt-1">
             <Button
               type="button"
@@ -1124,6 +1150,7 @@ function NewShipment() {
     </div>
   );
 }
+
 
 function Metric({
   label,
