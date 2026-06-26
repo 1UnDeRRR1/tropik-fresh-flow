@@ -638,15 +638,8 @@ function NewShipment() {
   const overKg = totalKg > VEHICLE_MAX_KG;
   const overLimit = overPallets || overKg;
 
-  // Build 2A.1 — pulse the sticky bar when over-limit transitions to true.
-  const [shakeTick, setShakeTick] = useState(0);
-  const prevOverRef = useRef(false);
-  useEffect(() => {
-    if (overLimit && !prevOverRef.current) {
-      setShakeTick((n) => n + 1);
-    }
-    prevOverRef.current = overLimit;
-  }, [overLimit]);
+  // Build 2A.2 — capacity summary is a compact sticky top line; no shake/pulse.
+
 
   if (loading || !isStaff) {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
