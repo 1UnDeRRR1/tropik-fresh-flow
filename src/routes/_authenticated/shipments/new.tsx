@@ -49,16 +49,11 @@ import {
 import { StaffOnly } from "@/components/StaffOnly";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
-import {
-  ShipmentProductCard,
-  type ShipmentCardPreview,
-  type ResolverHintInfo,
-} from "@/components/shipments/ShipmentProductCard";
+import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import {
   emptyDraftRow,
   type DraftRow,
   type ProductRef,
-  type RowComponents,
 } from "@/lib/shipment-row-engine";
 
 const VEHICLE_MAX_PALLETS = 26;
