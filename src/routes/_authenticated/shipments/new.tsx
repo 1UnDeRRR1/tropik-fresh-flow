@@ -646,9 +646,13 @@ function NewShipment() {
   }
 
 
+  // Inline label style matching ShipmentProductCard's FieldLabel.
+  const fieldLabelCls = "mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
+  const inlineInputCls = "h-9 w-full bg-background text-[13px]";
+
   const supplierField = (
-    <div className={cn("space-y-1.5", invalid.has("supplier") && "field-invalid")}>
-      <Label>Постачальник</Label>
+    <div className={cn(invalid.has("supplier") && "field-invalid")}>
+      <div className={fieldLabelCls}>Постачальник <span className="text-destructive">*</span></div>
       <InlineAutocomplete
         value={supplierInput}
         onValueChange={(next) => {
@@ -675,12 +679,12 @@ function NewShipment() {
           }
           if (!raw.trim()) setSupplierId("");
         }}
-        placeholder="Оберіть постачальника…"
+        placeholder="Постачальник"
         browseLimit={5}
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName="h-10 w-full bg-background text-sm"
+        inputClassName={inlineInputCls}
         inputProps={{ "data-mobile-edit-label": "Постачальник" }}
         renderItem={(item) => (
           <div className="flex flex-col">
@@ -695,8 +699,8 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div className={cn("space-y-1.5", invalid.has("country") && "field-invalid")}>
-      <Label>Країна завантаження</Label>
+    <div className={cn(invalid.has("country") && "field-invalid")}>
+      <div className={fieldLabelCls}>Країна завантаження <span className="text-destructive">*</span></div>
       <InlineAutocomplete
         value={countryInput}
         onValueChange={setCountryInput}
@@ -722,12 +726,12 @@ function NewShipment() {
             clearInvalid("country");
           }
         }}
-        placeholder="Оберіть країну…"
+        placeholder="Країна"
         browseLimit={5}
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName="h-10 w-full bg-background text-sm"
+        inputClassName={inlineInputCls}
         inputProps={{ "data-mobile-edit-label": "Країна завантаження" }}
         renderItem={(item) => <span className="block truncate">{item.label}</span>}
       />
@@ -735,24 +739,44 @@ function NewShipment() {
   );
 
   const codeField = (
-    <div className="space-y-1.5">
-      <Label htmlFor="code">Номер поставки</Label>
+    <div>
+      <div className={fieldLabelCls}>Номер поставки</div>
       <Input
         id="code"
         value={code}
         readOnly
-        placeholder="GR29-OLI"
-        className="bg-secondary/40 font-mono"
+        placeholder="—"
+        className="h-9 bg-secondary/40 font-mono text-[13px]"
       />
-      <div className="text-[11px] text-muted-foreground">
-        Номер формується автоматично. Остаточний — після створення.
+    </div>
+  );
+
+  const transportField = (
+    <div>
+      <div className={fieldLabelCls}>Транспорт (фрахт)</div>
+      <div className="flex items-center gap-1 rounded-md border border-input bg-background">
+        <Input
+          inputMode="decimal"
+          value={transportAmount}
+          onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+          placeholder="—"
+          className="h-9 flex-1 border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums"
+        />
+        <select
+          value={transportCurrency}
+          onChange={(e) => setTransportCurrency(e.target.value as "EUR" | "USD")}
+          className="h-9 rounded border-transparent bg-transparent px-2 text-[13px]"
+        >
+          <option value="EUR">€</option>
+          <option value="USD">$</option>
+        </select>
       </div>
     </div>
   );
 
   const loadingDateField = (
-    <div className={cn("space-y-1.5", invalid.has("loadingDate") && "field-invalid")}>
-      <Label htmlFor="ld">Дата завантаження</Label>
+    <div className={cn(invalid.has("loadingDate") && "field-invalid")}>
+      <div className={fieldLabelCls}>Дата завантаження <span className="text-destructive">*</span></div>
       <Input
         id="ld"
         type="date"
@@ -767,13 +791,14 @@ function NewShipment() {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
+        className="h-9 text-[13px]"
       />
     </div>
   );
 
   const etaField = (
-    <div className={cn("space-y-1.5", invalid.has("eta") && "field-invalid")}>
-      <Label htmlFor="eta-new">Дата прибуття (ETA)</Label>
+    <div className={cn(invalid.has("eta") && "field-invalid")}>
+      <div className={fieldLabelCls}>ETA (прибуття)</div>
       <Input
         id="eta-new"
         type="date"
@@ -789,42 +814,22 @@ function NewShipment() {
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
+        className="h-9 text-[13px]"
       />
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>
-          {etaTouched && etaOverride
-            ? "Ручне налаштування"
-            : autoEta
-              ? "Авто з країни та дати завантаження"
-              : "Заповніть країну та дату завантаження"}
-        </span>
-        {etaTouched && (
-          <button
-            type="button"
-            className="text-primary hover:underline"
-            onClick={() => {
-              setEtaOverride("");
-              setEtaTouched(false);
-            }}
-          >
-            Скинути до авто
-          </button>
-        )}
-      </div>
     </div>
   );
 
   const vehicleDatesReadOnly = selectedVehicle ? (
-    <div className="grid grid-cols-2 gap-2 text-[12px]">
-      <div className="space-y-1">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">ETD</div>
-        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 font-semibold tabular-nums">
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <div className={fieldLabelCls}>ETD</div>
+        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold tabular-nums">
           {selectedVehicle.loading_date ?? "—"}
         </div>
       </div>
-      <div className="space-y-1">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">ETA</div>
-        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 font-semibold tabular-nums">
+      <div>
+        <div className={fieldLabelCls}>ETA</div>
+        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold tabular-nums">
           {selectedVehicle.eta ?? "—"}
         </div>
       </div>
@@ -832,8 +837,8 @@ function NewShipment() {
   ) : null;
 
   const vehicleField = (
-    <div className={cn("space-y-1.5", invalid.has("vehicle") && "field-invalid")}>
-      <Label>Відкрите авто</Label>
+    <div className={cn(invalid.has("vehicle") && "field-invalid")}>
+      <div className={fieldLabelCls}>Відкрите авто</div>
       <InlineAutocomplete
         value={vehicleInput}
         onValueChange={setVehicleInput}
@@ -859,12 +864,12 @@ function NewShipment() {
             clearInvalid("vehicle");
           }
         }}
-        placeholder="Оберіть авто…"
+        placeholder="Авто"
         browseLimit={5}
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName="h-10 w-full bg-background text-sm"
+        inputClassName={inlineInputCls}
         inputProps={{ "data-mobile-edit-label": "Відкрите авто" }}
         renderItem={(item) => (
           <div className="flex flex-col">
@@ -929,70 +934,84 @@ function NewShipment() {
 
       {/* Header form — unified compact card style matching ShipmentProductCard */}
       <div
-        className="shipment-header-card space-y-3 rounded-xl border border-border bg-card p-3 text-[13px] shadow-sm [&_label]:text-[10px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-muted-foreground [&_input]:h-9 [&_input]:text-[13px]"
+        className="shipment-header-card space-y-2 rounded-xl border border-border bg-card p-3 shadow-sm"
         onSubmit={(e) => e.preventDefault()}
       >
-        <div className="grid grid-cols-2 gap-2">
-          <ModeButton
-            active={mode === "new"}
-            onClick={() => {
-              setMode("new");
-              setVehicleId("");
-            }}
-          >
-            <Plus className="mr-1 h-4 w-4" /> Нове авто
-          </ModeButton>
-          <ModeButton active={mode === "existing"} onClick={() => setMode("existing")}>
-            <Truck className="mr-1 h-4 w-4" /> До відкритого
-          </ModeButton>
+        {/* Compact inline mode toggle */}
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Поставка
+          </div>
+          <div className="inline-flex rounded-md border border-border bg-background p-0.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => { setMode("new"); setVehicleId(""); }}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
+                mode === "new" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Plus className="h-3 w-3" /> Нове авто
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("existing")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
+                mode === "existing" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Truck className="h-3 w-3" /> До відкритого
+            </button>
+          </div>
         </div>
 
         {mode === "new" ? (
           <>
-            {supplierField}
-            {countryField}
-            {codeField}
-            {loadingDateField}
-            {etaField}
+            <div className="grid grid-cols-2 gap-2">
+              {supplierField}
+              {countryField}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {codeField}
+              {transportField}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {loadingDateField}
+              {etaField}
+            </div>
           </>
         ) : (
           <>
-            {supplierField}
+            <div className="grid grid-cols-2 gap-2">
+              {supplierField}
+              {selectedVehicle ? (
+                <div>
+                  <div className={fieldLabelCls}>
+                    <Lock className="mr-1 inline h-3 w-3" /> Країна (зафіксовано)
+                  </div>
+                  <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold">
+                    {selectedVehicle.country}
+                  </div>
+                </div>
+              ) : (
+                countryField
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {vehicleField}
+              {codeField}
+            </div>
+            {vehicleDatesReadOnly}
+            <div className="grid grid-cols-2 gap-2">
+              <div />
+              {transportField}
+            </div>
             {selectedVehicle ? (
               <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} />
-            ) : (
-              countryField
-            )}
-            {vehicleField}
-            {vehicleDatesReadOnly}
-            {codeField}
+            ) : null}
           </>
         )}
-
-        {/* Transport (local-only, Build 2A.1) — unified card-field style */}
-        <div className="space-y-1.5">
-          <Label>Транспорт (фрахт)</Label>
-          <div className="flex items-center gap-1 rounded-md border border-input bg-background">
-            <Input
-              inputMode="decimal"
-              value={transportAmount}
-              onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
-              placeholder="Сума фрахту"
-              className="h-9 flex-1 border-transparent bg-transparent text-right tabular-nums"
-            />
-            <select
-              value={transportCurrency}
-              onChange={(e) => setTransportCurrency(e.target.value as "EUR" | "USD")}
-              className="h-9 rounded border-transparent bg-transparent px-2 text-[13px]"
-            >
-              <option value="EUR">€</option>
-              <option value="USD">$</option>
-            </select>
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            Локальне поле. У БД зберігається в Build 2B разом із «Створити».
-          </div>
-        </div>
       </div>
 
       {/* Products section */}
@@ -1094,60 +1113,6 @@ function NewShipment() {
 }
 
 
-function Metric({
-  label,
-  value,
-  ok,
-  warn,
-  bad,
-}: {
-  label: string;
-  value: string;
-  ok?: boolean;
-  warn?: boolean;
-  bad?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-start">
-      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "font-semibold",
-          bad && "text-destructive",
-          warn && !bad && "text-amber-600 dark:text-amber-400",
-          ok && !warn && !bad && "text-success",
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex h-10 items-center justify-center rounded-md border px-3 text-sm font-semibold transition",
-        active
-          ? "border-brand bg-brand text-brand-foreground"
-          : "border-border bg-card text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
   const loadedP = Number(vehicle.total_pallets ?? 0);
