@@ -895,10 +895,39 @@ function NewShipment() {
   };
 
   return (
-    <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+11rem)]">
+    <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]">
       <PageHeader title="Нова поставка" />
 
-      {/* Header form — Build 2A.1 compact density matching ShipmentProductCard */}
+      {/* Build 2A.2 — compact sticky top capacity summary. Small, stable,
+          never covers inputs. Warning lives here, non-blocking. */}
+      <div className="sticky top-0 z-20 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
+          <span className={cn("font-semibold", overPallets && "text-destructive")}>
+            Палети {totalPallets}/{VEHICLE_MAX_PALLETS}
+          </span>
+          <span className={cn("font-semibold", overKg && "text-destructive")}>
+            Брутто {Math.round(totalKg)}/{VEHICLE_MAX_KG}
+          </span>
+          <span className="text-muted-foreground">Залишок пал {remainPallets}</span>
+          <span className="text-muted-foreground">Залишок кг {Math.round(remainKg)}</span>
+          {code ? (
+            <span className="ml-auto truncate font-mono text-[10px] text-muted-foreground">{code}</span>
+          ) : null}
+        </div>
+        {overLimit && (
+          <div className="mt-1 text-[10px] font-semibold leading-snug text-destructive">
+            {overPallets
+              ? `Перевищено ліміт авто: ${totalPallets}/${VEHICLE_MAX_PALLETS} палет. `
+              : ""}
+            {overKg
+              ? `Перевищено ліміт ваги: ${Math.round(totalKg)}/${VEHICLE_MAX_KG} кг. `
+              : ""}
+            «Створити» буде заблоковано, поки ліміт не виправите.
+          </div>
+        )}
+      </div>
+
+      {/* Header form — unified compact card style matching ShipmentProductCard */}
       <div
         className="shipment-header-card space-y-3 rounded-xl border border-border bg-card p-3 text-[13px] shadow-sm [&_label]:text-[10px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-muted-foreground [&_input]:h-9 [&_input]:text-[13px]"
         onSubmit={(e) => e.preventDefault()}
@@ -940,8 +969,8 @@ function NewShipment() {
           </>
         )}
 
-        {/* Transport (local-only, Build 2A.1) */}
-        <div className="space-y-1.5 rounded-md border border-dashed border-border bg-secondary/30 p-2">
+        {/* Transport (local-only, Build 2A.1) — unified card-field style */}
+        <div className="space-y-1.5">
           <Label>Транспорт (фрахт)</Label>
           <div className="flex items-center gap-1 rounded-md border border-input bg-background">
             <Input
@@ -961,11 +990,10 @@ function NewShipment() {
             </select>
           </div>
           <div className="text-[10px] text-muted-foreground">
-            Локальне поле. У DB зберігається у Build 2B разом із «Створити».
+            Локальне поле. У БД зберігається в Build 2B разом із «Створити».
           </div>
         </div>
       </div>
-
 
       {/* Products section */}
       <div className="space-y-3">
@@ -977,8 +1005,6 @@ function NewShipment() {
         </div>
 
         {drafts.map((d, idx) => {
-          // Other-pallets/kg for capacity warnings inside the card: include
-          // sibling drafts + already-loaded vehicle counters (existing mode).
           let otherPallets = loadedExisting.pallets;
           let otherKg = loadedExisting.kg;
           for (const o of drafts) {
@@ -1011,7 +1037,7 @@ function NewShipment() {
                 onResolverHint={onResolverHint}
               />
               {isOpen && (
-                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
                   <div className="mb-1 flex items-center justify-between font-semibold uppercase tracking-wide text-foreground">
                     <span>Деталі / FX / Митниця / Транспорт / Собівартість</span>
                     <button
@@ -1029,110 +1055,38 @@ function NewShipment() {
             </div>
           );
         })}
+      </div>
 
+      {/* Build 2A.2 — action buttons in normal page flow, after the last
+          product card. No fixed/sticky/floating. */}
+      <div className="space-y-2 pt-1">
         <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addManualDraft}
-            className="w-full"
-          >
+          <Button type="button" variant="outline" onClick={addManualDraft} className="h-10 w-full">
             <Plus className="mr-1 h-4 w-4" /> Додати товар
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={cloneLastDraft}
-            className="w-full"
-          >
+          <Button type="button" variant="outline" onClick={cloneLastDraft} className="h-10 w-full">
             <Copy className="mr-1 h-4 w-4" /> Аналогічний
           </Button>
         </div>
-      </div>
-
-      {/* Sticky capacity bar — Build 2A.1: sits ABOVE bottom nav on mobile,
-          respects keyboard inset and iOS safe area, pulses on over-limit. */}
-      <div
-        key={shakeTick}
-        className={cn(
-          "fixed inset-x-0 z-30 border-t bg-background/95 px-3 py-2 shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur",
-          overLimit
-            ? "border-destructive/60 bg-destructive/5 animate-pulse"
-            : "border-border",
-        )}
-        style={{
-          bottom: isMobile
-            ? "calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px) + 4rem)"
-            : "calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px))",
-          paddingBottom: "0.5rem",
-        }}
-      >
-        <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
-          <div className="flex items-center justify-between gap-2 text-[11px]">
-            <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-              Завантаження авто
-            </span>
-            {code ? (
-              <span className="font-mono text-[10px] text-muted-foreground">{code}</span>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-4 gap-2 text-[11px] tabular-nums">
-            <Metric label="Палети" value={`${totalPallets}/${VEHICLE_MAX_PALLETS}`} bad={overPallets} />
-            <Metric label="Брутто кг" value={`${Math.round(totalKg)}/${VEHICLE_MAX_KG}`} bad={overKg} />
-            <Metric
-              label="Залишок пал"
-              value={`${remainPallets}`}
-              ok={remainPallets > 1}
-              warn={remainPallets <= 1 && !overPallets}
-              bad={overPallets}
-            />
-            <Metric
-              label="Залишок кг"
-              value={`${Math.round(remainKg)}`}
-              ok={remainKg > 500}
-              warn={remainKg > 0 && remainKg <= 500 && !overKg}
-              bad={overKg}
-            />
-          </div>
-          {overLimit && (
-            <div className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>
-                {overPallets
-                  ? `Перевищено ліміт авто: ${totalPallets}/${VEHICLE_MAX_PALLETS} палет. `
-                  : ""}
-                {overKg
-                  ? `Перевищено ліміт ваги: ${Math.round(totalKg)}/${VEHICLE_MAX_KG} кг. `
-                  : ""}
-                У Build 2B «Створити» буде заблоковано, поки ліміт не виправите.
-              </span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 pt-1">
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" onClick={onBack} className="h-10 w-full">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Назад
+          </Button>
+          <div className="relative">
             <Button
               type="button"
-              variant="outline"
-              onClick={onBack}
-              className="h-10 shrink-0"
+              disabled
+              className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
             >
-              <ArrowLeft className="mr-1 h-4 w-4" /> Назад
+              Створити
             </Button>
-            <div className="relative flex-1">
-              <Button
-                type="button"
-                disabled
-                className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
-              >
-                Створити
-              </Button>
-              <div className="pointer-events-none absolute -top-2 right-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                Build 2B
-              </div>
+            <div className="pointer-events-none absolute -top-2 right-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+              Build 2B
             </div>
           </div>
-          <div className="text-center text-[10px] text-muted-foreground">
-            Кнопка «Створити» буде підключена в наступному Build (атомарний commit). Зараз — лише чернетка в пам’яті браузера.
-          </div>
+        </div>
+        <div className="text-center text-[10px] text-muted-foreground">
+          Кнопка «Створити» буде підключена в наступному Build (атомарний commit). Зараз — лише чернетка в пам’яті браузера.
         </div>
       </div>
     </div>
