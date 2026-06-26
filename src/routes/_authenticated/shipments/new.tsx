@@ -143,19 +143,10 @@ function NewShipment() {
   // Build 2A — local draft state.
   // ---------------------------------------------------------------------------
   const [drafts, setDrafts] = useState<DraftRow[]>(() => [emptyDraftRow()]);
-  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(() => new Set());
   // Build 2A.1 — local-only transport. NOT persisted in Build 2A.1; wired
   // into the commit payload in Build 2B.
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportCurrency, setTransportCurrency] = useState<"EUR" | "USD">("EUR");
-  const toggleDetails = (localId: string) =>
-    setExpandedDetails((prev) => {
-      const next = new Set(prev);
-      if (next.has(localId)) next.delete(localId);
-      else next.add(localId);
-      return next;
-    });
-
 
   const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
@@ -164,12 +155,6 @@ function NewShipment() {
     setDrafts((prev) => {
       const next = prev.filter((d) => d.localId !== localId);
       return next.length ? next : [emptyDraftRow()];
-    });
-    setExpandedDetails((prev) => {
-      if (!prev.has(localId)) return prev;
-      const next = new Set(prev);
-      next.delete(localId);
-      return next;
     });
   }, []);
   const addManualDraft = () => setDrafts((prev) => [...prev, emptyDraftRow()]);
