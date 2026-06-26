@@ -646,9 +646,13 @@ function NewShipment() {
   }
 
 
+  // Inline label style matching ShipmentProductCard's FieldLabel.
+  const fieldLabelCls = "mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
+  const inlineInputCls = "h-9 w-full bg-background text-[13px]";
+
   const supplierField = (
-    <div className={cn("space-y-1.5", invalid.has("supplier") && "field-invalid")}>
-      <Label>Постачальник</Label>
+    <div className={cn(invalid.has("supplier") && "field-invalid")}>
+      <div className={fieldLabelCls}>Постачальник <span className="text-destructive">*</span></div>
       <InlineAutocomplete
         value={supplierInput}
         onValueChange={(next) => {
@@ -675,12 +679,12 @@ function NewShipment() {
           }
           if (!raw.trim()) setSupplierId("");
         }}
-        placeholder="Оберіть постачальника…"
+        placeholder="Постачальник"
         browseLimit={5}
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName="h-10 w-full bg-background text-sm"
+        inputClassName={inlineInputCls}
         inputProps={{ "data-mobile-edit-label": "Постачальник" }}
         renderItem={(item) => (
           <div className="flex flex-col">
@@ -695,8 +699,8 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div className={cn("space-y-1.5", invalid.has("country") && "field-invalid")}>
-      <Label>Країна завантаження</Label>
+    <div className={cn(invalid.has("country") && "field-invalid")}>
+      <div className={fieldLabelCls}>Країна завантаження <span className="text-destructive">*</span></div>
       <InlineAutocomplete
         value={countryInput}
         onValueChange={setCountryInput}
@@ -722,12 +726,12 @@ function NewShipment() {
             clearInvalid("country");
           }
         }}
-        placeholder="Оберіть країну…"
+        placeholder="Країна"
         browseLimit={5}
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName="h-10 w-full bg-background text-sm"
+        inputClassName={inlineInputCls}
         inputProps={{ "data-mobile-edit-label": "Країна завантаження" }}
         renderItem={(item) => <span className="block truncate">{item.label}</span>}
       />
@@ -735,24 +739,44 @@ function NewShipment() {
   );
 
   const codeField = (
-    <div className="space-y-1.5">
-      <Label htmlFor="code">Номер поставки</Label>
+    <div>
+      <div className={fieldLabelCls}>Номер поставки</div>
       <Input
         id="code"
         value={code}
         readOnly
-        placeholder="GR29-OLI"
-        className="bg-secondary/40 font-mono"
+        placeholder="—"
+        className="h-9 bg-secondary/40 font-mono text-[13px]"
       />
-      <div className="text-[11px] text-muted-foreground">
-        Номер формується автоматично. Остаточний — після створення.
+    </div>
+  );
+
+  const transportField = (
+    <div>
+      <div className={fieldLabelCls}>Транспорт (фрахт)</div>
+      <div className="flex items-center gap-1 rounded-md border border-input bg-background">
+        <Input
+          inputMode="decimal"
+          value={transportAmount}
+          onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+          placeholder="—"
+          className="h-9 flex-1 border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums"
+        />
+        <select
+          value={transportCurrency}
+          onChange={(e) => setTransportCurrency(e.target.value as "EUR" | "USD")}
+          className="h-9 rounded border-transparent bg-transparent px-2 text-[13px]"
+        >
+          <option value="EUR">€</option>
+          <option value="USD">$</option>
+        </select>
       </div>
     </div>
   );
 
   const loadingDateField = (
-    <div className={cn("space-y-1.5", invalid.has("loadingDate") && "field-invalid")}>
-      <Label htmlFor="ld">Дата завантаження</Label>
+    <div className={cn(invalid.has("loadingDate") && "field-invalid")}>
+      <div className={fieldLabelCls}>Дата завантаження <span className="text-destructive">*</span></div>
       <Input
         id="ld"
         type="date"
@@ -767,13 +791,14 @@ function NewShipment() {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
+        className="h-9 text-[13px]"
       />
     </div>
   );
 
   const etaField = (
-    <div className={cn("space-y-1.5", invalid.has("eta") && "field-invalid")}>
-      <Label htmlFor="eta-new">Дата прибуття (ETA)</Label>
+    <div className={cn(invalid.has("eta") && "field-invalid")}>
+      <div className={fieldLabelCls}>ETA (прибуття)</div>
       <Input
         id="eta-new"
         type="date"
@@ -789,42 +814,22 @@ function NewShipment() {
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
+        className="h-9 text-[13px]"
       />
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>
-          {etaTouched && etaOverride
-            ? "Ручне налаштування"
-            : autoEta
-              ? "Авто з країни та дати завантаження"
-              : "Заповніть країну та дату завантаження"}
-        </span>
-        {etaTouched && (
-          <button
-            type="button"
-            className="text-primary hover:underline"
-            onClick={() => {
-              setEtaOverride("");
-              setEtaTouched(false);
-            }}
-          >
-            Скинути до авто
-          </button>
-        )}
-      </div>
     </div>
   );
 
   const vehicleDatesReadOnly = selectedVehicle ? (
-    <div className="grid grid-cols-2 gap-2 text-[12px]">
-      <div className="space-y-1">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">ETD</div>
-        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 font-semibold tabular-nums">
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <div className={fieldLabelCls}>ETD</div>
+        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold tabular-nums">
           {selectedVehicle.loading_date ?? "—"}
         </div>
       </div>
-      <div className="space-y-1">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">ETA</div>
-        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 font-semibold tabular-nums">
+      <div>
+        <div className={fieldLabelCls}>ETA</div>
+        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold tabular-nums">
           {selectedVehicle.eta ?? "—"}
         </div>
       </div>
