@@ -572,6 +572,26 @@ export function ShipmentProductCard({
         />
       </div>
 
+      {/* Ящ./пал. + Вага палети (read-only display derived from resolver) */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <div>
+          <FieldLabel>Ящ./пал.</FieldLabel>
+          <div className="flex h-9 items-center rounded-md border border-dashed border-input bg-muted/30 px-2 text-[12px] tabular-nums text-muted-foreground">
+            —
+          </div>
+        </div>
+        <div>
+          <FieldLabel>Вага палети, кг</FieldLabel>
+          <div className="flex h-9 items-center justify-end rounded-md border border-dashed border-input bg-muted/30 px-2 text-[12px] tabular-nums text-foreground/80">
+            {form.resolver_gross_per_pallet_kg != null
+              ? `${Math.round(Number(form.resolver_gross_per_pallet_kg))} брутто`
+              : form.pallet_count > 0 && grossNum > 0
+                ? `${Math.round(grossNum / form.pallet_count)} брутто`
+                : "—"}
+          </div>
+        </div>
+      </div>
+
       {/* Pallets / Net / Gross */}
       <div className="mb-2 grid grid-cols-3 gap-2">
         <div>
@@ -595,8 +615,10 @@ export function ShipmentProductCard({
               const newRowKg = simGross > 0 ? simGross : simNet;
               const newTotalPallets = otherPallets + v;
               const newTotalKg = otherKg + newRowKg;
-              if (newTotalPallets > MAX_PALLETS || newTotalKg > MAX_WEIGHT_KG) {
-                toast.error(`Перевищено ліміт: макс ${MAX_PALLETS} палет / ${MAX_WEIGHT_KG} кг на машину`);
+              if (newTotalPallets > MAX_PALLETS) {
+                toast.error(`Перевищено ліміт авто: ${newTotalPallets}/${MAX_PALLETS} палет. Зменшіть кількість палет.`);
+              } else if (newTotalKg > MAX_WEIGHT_KG) {
+                toast.error(`Перевищено ліміт ваги: ${Math.round(newTotalKg)}/${MAX_WEIGHT_KG} кг. Зменшіть кількість палет або вагу.`);
               }
               onPatch(patch);
             }}
@@ -638,6 +660,23 @@ export function ShipmentProductCard({
           />
         </div>
       </div>
+
+      {/* Auto helper text for Net/Gross */}
+      {(form.net_auto || form.gross_auto) &&
+        (form.resolver_net_per_pallet_kg != null || form.resolver_gross_per_pallet_kg != null) && (
+          <div className="mb-2 -mt-1 text-[10px] text-muted-foreground">
+            Авто: 1 пал ={" "}
+            {form.resolver_net_per_pallet_kg != null
+              ? `${Math.round(Number(form.resolver_net_per_pallet_kg))} нетто`
+              : "—"}{" "}
+            /{" "}
+            {form.resolver_gross_per_pallet_kg != null
+              ? `${Math.round(Number(form.resolver_gross_per_pallet_kg))} брутто`
+              : "—"}{" "}
+            кг. Зміна палет перераховує суми. Ручне редагування вимикає авто.
+          </div>
+        )}
+
 
       {/* Price */}
       <div className="mb-2">
