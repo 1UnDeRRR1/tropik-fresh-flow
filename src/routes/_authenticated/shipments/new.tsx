@@ -860,9 +860,6 @@ function NewShipment() {
     </div>
   );
 
-  const onResolverHint = (_info: ResolverHintInfo | null) => {
-    // Build 2A: hint surfaced inside the card; parent does not aggregate.
-  };
 
   const onBack = () => {
     // Build 2A: nothing is persisted in DB, so back is a pure navigation.
