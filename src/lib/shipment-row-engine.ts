@@ -115,7 +115,13 @@ export type DraftRow = {
   // these to live inputs and spreads them into the INSERT payload.
   brand?: string;
   class?: string;
+  // Build 2A.4 — local-only fields on /shipments/new card. Not in
+  // DRAFT_EDITABLE_KEYS, not persisted anywhere yet. $id.products.tsx leaves
+  // them undefined; commit payload in Build 2B will decide DB destination.
+  boxes_per_pallet?: number | null;
+  pallet_weight_override_kg?: number | null;
 };
+
 
 export const DRAFT_EDITABLE_KEYS: (keyof DraftRow)[] = [
   "product_name","variety","origin_country","caliber","sku","package_used",

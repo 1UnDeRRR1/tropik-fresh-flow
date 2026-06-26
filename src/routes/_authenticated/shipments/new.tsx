@@ -18,13 +18,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Truck, Plus, Lock, ArrowLeft, Copy, ChevronUp } from "lucide-react";
+import { Plus, Lock, ArrowLeft, Copy, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { PageHeader } from "@/components/AppShell";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
 import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -901,12 +901,12 @@ function NewShipment() {
 
   return (
     <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]">
-      <PageHeader title="Нова поставка" />
-
-      {/* Build 2A.2 — compact sticky top capacity summary. Small, stable,
-          never covers inputs. Warning lives here, non-blocking. */}
-      <div className="sticky top-0 z-20 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+      {/* Build 2A.4 — sticky capacity summary at the very top of the route.
+          No PageHeader above it so it reliably sticks to viewport top:0 on
+          mobile. Compact, non-blocking warning lives inside the same bar. */}
+      <div className="sticky top-0 z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
+          <span className="mr-2 text-[12px] font-black tracking-tight">Нова поставка</span>
           <span className={cn("font-semibold", overPallets && "text-destructive")}>
             Палети {totalPallets}/{VEHICLE_MAX_PALLETS}
           </span>
@@ -927,45 +927,17 @@ function NewShipment() {
             {overKg
               ? `Перевищено ліміт ваги: ${Math.round(totalKg)}/${VEHICLE_MAX_KG} кг. `
               : ""}
-            «Створити» буде заблоковано, поки ліміт не виправите.
           </div>
         )}
       </div>
 
-      {/* Header form — unified compact card style matching ShipmentProductCard */}
+      {/* Header form — unified compact card style. Mode toggle removed:
+          default flow is new vehicle; existing-vehicle mode is engaged
+          only when route has ?vehicleId=. */}
       <div
         className="shipment-header-card space-y-2 rounded-xl border border-border bg-card p-3 shadow-sm"
         onSubmit={(e) => e.preventDefault()}
       >
-        {/* Compact inline mode toggle */}
-        <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Поставка
-          </div>
-          <div className="inline-flex rounded-md border border-border bg-background p-0.5 text-[11px]">
-            <button
-              type="button"
-              onClick={() => { setMode("new"); setVehicleId(""); }}
-              className={cn(
-                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
-                mode === "new" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Plus className="h-3 w-3" /> Нове авто
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("existing")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
-                mode === "existing" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Truck className="h-3 w-3" /> До відкритого
-            </button>
-          </div>
-        </div>
-
         {mode === "new" ? (
           <>
             <div className="grid grid-cols-2 gap-2">
@@ -999,20 +971,24 @@ function NewShipment() {
               )}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {vehicleField}
               {codeField}
-            </div>
-            {vehicleDatesReadOnly}
-            <div className="grid grid-cols-2 gap-2">
-              <div />
               {transportField}
             </div>
             {selectedVehicle ? (
-              <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} />
-            ) : null}
+              <div className="rounded-md border border-border bg-secondary/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">{selectedVehicle.code}</span> ·{" "}
+                {selectedVehicle.country} · ETD {selectedVehicle.loading_date ?? "—"} · ETA{" "}
+                {selectedVehicle.eta ?? "—"} · {Number(selectedVehicle.total_pallets ?? 0)}/26 пал ·{" "}
+                {Math.round(Number(selectedVehicle.total_weight_kg ?? 0))}/21500 кг · власник{" "}
+                {selectedVehicleOwnerName}
+              </div>
+            ) : (
+              vehicleField
+            )}
           </>
         )}
       </div>
+
 
       {/* Products section */}
       <div className="space-y-3">
@@ -1104,82 +1080,11 @@ function NewShipment() {
             </div>
           </div>
         </div>
-        <div className="text-center text-[10px] text-muted-foreground">
-          Кнопка «Створити» буде підключена в наступному Build (атомарний commit). Зараз — лише чернетка в пам’яті браузера.
-        </div>
       </div>
     </div>
   );
 }
 
-
-
-function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
-  const loadedP = Number(vehicle.total_pallets ?? 0);
-  const loadedKg = Number(vehicle.total_weight_kg ?? 0);
-  const freeP = Math.max(0, VEHICLE_MAX_PALLETS - loadedP);
-  const freeKg = Math.max(0, VEHICLE_MAX_KG - loadedKg);
-  const sups = (vehicle.shipments ?? [])
-    .map((s) => s.suppliers?.name)
-    .filter(Boolean)
-    .join(", ");
-  const ownerShipment =
-    (vehicle.shipments ?? []).find((shipment) => shipment.created_by === vehicle.created_by) ??
-    (vehicle.shipments ?? []).find((shipment) => Number(shipment.logistics_cost ?? 0) > 0) ??
-    null;
-  return (
-    <div className="space-y-2">
-      <div className="space-y-1.5">
-        <Label className="flex items-center gap-1 text-muted-foreground">
-          <Lock className="h-3 w-3" /> Країна (зафіксована для авто)
-        </Label>
-        <div className="flex h-10 w-full items-center rounded-md border border-dashed border-border bg-secondary/40 px-3 text-sm font-semibold">
-          {vehicle.country}
-        </div>
-      </div>
-      <div className="rounded-xl border border-border bg-secondary/30 p-3 text-xs">
-        <div className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Завантаження авто</div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-muted-foreground">Фрахт</div>
-            <div className="font-semibold tabular-nums">
-              {ownerShipment && Number(ownerShipment.logistics_cost ?? 0) > 0
-                ? `${Number(ownerShipment.logistics_cost ?? 0).toFixed(2)} ${ownerShipment.logistics_cost_currency ?? "EUR"}`
-                : "Не вказано"}
-            </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Вже завантажено</div>
-            <div className="font-semibold tabular-nums">
-              {loadedP} пал · {Math.round(loadedKg)} кг
-            </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Вільно</div>
-            <div className={cn("font-semibold tabular-nums", freeP <= 1 ? "text-destructive" : "text-success")}>
-              {freeP} пал · {Math.round(freeKg)} кг
-            </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Маршрут</div>
-            <div className="font-semibold tabular-nums">{vehicle.country}</div>
-          </div>
-        </div>
-        {sups && (
-          <div className="mt-2 text-[11px] text-muted-foreground">
-            Постачальники в авто: <span className="text-foreground">{sups}</span>
-          </div>
-        )}
-        <div className="mt-2 text-[11px] text-muted-foreground">
-          Власник авто: <span className="text-foreground">{ownerName}</span>
-        </div>
-        <div className="mt-2 text-[11px] text-muted-foreground">
-          Транспорт оплачує менеджер-власник авто. Вартість транспорту для вашої поставки додасте на наступному кроці.
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Unused export markers (kept for backwards compatibility with any direct
 // imports) — none currently. Intentionally omitted.
