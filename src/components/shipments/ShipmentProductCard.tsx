@@ -217,6 +217,7 @@ export function ShipmentProductCard({
   otherKg,
   preview,
   readOnly,
+  productOriginLocked = false,
   pulse = false,
   collapseExpandedTick,
   index,
@@ -233,6 +234,10 @@ export function ShipmentProductCard({
   otherKg: number;
   preview: ShipmentCardPreview;
   readOnly: boolean;
+  // Phase 1 final — identity-lock for Товар/Походження only. Independent
+  // from `readOnly` (which gates the whole card). Computed by the parent
+  // from saved position_id and offer-derived source_position_id.
+  productOriginLocked?: boolean;
   pulse?: boolean;
   collapseExpandedTick: number;
   index: number;
@@ -256,6 +261,8 @@ export function ShipmentProductCard({
     if (readOnly) return;
     onPatch({ [k]: v } as Partial<DraftRow>);
   };
+  // Combined gate for the identity fields only (Товар + Походження).
+  const productOriginReadOnly = readOnly || productOriginLocked;
 
   // Field-level validation
   const palletCountNum = Number(form.pallet_count) || 0;
