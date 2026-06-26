@@ -197,7 +197,9 @@ export function InlineAutocomplete<T>({
           <div
             className={cn(
               "overflow-y-auto overscroll-contain",
-              mode === "browse" ? "max-h-[180px]" : "max-h-[132px]",
+              // Build 2A.8 — fits exactly 5 compact rows on mobile so the
+              // suggestion panel never clips below the keyboard.
+              mode === "browse" ? "max-h-[220px]" : "max-h-[220px]",
             )}
             style={{ WebkitOverflowScrolling: "touch" }}
           >
