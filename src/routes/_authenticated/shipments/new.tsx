@@ -772,15 +772,8 @@ function NewShipment() {
   );
 
   const etaField = (
-    <div
-      className={cn(
-        "space-y-1.5 rounded-xl border border-dashed border-border bg-secondary/40 p-3",
-        invalid.has("eta") && "field-invalid",
-      )}
-    >
-      <Label htmlFor="eta-new" className="text-xs uppercase tracking-wider text-muted-foreground">
-        Дата прибуття (ETA)
-      </Label>
+    <div className={cn("space-y-1.5", invalid.has("eta") && "field-invalid")}>
+      <Label htmlFor="eta-new">Дата прибуття (ETA)</Label>
       <Input
         id="eta-new"
         type="date"
@@ -797,12 +790,12 @@ function NewShipment() {
           if (v) clearInvalid("eta");
         }}
       />
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
         <span>
           {etaTouched && etaOverride
             ? "Ручне налаштування"
             : autoEta
-              ? "Автоматично з країни та дати завантаження"
+              ? "Авто з країни та дати завантаження"
               : "Заповніть країну та дату завантаження"}
         </span>
         {etaTouched && (
@@ -822,14 +815,18 @@ function NewShipment() {
   );
 
   const vehicleDatesReadOnly = selectedVehicle ? (
-    <div className="rounded-xl border border-dashed border-border bg-secondary/40 p-3 text-xs space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-muted-foreground uppercase tracking-wider text-[11px]">ETD (завантаження авто)</span>
-        <span className="font-semibold tabular-nums">{selectedVehicle.loading_date ?? "—"}</span>
+    <div className="grid grid-cols-2 gap-2 text-[12px]">
+      <div className="space-y-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">ETD</div>
+        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 font-semibold tabular-nums">
+          {selectedVehicle.loading_date ?? "—"}
+        </div>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-muted-foreground uppercase tracking-wider text-[11px]">ETA (прибуття авто)</span>
-        <span className="font-semibold tabular-nums">{selectedVehicle.eta ?? "—"}</span>
+      <div className="space-y-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">ETA</div>
+        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 font-semibold tabular-nums">
+          {selectedVehicle.eta ?? "—"}
+        </div>
       </div>
     </div>
   ) : null;
