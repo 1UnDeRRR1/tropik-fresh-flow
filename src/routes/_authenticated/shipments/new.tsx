@@ -837,8 +837,8 @@ function NewShipment() {
   ) : null;
 
   const vehicleField = (
-    <div className={cn("space-y-1.5", invalid.has("vehicle") && "field-invalid")}>
-      <Label>Відкрите авто</Label>
+    <div className={cn(invalid.has("vehicle") && "field-invalid")}>
+      <div className={fieldLabelCls}>Відкрите авто</div>
       <InlineAutocomplete
         value={vehicleInput}
         onValueChange={setVehicleInput}
@@ -864,12 +864,12 @@ function NewShipment() {
             clearInvalid("vehicle");
           }
         }}
-        placeholder="Оберіть авто…"
+        placeholder="Авто"
         browseLimit={5}
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName="h-10 w-full bg-background text-sm"
+        inputClassName={inlineInputCls}
         inputProps={{ "data-mobile-edit-label": "Відкрите авто" }}
         renderItem={(item) => (
           <div className="flex flex-col">
