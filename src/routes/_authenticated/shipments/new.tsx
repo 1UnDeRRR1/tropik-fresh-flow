@@ -981,44 +981,18 @@ function NewShipment() {
             otherKg += g > 0 ? g : n;
           }
           const locked = Boolean(d.source_position_id);
-          const isOpen = expandedDetails.has(d.localId);
           return (
-            <div key={d.localId} className="space-y-1.5">
-              <ShipmentProductCard
-                draft={d}
-                dbItem={null}
-                shipmentId=""
-                products={products}
-                otherPallets={otherPallets}
-                otherKg={otherKg}
-                preview={STUB_PREVIEW}
-                readOnly={false}
-                productOriginLocked={locked}
-                pulse={false}
-                collapseExpandedTick={0}
-                index={idx}
-                onShowBreakdown={() => toggleDetails(d.localId)}
-                onPatch={(patch) => patchDraft(d.localId, patch)}
-                onRemove={() => removeDraft(d.localId)}
-                onResolverHint={onResolverHint}
-              />
-              {isOpen && (
-                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-                  <div className="mb-1 flex items-center justify-between font-semibold uppercase tracking-wide text-foreground">
-                    <span>Деталі / FX / Митниця / Транспорт / Собівартість</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleDetails(d.localId)}
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label="Згорнути"
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </button>
-                  </div>
-                  Повний розрахунок собівартості, FX і митниці буде доступний у наступному Build (2B).
-                </div>
-              )}
-            </div>
+            <NewShipmentProductCard
+              key={d.localId}
+              draft={d}
+              products={products}
+              otherPallets={otherPallets}
+              otherKg={otherKg}
+              productOriginLocked={locked}
+              index={idx}
+              onPatch={(patch) => patchDraft(d.localId, patch)}
+              onRemove={() => removeDraft(d.localId)}
+            />
           );
         })}
       </div>
