@@ -174,7 +174,6 @@ function NewShipment() {
   // into the commit payload in Build 2B.
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportCurrency, setTransportCurrency] = useState<"EUR" | "USD">("EUR");
-  const isMobile = useIsMobile();
   const toggleDetails = (localId: string) =>
     setExpandedDetails((prev) => {
       const next = new Set(prev);
