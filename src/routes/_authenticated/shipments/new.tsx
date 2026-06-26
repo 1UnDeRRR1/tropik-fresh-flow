@@ -907,12 +907,12 @@ function NewShipment() {
   };
 
   return (
-    <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+9rem)]">
+    <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+11rem)]">
       <PageHeader title="Нова поставка" />
 
-      {/* Header form */}
+      {/* Header form — Build 2A.1 compact density matching ShipmentProductCard */}
       <div
-        className="space-y-4 rounded-2xl border border-border bg-card p-4"
+        className="shipment-header-card space-y-3 rounded-xl border border-border bg-card p-3 text-[13px] shadow-sm [&_label]:text-[10px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-muted-foreground [&_input]:h-9 [&_input]:text-[13px]"
         onSubmit={(e) => e.preventDefault()}
       >
         <div className="grid grid-cols-2 gap-2">
@@ -951,7 +951,33 @@ function NewShipment() {
             {codeField}
           </>
         )}
+
+        {/* Transport (local-only, Build 2A.1) */}
+        <div className="space-y-1.5 rounded-md border border-dashed border-border bg-secondary/30 p-2">
+          <Label>Транспорт (фрахт)</Label>
+          <div className="flex items-center gap-1 rounded-md border border-input bg-background">
+            <Input
+              inputMode="decimal"
+              value={transportAmount}
+              onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+              placeholder="Сума фрахту"
+              className="h-9 flex-1 border-transparent bg-transparent text-right tabular-nums"
+            />
+            <select
+              value={transportCurrency}
+              onChange={(e) => setTransportCurrency(e.target.value as "EUR" | "USD")}
+              className="h-9 rounded border-transparent bg-transparent px-2 text-[13px]"
+            >
+              <option value="EUR">€</option>
+              <option value="USD">$</option>
+            </select>
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Локальне поле. У DB зберігається у Build 2B разом із «Створити».
+          </div>
+        </div>
       </div>
+
 
       {/* Products section */}
       <div className="space-y-3">
