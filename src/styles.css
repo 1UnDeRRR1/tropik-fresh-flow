@@ -961,3 +961,25 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 .shipments-new-velvet-create .velvet-cosmic-press-bloom {
   border-radius: 9999px;
 }
+
+/* Build 2A.8 — invalid-input feedback (used by /shipments/new strict fields). */
+@keyframes tropik-field-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  16%, 50%, 83% { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.55); border-color: rgb(220, 38, 38); }
+}
+.tropik-field-flash,
+.tropik-field-flash > input,
+.tropik-field-flash input,
+.tropik-field-flash button[type="button"] {
+  animation: tropik-field-flash 0.7s ease-in-out;
+  border-color: rgb(220, 38, 38) !important;
+}
+
+@keyframes tropik-screen-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.tropik-screen-shake { animation: tropik-screen-shake 0.42s ease-in-out; }
