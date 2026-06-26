@@ -886,16 +886,18 @@ function NewShipment() {
   };
 
   return (
-    <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]">
-      {/* Build 2A.4 — sticky capacity summary at the very top of the route.
-          No PageHeader above it so it reliably sticks to viewport top:0 on
-          mobile. Compact, non-blocking warning lives inside the same bar. */}
+    <div
+      className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]"
+      style={{ paddingTop: 48 }}
+    >
+      {/* Build 2A.8 — capacity summary pinned with position:fixed so it
+          stays visible regardless of any ancestor overflow/transform that
+          would break position:sticky. Sits exactly below AppShell header. */}
       <div
-        style={{ top: stickyTop }}
-        className="sticky z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border"
+        style={{ top: stickyTop, left: 0, right: 0 }}
+        className="fixed z-30 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur"
       >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
-          <span className="mr-2 text-[12px] font-black tracking-tight">Нова поставка</span>
+        <div className="flex items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <span className={cn("font-semibold", overPallets && "text-destructive")}>
             Палети {totalPallets}/{VEHICLE_MAX_PALLETS}
           </span>
@@ -904,9 +906,6 @@ function NewShipment() {
           </span>
           <span className="text-muted-foreground">Залишок пал {remainPallets}</span>
           <span className="text-muted-foreground">Залишок кг {Math.round(remainKg)}</span>
-          {code ? (
-            <span className="ml-auto truncate font-mono text-[10px] text-muted-foreground">{code}</span>
-          ) : null}
         </div>
         {overLimit && (
           <div className="mt-1 text-[10px] font-semibold leading-snug text-destructive">
@@ -934,12 +933,11 @@ function NewShipment() {
               {countryField}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {codeField}
-              {transportField}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
               {loadingDateField}
               {etaField}
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {transportField}
             </div>
           </>
         ) : (
@@ -959,8 +957,7 @@ function NewShipment() {
                 countryField
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {codeField}
+            <div className="grid grid-cols-1 gap-2">
               {transportField}
             </div>
             {selectedVehicle ? (
