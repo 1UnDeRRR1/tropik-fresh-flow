@@ -17,7 +17,7 @@
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Plus, Lock, ArrowLeft, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -610,8 +610,8 @@ function NewShipment() {
   const inlineInputCls = "h-9 w-full bg-background text-[13px]";
 
   const supplierField = (
-    <div className={cn(invalid.has("supplier") && "field-invalid")}>
-      <div className={fieldLabelCls}>Постачальник <span className="text-destructive">*</span></div>
+    <div>
+      <div className={fieldLabelCls}>Постачальник</div>
       <InlineAutocomplete
         value={supplierInput}
         onValueChange={(next) => {
@@ -643,7 +643,10 @@ function NewShipment() {
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName={inlineInputCls}
+        inputClassName={cn(
+          inlineInputCls,
+          invalid.has("supplier") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
         inputProps={{ "data-mobile-edit-label": "Постачальник" }}
         renderItem={(item) => (
           <div className="flex flex-col">
@@ -658,8 +661,8 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div className={cn(invalid.has("country") && "field-invalid")}>
-      <div className={fieldLabelCls}>Країна завантаження <span className="text-destructive">*</span></div>
+    <div>
+      <div className={fieldLabelCls}>Країна завантаження</div>
       <InlineAutocomplete
         value={countryInput}
         onValueChange={setCountryInput}
@@ -690,7 +693,10 @@ function NewShipment() {
         searchLimit={3}
         minSearchLength={2}
         className="w-full"
-        inputClassName={inlineInputCls}
+        inputClassName={cn(
+          inlineInputCls,
+          invalid.has("country") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
         inputProps={{ "data-mobile-edit-label": "Країна завантаження" }}
         renderItem={(item) => <span className="block truncate">{item.label}</span>}
       />
