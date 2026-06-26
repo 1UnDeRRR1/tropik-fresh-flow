@@ -170,19 +170,22 @@ export function NewShipmentProductCard({
       {/* Row 1: Товар + Походження */}
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div onBlur={handleResolverBlur}>
-          <FieldLabel>Товар *</FieldLabel>
+          <FieldLabel>Товар</FieldLabel>
           <AutocompleteCell
             value={form.product_name}
             onChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.product = true;
               setHint(null);
-              onPatch({ product_name: v });
+              // Letters / spaces / hyphen only.
+              const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
+              onPatch({ product_name: cleaned });
             }}
             onCommit={() => { void runResolver(); }}
             options={knownProductNames}
             aliases={productAliases}
             placeholder="Товар"
+            strict
             className={cn(
               "font-medium",
               (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40",
@@ -193,19 +196,21 @@ export function NewShipmentProductCard({
           />
         </div>
         <div onBlur={handleResolverBlur}>
-          <FieldLabel>Походження *</FieldLabel>
+          <FieldLabel>Походження</FieldLabel>
           <AutocompleteCell
             value={form.origin_country}
             onChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.country = true;
               setHint(null);
-              onPatch({ origin_country: v });
+              const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
+              onPatch({ origin_country: cleaned });
             }}
             onCommit={() => { void runResolver(); }}
             options={COUNTRY_OPTIONS}
             aliases={countryAliases}
             placeholder="Походження"
+            strict
             className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40")}
             expandedMinWidth={220}
             readOnly={productOriginReadOnly}
@@ -234,7 +239,11 @@ export function NewShipmentProductCard({
           <CellInput
             value={form.caliber}
             placeholder="Калібр"
-            onChange={(v) => onPatch({ caliber: v })}
+            onChange={(v) => {
+              // Hard 5-char limit; silently trim extras instead of letting
+              // them sneak into local draft state.
+              onPatch({ caliber: v.slice(0, 5) });
+            }}
             expandedMinWidth={160}
           />
         </div>
@@ -253,18 +262,23 @@ export function NewShipmentProductCard({
         </div>
         <div>
           <FieldLabel>Клас</FieldLabel>
-          <CellInput
+          <select
             value={form.class ?? ""}
-            placeholder="Клас"
-            onChange={(v) => onPatch({ class: v })}
-            expandedMinWidth={140}
-          />
+            onChange={(e) => onPatch({ class: e.target.value })}
+            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-[13px]"
+            data-mobile-edit-label="Клас"
+          >
+            <option value="">—</option>
+            {["LUX", "1", "1,5", "1b", "2", "IND"].map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Row 4: Упаковка (full width) */}
       <div className="mb-2">
-        <FieldLabel>Упаковка *</FieldLabel>
+        <FieldLabel>Упаковка</FieldLabel>
         <PackageCell
           value={form.package_used}
           productName={form.product_name}
@@ -301,7 +315,7 @@ export function NewShipmentProductCard({
           />
         </div>
         <div>
-          <FieldLabel>К-ть палет *</FieldLabel>
+          <FieldLabel>К-ть палет</FieldLabel>
           <NumCell
             value={form.pallet_count}
             invalid={invalidPallets}
@@ -366,7 +380,7 @@ export function NewShipmentProductCard({
       {/* Row 6: Нетто + Брутто */}
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
-          <FieldLabel>Нетто, кг *</FieldLabel>
+          <FieldLabel>Нетто, кг</FieldLabel>
           <NumCell
             value={Math.round(netNum)}
             step="1"
@@ -379,7 +393,7 @@ export function NewShipmentProductCard({
           )}
         </div>
         <div>
-          <FieldLabel>Брутто, кг *</FieldLabel>
+          <FieldLabel>Брутто, кг</FieldLabel>
           <NumCell
             value={Math.round(grossNum)}
             step="1"
@@ -412,7 +426,7 @@ export function NewShipmentProductCard({
 
       {/* Row 7: Price + Currency */}
       <div className="mb-2">
-        <FieldLabel>Ціна за кг *</FieldLabel>
+        <FieldLabel>Ціна за кг</FieldLabel>
         <div className={cn(invalidPrice && "field-invalid")}>
           <PriceCell
             value={form.unit_price}
