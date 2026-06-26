@@ -99,29 +99,8 @@ type OpenVehicle = {
   }[] | null;
 };
 
-// Build 2A — stub preview for ShipmentProductCard. Cost/customs/FX/transport
-// breakdown is intentionally not wired here; full cost engine wiring is
-// scheduled for Build 2B alongside the final Create orchestrator.
-const STUB_ROW_COMPONENTS: RowComponents = {
-  productName: "",
-  country: "",
-  inputPrice: null,
-  inputCurrency: null,
-  fxRate: null,
-  unitUsd: null,
-  transportPerKg: null,
-  customsIndicative: null,
-  customsInvoice: null,
-  customsBasis: "none",
-  matchedRef: null,
-};
-const STUB_PREVIEW: ShipmentCardPreview = {
-  isDirty: false,
-  value: null,
-  hasCustomsInputs: false,
-  liveCustomsStatus: null,
-  components: STUB_ROW_COMPONENTS,
-};
+// Build 2A.5 — cost/customs/FX/transport preview is rendered inside
+// NewShipmentProductCard as a placeholder; full wiring lands in Build 2B.
 
 function NewShipment() {
   const navigate = useNavigate();
