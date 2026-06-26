@@ -239,7 +239,11 @@ export function NewShipmentProductCard({
           <CellInput
             value={form.caliber}
             placeholder="Калібр"
-            onChange={(v) => onPatch({ caliber: v })}
+            onChange={(v) => {
+              // Hard 5-char limit; silently trim extras instead of letting
+              // them sneak into local draft state.
+              onPatch({ caliber: v.slice(0, 5) });
+            }}
             expandedMinWidth={160}
           />
         </div>
@@ -258,12 +262,17 @@ export function NewShipmentProductCard({
         </div>
         <div>
           <FieldLabel>Клас</FieldLabel>
-          <CellInput
+          <select
             value={form.class ?? ""}
-            placeholder="Клас"
-            onChange={(v) => onPatch({ class: v })}
-            expandedMinWidth={140}
-          />
+            onChange={(e) => onPatch({ class: e.target.value })}
+            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-[13px]"
+            data-mobile-edit-label="Клас"
+          >
+            <option value="">—</option>
+            {["LUX", "1", "1,5", "1b", "2", "IND"].map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
         </div>
       </div>
 
