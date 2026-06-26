@@ -572,30 +572,26 @@ export function ShipmentProductCard({
         />
       </div>
 
-      {/* Ящ./пал. + Вага палети (read-only display derived from resolver) */}
-      <div className="mb-2 grid grid-cols-2 gap-2">
-        <div>
-          <FieldLabel>Ящ./пал.</FieldLabel>
-          <div className="flex h-9 items-center rounded-md border border-dashed border-input bg-muted/30 px-2 text-[12px] tabular-nums text-muted-foreground">
-            —
-          </div>
-        </div>
-        <div>
-          <FieldLabel>Вага палети, кг</FieldLabel>
-          <div className="flex h-9 items-center justify-end rounded-md border border-dashed border-input bg-muted/30 px-2 text-[12px] tabular-nums text-foreground/80">
-            {form.resolver_gross_per_pallet_kg != null
-              ? `${Math.round(Number(form.resolver_gross_per_pallet_kg))} брутто`
-              : form.pallet_count > 0 && grossNum > 0
-                ? `${Math.round(grossNum / form.pallet_count)} брутто`
-                : "—"}
-          </div>
-        </div>
-      </div>
-
-      {/* Pallets / Net / Gross */}
+      {/* Ящ./пал. + К-ть палет + Вага палети — Build 2A.4: active local inputs.
+          boxes_per_pallet and pallet_weight_override_kg are additive DraftRow
+          fields; not in DRAFT_EDITABLE_KEYS, not persisted yet. Manual override
+          of pallet weight recalculates gross from pallet_count. */}
       <div className="mb-2 grid grid-cols-3 gap-2">
         <div>
-          <FieldLabel>Палети *</FieldLabel>
+          <FieldLabel>Ящ./пал.</FieldLabel>
+          <NumCell
+            value={Number(form.boxes_per_pallet ?? 0)}
+            readOnly={readOnly}
+            step="1"
+            placeholder="Ящ./пал."
+            onChange={(v) => {
+              if (readOnly) return;
+              onPatch({ boxes_per_pallet: v > 0 ? v : null });
+            }}
+          />
+        </div>
+        <div>
+          <FieldLabel>К-ть палет *</FieldLabel>
           <NumCell
             value={form.pallet_count}
             readOnly={readOnly}
@@ -604,11 +600,17 @@ export function ShipmentProductCard({
             onChange={(v) => {
               if (readOnly) return;
               const patch: Partial<DraftRow> = { pallet_count: v };
+              const overrideGross =
+                form.pallet_weight_override_kg != null && Number(form.pallet_weight_override_kg) > 0
+                  ? Number(form.pallet_weight_override_kg)
+                  : null;
+              if (overrideGross != null) {
+                patch.gross_weight_kg = overrideGross * v;
+              } else if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
+                patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
+              }
               if (form.net_auto && form.resolver_net_per_pallet_kg != null) {
                 patch.net_weight_kg = form.resolver_net_per_pallet_kg * v;
-              }
-              if (form.gross_auto && form.resolver_gross_per_pallet_kg != null) {
-                patch.gross_weight_kg = form.resolver_gross_per_pallet_kg * v;
               }
               const simGross = patch.gross_weight_kg != null ? Number(patch.gross_weight_kg) : grossNum;
               const simNet = patch.net_weight_kg != null ? Number(patch.net_weight_kg) : netNum;
@@ -624,6 +626,39 @@ export function ShipmentProductCard({
             }}
           />
         </div>
+        <div>
+          <FieldLabel>Вага палети</FieldLabel>
+          <NumCell
+            value={
+              form.pallet_weight_override_kg != null
+                ? Math.round(Number(form.pallet_weight_override_kg))
+                : form.resolver_gross_per_pallet_kg != null
+                  ? Math.round(Number(form.resolver_gross_per_pallet_kg))
+                  : form.pallet_count > 0 && grossNum > 0
+                    ? Math.round(grossNum / form.pallet_count)
+                    : 0
+            }
+            readOnly={readOnly}
+            step="1"
+            placeholder="кг/пал"
+            onChange={(v) => {
+              if (readOnly) return;
+              const safe = v > 0 ? v : null;
+              const patch: Partial<DraftRow> = {
+                pallet_weight_override_kg: safe,
+                gross_auto: false,
+              };
+              if (safe != null && form.pallet_count > 0) {
+                patch.gross_weight_kg = safe * form.pallet_count;
+              }
+              onPatch(patch);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Нетто + Брутто */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
           <FieldLabel>Нетто, кг *</FieldLabel>
           <NumCell
@@ -655,7 +690,7 @@ export function ShipmentProductCard({
             onChange={(v) => {
               if (readOnly) return;
               const safe = Math.max(0, v);
-              onPatch({ gross_weight_kg: safe, gross_auto: false });
+              onPatch({ gross_weight_kg: safe, gross_auto: false, pallet_weight_override_kg: null });
             }}
           />
         </div>
@@ -673,9 +708,10 @@ export function ShipmentProductCard({
             {form.resolver_gross_per_pallet_kg != null
               ? `${Math.round(Number(form.resolver_gross_per_pallet_kg))} брутто`
               : "—"}{" "}
-            кг. Зміна палет перераховує суми. Ручне редагування вимикає авто.
+            кг
           </div>
         )}
+
 
 
       {/* Price */}
