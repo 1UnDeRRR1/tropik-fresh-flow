@@ -170,19 +170,22 @@ export function NewShipmentProductCard({
       {/* Row 1: Товар + Походження */}
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div onBlur={handleResolverBlur}>
-          <FieldLabel>Товар *</FieldLabel>
+          <FieldLabel>Товар</FieldLabel>
           <AutocompleteCell
             value={form.product_name}
             onChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.product = true;
               setHint(null);
-              onPatch({ product_name: v });
+              // Letters / spaces / hyphen only.
+              const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
+              onPatch({ product_name: cleaned });
             }}
             onCommit={() => { void runResolver(); }}
             options={knownProductNames}
             aliases={productAliases}
             placeholder="Товар"
+            strict
             className={cn(
               "font-medium",
               (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40",
@@ -193,19 +196,21 @@ export function NewShipmentProductCard({
           />
         </div>
         <div onBlur={handleResolverBlur}>
-          <FieldLabel>Походження *</FieldLabel>
+          <FieldLabel>Походження</FieldLabel>
           <AutocompleteCell
             value={form.origin_country}
             onChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.country = true;
               setHint(null);
-              onPatch({ origin_country: v });
+              const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
+              onPatch({ origin_country: cleaned });
             }}
             onCommit={() => { void runResolver(); }}
             options={COUNTRY_OPTIONS}
             aliases={countryAliases}
             placeholder="Походження"
+            strict
             className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40")}
             expandedMinWidth={220}
             readOnly={productOriginReadOnly}
