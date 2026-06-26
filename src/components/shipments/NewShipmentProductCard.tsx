@@ -278,7 +278,7 @@ export function NewShipmentProductCard({
 
       {/* Row 4: Упаковка (full width) */}
       <div className="mb-2">
-        <FieldLabel>Упаковка *</FieldLabel>
+        <FieldLabel>Упаковка</FieldLabel>
         <PackageCell
           value={form.package_used}
           productName={form.product_name}
@@ -315,7 +315,7 @@ export function NewShipmentProductCard({
           />
         </div>
         <div>
-          <FieldLabel>К-ть палет *</FieldLabel>
+          <FieldLabel>К-ть палет</FieldLabel>
           <NumCell
             value={form.pallet_count}
             invalid={invalidPallets}
@@ -380,7 +380,7 @@ export function NewShipmentProductCard({
       {/* Row 6: Нетто + Брутто */}
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
-          <FieldLabel>Нетто, кг *</FieldLabel>
+          <FieldLabel>Нетто, кг</FieldLabel>
           <NumCell
             value={Math.round(netNum)}
             step="1"
@@ -393,7 +393,7 @@ export function NewShipmentProductCard({
           )}
         </div>
         <div>
-          <FieldLabel>Брутто, кг *</FieldLabel>
+          <FieldLabel>Брутто, кг</FieldLabel>
           <NumCell
             value={Math.round(grossNum)}
             step="1"
@@ -426,7 +426,7 @@ export function NewShipmentProductCard({
 
       {/* Row 7: Price + Currency */}
       <div className="mb-2">
-        <FieldLabel>Ціна за кг *</FieldLabel>
+        <FieldLabel>Ціна за кг</FieldLabel>
         <div className={cn(invalidPrice && "field-invalid")}>
           <PriceCell
             value={form.unit_price}
