@@ -901,12 +901,12 @@ function NewShipment() {
 
   return (
     <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]">
-      <PageHeader title="Нова поставка" />
-
-      {/* Build 2A.2 — compact sticky top capacity summary. Small, stable,
-          never covers inputs. Warning lives here, non-blocking. */}
-      <div className="sticky top-0 z-20 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+      {/* Build 2A.4 — sticky capacity summary at the very top of the route.
+          No PageHeader above it so it reliably sticks to viewport top:0 on
+          mobile. Compact, non-blocking warning lives inside the same bar. */}
+      <div className="sticky top-0 z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
+          <span className="mr-2 text-[12px] font-black tracking-tight">Нова поставка</span>
           <span className={cn("font-semibold", overPallets && "text-destructive")}>
             Палети {totalPallets}/{VEHICLE_MAX_PALLETS}
           </span>
@@ -927,45 +927,17 @@ function NewShipment() {
             {overKg
               ? `Перевищено ліміт ваги: ${Math.round(totalKg)}/${VEHICLE_MAX_KG} кг. `
               : ""}
-            «Створити» буде заблоковано, поки ліміт не виправите.
           </div>
         )}
       </div>
 
-      {/* Header form — unified compact card style matching ShipmentProductCard */}
+      {/* Header form — unified compact card style. Mode toggle removed:
+          default flow is new vehicle; existing-vehicle mode is engaged
+          only when route has ?vehicleId=. */}
       <div
         className="shipment-header-card space-y-2 rounded-xl border border-border bg-card p-3 shadow-sm"
         onSubmit={(e) => e.preventDefault()}
       >
-        {/* Compact inline mode toggle */}
-        <div className="flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Поставка
-          </div>
-          <div className="inline-flex rounded-md border border-border bg-background p-0.5 text-[11px]">
-            <button
-              type="button"
-              onClick={() => { setMode("new"); setVehicleId(""); }}
-              className={cn(
-                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
-                mode === "new" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Plus className="h-3 w-3" /> Нове авто
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("existing")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition",
-                mode === "existing" ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Truck className="h-3 w-3" /> До відкритого
-            </button>
-          </div>
-        </div>
-
         {mode === "new" ? (
           <>
             <div className="grid grid-cols-2 gap-2">
@@ -999,20 +971,24 @@ function NewShipment() {
               )}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {vehicleField}
               {codeField}
-            </div>
-            {vehicleDatesReadOnly}
-            <div className="grid grid-cols-2 gap-2">
-              <div />
               {transportField}
             </div>
             {selectedVehicle ? (
-              <VehicleLockedInfo vehicle={selectedVehicle} ownerName={selectedVehicleOwnerName} />
-            ) : null}
+              <div className="rounded-md border border-border bg-secondary/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">{selectedVehicle.code}</span> ·{" "}
+                {selectedVehicle.country} · ETD {selectedVehicle.loading_date ?? "—"} · ETA{" "}
+                {selectedVehicle.eta ?? "—"} · {Number(selectedVehicle.total_pallets ?? 0)}/26 пал ·{" "}
+                {Math.round(Number(selectedVehicle.total_weight_kg ?? 0))}/21500 кг · власник{" "}
+                {selectedVehicleOwnerName}
+              </div>
+            ) : (
+              vehicleField
+            )}
           </>
         )}
       </div>
+
 
       {/* Products section */}
       <div className="space-y-3">
