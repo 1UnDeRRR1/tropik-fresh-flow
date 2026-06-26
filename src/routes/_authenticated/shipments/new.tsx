@@ -734,7 +734,7 @@ function NewShipment() {
   );
 
   const loadingDateField = (
-    <div className={cn(invalid.has("loadingDate") && "field-invalid")}>
+    <div className={cn("min-w-0", invalid.has("loadingDate") && "field-invalid")}>
       <div className={fieldLabelCls}>Дата завантаження <span className="text-destructive">*</span></div>
       <Input
         id="ld"
@@ -750,13 +750,13 @@ function NewShipment() {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
-        className="h-9 text-[13px]"
+        className="h-10 w-full min-w-0 px-2"
       />
     </div>
   );
 
   const etaField = (
-    <div className={cn(invalid.has("eta") && "field-invalid")}>
+    <div className={cn("min-w-0", invalid.has("eta") && "field-invalid")}>
       <div className={fieldLabelCls}>ETA (прибуття)</div>
       <Input
         id="eta-new"
@@ -773,7 +773,7 @@ function NewShipment() {
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
-        className="h-9 text-[13px]"
+        className="h-10 w-full min-w-0 px-2"
       />
     </div>
   );
@@ -860,7 +860,7 @@ function NewShipment() {
       {/* Build 2A.4 — sticky capacity summary at the very top of the route.
           No PageHeader above it so it reliably sticks to viewport top:0 on
           mobile. Compact, non-blocking warning lives inside the same bar. */}
-      <div className="sticky top-0 z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+      <div className="sticky top-[var(--app-header-h,56px)] z-30 -mx-3 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:mx-0 sm:rounded-md sm:border">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <span className="mr-2 text-[12px] font-black tracking-tight">Нова поставка</span>
           <span className={cn("font-semibold", overPallets && "text-destructive")}>
