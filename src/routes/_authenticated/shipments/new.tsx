@@ -1080,82 +1080,11 @@ function NewShipment() {
             </div>
           </div>
         </div>
-        <div className="text-center text-[10px] text-muted-foreground">
-          Кнопка «Створити» буде підключена в наступному Build (атомарний commit). Зараз — лише чернетка в пам’яті браузера.
-        </div>
       </div>
     </div>
   );
 }
 
-
-
-function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; ownerName: string }) {
-  const loadedP = Number(vehicle.total_pallets ?? 0);
-  const loadedKg = Number(vehicle.total_weight_kg ?? 0);
-  const freeP = Math.max(0, VEHICLE_MAX_PALLETS - loadedP);
-  const freeKg = Math.max(0, VEHICLE_MAX_KG - loadedKg);
-  const sups = (vehicle.shipments ?? [])
-    .map((s) => s.suppliers?.name)
-    .filter(Boolean)
-    .join(", ");
-  const ownerShipment =
-    (vehicle.shipments ?? []).find((shipment) => shipment.created_by === vehicle.created_by) ??
-    (vehicle.shipments ?? []).find((shipment) => Number(shipment.logistics_cost ?? 0) > 0) ??
-    null;
-  return (
-    <div className="space-y-2">
-      <div className="space-y-1.5">
-        <Label className="flex items-center gap-1 text-muted-foreground">
-          <Lock className="h-3 w-3" /> Країна (зафіксована для авто)
-        </Label>
-        <div className="flex h-10 w-full items-center rounded-md border border-dashed border-border bg-secondary/40 px-3 text-sm font-semibold">
-          {vehicle.country}
-        </div>
-      </div>
-      <div className="rounded-xl border border-border bg-secondary/30 p-3 text-xs">
-        <div className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Завантаження авто</div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <div className="text-muted-foreground">Фрахт</div>
-            <div className="font-semibold tabular-nums">
-              {ownerShipment && Number(ownerShipment.logistics_cost ?? 0) > 0
-                ? `${Number(ownerShipment.logistics_cost ?? 0).toFixed(2)} ${ownerShipment.logistics_cost_currency ?? "EUR"}`
-                : "Не вказано"}
-            </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Вже завантажено</div>
-            <div className="font-semibold tabular-nums">
-              {loadedP} пал · {Math.round(loadedKg)} кг
-            </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Вільно</div>
-            <div className={cn("font-semibold tabular-nums", freeP <= 1 ? "text-destructive" : "text-success")}>
-              {freeP} пал · {Math.round(freeKg)} кг
-            </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Маршрут</div>
-            <div className="font-semibold tabular-nums">{vehicle.country}</div>
-          </div>
-        </div>
-        {sups && (
-          <div className="mt-2 text-[11px] text-muted-foreground">
-            Постачальники в авто: <span className="text-foreground">{sups}</span>
-          </div>
-        )}
-        <div className="mt-2 text-[11px] text-muted-foreground">
-          Власник авто: <span className="text-foreground">{ownerName}</span>
-        </div>
-        <div className="mt-2 text-[11px] text-muted-foreground">
-          Транспорт оплачує менеджер-власник авто. Вартість транспорту для вашої поставки додасте на наступному кроці.
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Unused export markers (kept for backwards compatibility with any direct
 // imports) — none currently. Intentionally omitted.
