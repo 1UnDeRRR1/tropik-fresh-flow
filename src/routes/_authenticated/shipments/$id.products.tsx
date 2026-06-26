@@ -26,6 +26,7 @@ import { allocateTransport } from "@/lib/transport";
 import { rollbackBirthPosition } from "@/lib/position-attach";
 import { commitNewShipmentItem } from "@/lib/commit-shipment-row";
 import { blurOnEnter, MOBILE_ENTER_KEY_HINT, scrollFocusedIntoView } from "@/lib/mobile-input";
+import { ShipmentProductCard } from "@/components/shipments/ShipmentProductCard";
 import { getCountryAliasTargets } from "@/lib/alias-cache";
 import {
   type DraftRow,
