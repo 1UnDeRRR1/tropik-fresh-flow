@@ -642,8 +642,18 @@ function NewShipment() {
   const fieldLabelCls = "mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
   const inlineInputCls = "h-9 w-full bg-background text-[13px]";
 
+  // Build 2A.8 — required-empty styling (matches product card pattern).
+  const invalidSupplier = !supplierId;
+  const invalidCountry = !country.trim();
+  const invalidLoadingDate = !loadingDate;
+  const invalidEta = !(computedEta && computedEta.length > 0);
+
+  const supplierWrapRef = useRef<HTMLDivElement>(null);
+  const countryWrapRef = useRef<HTMLDivElement>(null);
+  const vehicleWrapRef = useRef<HTMLDivElement>(null);
+
   const supplierField = (
-    <div>
+    <div ref={supplierWrapRef}>
       <div className={fieldLabelCls}>Постачальник</div>
       <InlineAutocomplete
         value={supplierInput}
@@ -669,16 +679,19 @@ function NewShipment() {
             clearInvalid("supplier");
             return;
           }
-          if (!raw.trim()) setSupplierId("");
+          if (!raw.trim()) { setSupplierId(""); return; }
+          // Unrecognized: clear, flash, shake, vibrate.
+          triggerInvalidFeedback(supplierWrapRef.current);
+          window.setTimeout(() => { setSupplierInput(""); setSupplierId(""); }, 700);
         }}
         placeholder="Постачальник"
         browseLimit={5}
-        searchLimit={3}
+        searchLimit={5}
         minSearchLength={2}
         className="w-full"
         inputClassName={cn(
           inlineInputCls,
-          invalid.has("supplier") && "border-destructive/70 ring-1 ring-destructive/40",
+          (invalid.has("supplier") || invalidSupplier) && "border-destructive/70 ring-1 ring-destructive/40",
         )}
         inputProps={{ "data-mobile-edit-label": "Постачальник" }}
         renderItem={(item) => (
@@ -694,7 +707,7 @@ function NewShipment() {
   );
 
   const countryField = (
-    <div>
+    <div ref={countryWrapRef}>
       <div className={fieldLabelCls}>Країна завантаження</div>
       <InlineAutocomplete
         value={countryInput}
@@ -719,16 +732,20 @@ function NewShipment() {
             setCountryTouched(true);
             setVehicleId("");
             clearInvalid("country");
+            return;
           }
+          if (!raw.trim()) { setCountry(""); return; }
+          triggerInvalidFeedback(countryWrapRef.current);
+          window.setTimeout(() => { setCountryInput(""); setCountry(""); }, 700);
         }}
         placeholder="Країна"
         browseLimit={5}
-        searchLimit={3}
+        searchLimit={5}
         minSearchLength={2}
         className="w-full"
         inputClassName={cn(
           inlineInputCls,
-          invalid.has("country") && "border-destructive/70 ring-1 ring-destructive/40",
+          (invalid.has("country") || invalidCountry) && "border-destructive/70 ring-1 ring-destructive/40",
         )}
         inputProps={{ "data-mobile-edit-label": "Країна завантаження" }}
         renderItem={(item) => <span className="block truncate">{item.label}</span>}
@@ -736,18 +753,7 @@ function NewShipment() {
     </div>
   );
 
-  const codeField = (
-    <div>
-      <div className={fieldLabelCls}>Номер поставки</div>
-      <Input
-        id="code"
-        value={code}
-        readOnly
-        placeholder="—"
-        className="h-9 bg-secondary/40 font-mono text-[13px]"
-      />
-    </div>
-  );
+  const codeField = null;
 
   const transportField = (
     <div>
@@ -772,29 +778,28 @@ function NewShipment() {
     </div>
   );
 
+  const minLoadingDateObj = useMemo(() => {
+    const d = new Date(minLoadingDate);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }, [minLoadingDate]);
+  const minEtaObj = useMemo(() => {
+    if (!minEta) return undefined;
+    const d = new Date(minEta);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  }, [minEta]);
+
   const loadingDateField = (
     <div className="min-w-0">
       <div className={fieldLabelCls}>Дата завантаження</div>
-      <Input
-        id="ld"
-        type="date"
-        lang="uk-UA"
-        min={minLoadingDate}
+      <StrictDatePicker
         value={loadingDate}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v && v < minLoadingDate) {
-            toast.error("Дата завантаження не раніше завтрашнього дня");
-            return;
-          }
+        onChange={(v) => {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
-        style={{ fontSize: "13px" }}
-        className={cn(
-          "h-9 w-full min-w-0 px-2 text-[13px] tabular-nums",
-          invalid.has("loadingDate") && "border-destructive/70 ring-1 ring-destructive/40",
-        )}
+        minDate={minLoadingDateObj}
+        invalid={invalid.has("loadingDate") || invalidLoadingDate}
+        ariaLabel="Дата завантаження"
       />
     </div>
   );
@@ -802,50 +807,22 @@ function NewShipment() {
   const etaField = (
     <div className="min-w-0">
       <div className={fieldLabelCls}>ETA (прибуття)</div>
-      <Input
-        id="eta-new"
-        type="date"
-        lang="uk-UA"
-        min={minEta || undefined}
+      <StrictDatePicker
         value={computedEta}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v && minEta && v < minEta) {
-            toast.error("ETA не може бути раніше за ETD + 1 день");
-            return;
-          }
+        onChange={(v) => {
           setEtaOverride(v);
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
-        style={{ fontSize: "13px" }}
-        className={cn(
-          "h-9 w-full min-w-0 px-2 text-[13px] tabular-nums",
-          invalid.has("eta") && "border-destructive/70 ring-1 ring-destructive/40",
-        )}
+        minDate={minEtaObj}
+        invalid={invalid.has("eta") || invalidEta}
+        ariaLabel="ETA"
       />
     </div>
   );
 
-  const vehicleDatesReadOnly = selectedVehicle ? (
-    <div className="grid grid-cols-2 gap-2">
-      <div>
-        <div className={fieldLabelCls}>ETD</div>
-        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold tabular-nums">
-          {selectedVehicle.loading_date ?? "—"}
-        </div>
-      </div>
-      <div>
-        <div className={fieldLabelCls}>ETA</div>
-        <div className="flex h-9 items-center rounded-md border border-input bg-secondary/30 px-2 text-[13px] font-semibold tabular-nums">
-          {selectedVehicle.eta ?? "—"}
-        </div>
-      </div>
-    </div>
-  ) : null;
-
   const vehicleField = (
-    <div className={cn(invalid.has("vehicle") && "field-invalid")}>
+    <div ref={vehicleWrapRef} className={cn(invalid.has("vehicle") && "field-invalid")}>
       <div className={fieldLabelCls}>Відкрите авто</div>
       <InlineAutocomplete
         value={vehicleInput}
@@ -870,11 +847,15 @@ function NewShipment() {
             setCountry(resolved.country);
             setCountryTouched(true);
             clearInvalid("vehicle");
+            return;
           }
+          if (!raw.trim()) { setVehicleId(""); return; }
+          triggerInvalidFeedback(vehicleWrapRef.current);
+          window.setTimeout(() => { setVehicleInput(""); setVehicleId(""); }, 700);
         }}
         placeholder="Авто"
         browseLimit={5}
-        searchLimit={3}
+        searchLimit={5}
         minSearchLength={2}
         className="w-full"
         inputClassName={inlineInputCls}
