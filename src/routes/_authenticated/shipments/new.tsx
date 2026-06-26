@@ -17,10 +17,11 @@
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Truck, Plus, Lock, ArrowLeft, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Truck, Plus, Lock, ArrowLeft, Copy, ChevronUp, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { InlineAutocomplete } from "@/components/InlineAutocomplete";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
 import {
   COUNTRIES as FALLBACK_COUNTRIES,
   COUNTRY_DAYS,
@@ -169,6 +171,11 @@ function NewShipment() {
   // ---------------------------------------------------------------------------
   const [drafts, setDrafts] = useState<DraftRow[]>(() => [emptyDraftRow()]);
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(() => new Set());
+  // Build 2A.1 — local-only transport. NOT persisted in Build 2A.1; wired
+  // into the commit payload in Build 2B.
+  const [transportAmount, setTransportAmount] = useState<string>("");
+  const [transportCurrency, setTransportCurrency] = useState<"EUR" | "USD">("EUR");
+  const isMobile = useIsMobile();
   const toggleDetails = (localId: string) =>
     setExpandedDetails((prev) => {
       const next = new Set(prev);
@@ -176,6 +183,7 @@ function NewShipment() {
       else next.add(localId);
       return next;
     });
+
 
   const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
@@ -630,10 +638,22 @@ function NewShipment() {
   const remainKg = Math.max(0, VEHICLE_MAX_KG - totalKg);
   const overPallets = totalPallets > VEHICLE_MAX_PALLETS;
   const overKg = totalKg > VEHICLE_MAX_KG;
+  const overLimit = overPallets || overKg;
+
+  // Build 2A.1 — pulse the sticky bar when over-limit transitions to true.
+  const [shakeTick, setShakeTick] = useState(0);
+  const prevOverRef = useRef(false);
+  useEffect(() => {
+    if (overLimit && !prevOverRef.current) {
+      setShakeTick((n) => n + 1);
+    }
+    prevOverRef.current = overLimit;
+  }, [overLimit]);
 
   if (loading || !isStaff) {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
   }
+
 
   const supplierField = (
     <div className={cn("space-y-1.5", invalid.has("supplier") && "field-invalid")}>
@@ -887,12 +907,12 @@ function NewShipment() {
   };
 
   return (
-    <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+9rem)]">
+    <div className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+11rem)]">
       <PageHeader title="Нова поставка" />
 
-      {/* Header form */}
+      {/* Header form — Build 2A.1 compact density matching ShipmentProductCard */}
       <div
-        className="space-y-4 rounded-2xl border border-border bg-card p-4"
+        className="shipment-header-card space-y-3 rounded-xl border border-border bg-card p-3 text-[13px] shadow-sm [&_label]:text-[10px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-wide [&_label]:text-muted-foreground [&_input]:h-9 [&_input]:text-[13px]"
         onSubmit={(e) => e.preventDefault()}
       >
         <div className="grid grid-cols-2 gap-2">
@@ -931,7 +951,33 @@ function NewShipment() {
             {codeField}
           </>
         )}
+
+        {/* Transport (local-only, Build 2A.1) */}
+        <div className="space-y-1.5 rounded-md border border-dashed border-border bg-secondary/30 p-2">
+          <Label>Транспорт (фрахт)</Label>
+          <div className="flex items-center gap-1 rounded-md border border-input bg-background">
+            <Input
+              inputMode="decimal"
+              value={transportAmount}
+              onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+              placeholder="Сума фрахту"
+              className="h-9 flex-1 border-transparent bg-transparent text-right tabular-nums"
+            />
+            <select
+              value={transportCurrency}
+              onChange={(e) => setTransportCurrency(e.target.value as "EUR" | "USD")}
+              className="h-9 rounded border-transparent bg-transparent px-2 text-[13px]"
+            >
+              <option value="EUR">€</option>
+              <option value="USD">$</option>
+            </select>
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Локальне поле. У DB зберігається у Build 2B разом із «Створити».
+          </div>
+        </div>
       </div>
+
 
       {/* Products section */}
       <div className="space-y-3">
@@ -1016,10 +1062,22 @@ function NewShipment() {
         </div>
       </div>
 
-      {/* Sticky capacity bar */}
+      {/* Sticky capacity bar — Build 2A.1: sits ABOVE bottom nav on mobile,
+          respects keyboard inset and iOS safe area, pulses on over-limit. */}
       <div
-        className="fixed inset-x-0 z-30 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur"
-        style={{ bottom: "var(--keyboard-inset, 0px)" }}
+        key={shakeTick}
+        className={cn(
+          "fixed inset-x-0 z-30 border-t bg-background/95 px-3 py-2 shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur",
+          overLimit
+            ? "border-destructive/60 bg-destructive/5 animate-pulse"
+            : "border-border",
+        )}
+        style={{
+          bottom: isMobile
+            ? "calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px) + 4rem)"
+            : "calc(var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "0.5rem",
+        }}
       >
         <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -1048,6 +1106,20 @@ function NewShipment() {
               bad={overKg}
             />
           </div>
+          {overLimit && (
+            <div className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] font-semibold text-destructive">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                {overPallets
+                  ? `Перевищено ліміт авто: ${totalPallets}/${VEHICLE_MAX_PALLETS} палет. `
+                  : ""}
+                {overKg
+                  ? `Перевищено ліміт ваги: ${Math.round(totalKg)}/${VEHICLE_MAX_KG} кг. `
+                  : ""}
+                У Build 2B «Створити» буде заблоковано, поки ліміт не виправите.
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2 pt-1">
             <Button
               type="button"
@@ -1078,6 +1150,7 @@ function NewShipment() {
     </div>
   );
 }
+
 
 function Metric({
   label,
