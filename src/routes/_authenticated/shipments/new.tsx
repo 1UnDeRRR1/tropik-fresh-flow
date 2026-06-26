@@ -734,7 +734,7 @@ function NewShipment() {
   );
 
   const loadingDateField = (
-    <div className={cn(invalid.has("loadingDate") && "field-invalid")}>
+    <div className={cn("min-w-0", invalid.has("loadingDate") && "field-invalid")}>
       <div className={fieldLabelCls}>Дата завантаження <span className="text-destructive">*</span></div>
       <Input
         id="ld"
@@ -750,13 +750,13 @@ function NewShipment() {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
-        className="h-9 text-[13px]"
+        className="h-10 w-full min-w-0 px-2"
       />
     </div>
   );
 
   const etaField = (
-    <div className={cn(invalid.has("eta") && "field-invalid")}>
+    <div className={cn("min-w-0", invalid.has("eta") && "field-invalid")}>
       <div className={fieldLabelCls}>ETA (прибуття)</div>
       <Input
         id="eta-new"
@@ -773,7 +773,7 @@ function NewShipment() {
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
-        className="h-9 text-[13px]"
+        className="h-10 w-full min-w-0 px-2"
       />
     </div>
   );
