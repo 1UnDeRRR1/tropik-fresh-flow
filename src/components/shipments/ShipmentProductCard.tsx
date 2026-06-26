@@ -439,7 +439,7 @@ export function ShipmentProductCard({
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => {
-            if (readOnly) return;
+            if (productOriginReadOnly) return;
             touchedRef.current.product = true;
             setHint(null);
             onResolverHint(null);
@@ -455,11 +455,16 @@ export function ShipmentProductCard({
           )}
           expandedMinWidth={260}
           required
-          readOnly={readOnly}
+          readOnly={productOriginReadOnly}
         />
         {unknownProduct && (
           <div className="px-1 pt-0.5 text-[10px] font-medium text-destructive">
             Оберіть товар лише зі списку
+          </div>
+        )}
+        {productOriginLocked && (
+          <div className="px-1 pt-0.5 text-[10px] text-muted-foreground">
+            Товар зафіксовано position_id — змінити не можна
           </div>
         )}
       </div>
@@ -474,7 +479,7 @@ export function ShipmentProductCard({
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => {
-            if (readOnly) return;
+            if (productOriginReadOnly) return;
             touchedRef.current.country = true;
             setHint(null);
             onResolverHint(null);
@@ -486,7 +491,7 @@ export function ShipmentProductCard({
           placeholder="Походження"
           className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={240}
-          readOnly={readOnly}
+          readOnly={productOriginReadOnly}
         />
       </div>
 
