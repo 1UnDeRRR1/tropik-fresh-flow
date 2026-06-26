@@ -740,11 +740,12 @@ function NewShipment() {
   );
 
   const loadingDateField = (
-    <div className={cn("min-w-0", invalid.has("loadingDate") && "field-invalid")}>
-      <div className={fieldLabelCls}>Дата завантаження <span className="text-destructive">*</span></div>
+    <div className="min-w-0">
+      <div className={fieldLabelCls}>Дата завантаження</div>
       <Input
         id="ld"
         type="date"
+        lang="uk-UA"
         min={minLoadingDate}
         value={loadingDate}
         onChange={(e) => {
@@ -756,17 +757,22 @@ function NewShipment() {
           setLoadingDate(v);
           if (v) clearInvalid("loadingDate");
         }}
-        className="h-10 w-full min-w-0 px-2"
+        style={{ fontSize: "13px" }}
+        className={cn(
+          "h-9 w-full min-w-0 px-2 text-[13px] tabular-nums",
+          invalid.has("loadingDate") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
       />
     </div>
   );
 
   const etaField = (
-    <div className={cn("min-w-0", invalid.has("eta") && "field-invalid")}>
+    <div className="min-w-0">
       <div className={fieldLabelCls}>ETA (прибуття)</div>
       <Input
         id="eta-new"
         type="date"
+        lang="uk-UA"
         min={minEta || undefined}
         value={computedEta}
         onChange={(e) => {
@@ -779,7 +785,11 @@ function NewShipment() {
           setEtaTouched(true);
           if (v) clearInvalid("eta");
         }}
-        className="h-10 w-full min-w-0 px-2"
+        style={{ fontSize: "13px" }}
+        className={cn(
+          "h-9 w-full min-w-0 px-2 text-[13px] tabular-nums",
+          invalid.has("eta") && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
       />
     </div>
   );
