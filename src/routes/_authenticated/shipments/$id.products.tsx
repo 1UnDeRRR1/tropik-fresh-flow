@@ -128,6 +128,9 @@ type ItemRow = {
   // no UI fields added to the editor in R1A).
   brand: string | null;
   class: string | null;
+  // Phase 1 final — position anchor used to lock product/origin identity
+  // in ShipmentProductCard once a position_id exists for the row.
+  position_id: string | null;
 };
 
 // 9F Phase D1 — strict draft/confirm/save contract.
@@ -483,7 +486,7 @@ function ProductsFullscreen() {
     queryFn: async () => {
       const [s, items, prods] = await Promise.all([
         supabase.from("shipments").select("id,code,country,logistics_cost,logistics_cost_currency,logistics_cost_usd,eur_usd_rate,vehicle_id,created_by,import_manager_id,suppliers(name)").eq("id", id).single(),
-        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,brand,class,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto").eq("shipment_id", id).order("created_at"),
+        supabase.from("shipment_items").select("id,product_name,variety,origin_country,caliber,sku,brand,class,pallet_count,pallet_weight,unit_price,price_currency,final_cost_indicative,final_cost_invoice,customs_match_id,customs_override_duty_usd,customs_override_confirmed_at,customs_override_by,package_used,net_weight_kg,gross_weight_kg,resolver_net_per_pallet_kg,resolver_gross_per_pallet_kg,net_auto,gross_auto,position_id").eq("shipment_id", id).order("created_at"),
         Promise.all([
           supabase.from("product_dictionary").select("product_name_ua").order("product_name_ua"),
           supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
@@ -2482,6 +2485,12 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
           const { pallets: otherPallets, grossKg: otherKg } = sumCapacity(others);
           const dbItem = d.dbId ? dbItemById.get(d.dbId) ?? null : null;
           const preview: PreviewEntry = previewMap.get(d.localId) ?? { isDirty: d.dbId == null, value: null, hasCustomsInputs: false, liveCustomsStatus: null, components: EMPTY_COMPONENTS };
+          // Phase 1 final — identity-lock for Товар / Походження only.
+          // Locked when a position_id is anchored either on the saved row
+          // (dbItem.position_id) or carried by an offer-derived draft
+          // (d.source_position_id). Independent from currentShipmentEditable.
+          const productOriginLocked =
+            Boolean(dbItem?.position_id) || Boolean(d.source_position_id);
           return (
             <ShipmentProductCard
               key={d.localId}
@@ -2494,6 +2503,7 @@ function ProductsTable({ drafts, dbItemById, shipmentId, products, vehicleContex
               otherKg={otherKg}
               preview={preview}
               readOnly={!currentShipmentEditable}
+              productOriginLocked={productOriginLocked}
               pulse={pulseFields}
               collapseExpandedTick={collapseExpandedTick}
               onShowBreakdown={() => onShowBreakdown(d.localId)}

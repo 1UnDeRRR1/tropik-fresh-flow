@@ -217,6 +217,7 @@ export function ShipmentProductCard({
   otherKg,
   preview,
   readOnly,
+  productOriginLocked = false,
   pulse = false,
   collapseExpandedTick,
   index,
@@ -233,6 +234,10 @@ export function ShipmentProductCard({
   otherKg: number;
   preview: ShipmentCardPreview;
   readOnly: boolean;
+  // Phase 1 final — identity-lock for Товар/Походження only. Independent
+  // from `readOnly` (which gates the whole card). Computed by the parent
+  // from saved position_id and offer-derived source_position_id.
+  productOriginLocked?: boolean;
   pulse?: boolean;
   collapseExpandedTick: number;
   index: number;
@@ -256,6 +261,8 @@ export function ShipmentProductCard({
     if (readOnly) return;
     onPatch({ [k]: v } as Partial<DraftRow>);
   };
+  // Combined gate for the identity fields only (Товар + Походження).
+  const productOriginReadOnly = readOnly || productOriginLocked;
 
   // Field-level validation
   const palletCountNum = Number(form.pallet_count) || 0;
@@ -432,7 +439,7 @@ export function ShipmentProductCard({
         <AutocompleteCell
           value={form.product_name}
           onChange={(v) => {
-            if (readOnly) return;
+            if (productOriginReadOnly) return;
             touchedRef.current.product = true;
             setHint(null);
             onResolverHint(null);
@@ -448,11 +455,16 @@ export function ShipmentProductCard({
           )}
           expandedMinWidth={260}
           required
-          readOnly={readOnly}
+          readOnly={productOriginReadOnly}
         />
         {unknownProduct && (
           <div className="px-1 pt-0.5 text-[10px] font-medium text-destructive">
             Оберіть товар лише зі списку
+          </div>
+        )}
+        {productOriginLocked && (
+          <div className="px-1 pt-0.5 text-[10px] text-muted-foreground">
+            Товар зафіксовано position_id — змінити не можна
           </div>
         )}
       </div>
@@ -467,7 +479,7 @@ export function ShipmentProductCard({
         <AutocompleteCell
           value={form.origin_country}
           onChange={(v) => {
-            if (readOnly) return;
+            if (productOriginReadOnly) return;
             touchedRef.current.country = true;
             setHint(null);
             onResolverHint(null);
@@ -479,12 +491,12 @@ export function ShipmentProductCard({
           placeholder="Походження"
           className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40 placeholder:text-destructive/80")}
           expandedMinWidth={240}
-          readOnly={readOnly}
+          readOnly={productOriginReadOnly}
         />
       </div>
 
-      {/* Variety / Caliber / SKU */}
-      <div className="mb-2 grid grid-cols-3 gap-2">
+      {/* Variety / Caliber */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
           <FieldLabel>Сорт</FieldLabel>
           <VarietyCell
@@ -504,17 +516,32 @@ export function ShipmentProductCard({
             readOnly={readOnly}
           />
         </div>
+      </div>
+
+      {/* Brand / Class — Phase 1 final, controlled inputs writing into DraftRow */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
-          <FieldLabel>SKU</FieldLabel>
+          <FieldLabel>Бренд</FieldLabel>
           <CellInput
-            value={form.sku}
-            placeholder="SKU"
-            onChange={(v) => set("sku", v)}
+            value={form.brand ?? ""}
+            placeholder="Бренд"
+            onChange={(v) => set("brand", v)}
+            expandedMinWidth={200}
+            readOnly={readOnly}
+          />
+        </div>
+        <div>
+          <FieldLabel>Клас</FieldLabel>
+          <CellInput
+            value={form.class ?? ""}
+            placeholder="Клас"
+            onChange={(v) => set("class", v)}
             expandedMinWidth={160}
             readOnly={readOnly}
           />
         </div>
       </div>
+
 
       {/* Package */}
       <div className="mb-2">
