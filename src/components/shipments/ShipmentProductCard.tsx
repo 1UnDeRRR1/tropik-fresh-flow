@@ -495,8 +495,8 @@ export function ShipmentProductCard({
         />
       </div>
 
-      {/* Variety / Caliber / SKU */}
-      <div className="mb-2 grid grid-cols-3 gap-2">
+      {/* Variety / Caliber */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
           <FieldLabel>Сорт</FieldLabel>
           <VarietyCell
@@ -516,17 +516,32 @@ export function ShipmentProductCard({
             readOnly={readOnly}
           />
         </div>
+      </div>
+
+      {/* Brand / Class — Phase 1 final, controlled inputs writing into DraftRow */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
-          <FieldLabel>SKU</FieldLabel>
+          <FieldLabel>Бренд</FieldLabel>
           <CellInput
-            value={form.sku}
-            placeholder="SKU"
-            onChange={(v) => set("sku", v)}
+            value={form.brand ?? ""}
+            placeholder="Бренд"
+            onChange={(v) => set("brand", v)}
+            expandedMinWidth={200}
+            readOnly={readOnly}
+          />
+        </div>
+        <div>
+          <FieldLabel>Клас</FieldLabel>
+          <CellInput
+            value={form.class ?? ""}
+            placeholder="Клас"
+            onChange={(v) => set("class", v)}
             expandedMinWidth={160}
             readOnly={readOnly}
           />
         </div>
       </div>
+
 
       {/* Package */}
       <div className="mb-2">
