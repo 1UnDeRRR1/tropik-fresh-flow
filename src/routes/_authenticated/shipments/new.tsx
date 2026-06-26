@@ -1,26 +1,24 @@
-// R1A — header-only product-entry consolidation.
+// Build 2A — single-screen Create Shipment shell (local state only).
 //
-// This route now creates a vehicle (when needed) and a draft shipment header
-// only, then navigates to the single authoritative editor at
-// /shipments/$id/products. It performs ZERO writes to:
-//   - shipment_items
-//   - positions / position links
-//   - manager_offer_allocation_parts
-//   - offer-shipment links
+// Hard rules for this build:
+//   - ZERO operational DB writes before final "Створити" (which is disabled
+//     in Build 2A). No vehicle/shipment/items/positions/offer links/FIFO.
+//   - DraftRow[] in local state is the only source of truth for products.
+//   - Reads are allowed: suppliers, countries, products dictionary,
+//     manager_offers (for fromOffer prefill), customs/FX/open vehicles via
+//     existing hooks, sequence-number preview.
+//   - Назад just navigates back; cleanup is intentionally NOT invoked here
+//     because nothing was written.
 //
-// Hard rules preserved (do not regress in any later edit):
-//   - Supplier is NEVER auto-selected from offer.
-//   - manager_offers.origin_country never populates shipment country, vehicle
-//     country, supplier filter or supplier auto-select. The only country
-//     prefill comes from manager_offers.linked_shipment_id → shipments.country.
-//   - For a new vehicle: insert vehicle, record createdVehicleId in handler
-//     scope; on shipment INSERT failure, delete only that just-created
-//     vehicle. A reused existing vehicle is never updated or deleted here.
+// Header form (mode toggle / supplier / country / vehicle / dates / code
+// preview) is preserved verbatim from the previous flow. Only the
+// submit/insert path was replaced with local card state + sticky capacity
+// bar. /shipments/$id/products is not touched.
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Truck, Plus, Lock } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Truck, Plus, Lock, ArrowLeft, Copy, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -48,9 +46,19 @@ import {
   getCountryCode,
 } from "@/lib/shipment-code";
 import { StaffOnly } from "@/components/StaffOnly";
-import { isValidNetGross, NET_GROSS_INVALID_MSG } from "@/lib/manager-offers";
 import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
+import {
+  ShipmentProductCard,
+  type ShipmentCardPreview,
+  type ResolverHintInfo,
+} from "@/components/shipments/ShipmentProductCard";
+import {
+  emptyDraftRow,
+  type DraftRow,
+  type ProductRef,
+  type RowComponents,
+} from "@/lib/shipment-row-engine";
 
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
@@ -95,20 +103,35 @@ type OpenVehicle = {
   }[] | null;
 };
 
+// Build 2A — stub preview for ShipmentProductCard. Cost/customs/FX/transport
+// breakdown is intentionally not wired here; full cost engine wiring is
+// scheduled for Build 2B alongside the final Create orchestrator.
+const STUB_ROW_COMPONENTS: RowComponents = {
+  productName: "",
+  country: "",
+  inputPrice: null,
+  inputCurrency: null,
+  fxRate: null,
+  unitUsd: null,
+  transportPerKg: null,
+  customsIndicative: null,
+  customsInvoice: null,
+  customsBasis: "none",
+  matchedRef: null,
+};
+const STUB_PREVIEW: ShipmentCardPreview = {
+  isDirty: false,
+  value: null,
+  hasCustomsInputs: false,
+  liveCustomsStatus: null,
+  components: STUB_ROW_COMPONENTS,
+};
+
 function NewShipment() {
   const navigate = useNavigate();
   const { user, hasRole, loading } = useAuth();
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const search = Route.useSearch();
-  const { data: currentManagerId } = useQuery({
-    queryKey: ["current-import-manager-id", user?.id],
-    enabled: !loading && !!user && isStaff,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("current_import_manager_id");
-      if (error) throw error;
-      return data ?? null;
-    },
-  });
 
   // Redirect non-staff to their dashboard
   useEffect(() => {
@@ -124,7 +147,6 @@ function NewShipment() {
   const [loadingDate, setLoadingDate] = useState<string>("");
   const [supplierId, setSupplierId] = useState<string>("");
   const [code, setCode] = useState<string>("");
-  const [submitting, setSubmitting] = useState(false);
   const [etaOverride, setEtaOverride] = useState<string>("");
   const [etaTouched, setEtaTouched] = useState(false);
 
@@ -133,9 +155,7 @@ function NewShipment() {
   const countryOptions = useCountryOptions();
   const countryAliases = useCountryAliases();
   const [vehicleInput, setVehicleInput] = useState("");
-  const [mobileEditingLabel, setMobileEditingLabel] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set());
-  const [shake, setShake] = useState(false);
   const clearInvalid = (key: string) =>
     setInvalid((prev) => {
       if (!prev.has(key)) return prev;
@@ -143,11 +163,52 @@ function NewShipment() {
       next.delete(key);
       return next;
     });
-  const triggerShake = (missing: string[]) => {
-    setInvalid(new Set(missing));
-    setShake(false);
-    requestAnimationFrame(() => setShake(true));
-    window.setTimeout(() => setShake(false), 600);
+
+  // ---------------------------------------------------------------------------
+  // Build 2A — local draft state.
+  // ---------------------------------------------------------------------------
+  const [drafts, setDrafts] = useState<DraftRow[]>(() => [emptyDraftRow()]);
+  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(() => new Set());
+  const toggleDetails = (localId: string) =>
+    setExpandedDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(localId)) next.delete(localId);
+      else next.add(localId);
+      return next;
+    });
+
+  const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
+    setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
+  }, []);
+  const removeDraft = useCallback((localId: string) => {
+    setDrafts((prev) => {
+      const next = prev.filter((d) => d.localId !== localId);
+      return next.length ? next : [emptyDraftRow()];
+    });
+    setExpandedDetails((prev) => {
+      if (!prev.has(localId)) return prev;
+      const next = new Set(prev);
+      next.delete(localId);
+      return next;
+    });
+  }, []);
+  const addManualDraft = () => setDrafts((prev) => [...prev, emptyDraftRow()]);
+  const cloneLastDraft = () => {
+    setDrafts((prev) => {
+      if (prev.length === 0) return [emptyDraftRow()];
+      const last = prev[prev.length - 1];
+      const fresh = emptyDraftRow();
+      const copy: DraftRow = {
+        ...last,
+        localId: fresh.localId,
+        dbId: null,
+        source_offer_id: null,
+        source_position_id: null,
+        source_offer_freight_amount: null,
+        source_offer_freight_currency: null,
+      };
+      return [...prev, copy];
+    });
   };
 
   const { data: managerProfiles } = useQuery({
@@ -173,6 +234,32 @@ function NewShipment() {
       return data ?? [];
     },
   });
+
+  // Products dictionary — needed by ShipmentProductCard's product autocomplete.
+  const { data: productsList } = useQuery({
+    queryKey: ["products-dict-new-shipment"],
+    enabled: !loading && !!user && isStaff,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [dict, varieties] = await Promise.all([
+        supabase.from("product_dictionary").select("product_name_ua").order("product_name_ua"),
+        supabase.from("product_varieties").select("product_name_ua").range(0, 1999),
+      ]);
+      const merged = new Map<string, ProductRef>();
+      const collect = (rows: { product_name_ua: string | null }[] | null | undefined) => {
+        (rows ?? []).forEach((r) => {
+          const name = (r.product_name_ua ?? "").trim();
+          if (!name) return;
+          const key = name.toLowerCase();
+          if (!merged.has(key)) merged.set(key, { name });
+        });
+      };
+      collect(dict.data as { product_name_ua: string | null }[] | null);
+      collect(varieties.data as { product_name_ua: string | null }[] | null);
+      return Array.from(merged.values());
+    },
+  });
+  const products: ProductRef[] = productsList ?? [];
 
   const qc = useQueryClient();
 
@@ -277,14 +364,6 @@ function NewShipment() {
     [openVehicles],
   );
 
-  const blurAndCloseEditors = useCallback(() => {
-    if (typeof document !== "undefined") {
-      const active = document.activeElement;
-      if (active instanceof HTMLElement) active.blur();
-    }
-    setMobileEditingLabel(null);
-  }, []);
-
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") return;
     const active = document.activeElement;
@@ -335,34 +414,6 @@ function NewShipment() {
     [vehicleItems],
   );
 
-  useEffect(() => {
-    const labelOf = (target: EventTarget | null) => {
-      const el = target instanceof HTMLElement ? target : null;
-      if (!el) return null;
-      if (el.closest("[data-mobile-edit-label='Постачальник']")) return "Постачальник";
-      if (el.closest("[data-mobile-edit-label='Країна завантаження']")) return "Країна завантаження";
-      if (el.closest("[data-mobile-edit-label='Відкрите авто']")) return "Відкрите авто";
-      if (el.id === "code") return "Номер поставки";
-      if (el.id === "ld") return "Дата завантаження";
-      if (el.id === "eta-new") return "Дата прибуття";
-      return null;
-    };
-    const onFocusIn = (event: Event) => {
-      setMobileEditingLabel(labelOf(event.target));
-    };
-    const onFocusOut = () => {
-      window.setTimeout(() => {
-        setMobileEditingLabel(labelOf(document.activeElement));
-      }, 0);
-    };
-    document.addEventListener("focusin", onFocusIn);
-    document.addEventListener("focusout", onFocusOut);
-    return () => {
-      document.removeEventListener("focusin", onFocusIn);
-      document.removeEventListener("focusout", onFocusOut);
-    };
-  }, []);
-
   // When supplier picked: auto-fill country if user hasn't touched it (new vehicle only).
   useEffect(() => {
     if (mode !== "new") return;
@@ -387,54 +438,116 @@ function NewShipment() {
     setEtaTouched(false);
   }, [mode, selectedVehicle?.id]);
 
-  // R1A — thin fromOffer header query. Country prefill MAY come only from
-  // manager_offers.linked_shipment_id → shipments.country. We intentionally
-  // never read offer.origin_country here, never read offer.import_manager_id
-  // to drive UI, and never auto-select supplier. A missing linked shipment
-  // means no automatic loading-country prefill — manager picks it manually.
-  const { data: fromOfferPrefill, isLoading: fromOfferLoading, isError: fromOfferIsError } = useQuery({
-    queryKey: ["new-shipment-from-offer-header", search.fromOffer],
-    enabled: !!search.fromOffer,
-    queryFn: async () => {
-      // Net/Gross MUST be projected regardless of linked_shipment_id so the
-      // zero-write guard below can validate every fromOffer creation path.
-      const { data: offer, error } = await supabase
-        .from("manager_offers")
-        .select("linked_shipment_id,pallet_net_kg,pallet_gross_kg")
-        .eq("id", search.fromOffer!)
-        .maybeSingle();
-      if (error) throw error;
-      if (!offer) {
-        return {
-          country: null as string | null,
-          pallet_net_kg: null as number | null,
-          pallet_gross_kg: null as number | null,
-          found: false,
-        };
-      }
-      const base = {
-        pallet_net_kg: offer.pallet_net_kg as number | null,
-        pallet_gross_kg: offer.pallet_gross_kg as number | null,
-        found: true,
-      };
-      if (!offer.linked_shipment_id) {
-        return { country: null as string | null, ...base };
-      }
-      const { data: shipment, error: shipmentError } = await supabase
-        .from("shipments")
-        .select("country")
-        .eq("id", offer.linked_shipment_id)
-        .maybeSingle();
-      if (shipmentError) throw shipmentError;
-      return { country: shipment?.country ?? null, ...base };
-    },
-  });
+  // fromOffer prefill — local-only. Reads manager_offers + responses +
+  // allocation_parts and seeds ONE draft card with source_position_id (so
+  // identity-lock kicks in inside ShipmentProductCard). No writes happen.
+  // Mirrors the logic in /shipments/$id/products.tsx so Build 2B can later
+  // commit identical payloads atomically.
+  const [fromOfferState, setFromOfferState] = useState<"idle" | "loading" | "applied" | "blocked" | "failed">(
+    search.fromOffer ? "loading" : "idle",
+  );
   useEffect(() => {
-    if (!fromOfferPrefill?.country) return;
-    if (countryTouched || country) return;
-    const uaCountry = toUaCountry(fromOfferPrefill.country) || fromOfferPrefill.country;
-    if (uaCountry) setCountry(uaCountry);
-  }, [fromOfferPrefill?.country, countryTouched, country]);
+    if (!search.fromOffer || !user || !isStaff) return;
+    if (fromOfferState !== "loading") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: offer, error } = await supabase
+          .from("manager_offers")
+          .select(
+            "id,product_name,origin_country,caliber,variety,pallet_net_kg,pallet_gross_kg,price_per_kg,price_currency,freight_amount,freight_currency,position_id,linked_shipment_id",
+          )
+          .eq("id", search.fromOffer!)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error || !offer) {
+          toast.error("Не вдалося завантажити пропозицію");
+          setFromOfferState("failed");
+          return;
+        }
+        const offerPositionId = (offer as { position_id?: string | null }).position_id ?? null;
+        if (!offerPositionId) {
+          toast.error("Пропозиція без position_id (legacy). Створення поставки за пропозицією заблоковано.");
+          setFromOfferState("blocked");
+          return;
+        }
+        const offerNet = Number(offer.pallet_net_kg ?? NaN);
+        const offerGross = Number(offer.pallet_gross_kg ?? NaN);
+        if (!(Number.isFinite(offerNet) && Number.isFinite(offerGross) && offerNet > 0 && offerGross > offerNet)) {
+          toast.error("У пропозиції не заповнено коректні нетто та брутто. Спочатку відредагуйте пропозицію.");
+          setFromOfferState("blocked");
+          return;
+        }
+        // Pending pallets = approved - ordered - cancelled.
+        const [{ data: responses }, { data: allocParts }] = await Promise.all([
+          supabase.from("manager_offer_responses").select("approved_pallets").eq("offer_id", offer.id),
+          supabase.from("manager_offer_allocation_parts").select("pallets,status").eq("offer_id", offer.id),
+        ]);
+        if (cancelled) return;
+        const approvedTotal = (responses ?? []).reduce(
+          (s, r) => s + Number((r as { approved_pallets: number | null }).approved_pallets ?? 0),
+          0,
+        );
+        const orderedTotal = (allocParts ?? [])
+          .filter((p) => (p as { status: string }).status === "ordered")
+          .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+        const cancelledTotal = (allocParts ?? [])
+          .filter((p) => (p as { status: string }).status === "cancelled")
+          .reduce((s, p) => s + Number((p as { pallets: number | null }).pallets ?? 0), 0);
+        const pending = approvedTotal - orderedTotal - cancelledTotal;
+        const TARGET_KG = 21000;
+        const desiredPalletCount = Math.min(VEHICLE_MAX_PALLETS, Math.max(1, Math.floor(TARGET_KG / offerGross)));
+        const safePalletCount = Math.min(desiredPalletCount, pending);
+        if (safePalletCount <= 0) {
+          toast.error("Немає вільних палет за цією пропозицією");
+          setFromOfferState("blocked");
+          return;
+        }
+        const netKg = safePalletCount * offerNet;
+        const grossKg = safePalletCount * offerGross;
+        const seeded: DraftRow = {
+          ...emptyDraftRow(),
+          source_offer_id: offer.id,
+          source_position_id: offerPositionId,
+          source_offer_freight_amount: Number(offer.freight_amount ?? 0),
+          source_offer_freight_currency: offer.freight_currency ?? "EUR",
+          product_name: offer.product_name ?? "",
+          origin_country: offer.origin_country ? normalizeCountry(offer.origin_country) : "",
+          caliber: offer.caliber ?? "",
+          variety: offer.variety ?? "",
+          pallet_count: safePalletCount,
+          net_weight_kg: netKg,
+          gross_weight_kg: grossKg,
+          unit_price: Number(offer.price_per_kg ?? 0),
+          price_currency: (offer.price_currency ?? "EUR") as "EUR" | "USD",
+        };
+        // Also auto-fill loading country from linked shipment if available
+        // and not yet touched.
+        if (offer.linked_shipment_id) {
+          const { data: linkedShip } = await supabase
+            .from("shipments")
+            .select("country")
+            .eq("id", offer.linked_shipment_id)
+            .maybeSingle();
+          if (!cancelled && linkedShip?.country) {
+            setCountry((prev) => {
+              if (prev) return prev;
+              setCountryTouched(false);
+              return toUaCountry(linkedShip.country) || linkedShip.country;
+            });
+          }
+        }
+        if (cancelled) return;
+        setDrafts([seeded]);
+        setFromOfferState("applied");
+      } catch (e) {
+        if (cancelled) return;
+        toast.error(e instanceof Error ? e.message : "Не вдалося завантажити пропозицію");
+        setFromOfferState("failed");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [search.fromOffer, user, isStaff, fromOfferState]);
 
   // Preview next per-country vehicle sequence
   const previewCc = mode === "new" && country ? getCountryCode(country) : "";
@@ -460,6 +573,8 @@ function NewShipment() {
     const alias = getSupplierAlias(selectedSupplier);
     const supSeqStr = previewSupSeq ? String(previewSupSeq).padStart(3, "0") : "···";
     if (mode === "existing" && selectedVehicle) {
+      setCode(formatShipmentCode({ alias, supplierSeq: previewSupSeq ?? 0, vehicleCode: selectedVehicle.code }).replace(/-0+$/, supSeqStr === "···" ? `-${supSeqStr}` : ""));
+      // Fallback to manual build when previewSupSeq is missing.
       setCode(`${alias}-${supSeqStr}-${selectedVehicle.code}`.toUpperCase());
     } else if (mode === "new" && country) {
       const cc = getCountryCode(country);
@@ -488,205 +603,36 @@ function NewShipment() {
     return toDateInputValue(d);
   })();
 
-  // R1A — header save boundary.
-  // Creates vehicle (new mode), then shipment. ZERO shipment_items, ZERO
-  // positions, ZERO position links, ZERO manager_offer_allocation_parts,
-  // ZERO offer-shipment links. Navigates to the authoritative products
-  // editor with fromOffer carried through when present.
-  const onCreateShipment = async () => {
-    const missing: string[] = [];
-    if (!supplierId || !selectedSupplier) missing.push("supplier");
-    if (mode === "new") {
-      if (!country) missing.push("country");
-      if (!loadingDate) missing.push("loadingDate");
-      if (!computedEta) {
-        missing.push("eta");
-      } else if (minEta && computedEta < minEta) {
-        missing.push("eta");
-      }
-    } else {
-      if (!selectedVehicle) missing.push("vehicle");
+  // ---------------------------------------------------------------------------
+  // Sticky capacity bar totals.
+  // ---------------------------------------------------------------------------
+  const draftTotals = useMemo(() => {
+    let pallets = 0;
+    let kg = 0;
+    for (const d of drafts) {
+      pallets += Number(d.pallet_count) || 0;
+      const g = Number(d.gross_weight_kg) || 0;
+      const n = Number(d.net_weight_kg) || 0;
+      kg += g > 0 ? g : n;
     }
-    if (missing.length) {
-      if (missing.includes("eta") && mode === "new") {
-        if (!computedEta) toast.error("Вкажіть дату прибуття (ETA)");
-        else toast.error("ETA не може бути раніше за ETD + 1 день");
-      }
-      triggerShake(missing);
-      return;
-    }
+    return { pallets, kg };
+  }, [drafts]);
 
-    // Zero-write Net/Gross guard for fromOffer creation. Must run BEFORE
-    // setSubmitting(true), BEFORE any sequence-number fetch, BEFORE vehicle
-    // INSERT, BEFORE shipment INSERT. Non-fromOffer flows are unaffected.
-    if (search.fromOffer) {
-      if (fromOfferLoading) {
-        toast.error("Зачекайте — завантажуються дані пропозиції.");
-        return;
-      }
-      if (fromOfferIsError || !fromOfferPrefill || fromOfferPrefill.found !== true) {
-        toast.error("Не вдалося завантажити пропозицію. Спробуйте ще раз.");
-        return;
-      }
-      if (!isValidNetGross(fromOfferPrefill.pallet_net_kg, fromOfferPrefill.pallet_gross_kg)) {
-        toast.error(NET_GROSS_INVALID_MSG);
-        return;
-      }
-    }
+  // For existing vehicle mode we add the already-loaded counters.
+  const loadedExisting = useMemo(() => {
+    if (mode !== "existing" || !selectedVehicle) return { pallets: 0, kg: 0 };
+    return {
+      pallets: Number(selectedVehicle.total_pallets ?? 0),
+      kg: Number(selectedVehicle.total_weight_kg ?? 0),
+    };
+  }, [mode, selectedVehicle]);
 
-    setSubmitting(true);
-    // Local-only handle. Used by the compensation rollback when shipment
-    // INSERT fails AFTER vehicle INSERT succeeded. Never persisted, never
-    // passed through search/state, never reused later.
-    let createdVehicleId: string | null = null;
-
-    try {
-      let vId = vehicleId;
-      let vCode = selectedVehicle?.code ?? "";
-      let useCountry = country;
-      let useLoadingDate = loadingDate;
-      let useEta = computedEta;
-      let useDays = days;
-
-      if (mode === "new") {
-        const cc = getCountryCode(country);
-        const seq = await fetchNextVehicleSequence(cc);
-        vCode = formatVehicleCode(cc, seq);
-        const { data: vRow, error: vErr } = await supabase
-          .from("vehicles" as never)
-          .insert({
-            code: vCode,
-            country,
-            country_code: cc,
-            sequence_no: seq,
-            loading_date: loadingDate,
-            eta: computedEta || null,
-            logistics_days: days,
-            created_by: user?.id ?? null,
-          } as never)
-          .select("id")
-          .single();
-        if (vErr) throw vErr;
-        vId = (vRow as { id: string }).id;
-        createdVehicleId = vId;
-      } else {
-        if (!selectedVehicle) throw new Error("Виберіть відкрите авто");
-        useCountry = selectedVehicle.country;
-        useLoadingDate = selectedVehicle.loading_date ?? "";
-        useEta = selectedVehicle.eta ?? "";
-        useDays = selectedVehicle.eta && selectedVehicle.loading_date
-          ? Math.max(
-              0,
-              Math.round(
-                (+new Date(selectedVehicle.eta) - +new Date(selectedVehicle.loading_date)) /
-                  86400000,
-              ),
-            )
-          : COUNTRY_DAYS[selectedVehicle.country] ?? 0;
-      }
-
-      const alias = getSupplierAlias(selectedSupplier!);
-      const supplierSeq = await fetchNextSupplierSequence(supplierId);
-      const autoCode = formatShipmentCode({ alias, supplierSeq, vehicleCode: vCode });
-      const finalCode = autoCode;
-
-      const shipmentId = crypto.randomUUID();
-
-      // Import-manager assignment rules preserved verbatim.
-      const isAdminActor = hasRole(["super_admin", "admin"]);
-      const supplierManagerId = selectedSupplier?.import_manager_id ?? null;
-      let assignedManagerId: string | null = supplierManagerId;
-      if (!assignedManagerId && !isAdminActor) {
-        assignedManagerId = currentManagerId ?? null;
-      }
-      if (!assignedManagerId) {
-        // Compensation: nothing to roll back beyond the just-created vehicle.
-        if (createdVehicleId) {
-          try {
-            await supabase.from("vehicles" as never).delete().eq("id", createdVehicleId);
-          } catch {
-            /* ignore */
-          }
-        }
-        toast.error(
-          isAdminActor
-            ? "Постачальнику не призначено імпорт-менеджера. Призначте менеджера й повторіть."
-            : "Не вдалось визначити імпорт-менеджера для поставки",
-        );
-        setSubmitting(false);
-        return;
-      }
-
-      const { error: shipErr } = await supabase.from("shipments").insert({
-        id: shipmentId,
-        code: finalCode,
-        supplier_id: supplierId,
-        supplier_seq: supplierSeq,
-        country: normalizeCountry(useCountry),
-        loading_date: useLoadingDate || null,
-        logistics_days: useDays,
-        eta: useEta || null,
-        import_manager_id: assignedManagerId,
-        created_by: user?.id ?? null,
-        vehicle_id: vId,
-        // Transport is entered in the products editor (TransportBar). The
-        // header creates a draft shipment with no logistics_cost; the
-        // existing NOT NULL DEFAULT on logistics_cost_currency means we
-        // still send the currency to satisfy the column.
-        logistics_cost: null,
-        logistics_cost_currency: "EUR",
-        status: "draft",
-      } as never);
-      if (shipErr) {
-        // Compensation: delete only the just-created vehicle. An existing
-        // reused vehicle is never touched here.
-        if (createdVehicleId) {
-          try {
-            await supabase.from("vehicles" as never).delete().eq("id", createdVehicleId);
-          } catch {
-            /* ignore */
-          }
-        }
-        if (shipErr.code === "23505" || /duplicate|unique/i.test(shipErr.message)) {
-          throw new Error("Поставка з таким номером вже існує");
-        }
-        throw new Error(shipErr.message || "Помилка збереження");
-      }
-
-      // Cache invalidations preserved from the previous flow so vehicle /
-      // shipment / dashboards refresh on return navigation.
-      qc.invalidateQueries({ queryKey: ["shipments-list"], refetchType: "all" });
-      qc.invalidateQueries({ queryKey: ["dash-manager"], refetchType: "all" });
-      qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
-      qc.invalidateQueries({ queryKey: ["distribution-list"], refetchType: "all" });
-      qc.invalidateQueries({ queryKey: ["shipments-link-options"], refetchType: "all" });
-      qc.invalidateQueries({ queryKey: ["shipment-products"], refetchType: "all" });
-
-      navigate({
-        to: "/shipments/$id/products",
-        params: { id: shipmentId },
-        search: search.fromOffer ? { fromOffer: search.fromOffer } : {},
-      });
-    } catch (err: unknown) {
-      // Defensive: in case an error path skipped explicit rollback above.
-      if (createdVehicleId) {
-        try {
-          await supabase.from("vehicles" as never).delete().eq("id", createdVehicleId);
-        } catch {
-          /* ignore */
-        }
-      }
-      qc.invalidateQueries({ queryKey: ["open-vehicles"], refetchType: "all" });
-      toast.error(err instanceof Error ? err.message : "Помилка збереження");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const onHeaderSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void onCreateShipment();
-  };
+  const totalPallets = draftTotals.pallets + loadedExisting.pallets;
+  const totalKg = draftTotals.kg + loadedExisting.kg;
+  const remainPallets = Math.max(0, VEHICLE_MAX_PALLETS - totalPallets);
+  const remainKg = Math.max(0, VEHICLE_MAX_KG - totalKg);
+  const overPallets = totalPallets > VEHICLE_MAX_PALLETS;
+  const overKg = totalKg > VEHICLE_MAX_KG;
 
   if (loading || !isStaff) {
     return <p className="text-sm text-muted-foreground">Завантаження…</p>;
@@ -930,16 +876,28 @@ function NewShipment() {
     </div>
   );
 
+  const onResolverHint = (_info: ResolverHintInfo | null) => {
+    // Build 2A: hint surfaced inside the card; parent does not aggregate.
+  };
+
+  const onBack = () => {
+    // Build 2A: nothing is persisted in DB, so back is a pure navigation.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    navigate({ to: "/shipments" });
+  };
+
   return (
-    <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+4.5rem)] md:pb-0">
+    <div className="space-y-4 pb-[calc(var(--keyboard-inset,0px)+9rem)]">
       <PageHeader title="Нова поставка" />
 
-      <form
-        onSubmit={onHeaderSubmit}
-        noValidate
-        className={cn("space-y-4 rounded-2xl border border-border bg-card p-4", shake && "animate-shake")}
+      {/* Header form */}
+      <div
+        className="space-y-4 rounded-2xl border border-border bg-card p-4"
+        onSubmit={(e) => e.preventDefault()}
       >
-        {/* Mode toggle */}
         <div className="grid grid-cols-2 gap-2">
           <ModeButton
             active={mode === "new"}
@@ -976,39 +934,180 @@ function NewShipment() {
             {codeField}
           </>
         )}
+      </div>
 
-        <Button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          {submitting ? "Створення…" : "Створити та перейти до товарів"}
-        </Button>
-      </form>
-
-      {mobileEditingLabel && (
-        <div
-          className="fixed inset-x-0 z-40 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur md:hidden"
-          style={{ bottom: "var(--keyboard-inset, 0px)" }}
-        >
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Редагування
-              </div>
-              <div className="truncate text-sm font-semibold text-foreground">{mobileEditingLabel}</div>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              onClick={blurAndCloseEditors}
-              className="h-9 shrink-0 bg-brand px-4 text-brand-foreground hover:bg-brand/90"
-            >
-              Готово
-            </Button>
+      {/* Products section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-foreground">Товари в поставці</div>
+          <div className="text-[11px] text-muted-foreground">
+            {drafts.length} {drafts.length === 1 ? "позиція" : "позицій"}
           </div>
         </div>
-      )}
+
+        {drafts.map((d, idx) => {
+          // Other-pallets/kg for capacity warnings inside the card: include
+          // sibling drafts + already-loaded vehicle counters (existing mode).
+          let otherPallets = loadedExisting.pallets;
+          let otherKg = loadedExisting.kg;
+          for (const o of drafts) {
+            if (o.localId === d.localId) continue;
+            otherPallets += Number(o.pallet_count) || 0;
+            const g = Number(o.gross_weight_kg) || 0;
+            const n = Number(o.net_weight_kg) || 0;
+            otherKg += g > 0 ? g : n;
+          }
+          const locked = Boolean(d.source_position_id);
+          const isOpen = expandedDetails.has(d.localId);
+          return (
+            <div key={d.localId} className="space-y-1.5">
+              <ShipmentProductCard
+                draft={d}
+                dbItem={null}
+                shipmentId=""
+                products={products}
+                otherPallets={otherPallets}
+                otherKg={otherKg}
+                preview={STUB_PREVIEW}
+                readOnly={false}
+                productOriginLocked={locked}
+                pulse={false}
+                collapseExpandedTick={0}
+                index={idx}
+                onShowBreakdown={() => toggleDetails(d.localId)}
+                onPatch={(patch) => patchDraft(d.localId, patch)}
+                onRemove={() => removeDraft(d.localId)}
+                onResolverHint={onResolverHint}
+              />
+              {isOpen && (
+                <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                  <div className="mb-1 flex items-center justify-between font-semibold uppercase tracking-wide text-foreground">
+                    <span>Деталі / FX / Митниця / Транспорт / Собівартість</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleDetails(d.localId)}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Згорнути"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                  </div>
+                  Повний розрахунок собівартості, FX і митниці буде доступний у наступному Build (2B).
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addManualDraft}
+            className="w-full"
+          >
+            <Plus className="mr-1 h-4 w-4" /> Додати товар
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={cloneLastDraft}
+            className="w-full"
+          >
+            <Copy className="mr-1 h-4 w-4" /> Аналогічний
+          </Button>
+        </div>
+      </div>
+
+      {/* Sticky capacity bar */}
+      <div
+        className="fixed inset-x-0 z-30 border-t border-border bg-background/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.5)] backdrop-blur"
+        style={{ bottom: "var(--keyboard-inset, 0px)" }}
+      >
+        <div className="mx-auto flex max-w-3xl flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+              Завантаження авто
+            </span>
+            {code ? (
+              <span className="font-mono text-[10px] text-muted-foreground">{code}</span>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-[11px] tabular-nums">
+            <Metric label="Палети" value={`${totalPallets}/${VEHICLE_MAX_PALLETS}`} bad={overPallets} />
+            <Metric label="Брутто кг" value={`${Math.round(totalKg)}/${VEHICLE_MAX_KG}`} bad={overKg} />
+            <Metric
+              label="Залишок пал"
+              value={`${remainPallets}`}
+              ok={remainPallets > 1}
+              warn={remainPallets <= 1 && !overPallets}
+              bad={overPallets}
+            />
+            <Metric
+              label="Залишок кг"
+              value={`${Math.round(remainKg)}`}
+              ok={remainKg > 500}
+              warn={remainKg > 0 && remainKg <= 500 && !overKg}
+              bad={overKg}
+            />
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onBack}
+              className="h-10 shrink-0"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" /> Назад
+            </Button>
+            <div className="relative flex-1">
+              <Button
+                type="button"
+                disabled
+                className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
+              >
+                Створити
+              </Button>
+              <div className="pointer-events-none absolute -top-2 right-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                Build 2B
+              </div>
+            </div>
+          </div>
+          <div className="text-center text-[10px] text-muted-foreground">
+            Кнопка «Створити» буде підключена в наступному Build (атомарний commit). Зараз — лише чернетка в пам’яті браузера.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  ok,
+  warn,
+  bad,
+}: {
+  label: string;
+  value: string;
+  ok?: boolean;
+  warn?: boolean;
+  bad?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-start">
+      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "font-semibold",
+          bad && "text-destructive",
+          warn && !bad && "text-amber-600 dark:text-amber-400",
+          ok && !warn && !bad && "text-success",
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -1104,3 +1203,10 @@ function VehicleLockedInfo({ vehicle, ownerName }: { vehicle: OpenVehicle; owner
     </div>
   );
 }
+
+// Unused export markers (kept for backwards compatibility with any direct
+// imports) — none currently. Intentionally omitted.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _formatShipmentCode = formatShipmentCode;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _formatVehicleCode = formatVehicleCode;
