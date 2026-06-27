@@ -118,6 +118,16 @@ function NewShipment() {
     }
   }, [loading, isStaff, navigate]);
 
+  // Tag <body> while the create screen is mounted so scoped CSS in
+  // src/styles.css can re-skin portaled popovers/selects/calendars without
+  // affecting any other screen. Pure visual scoping, no behavior change.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.add("shipment-create-active");
+    return () => { document.body.classList.remove("shipment-create-active"); };
+  }, []);
+
+
   const [mode, setMode] = useState<Mode>(search.vehicleId ? "existing" : "new");
   const [vehicleId, setVehicleId] = useState<string>(search.vehicleId ?? "");
   const [country, setCountry] = useState<string>("");
