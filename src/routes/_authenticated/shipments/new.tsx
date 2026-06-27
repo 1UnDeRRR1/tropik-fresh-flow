@@ -55,6 +55,7 @@ import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
   emptyDraftRow,
+  isKnownProductName,
   type DraftRow,
   type ProductRef,
 } from "@/lib/shipment-row-engine";
@@ -1096,22 +1097,65 @@ function NewShipment() {
           product card. No fixed/sticky/floating. */}
       <div className="space-y-2 pt-1">
         {(() => {
-          // Build 2A.11 — local "missing fields" summary that gates Create.
-          // Transport is required here so Build 2B Create logic can refuse to
-          // commit while transport is empty or invalid. Listed fields mirror
-          // the red invalid-state styling on the corresponding inputs.
+          // Build 2B-B-1 — validation gate. No DB writes here or in the
+          // submit handler. Required: header fields (supplier / country /
+          // dates / transport), ETA >= loading date, at least one row, and
+          // for each non-empty row product+origin recognized, pallets > 0,
+          // net > 0, gross > 0, gross > net. caliber/class/brand/variety/
+          // package_used are NOT required.
           const missing: string[] = [];
           if (invalidSupplier) missing.push("Постачальник");
           if (mode === "new" && invalidCountry) missing.push("Країна завантаження");
           if (invalidLoadingDate) missing.push("Дата завантаження");
           if (invalidEta) missing.push("ETA");
+          if (
+            !invalidLoadingDate &&
+            !invalidEta &&
+            computedEta &&
+            loadingDate &&
+            computedEta < loadingDate
+          ) {
+            missing.push("ETA раніше дати завантаження");
+          }
           if (mode === "existing" && !vehicleId) missing.push("Авто");
           if (invalidTransport) missing.push("Транспорт (фрахт)");
-          if (!drafts.some((d) => d.product_name.trim())) missing.push("Хоча б одна позиція");
+
+          const nonEmptyRows = drafts.filter(
+            (d) =>
+              d.product_name.trim() !== "" ||
+              d.origin_country.trim() !== "" ||
+              Number(d.pallet_count) > 0 ||
+              Number(d.net_weight_kg) > 0 ||
+              Number(d.gross_weight_kg) > 0 ||
+              Number(d.unit_price) > 0,
+          );
+          if (nonEmptyRows.length === 0) missing.push("Хоча б одна позиція");
+
+          const rowIssues: string[] = [];
+          nonEmptyRows.forEach((d, i) => {
+            const label = `Позиція ${drafts.indexOf(d) + 1}`;
+            const local: string[] = [];
+            if (!d.product_name.trim() || !isKnownProductName(d.product_name, products)) {
+              local.push("товар");
+            }
+            if (!d.origin_country.trim()) local.push("походження");
+            const p = Number(d.pallet_count) || 0;
+            const n = Number(d.net_weight_kg) || 0;
+            const g = Number(d.gross_weight_kg) || 0;
+            if (!(p > 0)) local.push("палети");
+            if (!(n > 0)) local.push("нетто");
+            if (!(g > 0)) local.push("брутто");
+            if (n > 0 && g > 0 && !(g > n)) local.push("брутто ≤ нетто");
+            if (local.length > 0) rowIssues.push(`${label}: ${local.join(", ")}`);
+            void i;
+          });
+
           if (overLimit) missing.push("Ліміт авто перевищено");
-          return missing.length > 0 ? (
+
+          const all = [...missing, ...rowIssues];
+          return all.length > 0 ? (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
-              Не заповнено / некоректно: {missing.join(", ")}
+              Не заповнено / некоректно: {all.join(", ")}
             </div>
           ) : null;
         })()}
@@ -1127,18 +1171,58 @@ function NewShipment() {
           <Button type="button" variant="outline" onClick={onBack} className="h-10 w-full">
             <ArrowLeft className="mr-1 h-4 w-4" /> Назад
           </Button>
-          <div className="relative">
-            <Button
-              type="button"
-              disabled
-              className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
-            >
-              Створити
-            </Button>
-            <div className="pointer-events-none absolute -top-2 right-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-              Build 2B
-            </div>
-          </div>
+          {(() => {
+            // Build 2B-B-1 — compute final form validity. Mirrors the rules
+            // surfaced in the summary above. NO DB writes on click.
+            const etaBeforeLoading =
+              !!computedEta && !!loadingDate && computedEta < loadingDate;
+            const nonEmptyRows = drafts.filter(
+              (d) =>
+                d.product_name.trim() !== "" ||
+                d.origin_country.trim() !== "" ||
+                Number(d.pallet_count) > 0 ||
+                Number(d.net_weight_kg) > 0 ||
+                Number(d.gross_weight_kg) > 0 ||
+                Number(d.unit_price) > 0,
+            );
+            const rowsValid =
+              nonEmptyRows.length > 0 &&
+              nonEmptyRows.every((d) => {
+                if (!d.product_name.trim() || !isKnownProductName(d.product_name, products)) return false;
+                if (!d.origin_country.trim()) return false;
+                const p = Number(d.pallet_count) || 0;
+                const n = Number(d.net_weight_kg) || 0;
+                const g = Number(d.gross_weight_kg) || 0;
+                if (!(p > 0) || !(n > 0) || !(g > 0)) return false;
+                if (!(g > n)) return false;
+                return true;
+              });
+            const headerValid =
+              !invalidSupplier &&
+              !(mode === "new" && invalidCountry) &&
+              !invalidLoadingDate &&
+              !invalidEta &&
+              !etaBeforeLoading &&
+              !(mode === "existing" && !vehicleId) &&
+              !invalidTransport &&
+              !overLimit;
+            const canSubmit = headerValid && rowsValid;
+            return (
+              <Button
+                type="button"
+                disabled={!canSubmit}
+                onClick={() => {
+                  // Build 2B-B-1 — validation only, no persistence.
+                  toast.info(
+                    "Перевірки пройдено. Збереження буде увімкнено в наступному кроці.",
+                  );
+                }}
+                className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
+              >
+                Створити
+              </Button>
+            );
+          })()}
         </div>
       </div>
     </div>
