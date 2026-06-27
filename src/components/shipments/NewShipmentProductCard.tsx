@@ -17,19 +17,24 @@
 //     they live only in local DraftRow state. Persistence guarantees for the
 //     saved editor are unchanged.
 
-import { useCallback, useRef, useState, type FocusEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { useCustomsCountries } from "@/hooks/useCustomsCountries";
 import { useProductAliases } from "@/hooks/useProductAliases";
-import { CellInput, NumCell, PackageCell, PriceCell, VarietyCell } from "@/components/shipments/cells";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
+import { CellInput, NumCell, PackageCell, PriceCell } from "@/components/shipments/cells";
+import { StrictSelectCard } from "@/components/shipments/StrictSelectCard";
 import { isKnownProductName, type DraftRow, type ProductRef } from "@/lib/shipment-row-engine";
 import { resolvePalletForText } from "@/lib/pallet-resolver";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+const CLASS_OPTIONS = ["LUX", "1", "1,5", "1b", "2", "IND"];
 
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
