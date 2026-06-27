@@ -890,7 +890,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav
         onPointerDownCapture={extendNavVisible}
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
+          "app-bottom-nav fixed bottom-0 left-0 right-0 z-40 border-t border-border backdrop-blur pb-safe md:hidden",
           "translate-y-0",
           isOwner && pathname.startsWith("/settings")
             ? "bg-[#f3eadc]/85"
