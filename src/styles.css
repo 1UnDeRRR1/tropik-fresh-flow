@@ -983,3 +983,11 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
   80% { transform: translateX(3px); }
 }
 .tropik-screen-shake { animation: tropik-screen-shake 0.42s ease-in-out; }
+
+/* Build 2A.11 — when the mobile soft keyboard is open, hide the fixed
+   AppShell bottom navigation so iOS does not visually push it upward over
+   the form. Pure presentation; routing/items/auth are unaffected. */
+body[data-kb-open="true"] .app-bottom-nav {
+  display: none !important;
+}
+

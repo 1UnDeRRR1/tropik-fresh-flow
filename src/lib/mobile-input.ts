@@ -47,8 +47,12 @@ function scrollWithinContainer(container: HTMLElement, el: HTMLElement) {
 }
 
 /**
- * Scroll a freshly-focused input above the on-screen keyboard.
- * Safe to call on desktop — scrollIntoView is a no-op when already visible.
+ * Scroll a freshly-focused input only when it is actually obscured by the
+ * keyboard, the AppShell top header, or page chrome. When the field is
+ * already comfortably visible, do NOT scroll — gratuitous scrollIntoView
+ * was causing the whole page to jump on every focus/blur on iPhone.
+ *
+ * Safe to call on desktop — becomes a no-op when nothing is hidden.
  */
 export function scrollFocusedIntoView<T extends HTMLElement>(el: T | null) {
   if (!el) return;
@@ -59,7 +63,18 @@ export function scrollFocusedIntoView<T extends HTMLElement>(el: T | null) {
         scrollWithinContainer(container, el);
         return;
       }
-      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+      const rect = el.getBoundingClientRect();
+      const vv = typeof window !== "undefined" ? window.visualViewport : null;
+      const viewportTop = vv ? vv.offsetTop : 0;
+      const viewportBottom = vv ? vv.height + vv.offsetTop : window.innerHeight;
+      // Treat AppShell mobile header as ~96px tall (banner) for the safe zone.
+      const topSafe = viewportTop + 96;
+      const bottomSafe = viewportBottom - 24;
+      const obscuredTop = rect.top < topSafe;
+      const obscuredBottom = rect.bottom > bottomSafe;
+      if (!obscuredTop && !obscuredBottom) return;
+      // Use "nearest" so we shift the page by the minimum amount needed.
+      el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
     } catch {
       /* noop */
     }

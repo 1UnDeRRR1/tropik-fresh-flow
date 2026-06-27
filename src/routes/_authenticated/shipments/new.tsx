@@ -775,16 +775,59 @@ function NewShipment() {
 
   const codeField = null;
 
+  // Build 2A.11 — Транспорт/фрахт is a REQUIRED preliminary estimate.
+  // Validation rules:
+  //   - allow only digits, dot, comma while typing;
+  //   - on blur, must parse to a finite positive number;
+  //   - empty or invalid value triggers flash + shake + haptic + clear;
+  //   - field shows red invalid style whenever empty or invalid;
+  //   - included in the local "missing fields" set that gates Create.
+  // No DB writes happen in this build; the wired Create in Build 2B must
+  // refuse to commit while transport is empty or invalid.
+  const transportWrapRef = useRef<HTMLDivElement>(null);
+  const parseTransport = (raw: string): number | null => {
+    const cleaned = raw.trim().replace(",", ".");
+    if (!cleaned) return null;
+    if (!/^\d+(?:\.\d+)?$/.test(cleaned)) return null;
+    const n = Number(cleaned);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const transportValue = parseTransport(transportAmount);
+  const invalidTransport = transportValue == null;
+
   const transportField = (
-    <div>
+    <div ref={transportWrapRef}>
       <div className={fieldLabelCls}>Транспорт (фрахт)</div>
-      <div className="flex items-center gap-1 rounded-md border border-input bg-background">
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-md border border-input bg-background",
+          invalidTransport && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
+      >
         <Input
           inputMode="decimal"
           value={transportAmount}
-          onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+          aria-label="Транспорт (фрахт)"
+          onChange={(e) => {
+            // Only digits, dot, comma while typing.
+            const cleaned = e.target.value.replace(/[^\d.,]/g, "");
+            setTransportAmount(cleaned);
+            if (parseTransport(cleaned) != null) clearInvalid("transport");
+          }}
+          onBlur={() => {
+            if (!transportAmount.trim()) {
+              // Empty is invalid for a required field but we don't shake on
+              // first focus-out from a never-touched field; only shake when
+              // there was actual typed garbage to reject.
+              return;
+            }
+            if (parseTransport(transportAmount) == null) {
+              triggerInvalidFeedback(transportWrapRef.current);
+              window.setTimeout(() => setTransportAmount(""), 700);
+            }
+          }}
           placeholder="—"
-          className="h-9 flex-1 border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums"
+          className="h-9 flex-1 border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus-visible:ring-0"
         />
         <select
           value={transportCurrency}
@@ -1035,6 +1078,26 @@ function NewShipment() {
       {/* Build 2A.2 — action buttons in normal page flow, after the last
           product card. No fixed/sticky/floating. */}
       <div className="space-y-2 pt-1">
+        {(() => {
+          // Build 2A.11 — local "missing fields" summary that gates Create.
+          // Transport is required here so Build 2B Create logic can refuse to
+          // commit while transport is empty or invalid. Listed fields mirror
+          // the red invalid-state styling on the corresponding inputs.
+          const missing: string[] = [];
+          if (invalidSupplier) missing.push("Постачальник");
+          if (mode === "new" && invalidCountry) missing.push("Країна завантаження");
+          if (invalidLoadingDate) missing.push("Дата завантаження");
+          if (invalidEta) missing.push("ETA");
+          if (mode === "existing" && !vehicleId) missing.push("Авто");
+          if (invalidTransport) missing.push("Транспорт (фрахт)");
+          if (!drafts.some((d) => d.product_name.trim())) missing.push("Хоча б одна позиція");
+          if (overLimit) missing.push("Ліміт авто перевищено");
+          return missing.length > 0 ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+              Не заповнено / некоректно: {missing.join(", ")}
+            </div>
+          ) : null;
+        })()}
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" onClick={addManualDraft} className="h-10 w-full">
             <Plus className="mr-1 h-4 w-4" /> Додати товар
