@@ -185,6 +185,56 @@ export function NewShipmentProductCard({
 
   const productOriginReadOnly = productOriginLocked;
 
+  // --- Build 2B-A: cost preview (open / preliminary). Read-only. -----------
+  const priceCcy: "EUR" | "USD" = form.price_currency === "USD" ? "USD" : "EUR";
+  const needsFxLocal =
+    priceCcy === "EUR" || transportCurrency === "EUR";
+
+  const fxQ = useQuery({
+    queryKey: ["fx-eur-usd-latest"],
+    enabled: needsFxLocal,
+    staleTime: 5 * 60_000,
+    queryFn: async () => await getLatestEurUsdRate(),
+  });
+
+  const productKey = form.product_name.trim();
+  const countryKey = form.origin_country.trim();
+  const customsQ = useQuery({
+    queryKey: ["customs-ref", productKey.toLowerCase(), countryKey.toLowerCase()],
+    enabled: !!productKey && !!countryKey,
+    staleTime: 5 * 60_000,
+    queryFn: async () => await fetchCustomsRef(productKey, countryKey),
+  });
+
+  // Derive net/gross per pallet from current local fields (no fallbacks
+  // beyond what's already entered). Mirrors logic used elsewhere.
+  const palletsForCalc = palletCountNum > 0 ? palletCountNum : 0;
+  const netPerPallet = palletsForCalc > 0 && netNum > 0
+    ? netNum / palletsForCalc
+    : (form.resolver_net_per_pallet_kg != null ? Number(form.resolver_net_per_pallet_kg) : 0);
+  const grossPerPallet =
+    form.pallet_weight_override_kg != null && Number(form.pallet_weight_override_kg) > 0
+      ? Number(form.pallet_weight_override_kg)
+      : palletsForCalc > 0 && grossNum > 0
+        ? grossNum / palletsForCalc
+        : (form.resolver_gross_per_pallet_kg != null ? Number(form.resolver_gross_per_pallet_kg) : 0);
+
+  const costRes = useMemo(() => {
+    return resolveOfferCost({
+      pricePerKg: Number(form.unit_price || 0),
+      priceCurrency: priceCcy,
+      freight: Number(transportAmount ?? 0),
+      freightCurrency: transportCurrency,
+      netPerPalletKg: netPerPallet,
+      grossPerPalletKg: grossPerPallet,
+      fxRate: fxQ.data?.rate ?? null,
+      country: countryKey,
+      ref: customsQ.data ?? null,
+      manualCustomsDuty: null,
+    });
+  }, [form.unit_price, priceCcy, transportAmount, transportCurrency, netPerPallet, grossPerPallet, fxQ.data?.rate, countryKey, customsQ.data]);
+
+
   const runResolver = useCallback(async () => {
     if (!touchedRef.current.product && !touchedRef.current.country) return;
     const latest = formRef.current;
