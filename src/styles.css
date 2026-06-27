@@ -984,10 +984,51 @@ html:not(.dark) body:has(.owner-warm-theme) [role="dialog"] {
 }
 .tropik-screen-shake { animation: tropik-screen-shake 0.42s ease-in-out; }
 
-/* Build 2A.11 — when the mobile soft keyboard is open, hide the fixed
-   AppShell bottom navigation so iOS does not visually push it upward over
-   the form. Pure presentation; routing/items/auth are unaffected. */
+/* /shipments/new mobile chrome stability — keyboard-open state.
+   Driven by useKeyboardInset, which keeps body[data-kb-open="true"] stable
+   for the whole focus session (focus-driven; not visualViewport-flapping). */
+
+/* Hide the fixed AppShell bottom navigation while the soft keyboard is
+   open. visibility (not display) avoids a layout reflow that would cause
+   the form to jump when the flag flips at session start/end, and keeps
+   the nav from reappearing above the keyboard while the user scrolls. */
 body[data-kb-open="true"] .app-bottom-nav {
-  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
+
+/* Keep the AppShell top header visually anchored to the visual viewport
+   while iOS shifts it during keyboard-open scroll. --vv-offset-top is
+   written by useKeyboardInset on every visualViewport resize/scroll. */
+body[data-kb-open="true"] > div > header {
+  transform: translateY(var(--vv-offset-top, 0px));
+  transition: none;
+  will-change: transform;
+}
+
+/* Same translation for any element that opts in via data-kb-anchor-top.
+   Used by /shipments/new for the sticky capacity counter so it tracks the
+   header instead of scrolling away with the page during keyboard-open. */
+body[data-kb-open="true"] [data-kb-anchor-top="true"] {
+  transform: translateY(var(--vv-offset-top, 0px));
+  transition: none;
+  will-change: transform;
+}
+
+/* /shipments/new typography normalization. Scoped to the create screen
+   root .shipment-create-screen ONLY; the saved editor and
+   /shipments/$id/products are not affected. We unify the visible value
+   font-size at 13px and the field height at 36px so date/select/text/
+   numeric fields visually match. Input font-size is kept >=13px; native
+   iOS only zooms when actual font-size is <16px on focus AND meta
+   viewport allows it — the app's existing viewport disables user-scaling,
+   so 13px stays safe. */
+.shipment-create-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.shipment-create-screen select,
+.shipment-create-screen [data-create-field-trigger] {
+  font-size: 13px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
 
