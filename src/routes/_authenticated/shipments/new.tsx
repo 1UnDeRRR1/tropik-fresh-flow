@@ -950,13 +950,16 @@ function NewShipment() {
 
   return (
     <div
-      className="space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]"
+      className="shipment-create-screen space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]"
       style={{ paddingTop: 48 }}
     >
-      {/* Build 2A.8 — capacity summary pinned with position:fixed so it
-          stays visible regardless of any ancestor overflow/transform that
-          would break position:sticky. Sits exactly below AppShell header. */}
+      {/* Sticky capacity summary. position:fixed pins it below the AppShell
+          header. data-kb-anchor-top opts into the keyboard-open transform
+          in styles.css, which translates this element (and the AppShell
+          header) by visualViewport.offsetTop so iOS does not scroll the
+          top chrome out of view while the keyboard is up. */}
       <div
+        data-kb-anchor-top="true"
         style={{ top: stickyTop, left: 0, right: 0 }}
         className="fixed z-30 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur"
       >
@@ -981,6 +984,7 @@ function NewShipment() {
           </div>
         )}
       </div>
+
 
       {/* Header form — unified compact card style. Mode toggle removed:
           default flow is new vehicle; existing-vehicle mode is engaged
