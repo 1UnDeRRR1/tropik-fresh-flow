@@ -603,14 +603,14 @@ export function NewShipmentProductCard({
         </div>
       </div>
 
-      {/* Row 8: Cost block (placeholder for Build 2B) */}
+      {/* Row 8: Cost preview (Build 2B-A — read-only, no DB writes). */}
       <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Розрахунок собівартості
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">FX / Митниця / Транспорт</span>
+            <span className="text-[11px] text-muted-foreground">індикативна / інвойсна</span>
             <button
               type="button"
               onClick={() => setDetailsOpen((v) => !v)}
@@ -621,20 +621,59 @@ export function NewShipmentProductCard({
             </button>
           </div>
         </div>
-        {/* Final cost output row — always visible. Placeholder until Build 2B. */}
         <div className="mt-2 flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
             Собівартість, $/кг
           </span>
-          <span className="text-sm font-bold tabular-nums text-foreground">—</span>
+          {costRes.ok && costRes.result ? (
+            <CostPair
+              indicative={costRes.result.indicativeCost}
+              invoice={costRes.result.invoiceCost}
+              suffix="/кг"
+              size="md"
+            />
+          ) : (
+            <span className="text-sm font-bold tabular-nums text-muted-foreground">—</span>
+          )}
         </div>
+        {!costRes.ok && (costRes.needsFx || costRes.needsCustoms || costRes.needsNetGross) && (
+          <div className="mt-1 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
+            {costRes.needsNetGross && "Заповніть Нетто/Брутто. "}
+            {costRes.needsFx && "Немає курсу EUR→USD. "}
+            {costRes.needsCustoms && "Митну довідку не знайдено для цього товару/країни."}
+          </div>
+        )}
         {detailsOpen && (
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <div>FX EUR→USD</div><div className="text-right">—</div>
-            <div>Митниця, $/кг</div><div className="text-right">—</div>
-            <div>Транспорт, $/кг</div><div className="text-right">—</div>
-            <div className="col-span-2 mt-1 text-[10px] italic">
-              Повний розрахунок підключається у Build 2B.
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground tabular-nums">
+            <div>FX EUR→USD</div>
+            <div className="text-right">
+              {needsFxLocal
+                ? (fxQ.data?.rate ? fxQ.data.rate.toFixed(4) : "—")
+                : "не потрібен"}
+            </div>
+            <div>Очікувані палети</div>
+            <div className="text-right">
+              {costRes.result ? `${costRes.result.expectedPallets} / 26` : "—"}
+            </div>
+            <div>Транспорт, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.transportPerKg.toFixed(3) : "—"}
+            </div>
+            <div>Митниця індикативна, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.indicativeDuty.toFixed(3) : "—"}
+            </div>
+            <div>Митниця інвойсна, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.invoiceDuty.toFixed(3) : "—"}
+            </div>
+            <div>Ціна товару, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.unitUsd.toFixed(3) : "—"}
+            </div>
+            <div className="col-span-2 mt-1 text-[10px] italic text-muted-foreground">
+              Open / preliminary: транспорт розподілено на теоретичні палети
+              (min(26, floor(21500 / брутто/пал))). Без збереження в БД.
             </div>
           </div>
         )}
