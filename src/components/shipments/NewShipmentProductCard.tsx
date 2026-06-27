@@ -243,7 +243,7 @@ export function NewShipmentProductCard({
               onPatch({ origin_country: cleaned });
             }}
             onCommit={() => { void runResolver(); }}
-            options={COUNTRY_OPTIONS}
+            options={allowedOriginCountries}
             aliases={countryAliases}
             placeholder="Походження"
             strict
