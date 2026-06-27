@@ -646,26 +646,78 @@ export function NewShipmentProductCard({
             </button>
           </div>
         </div>
+
+        {/* Customs status chip + manual override (RED only). */}
+        {customsStatus && (
+          <div className="mt-2 flex flex-col gap-1">
+            <CustomsStatusChip status={customsStatus} compact />
+            {customsStatus === "red" && (
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-medium text-destructive whitespace-nowrap">
+                  Митні платежі вручну:
+                </label>
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.0001"
+                    min="0"
+                    placeholder="0.0000"
+                    aria-label={CUSTOMS_STRINGS.manualLabel}
+                    value={form.customs_override_duty_usd ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        onPatch({ customs_override_duty_usd: null });
+                        return;
+                      }
+                      const n = Number(raw);
+                      onPatch({
+                        customs_override_duty_usd:
+                          Number.isFinite(n) && n > 0 ? n : null,
+                      });
+                    }}
+                    className="h-8 w-full rounded-md border border-destructive/40 bg-background pl-2 pr-6 text-[13px] tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive"
+                  />
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-muted-foreground"
+                  >
+                    $
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-2 flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
             Собівартість, $/кг
           </span>
           {costRes.ok && costRes.result ? (
-            <CostPair
-              indicative={costRes.result.indicativeCost}
-              invoice={costRes.result.invoiceCost}
-              suffix="/кг"
-              size="md"
-            />
+            manualActive ? (
+              <span className="whitespace-nowrap text-sm font-bold tabular-nums num-soft text-yellow-400">
+                ${costRes.result.indicativeCost.toFixed(2)}/кг
+                <span className="text-muted-foreground font-normal"> / </span>
+                ${costRes.result.invoiceCost.toFixed(2)}/кг
+              </span>
+            ) : (
+              <CostPair
+                indicative={costRes.result.indicativeCost}
+                invoice={costRes.result.invoiceCost}
+                suffix="/кг"
+                size="md"
+              />
+            )
           ) : (
             <span className="text-sm font-bold tabular-nums text-muted-foreground">—</span>
           )}
         </div>
-        {!costRes.ok && (costRes.needsFx || costRes.needsCustoms || costRes.needsNetGross) && (
+        {!costRes.ok && (costRes.needsFx || costRes.needsNetGross) && (
           <div className="mt-1 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
             {costRes.needsNetGross && "Заповніть Нетто/Брутто. "}
             {costRes.needsFx && "Немає курсу EUR→USD. "}
-            {costRes.needsCustoms && "Митну довідку не знайдено для цього товару/країни."}
           </div>
         )}
         {detailsOpen && (
