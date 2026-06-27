@@ -69,7 +69,28 @@ export function NewShipmentProductCard({
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = useCountryOptions();
+  const customsCountriesRaw = useCustomsCountries();
   const knownProductNames = products.map((p) => p.name);
+
+  // Build 2A.9 — Походження list must only show countries present in
+  // customs_reference. Resolve each customs row to a canonical countries.name
+  // via case-insensitive match + country aliases; drop rows that don't map.
+  const allowedOriginCountries = useMemo(() => {
+    const byLc = new Map(COUNTRY_OPTIONS.map((c) => [c.toLowerCase(), c]));
+    const out = new Set<string>();
+    for (const raw of customsCountriesRaw) {
+      const lc = raw.trim().toLowerCase();
+      if (!lc) continue;
+      const direct = byLc.get(lc);
+      if (direct) { out.add(direct); continue; }
+      const aliased = countryAliases[lc];
+      if (aliased) {
+        const hit = byLc.get(aliased.toLowerCase());
+        if (hit) out.add(hit);
+      }
+    }
+    return Array.from(out).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [COUNTRY_OPTIONS, customsCountriesRaw, countryAliases]);
 
   const form = draft;
   const formRef = useRef(form);
