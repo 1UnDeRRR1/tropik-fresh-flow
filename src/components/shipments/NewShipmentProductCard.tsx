@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
@@ -34,6 +35,9 @@ import { resolvePalletForText } from "@/lib/pallet-resolver";
 import { resolveProductOption } from "@/lib/product-aliases";
 import { matchesWordStart } from "@/lib/compact-search";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
+import { fetchCustomsRef, resolveOfferCost } from "@/lib/offer-cost";
+import { getLatestEurUsdRate } from "@/lib/currency";
+import { CostPair } from "@/components/CostPair";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
