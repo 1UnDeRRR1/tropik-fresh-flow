@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
@@ -34,6 +35,9 @@ import { resolvePalletForText } from "@/lib/pallet-resolver";
 import { resolveProductOption } from "@/lib/product-aliases";
 import { matchesWordStart } from "@/lib/compact-search";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
+import { fetchCustomsRef, resolveOfferCost } from "@/lib/offer-cost";
+import { getLatestEurUsdRate } from "@/lib/currency";
+import { CostPair } from "@/components/CostPair";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +103,8 @@ export function NewShipmentProductCard({
   otherKg,
   productOriginLocked = false,
   index,
+  transportAmount,
+  transportCurrency,
   onPatch,
   onRemove,
 }: {
@@ -108,6 +114,8 @@ export function NewShipmentProductCard({
   otherKg: number;
   productOriginLocked?: boolean;
   index: number;
+  transportAmount: number | null;
+  transportCurrency: "EUR" | "USD";
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
 }) {
@@ -176,6 +184,56 @@ export function NewShipmentProductCard({
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const productOriginReadOnly = productOriginLocked;
+
+  // --- Build 2B-A: cost preview (open / preliminary). Read-only. -----------
+  const priceCcy: "EUR" | "USD" = form.price_currency === "USD" ? "USD" : "EUR";
+  const needsFxLocal =
+    priceCcy === "EUR" || transportCurrency === "EUR";
+
+  const fxQ = useQuery({
+    queryKey: ["fx-eur-usd-latest"],
+    enabled: needsFxLocal,
+    staleTime: 5 * 60_000,
+    queryFn: async () => await getLatestEurUsdRate(),
+  });
+
+  const productKey = form.product_name.trim();
+  const countryKey = form.origin_country.trim();
+  const customsQ = useQuery({
+    queryKey: ["customs-ref", productKey.toLowerCase(), countryKey.toLowerCase()],
+    enabled: !!productKey && !!countryKey,
+    staleTime: 5 * 60_000,
+    queryFn: async () => await fetchCustomsRef(productKey, countryKey),
+  });
+
+  // Derive net/gross per pallet from current local fields (no fallbacks
+  // beyond what's already entered). Mirrors logic used elsewhere.
+  const palletsForCalc = palletCountNum > 0 ? palletCountNum : 0;
+  const netPerPallet = palletsForCalc > 0 && netNum > 0
+    ? netNum / palletsForCalc
+    : (form.resolver_net_per_pallet_kg != null ? Number(form.resolver_net_per_pallet_kg) : 0);
+  const grossPerPallet =
+    form.pallet_weight_override_kg != null && Number(form.pallet_weight_override_kg) > 0
+      ? Number(form.pallet_weight_override_kg)
+      : palletsForCalc > 0 && grossNum > 0
+        ? grossNum / palletsForCalc
+        : (form.resolver_gross_per_pallet_kg != null ? Number(form.resolver_gross_per_pallet_kg) : 0);
+
+  const costRes = useMemo(() => {
+    return resolveOfferCost({
+      pricePerKg: Number(form.unit_price || 0),
+      priceCurrency: priceCcy,
+      freight: Number(transportAmount ?? 0),
+      freightCurrency: transportCurrency,
+      netPerPalletKg: netPerPallet,
+      grossPerPalletKg: grossPerPallet,
+      fxRate: fxQ.data?.rate ?? null,
+      country: countryKey,
+      ref: customsQ.data ?? null,
+      manualCustomsDuty: null,
+    });
+  }, [form.unit_price, priceCcy, transportAmount, transportCurrency, netPerPallet, grossPerPallet, fxQ.data?.rate, countryKey, customsQ.data]);
+
 
   const runResolver = useCallback(async () => {
     if (!touchedRef.current.product && !touchedRef.current.country) return;
@@ -545,14 +603,14 @@ export function NewShipmentProductCard({
         </div>
       </div>
 
-      {/* Row 8: Cost block (placeholder for Build 2B) */}
+      {/* Row 8: Cost preview (Build 2B-A — read-only, no DB writes). */}
       <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Розрахунок собівартості
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">FX / Митниця / Транспорт</span>
+            <span className="text-[11px] text-muted-foreground">індикативна / інвойсна</span>
             <button
               type="button"
               onClick={() => setDetailsOpen((v) => !v)}
@@ -563,20 +621,59 @@ export function NewShipmentProductCard({
             </button>
           </div>
         </div>
-        {/* Final cost output row — always visible. Placeholder until Build 2B. */}
         <div className="mt-2 flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
             Собівартість, $/кг
           </span>
-          <span className="text-sm font-bold tabular-nums text-foreground">—</span>
+          {costRes.ok && costRes.result ? (
+            <CostPair
+              indicative={costRes.result.indicativeCost}
+              invoice={costRes.result.invoiceCost}
+              suffix="/кг"
+              size="md"
+            />
+          ) : (
+            <span className="text-sm font-bold tabular-nums text-muted-foreground">—</span>
+          )}
         </div>
+        {!costRes.ok && (costRes.needsFx || costRes.needsCustoms || costRes.needsNetGross) && (
+          <div className="mt-1 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
+            {costRes.needsNetGross && "Заповніть Нетто/Брутто. "}
+            {costRes.needsFx && "Немає курсу EUR→USD. "}
+            {costRes.needsCustoms && "Митну довідку не знайдено для цього товару/країни."}
+          </div>
+        )}
         {detailsOpen && (
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <div>FX EUR→USD</div><div className="text-right">—</div>
-            <div>Митниця, $/кг</div><div className="text-right">—</div>
-            <div>Транспорт, $/кг</div><div className="text-right">—</div>
-            <div className="col-span-2 mt-1 text-[10px] italic">
-              Повний розрахунок підключається у Build 2B.
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground tabular-nums">
+            <div>FX EUR→USD</div>
+            <div className="text-right">
+              {needsFxLocal
+                ? (fxQ.data?.rate ? fxQ.data.rate.toFixed(4) : "—")
+                : "не потрібен"}
+            </div>
+            <div>Очікувані палети</div>
+            <div className="text-right">
+              {costRes.result ? `${costRes.result.expectedPallets} / 26` : "—"}
+            </div>
+            <div>Транспорт, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.transportPerKg.toFixed(3) : "—"}
+            </div>
+            <div>Митниця індикативна, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.indicativeDuty.toFixed(3) : "—"}
+            </div>
+            <div>Митниця інвойсна, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.invoiceDuty.toFixed(3) : "—"}
+            </div>
+            <div>Ціна товару, $/кг</div>
+            <div className="text-right">
+              {costRes.result ? costRes.result.unitUsd.toFixed(3) : "—"}
+            </div>
+            <div className="col-span-2 mt-1 text-[10px] italic text-muted-foreground">
+              Open / preliminary: транспорт розподілено на теоретичні палети
+              (min(26, floor(21500 / брутто/пал))). Без збереження в БД.
             </div>
           </div>
         )}

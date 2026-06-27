@@ -1082,9 +1082,12 @@ function NewShipment() {
               otherKg={otherKg}
               productOriginLocked={locked}
               index={idx}
+              transportAmount={transportValue}
+              transportCurrency={transportCurrency}
               onPatch={(patch) => patchDraft(d.localId, patch)}
               onRemove={() => removeDraft(d.localId)}
             />
+
           );
         })}
       </div>
