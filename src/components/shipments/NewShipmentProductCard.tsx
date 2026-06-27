@@ -599,22 +599,6 @@ export function NewShipmentProductCard({
         </div>
       </div>
 
-      {/* Auto helper */}
-      {(form.net_auto || form.gross_auto) &&
-        (form.resolver_net_per_pallet_kg != null || form.resolver_gross_per_pallet_kg != null) && (
-          <div className="mb-2 -mt-1 text-[10px] text-muted-foreground">
-            Авто: 1 пал ={" "}
-            {form.resolver_net_per_pallet_kg != null
-              ? `${Math.round(Number(form.resolver_net_per_pallet_kg))} нетто`
-              : "—"}{" "}
-            /{" "}
-            {form.resolver_gross_per_pallet_kg != null
-              ? `${Math.round(Number(form.resolver_gross_per_pallet_kg))} брутто`
-              : "—"}{" "}
-            кг
-          </div>
-        )}
-
       {/* Row 7: Price + Currency */}
       <div className="mb-2">
         <FieldLabel>Ціна за кг</FieldLabel>
@@ -714,14 +698,43 @@ export function NewShipmentProductCard({
             <span className="text-sm font-bold tabular-nums text-muted-foreground">—</span>
           )}
         </div>
-        {!costRes.ok && (costRes.needsFx || costRes.needsNetGross) && (
-          <div className="mt-1 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
-            {costRes.needsNetGross && "Заповніть Нетто/Брутто. "}
-            {costRes.needsFx && "Немає курсу EUR→USD. "}
+
+        {((hint && hint.status !== "pallet_no_match") ||
+          customsStatus === "yellow" ||
+          customsStatus === "red") && (
+          <div className="mt-1 flex flex-col gap-0.5 text-[10px] leading-snug">
+            {customsStatus === "yellow" && (
+              <span className="text-amber-600 dark:text-amber-400">
+                Країну в митній базі не знайдено
+              </span>
+            )}
+            {customsStatus === "red" && (
+              <span className="text-destructive">Митна база не знайдена</span>
+            )}
+            {hint && hint.status === "product_no_match" && (
+              <span className="text-destructive">Товар не розпізнано</span>
+            )}
+            {hint && hint.status === "product_ambiguous" && (
+              <span className="text-destructive">Уточніть назву товару</span>
+            )}
+            {hint && hint.status === "country_no_match" && (
+              <span className="text-destructive">Країну не розпізнано</span>
+            )}
           </div>
         )}
+
         {detailsOpen && (
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground tabular-nums">
+            {customsStatus === "yellow" && customsRef && (
+              <div className="col-span-2 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
+                Країну в митній базі не знайдено. Митні платежі розраховані по найвищому індикативу — {customsRef.country}
+              </div>
+            )}
+            {customsStatus === "red" && (
+              <div className="col-span-2 text-[10px] leading-snug text-destructive">
+                Митна база не знайдена, потребує ручного вводу митних платежів на 1кг
+              </div>
+            )}
             <div>FX EUR→USD</div>
             <div className="text-right">
               {needsFxLocal
@@ -748,31 +761,10 @@ export function NewShipmentProductCard({
             <div className="text-right">
               {costRes.result ? costRes.result.unitUsd.toFixed(3) : "—"}
             </div>
-            <div className="col-span-2 mt-1 text-[10px] italic text-muted-foreground">
-              Open / preliminary: транспорт розподілено на теоретичні палети
-              (min(26, floor(21500 / брутто/пал))). Без збереження в БД.
-            </div>
-          </div>
-        )}
-        {hint && (
-          <div className="mt-1 text-[10px] leading-snug">
-            {hint.status === "pallet_no_match" && (
-              <span className="text-amber-600 dark:text-amber-400">
-                Стандарт палети не знайдено — введіть Упаковка/Нетто/Брутто вручну
-              </span>
-            )}
-            {hint.status === "product_no_match" && (
-              <span className="text-destructive">Товар не розпізнано</span>
-            )}
-            {hint.status === "product_ambiguous" && (
-              <span className="text-destructive">Уточніть назву товару</span>
-            )}
-            {hint.status === "country_no_match" && (
-              <span className="text-destructive">Країну не розпізнано</span>
-            )}
           </div>
         )}
       </div>
+
     </div>
   );
 }
