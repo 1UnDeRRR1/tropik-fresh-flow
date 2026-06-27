@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { InlineAutocomplete } from "@/components/InlineAutocomplete";
+import { StrictAutocompleteCard } from "@/components/shipments/StrictAutocompleteCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ import {
 } from "@/lib/arrival";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
+import { useCustomsCountries } from "@/hooks/useCustomsCountries";
 import { toUaCountry, normalizeCountry } from "@/lib/countries";
 import {
   getSupplierAlias,
@@ -288,23 +289,29 @@ function NewShipment() {
     ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
     : "Власник авто";
 
-  // Build 2A.9 — Країна завантаження must be restricted to countries that
-  // actually exist in the supplier source. We intersect the canonical
-  // countries.name list with normalized supplier.country values. No
-  // arbitrary fallback list is exposed in the create flow.
-  const supplierCountrySet = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of suppliers ?? []) {
-      const ua = toUaCountry(s.country ?? "");
-      if (ua) set.add(ua);
-    }
-    return set;
-  }, [suppliers]);
+  // Build 2A.10 — Країна завантаження must use the SAME source as the
+  // product Походження field: countries that exist in customs_reference
+  // (intersected with canonical countries.name + aliases). The supplier
+  // country source is intentionally NOT used here so the loading-country
+  // assortment matches the product-origin list 1:1.
+  const customsCountriesRaw = useCustomsCountries();
   const countryChoices = useMemo(() => {
     const base = (countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).filter(Boolean);
-    const filtered = base.filter((c) => supplierCountrySet.has(c));
-    return Array.from(new Set(filtered));
-  }, [countryOptions, supplierCountrySet]);
+    const byLc = new Map(base.map((c) => [c.toLowerCase(), c]));
+    const out = new Set<string>();
+    for (const raw of customsCountriesRaw) {
+      const lc = raw.trim().toLowerCase();
+      if (!lc) continue;
+      const direct = byLc.get(lc);
+      if (direct) { out.add(direct); continue; }
+      const aliased = countryAliases[lc];
+      if (aliased) {
+        const hit = byLc.get(aliased.toLowerCase());
+        if (hit) out.add(hit);
+      }
+    }
+    return Array.from(out).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [countryOptions, customsCountriesRaw, countryAliases]);
   const supplierItems = useMemo(
     () =>
       (suppliers ?? []).map((supplier) => ({
@@ -668,7 +675,7 @@ function NewShipment() {
   const supplierField = (
     <div ref={supplierWrapRef}>
       <div className={fieldLabelCls}>Постачальник</div>
-      <InlineAutocomplete
+      <StrictAutocompleteCard
         value={supplierInput}
         onValueChange={(next) => {
           setSupplierInput(next);
@@ -722,7 +729,7 @@ function NewShipment() {
   const countryField = (
     <div ref={countryWrapRef}>
       <div className={fieldLabelCls}>Країна завантаження</div>
-      <InlineAutocomplete
+      <StrictAutocompleteCard
         value={countryInput}
         onValueChange={setCountryInput}
         items={countryItems}
@@ -837,7 +844,7 @@ function NewShipment() {
   const vehicleField = (
     <div ref={vehicleWrapRef} className={cn(invalid.has("vehicle") && "field-invalid")}>
       <div className={fieldLabelCls}>Відкрите авто</div>
-      <InlineAutocomplete
+      <StrictAutocompleteCard
         value={vehicleInput}
         onValueChange={setVehicleInput}
         items={vehicleItems}

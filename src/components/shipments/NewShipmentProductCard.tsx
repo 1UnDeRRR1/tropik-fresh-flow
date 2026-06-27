@@ -21,7 +21,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } fr
 import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCustomsCountries } from "@/hooks/useCustomsCountries";
@@ -29,10 +28,56 @@ import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { CellInput, NumCell, PackageCell, PriceCell } from "@/components/shipments/cells";
 import { StrictSelectCard } from "@/components/shipments/StrictSelectCard";
+import { StrictAutocompleteCard } from "@/components/shipments/StrictAutocompleteCard";
 import { isKnownProductName, type DraftRow, type ProductRef } from "@/lib/shipment-row-engine";
 import { resolvePalletForText } from "@/lib/pallet-resolver";
+import { resolveProductOption } from "@/lib/product-aliases";
+import { matchesWordStart } from "@/lib/compact-search";
+import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+type DictItem = { key: string; label: string; searchStrings: string[] };
+
+function buildDictItems(options: string[], aliases?: Record<string, string>): DictItem[] {
+  const norm = Array.from(new Set(options.map((o) => o.trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "uk"),
+  );
+  return norm.map((opt) => {
+    const lower = opt.toLowerCase();
+    const aliasStrs = aliases
+      ? Object.entries(aliases)
+          .filter(([, t]) => t.toLowerCase() === lower)
+          .map(([a]) => a)
+      : [];
+    return { key: opt, label: opt, searchStrings: [opt, ...aliasStrs].filter(Boolean) };
+  });
+}
+
+function resolveDictionary(
+  raw: string,
+  options: string[],
+  aliases?: Record<string, string>,
+): string | null {
+  const l = raw.trim().toLowerCase();
+  if (!l) return null;
+  const norm = options.map((o) => o.trim()).filter(Boolean);
+  if (!aliases) {
+    const p = resolveProductOption(raw, norm);
+    if (p) return p;
+  }
+  const direct = norm.find((o) => o.toLowerCase() === l);
+  if (direct) return direct;
+  if (aliases && aliases[l]) {
+    const t = aliases[l].toLowerCase();
+    const aliased = norm.find((o) => o.toLowerCase() === t);
+    if (aliased) return aliased;
+    return aliases[l];
+  }
+  const subs = norm.filter((o) => matchesWordStart(o, l));
+  if (subs.length === 1) return subs[0];
+  return null;
+}
 
 const CLASS_OPTIONS = ["LUX", "1", "1,5", "1b", "2", "IND"];
 
@@ -96,6 +141,10 @@ export function NewShipmentProductCard({
   const formRef = useRef(form);
   formRef.current = form;
   const touchedRef = useRef({ product: false, country: false });
+  const productWrapRef = useRef<HTMLDivElement>(null);
+  const originWrapRef = useRef<HTMLDivElement>(null);
+  const productItems = useMemo(() => buildDictItems(knownProductNames, productAliases), [knownProductNames, productAliases]);
+  const originItems = useMemo(() => buildDictItems(allowedOriginCountries, countryAliases), [allowedOriginCountries, countryAliases]);
 
   // Build 2A.9 — variety options for the picked product (existing source).
   // Auto-pick when there is exactly one option and nothing is selected.
@@ -205,51 +254,76 @@ export function NewShipmentProductCard({
 
       {/* Row 1: Товар + Походження */}
       <div className="mb-2 grid grid-cols-2 gap-2">
-        <div onBlur={handleResolverBlur}>
+        <div ref={productWrapRef} onBlur={handleResolverBlur}>
           <FieldLabel>Товар</FieldLabel>
-          <AutocompleteCell
+          <StrictAutocompleteCard
             value={form.product_name}
-            onChange={(v) => {
+            onValueChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.product = true;
               setHint(null);
-              // Letters / spaces / hyphen only.
               const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
               onPatch({ product_name: cleaned });
             }}
+            items={productItems}
+            getKey={(i) => i.key}
+            getLabel={(i) => i.label}
+            getSearchStrings={(i) => i.searchStrings}
+            onSelect={(i) => onPatch({ product_name: i.label })}
+            onInputBlur={(raw) => {
+              if (productOriginReadOnly) return;
+              const c = resolveDictionary(raw, knownProductNames, productAliases);
+              if (c && c !== raw.trim()) { onPatch({ product_name: c }); return; }
+              if (!raw.trim()) return;
+              if (!c) {
+                triggerInvalidFeedback(productWrapRef.current);
+                window.setTimeout(() => onPatch({ product_name: "" }), 700);
+              }
+            }}
             onCommit={() => { void runResolver(); }}
-            options={knownProductNames}
-            aliases={productAliases}
             placeholder="Товар"
-            strict
-            className={cn(
-              "font-medium",
-              (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40",
-            )}
-            expandedMinWidth={220}
-            required
             readOnly={productOriginReadOnly}
+            inputClassName={cn(
+              "h-9 w-full text-[13px] font-medium",
+              (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40",
+              productOriginReadOnly && "cursor-default",
+            )}
           />
         </div>
-        <div onBlur={handleResolverBlur}>
+        <div ref={originWrapRef} onBlur={handleResolverBlur}>
           <FieldLabel>Походження</FieldLabel>
-          <AutocompleteCell
+          <StrictAutocompleteCard
             value={form.origin_country}
-            onChange={(v) => {
+            onValueChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.country = true;
               setHint(null);
               const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
               onPatch({ origin_country: cleaned });
             }}
+            items={originItems}
+            getKey={(i) => i.key}
+            getLabel={(i) => i.label}
+            getSearchStrings={(i) => i.searchStrings}
+            onSelect={(i) => onPatch({ origin_country: i.label })}
+            onInputBlur={(raw) => {
+              if (productOriginReadOnly) return;
+              const c = resolveDictionary(raw, allowedOriginCountries, countryAliases);
+              if (c && c !== raw.trim()) { onPatch({ origin_country: c }); return; }
+              if (!raw.trim()) return;
+              if (!c) {
+                triggerInvalidFeedback(originWrapRef.current);
+                window.setTimeout(() => onPatch({ origin_country: "" }), 700);
+              }
+            }}
             onCommit={() => { void runResolver(); }}
-            options={allowedOriginCountries}
-            aliases={countryAliases}
             placeholder="Походження"
-            strict
-            className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40")}
-            expandedMinWidth={220}
             readOnly={productOriginReadOnly}
+            inputClassName={cn(
+              "h-9 w-full text-[13px]",
+              invalidCountry && "border-destructive/70 ring-1 ring-destructive/40",
+              productOriginReadOnly && "cursor-default",
+            )}
           />
         </div>
       </div>
