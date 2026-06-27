@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { InlineAutocomplete } from "@/components/InlineAutocomplete";
+import { StrictAutocompleteCard } from "@/components/shipments/StrictAutocompleteCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
