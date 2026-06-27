@@ -221,6 +221,16 @@ export function NewShipmentProductCard({
         ? grossNum / palletsForCalc
         : (form.resolver_gross_per_pallet_kg != null ? Number(form.resolver_gross_per_pallet_kg) : 0);
 
+  const customsRef = customsQ.data ?? null;
+  const customsStatus = customsQ.isFetched
+    ? getCustomsStatusFromRef(customsRef)
+    : null;
+  const manualDuty =
+    form.customs_override_duty_usd != null && Number(form.customs_override_duty_usd) > 0
+      ? Number(form.customs_override_duty_usd)
+      : null;
+  const manualActive = customsStatus === "red" && manualDuty != null;
+
   const costRes = useMemo(() => {
     return resolveOfferCost({
       pricePerKg: Number(form.unit_price || 0),
@@ -231,10 +241,23 @@ export function NewShipmentProductCard({
       grossPerPalletKg: grossPerPallet,
       fxRate: fxQ.data?.rate ?? null,
       country: countryKey,
-      ref: customsQ.data ?? null,
-      manualCustomsDuty: null,
+      ref: customsRef,
+      manualCustomsDuty: manualDuty,
     });
-  }, [form.unit_price, priceCcy, transportAmount, transportCurrency, netPerPallet, grossPerPallet, fxQ.data?.rate, countryKey, customsQ.data]);
+  }, [form.unit_price, priceCcy, transportAmount, transportCurrency, netPerPallet, grossPerPallet, fxQ.data?.rate, countryKey, customsRef, manualDuty]);
+
+  // Reset manual customs duty when product or country changes — manual value
+  // is bound to a specific (product, country) pair.
+  const lastKeyRef = useRef<string>(`${productKey.toLowerCase()}|${countryKey.toLowerCase()}`);
+  useEffect(() => {
+    const key = `${productKey.toLowerCase()}|${countryKey.toLowerCase()}`;
+    if (key !== lastKeyRef.current) {
+      lastKeyRef.current = key;
+      if (form.customs_override_duty_usd != null) {
+        onPatch({ customs_override_duty_usd: null });
+      }
+    }
+  }, [productKey, countryKey, form.customs_override_duty_usd, onPatch]);
 
 
   const runResolver = useCallback(async () => {
