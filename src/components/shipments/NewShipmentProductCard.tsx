@@ -21,7 +21,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } fr
 import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
 import { useCustomsCountries } from "@/hooks/useCustomsCountries";
@@ -29,10 +28,56 @@ import { useProductAliases } from "@/hooks/useProductAliases";
 import { useVarietiesFor } from "@/hooks/useProductVarieties";
 import { CellInput, NumCell, PackageCell, PriceCell } from "@/components/shipments/cells";
 import { StrictSelectCard } from "@/components/shipments/StrictSelectCard";
+import { StrictAutocompleteCard } from "@/components/shipments/StrictAutocompleteCard";
 import { isKnownProductName, type DraftRow, type ProductRef } from "@/lib/shipment-row-engine";
 import { resolvePalletForText } from "@/lib/pallet-resolver";
+import { resolveProductOption } from "@/lib/product-aliases";
+import { matchesWordStart } from "@/lib/compact-search";
+import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+type DictItem = { key: string; label: string; searchStrings: string[] };
+
+function buildDictItems(options: string[], aliases?: Record<string, string>): DictItem[] {
+  const norm = Array.from(new Set(options.map((o) => o.trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, "uk"),
+  );
+  return norm.map((opt) => {
+    const lower = opt.toLowerCase();
+    const aliasStrs = aliases
+      ? Object.entries(aliases)
+          .filter(([, t]) => t.toLowerCase() === lower)
+          .map(([a]) => a)
+      : [];
+    return { key: opt, label: opt, searchStrings: [opt, ...aliasStrs].filter(Boolean) };
+  });
+}
+
+function resolveDictionary(
+  raw: string,
+  options: string[],
+  aliases?: Record<string, string>,
+): string | null {
+  const l = raw.trim().toLowerCase();
+  if (!l) return null;
+  const norm = options.map((o) => o.trim()).filter(Boolean);
+  if (!aliases) {
+    const p = resolveProductOption(raw, norm);
+    if (p) return p;
+  }
+  const direct = norm.find((o) => o.toLowerCase() === l);
+  if (direct) return direct;
+  if (aliases && aliases[l]) {
+    const t = aliases[l].toLowerCase();
+    const aliased = norm.find((o) => o.toLowerCase() === t);
+    if (aliased) return aliased;
+    return aliases[l];
+  }
+  const subs = norm.filter((o) => matchesWordStart(o, l));
+  if (subs.length === 1) return subs[0];
+  return null;
+}
 
 const CLASS_OPTIONS = ["LUX", "1", "1,5", "1b", "2", "IND"];
 
