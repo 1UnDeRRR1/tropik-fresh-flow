@@ -36,6 +36,8 @@ import { resolveProductOption } from "@/lib/product-aliases";
 import { matchesWordStart } from "@/lib/compact-search";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import { fetchCustomsRef, resolveOfferCost } from "@/lib/offer-cost";
+import { getCustomsStatusFromRef, CUSTOMS_STRINGS } from "@/lib/customs-status";
+import { CustomsStatusChip } from "@/components/CustomsStatusChip";
 import { getLatestEurUsdRate } from "@/lib/currency";
 import { CostPair } from "@/components/CostPair";
 import { supabase } from "@/integrations/supabase/client";
