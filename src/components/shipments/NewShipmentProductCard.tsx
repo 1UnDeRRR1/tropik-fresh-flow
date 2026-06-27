@@ -97,6 +97,16 @@ export function NewShipmentProductCard({
   formRef.current = form;
   const touchedRef = useRef({ product: false, country: false });
 
+  // Build 2A.9 — variety options for the picked product (existing source).
+  // Auto-pick when there is exactly one option and nothing is selected.
+  const varieties = useVarietiesFor(form.product_name);
+  useEffect(() => {
+    if (!form.product_name.trim()) return;
+    if (form.variety) return;
+    if (varieties.length === 1) onPatch({ variety: varieties[0] });
+  }, [form.product_name, form.variety, varieties, onPatch]);
+
+
   const palletCountNum = Number(form.pallet_count) || 0;
   const netNum = Number(form.net_weight_kg) || 0;
   const grossNum = Number(form.gross_weight_kg) || 0;
