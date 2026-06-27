@@ -141,6 +141,10 @@ export function NewShipmentProductCard({
   const formRef = useRef(form);
   formRef.current = form;
   const touchedRef = useRef({ product: false, country: false });
+  const productWrapRef = useRef<HTMLDivElement>(null);
+  const originWrapRef = useRef<HTMLDivElement>(null);
+  const productItems = useMemo(() => buildDictItems(knownProductNames, productAliases), [knownProductNames, productAliases]);
+  const originItems = useMemo(() => buildDictItems(allowedOriginCountries, countryAliases), [allowedOriginCountries, countryAliases]);
 
   // Build 2A.9 — variety options for the picked product (existing source).
   // Auto-pick when there is exactly one option and nothing is selected.
