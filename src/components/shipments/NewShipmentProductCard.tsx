@@ -103,6 +103,8 @@ export function NewShipmentProductCard({
   otherKg,
   productOriginLocked = false,
   index,
+  transportAmount,
+  transportCurrency,
   onPatch,
   onRemove,
 }: {
@@ -112,6 +114,8 @@ export function NewShipmentProductCard({
   otherKg: number;
   productOriginLocked?: boolean;
   index: number;
+  transportAmount: number | null;
+  transportCurrency: "EUR" | "USD";
   onPatch: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
 }) {
