@@ -668,7 +668,7 @@ function NewShipment() {
   const supplierField = (
     <div ref={supplierWrapRef}>
       <div className={fieldLabelCls}>Постачальник</div>
-      <InlineAutocomplete
+      <StrictAutocompleteCard
         value={supplierInput}
         onValueChange={(next) => {
           setSupplierInput(next);
@@ -722,7 +722,7 @@ function NewShipment() {
   const countryField = (
     <div ref={countryWrapRef}>
       <div className={fieldLabelCls}>Країна завантаження</div>
-      <InlineAutocomplete
+      <StrictAutocompleteCard
         value={countryInput}
         onValueChange={setCountryInput}
         items={countryItems}
@@ -837,7 +837,7 @@ function NewShipment() {
   const vehicleField = (
     <div ref={vehicleWrapRef} className={cn(invalid.has("vehicle") && "field-invalid")}>
       <div className={fieldLabelCls}>Відкрите авто</div>
-      <InlineAutocomplete
+      <StrictAutocompleteCard
         value={vehicleInput}
         onValueChange={setVehicleInput}
         items={vehicleItems}
