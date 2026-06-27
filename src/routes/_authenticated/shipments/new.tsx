@@ -1078,6 +1078,26 @@ function NewShipment() {
       {/* Build 2A.2 — action buttons in normal page flow, after the last
           product card. No fixed/sticky/floating. */}
       <div className="space-y-2 pt-1">
+        {(() => {
+          // Build 2A.11 — local "missing fields" summary that gates Create.
+          // Transport is required here so Build 2B Create logic can refuse to
+          // commit while transport is empty or invalid. Listed fields mirror
+          // the red invalid-state styling on the corresponding inputs.
+          const missing: string[] = [];
+          if (invalidSupplier) missing.push("Постачальник");
+          if (mode === "new" && invalidCountry) missing.push("Країна завантаження");
+          if (invalidLoadingDate) missing.push("Дата завантаження");
+          if (invalidEta) missing.push("ETA");
+          if (mode === "existing" && !vehicleId) missing.push("Авто");
+          if (invalidTransport) missing.push("Транспорт (фрахт)");
+          if (!drafts.some((d) => d.product_name.trim())) missing.push("Хоча б одна позиція");
+          if (overLimit) missing.push("Ліміт авто перевищено");
+          return missing.length > 0 ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+              Не заповнено / некоректно: {missing.join(", ")}
+            </div>
+          ) : null;
+        })()}
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" onClick={addManualDraft} className="h-10 w-full">
             <Plus className="mr-1 h-4 w-4" /> Додати товар
