@@ -120,6 +120,10 @@ export type DraftRow = {
   // them undefined; commit payload in Build 2B will decide DB destination.
   boxes_per_pallet?: number | null;
   pallet_weight_override_kg?: number | null;
+  // Build — manual customs duty (USD/kg) entered when customs reference is
+  // not found (RED status). Local-only on /shipments/new; future
+  // Create-orchestrator will persist into shipment_items.customs_override_duty_usd.
+  customs_override_duty_usd?: number | null;
 };
 
 
