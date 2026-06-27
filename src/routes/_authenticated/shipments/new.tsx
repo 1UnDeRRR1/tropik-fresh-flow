@@ -288,10 +288,23 @@ function NewShipment() {
     ? profileNameById.get(selectedVehicle.created_by) ?? "Власник авто"
     : "Власник авто";
 
-  const countryChoices = useMemo(
-    () => Array.from(new Set((countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).filter(Boolean))),
-    [countryOptions],
-  );
+  // Build 2A.9 — Країна завантаження must be restricted to countries that
+  // actually exist in the supplier source. We intersect the canonical
+  // countries.name list with normalized supplier.country values. No
+  // arbitrary fallback list is exposed in the create flow.
+  const supplierCountrySet = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of suppliers ?? []) {
+      const ua = toUaCountry(s.country ?? "");
+      if (ua) set.add(ua);
+    }
+    return set;
+  }, [suppliers]);
+  const countryChoices = useMemo(() => {
+    const base = (countryOptions.length ? countryOptions : FALLBACK_COUNTRIES).filter(Boolean);
+    const filtered = base.filter((c) => supplierCountrySet.has(c));
+    return Array.from(new Set(filtered));
+  }, [countryOptions, supplierCountrySet]);
   const supplierItems = useMemo(
     () =>
       (suppliers ?? []).map((supplier) => ({

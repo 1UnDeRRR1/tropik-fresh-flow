@@ -17,19 +17,24 @@
 //     they live only in local DraftRow state. Persistence guarantees for the
 //     saved editor are unchanged.
 
-import { useCallback, useRef, useState, type FocusEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AutocompleteCell } from "@/components/AutocompleteCell";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { useCountryOptions } from "@/hooks/useCountryOptions";
+import { useCustomsCountries } from "@/hooks/useCustomsCountries";
 import { useProductAliases } from "@/hooks/useProductAliases";
-import { CellInput, NumCell, PackageCell, PriceCell, VarietyCell } from "@/components/shipments/cells";
+import { useVarietiesFor } from "@/hooks/useProductVarieties";
+import { CellInput, NumCell, PackageCell, PriceCell } from "@/components/shipments/cells";
+import { StrictSelectCard } from "@/components/shipments/StrictSelectCard";
 import { isKnownProductName, type DraftRow, type ProductRef } from "@/lib/shipment-row-engine";
 import { resolvePalletForText } from "@/lib/pallet-resolver";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+const CLASS_OPTIONS = ["LUX", "1", "1,5", "1b", "2", "IND"];
 
 const MAX_PALLETS = 26;
 const MAX_WEIGHT_KG = 21500;
@@ -64,12 +69,43 @@ export function NewShipmentProductCard({
   const productAliases = useProductAliases();
   const countryAliases = useCountryAliases();
   const COUNTRY_OPTIONS = useCountryOptions();
+  const customsCountriesRaw = useCustomsCountries();
   const knownProductNames = products.map((p) => p.name);
+
+  // Build 2A.9 — Походження list must only show countries present in
+  // customs_reference. Resolve each customs row to a canonical countries.name
+  // via case-insensitive match + country aliases; drop rows that don't map.
+  const allowedOriginCountries = useMemo(() => {
+    const byLc = new Map(COUNTRY_OPTIONS.map((c) => [c.toLowerCase(), c]));
+    const out = new Set<string>();
+    for (const raw of customsCountriesRaw) {
+      const lc = raw.trim().toLowerCase();
+      if (!lc) continue;
+      const direct = byLc.get(lc);
+      if (direct) { out.add(direct); continue; }
+      const aliased = countryAliases[lc];
+      if (aliased) {
+        const hit = byLc.get(aliased.toLowerCase());
+        if (hit) out.add(hit);
+      }
+    }
+    return Array.from(out).sort((a, b) => a.localeCompare(b, "uk"));
+  }, [COUNTRY_OPTIONS, customsCountriesRaw, countryAliases]);
 
   const form = draft;
   const formRef = useRef(form);
   formRef.current = form;
   const touchedRef = useRef({ product: false, country: false });
+
+  // Build 2A.9 — variety options for the picked product (existing source).
+  // Auto-pick when there is exactly one option and nothing is selected.
+  const varieties = useVarietiesFor(form.product_name);
+  useEffect(() => {
+    if (!form.product_name.trim()) return;
+    if (form.variety) return;
+    if (varieties.length === 1) onPatch({ variety: varieties[0] });
+  }, [form.product_name, form.variety, varieties, onPatch]);
+
 
   const palletCountNum = Number(form.pallet_count) || 0;
   const netNum = Number(form.net_weight_kg) || 0;
@@ -207,7 +243,7 @@ export function NewShipmentProductCard({
               onPatch({ origin_country: cleaned });
             }}
             onCommit={() => { void runResolver(); }}
-            options={COUNTRY_OPTIONS}
+            options={allowedOriginCountries}
             aliases={countryAliases}
             placeholder="Походження"
             strict
@@ -227,11 +263,12 @@ export function NewShipmentProductCard({
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
           <FieldLabel>Сорт</FieldLabel>
-          <VarietyCell
+          <StrictSelectCard
             value={form.variety}
             onChange={(v) => onPatch({ variety: v })}
-            productName={form.product_name}
-            readOnly={false}
+            options={varieties}
+            placeholder="Сорт"
+            ariaLabel="Сорт"
           />
         </div>
         <div>
@@ -262,19 +299,16 @@ export function NewShipmentProductCard({
         </div>
         <div>
           <FieldLabel>Клас</FieldLabel>
-          <select
+          <StrictSelectCard
             value={form.class ?? ""}
-            onChange={(e) => onPatch({ class: e.target.value })}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-[13px]"
-            data-mobile-edit-label="Клас"
-          >
-            <option value="">—</option>
-            {["LUX", "1", "1,5", "1b", "2", "IND"].map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
+            onChange={(v) => onPatch({ class: v })}
+            options={CLASS_OPTIONS}
+            placeholder="—"
+            ariaLabel="Клас"
+          />
         </div>
       </div>
+
 
       {/* Row 4: Упаковка (full width) */}
       <div className="mb-2">
