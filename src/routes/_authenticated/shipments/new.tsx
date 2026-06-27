@@ -55,6 +55,7 @@ import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
   emptyDraftRow,
+  isKnownProductName,
   type DraftRow,
   type ProductRef,
 } from "@/lib/shipment-row-engine";
