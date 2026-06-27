@@ -1031,4 +1031,119 @@ body[data-kb-open="true"] [data-kb-anchor-top="true"] {
   font-variant-numeric: tabular-nums;
 }
 
+/* =========================================================================
+   Build — /shipments/new unified visual standard (scoped, additive).
+   Applies ONLY while the create screen is mounted (body.shipment-create-active)
+   and ONLY to elements inside .shipment-create-screen OR to portaled popover
+   content rendered while it is mounted. Saved editor, manager-offers,
+   distribution, loading-plan are untouched.
+   Rules implemented:
+     - one font family + 13px value size (unified above);
+     - optional/default = grey inside + white border (1px to match red);
+     - required invalid red border preserved (per-call-site utilities win
+       via :not([class*="border-destructive"]) exclusions);
+     - focused field = black inside, readable text;
+     - blurred field returns to grey inside;
+     - dropdown/popover/select content = black background.
+   No layout, no size, no positioning, no behavior changes.
+   ========================================================================= */
+
+/* Default: grey inside + white border on all fields except those carrying
+   a destructive utility (required invalid) or an explicitly transparent
+   border (inner inputs of composite wrappers like PriceCell / transport). */
+body.shipment-create-active .shipment-create-screen
+  :is(input, select, textarea, button[role="combobox"], [data-create-field-trigger])
+  :not([class*="border-destructive"]):not([class*="border-transparent"]) {}
+
+body.shipment-create-active .shipment-create-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([class*="border-destructive"]):not([class*="border-transparent"]),
+body.shipment-create-active .shipment-create-screen select:not([class*="border-destructive"]):not([class*="border-transparent"]),
+body.shipment-create-active .shipment-create-screen textarea:not([class*="border-destructive"]):not([class*="border-transparent"]),
+body.shipment-create-active .shipment-create-screen button[role="combobox"]:not([class*="border-destructive"]):not([class*="border-transparent"]),
+body.shipment-create-active .shipment-create-screen [data-create-field-trigger]:not([class*="border-destructive"]):not([class*="border-transparent"]) {
+  background-color: hsl(0 0% 92%);
+  border-color: #ffffff;
+  border-width: 1px;
+  border-style: solid;
+  color: #111111;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+/* Composite wrappers whose OUTER container holds the border
+   (e.g. PriceCell, Транспорт): keep wrapper border behavior unchanged but
+   grey the wrapper background so the inner transparent input reads grey. */
+body.shipment-create-active .shipment-create-screen
+  div[class*="border-input"]:not([class*="border-destructive"]) {
+  background-color: hsl(0 0% 92%);
+}
+
+/* Focus = black inside, white text. Border stays per status. */
+body.shipment-create-active .shipment-create-screen
+  :is(input, select, textarea, button[role="combobox"], [data-create-field-trigger]):focus,
+body.shipment-create-active .shipment-create-screen
+  :is(input, select, textarea, button[role="combobox"], [data-create-field-trigger]):focus-visible,
+body.shipment-create-active .shipment-create-screen
+  button[role="combobox"][data-state="open"],
+body.shipment-create-active .shipment-create-screen
+  [data-create-field-trigger][data-state="open"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+body.shipment-create-active .shipment-create-screen
+  :is(input, select, textarea):focus::placeholder {
+  color: hsl(0 0% 70%);
+}
+
+/* Composite wrapper focus-within: turn the wrapper black while the inner
+   input has focus, so PriceCell / Транспорт also follow the standard. */
+body.shipment-create-active .shipment-create-screen
+  div[class*="border-input"]:not([class*="border-destructive"]):focus-within {
+  background-color: #000000;
+  color: #ffffff;
+}
+body.shipment-create-active .shipment-create-screen
+  div[class*="border-input"]:focus-within :is(input, select) {
+  color: #ffffff;
+}
+
+/* Portaled dropdown / popover / select / calendar content rendered while the
+   create screen is mounted — black background, unified text size. Size,
+   position, anchoring, open/close logic are untouched (we only restyle the
+   surface). */
+body.shipment-create-active [data-radix-popper-content-wrapper] [data-radix-popover-content],
+body.shipment-create-active [data-radix-popper-content-wrapper] [data-radix-select-content],
+body.shipment-create-active [data-radix-popper-content-wrapper] [role="listbox"],
+body.shipment-create-active [data-radix-popper-content-wrapper] [role="dialog"],
+body.shipment-create-active [data-radix-popper-content-wrapper] [role="menu"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: hsl(0 0% 20%) !important;
+  font-size: 13px;
+  line-height: 1.2;
+}
+body.shipment-create-active [data-radix-popper-content-wrapper] :is([role="option"], [data-radix-collection-item], button) {
+  color: #ffffff;
+}
+body.shipment-create-active [data-radix-popper-content-wrapper] :is([role="option"], [data-radix-collection-item]):hover,
+body.shipment-create-active [data-radix-popper-content-wrapper] :is([role="option"], [data-radix-collection-item])[data-highlighted],
+body.shipment-create-active [data-radix-popper-content-wrapper] :is([role="option"], [data-radix-collection-item])[data-state="checked"] {
+  background-color: hsl(0 0% 14%);
+  color: #ffffff;
+}
+
+/* StrictAutocompleteCard / InlineAutocomplete use a non-Radix absolutely
+   positioned panel. Restyle anything inside the create screen that visually
+   acts as a suggestion list. */
+body.shipment-create-active .shipment-create-screen [role="listbox"],
+body.shipment-create-active .shipment-create-screen ul[data-autocomplete-panel],
+body.shipment-create-active .shipment-create-screen [data-create-suggestion-panel] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: hsl(0 0% 20%) !important;
+}
+body.shipment-create-active .shipment-create-screen [role="listbox"] :is(li, button, [role="option"]) {
+  color: #ffffff;
+}
+
+
+
 
