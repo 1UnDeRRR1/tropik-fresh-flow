@@ -775,16 +775,59 @@ function NewShipment() {
 
   const codeField = null;
 
+  // Build 2A.11 — Транспорт/фрахт is a REQUIRED preliminary estimate.
+  // Validation rules:
+  //   - allow only digits, dot, comma while typing;
+  //   - on blur, must parse to a finite positive number;
+  //   - empty or invalid value triggers flash + shake + haptic + clear;
+  //   - field shows red invalid style whenever empty or invalid;
+  //   - included in the local "missing fields" set that gates Create.
+  // No DB writes happen in this build; the wired Create in Build 2B must
+  // refuse to commit while transport is empty or invalid.
+  const transportWrapRef = useRef<HTMLDivElement>(null);
+  const parseTransport = (raw: string): number | null => {
+    const cleaned = raw.trim().replace(",", ".");
+    if (!cleaned) return null;
+    if (!/^\d+(?:\.\d+)?$/.test(cleaned)) return null;
+    const n = Number(cleaned);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const transportValue = parseTransport(transportAmount);
+  const invalidTransport = transportValue == null;
+
   const transportField = (
-    <div>
+    <div ref={transportWrapRef}>
       <div className={fieldLabelCls}>Транспорт (фрахт)</div>
-      <div className="flex items-center gap-1 rounded-md border border-input bg-background">
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-md border border-input bg-background",
+          invalidTransport && "border-destructive/70 ring-1 ring-destructive/40",
+        )}
+      >
         <Input
           inputMode="decimal"
           value={transportAmount}
-          onChange={(e) => setTransportAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+          aria-label="Транспорт (фрахт)"
+          onChange={(e) => {
+            // Only digits, dot, comma while typing.
+            const cleaned = e.target.value.replace(/[^\d.,]/g, "");
+            setTransportAmount(cleaned);
+            if (parseTransport(cleaned) != null) clearInvalid("transport");
+          }}
+          onBlur={() => {
+            if (!transportAmount.trim()) {
+              // Empty is invalid for a required field but we don't shake on
+              // first focus-out from a never-touched field; only shake when
+              // there was actual typed garbage to reject.
+              return;
+            }
+            if (parseTransport(transportAmount) == null) {
+              triggerInvalidFeedback(transportWrapRef.current);
+              window.setTimeout(() => setTransportAmount(""), 700);
+            }
+          }}
           placeholder="—"
-          className="h-9 flex-1 border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums"
+          className="h-9 flex-1 border-transparent bg-transparent px-2 text-right text-[13px] tabular-nums focus-visible:ring-0"
         />
         <select
           value={transportCurrency}
