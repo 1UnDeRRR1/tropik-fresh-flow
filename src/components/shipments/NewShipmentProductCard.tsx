@@ -253,11 +253,12 @@ export function NewShipmentProductCard({
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
           <FieldLabel>Сорт</FieldLabel>
-          <VarietyCell
+          <StrictSelectCard
             value={form.variety}
             onChange={(v) => onPatch({ variety: v })}
-            productName={form.product_name}
-            readOnly={false}
+            options={varieties}
+            placeholder="Сорт"
+            ariaLabel="Сорт"
           />
         </div>
         <div>
@@ -288,19 +289,16 @@ export function NewShipmentProductCard({
         </div>
         <div>
           <FieldLabel>Клас</FieldLabel>
-          <select
+          <StrictSelectCard
             value={form.class ?? ""}
-            onChange={(e) => onPatch({ class: e.target.value })}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-[13px]"
-            data-mobile-edit-label="Клас"
-          >
-            <option value="">—</option>
-            {["LUX", "1", "1,5", "1b", "2", "IND"].map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
+            onChange={(v) => onPatch({ class: v })}
+            options={CLASS_OPTIONS}
+            placeholder="—"
+            ariaLabel="Клас"
+          />
         </div>
       </div>
+
 
       {/* Row 4: Упаковка (full width) */}
       <div className="mb-2">
