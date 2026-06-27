@@ -250,51 +250,76 @@ export function NewShipmentProductCard({
 
       {/* Row 1: Товар + Походження */}
       <div className="mb-2 grid grid-cols-2 gap-2">
-        <div onBlur={handleResolverBlur}>
+        <div ref={productWrapRef} onBlur={handleResolverBlur}>
           <FieldLabel>Товар</FieldLabel>
-          <AutocompleteCell
+          <StrictAutocompleteCard
             value={form.product_name}
-            onChange={(v) => {
+            onValueChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.product = true;
               setHint(null);
-              // Letters / spaces / hyphen only.
               const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
               onPatch({ product_name: cleaned });
             }}
+            items={productItems}
+            getKey={(i) => i.key}
+            getLabel={(i) => i.label}
+            getSearchStrings={(i) => i.searchStrings}
+            onSelect={(i) => onPatch({ product_name: i.label })}
+            onInputBlur={(raw) => {
+              if (productOriginReadOnly) return;
+              const c = resolveDictionary(raw, knownProductNames, productAliases);
+              if (c && c !== raw.trim()) { onPatch({ product_name: c }); return; }
+              if (!raw.trim()) return;
+              if (!c) {
+                triggerInvalidFeedback(productWrapRef.current);
+                window.setTimeout(() => onPatch({ product_name: "" }), 700);
+              }
+            }}
             onCommit={() => { void runResolver(); }}
-            options={knownProductNames}
-            aliases={productAliases}
             placeholder="Товар"
-            strict
-            className={cn(
-              "font-medium",
-              (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40",
-            )}
-            expandedMinWidth={220}
-            required
             readOnly={productOriginReadOnly}
+            inputClassName={cn(
+              "h-9 w-full text-[13px] font-medium",
+              (invalidProduct || unknownProduct) && "border-destructive/70 ring-1 ring-destructive/40",
+              productOriginReadOnly && "cursor-default",
+            )}
           />
         </div>
-        <div onBlur={handleResolverBlur}>
+        <div ref={originWrapRef} onBlur={handleResolverBlur}>
           <FieldLabel>Походження</FieldLabel>
-          <AutocompleteCell
+          <StrictAutocompleteCard
             value={form.origin_country}
-            onChange={(v) => {
+            onValueChange={(v) => {
               if (productOriginReadOnly) return;
               touchedRef.current.country = true;
               setHint(null);
               const cleaned = v.replace(/[^\p{L}\s\-']/gu, "");
               onPatch({ origin_country: cleaned });
             }}
+            items={originItems}
+            getKey={(i) => i.key}
+            getLabel={(i) => i.label}
+            getSearchStrings={(i) => i.searchStrings}
+            onSelect={(i) => onPatch({ origin_country: i.label })}
+            onInputBlur={(raw) => {
+              if (productOriginReadOnly) return;
+              const c = resolveDictionary(raw, allowedOriginCountries, countryAliases);
+              if (c && c !== raw.trim()) { onPatch({ origin_country: c }); return; }
+              if (!raw.trim()) return;
+              if (!c) {
+                triggerInvalidFeedback(originWrapRef.current);
+                window.setTimeout(() => onPatch({ origin_country: "" }), 700);
+              }
+            }}
             onCommit={() => { void runResolver(); }}
-            options={allowedOriginCountries}
-            aliases={countryAliases}
             placeholder="Походження"
-            strict
-            className={cn(invalidCountry && "border-destructive/70 ring-1 ring-destructive/40")}
-            expandedMinWidth={220}
             readOnly={productOriginReadOnly}
+            inputClassName={cn(
+              "h-9 w-full text-[13px]",
+              invalidCountry && "border-destructive/70 ring-1 ring-destructive/40",
+              productOriginReadOnly && "cursor-default",
+            )}
           />
         </div>
       </div>
