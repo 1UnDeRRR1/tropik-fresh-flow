@@ -167,6 +167,12 @@ function NewShipment() {
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportCurrency, setTransportCurrency] = useState<"EUR" | "USD">("EUR");
 
+  // Build 2B-B-2 — scenario dialog + submit lock. No DB writes until the
+  // user confirms a scenario in the dialog.
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
+
   const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
   }, []);
