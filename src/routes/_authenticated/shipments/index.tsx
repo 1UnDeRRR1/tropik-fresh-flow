@@ -131,6 +131,13 @@ function ShipmentsList() {
     if (search.tab) setTab(search.tab);
   }, [search.tab]);
 
+  // Realtime: keep both tabs in sync without page reload after create/close.
+  useRealtimeInvalidate(
+    "shipments-list-rt",
+    ["shipments", "vehicles", "shipment_items", "distributions", "distribution_items"],
+    [["shipments-list"], ["open-vehicles-list"]],
+  );
+
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
     enabled: !!user,
