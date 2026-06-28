@@ -293,17 +293,28 @@ export async function createShipmentFlow(
   // 6. Optional close (scenario "create_and_close").
   let closed = false;
   if (scenario === "create_and_close") {
-    const upd = await supabase
+    const upd = (await supabase
       .from("vehicles" as never)
       .update({ status: "closed", closed_at: new Date().toISOString() } as never)
-      .eq("id", vehicleId);
-    if (upd.error) {
+      .eq("id", vehicleId)
+      .select("id,status")
+      .maybeSingle()) as {
+        data: { id: string; status: string } | null;
+        error: { message: string } | null;
+      };
+    const actuallyClosed = !upd.error && upd.data?.status === "closed";
+    if (!actuallyClosed) {
       // Do NOT rollback the shipment — it's a successful create; just surface
       // the close failure to the caller so they can retry close manually.
+      const reason = upd.error
+        ? safeReason(upd.error)
+        : upd.data == null
+          ? "Закриття не підтверджено (рядок vehicles не повернувся — можливо, RLS/тригер заборонив)"
+          : `Статус авто залишився '${upd.data.status}', очікувалось 'closed'`;
       return {
         ok: false,
         stage: "close_vehicle",
-        reason: safeReason(upd.error),
+        reason,
         artefacts: { vehicleId, shipmentId, itemIds: insertedItemIds },
         partialSuccess: true,
       };
