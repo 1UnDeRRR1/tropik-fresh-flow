@@ -1048,9 +1048,11 @@ function NewShipment() {
         }
         return;
       }
-      // Success: refresh open vehicles and navigate to products screen.
-      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      // Success: refresh lists and navigate to the created shipment (replace history entry).
+      qc.invalidateQueries({ queryKey: ["shipments-list"] });
+      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
       qc.invalidateQueries({ queryKey: ["shipments"] });
+      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
       toast.success(
         res.closed
           ? `Поставку ${res.shipmentCode} створено, авто закрите`
@@ -1060,6 +1062,7 @@ function NewShipment() {
       navigate({
         to: "/shipments/$id/products",
         params: { id: res.shipmentId },
+        replace: true,
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
