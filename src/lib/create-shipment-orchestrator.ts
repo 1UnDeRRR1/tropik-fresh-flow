@@ -88,6 +88,13 @@ export type CreateShipmentFailure = {
     itemIds?: string[];
     positionIds?: string[];
   };
+  /**
+   * True when the shipment + vehicle + items were created successfully and
+   * only a non-critical follow-up step failed (currently: closing the vehicle
+   * in "create_and_close" scenario). The caller MUST treat this as a warning,
+   * not an error: nothing is rolled back, the vehicle simply stays open.
+   */
+  partialSuccess?: boolean;
 };
 
 export type CreateShipmentResult = CreateShipmentSuccess | CreateShipmentFailure;
@@ -236,13 +243,18 @@ export async function createShipmentFlow(
       { products, shipmentId },
       { forUpdate: false },
     );
-    // Preserve manual customs override (single existing column).
+    // Preserve manual customs override + confirmation metadata so the
+    // newly created shipment opens with the override already "confirmed"
+    // and the cost calculation matches the /shipments/new preview.
     if (
       draft.customs_override_duty_usd != null &&
       Number(draft.customs_override_duty_usd) > 0
     ) {
       basePayload.customs_override_duty_usd = Number(draft.customs_override_duty_usd);
+      basePayload.customs_override_confirmed_at = new Date().toISOString();
+      basePayload.customs_override_by = userId;
     }
+
     const res = await commitNewShipmentItem({
       shipmentId,
       draft: {
@@ -293,6 +305,7 @@ export async function createShipmentFlow(
         stage: "close_vehicle",
         reason: safeReason(upd.error),
         artefacts: { vehicleId, shipmentId, itemIds: insertedItemIds },
+        partialSuccess: true,
       };
     }
     closed = true;
