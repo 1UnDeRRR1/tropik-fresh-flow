@@ -88,6 +88,13 @@ export type CreateShipmentFailure = {
     itemIds?: string[];
     positionIds?: string[];
   };
+  /**
+   * True when the shipment + vehicle + items were created successfully and
+   * only a non-critical follow-up step failed (currently: closing the vehicle
+   * in "create_and_close" scenario). The caller MUST treat this as a warning,
+   * not an error: nothing is rolled back, the vehicle simply stays open.
+   */
+  partialSuccess?: boolean;
 };
 
 export type CreateShipmentResult = CreateShipmentSuccess | CreateShipmentFailure;
