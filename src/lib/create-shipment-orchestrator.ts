@@ -236,13 +236,18 @@ export async function createShipmentFlow(
       { products, shipmentId },
       { forUpdate: false },
     );
-    // Preserve manual customs override (single existing column).
+    // Preserve manual customs override + confirmation metadata so the
+    // newly created shipment opens with the override already "confirmed"
+    // and the cost calculation matches the /shipments/new preview.
     if (
       draft.customs_override_duty_usd != null &&
       Number(draft.customs_override_duty_usd) > 0
     ) {
       basePayload.customs_override_duty_usd = Number(draft.customs_override_duty_usd);
+      basePayload.customs_override_confirmed_at = new Date().toISOString();
+      basePayload.customs_override_by = userId;
     }
+
     const res = await commitNewShipmentItem({
       shipmentId,
       draft: {
