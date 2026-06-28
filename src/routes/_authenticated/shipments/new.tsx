@@ -205,11 +205,11 @@ function NewShipment() {
   }, [qc]);
 
   const leaveCreateFormAfterSuccess = useCallback(
-    async (target: { shipmentId: string; closed: boolean }) => {
+    async (target: { closed: boolean }) => {
       await refreshShipmentLists();
       resetLocalDraft();
       navigate({
-        to: target.closed ? "/shipments" : "/shipments",
+        to: "/shipments",
         search: target.closed ? { tab: "shipments" } : { tab: "vehicles" },
         replace: true,
       });
@@ -1083,7 +1083,7 @@ function NewShipment() {
             `Поставку створено, але авто не закрите: ${res.reason}. Закрийте авто вручну пізніше.`,
             { duration: 12_000 },
           );
-          await leaveCreateFormAfterSuccess({ shipmentId: res.artefacts.shipmentId, closed: false });
+          await leaveCreateFormAfterSuccess({ closed: false });
           return;
         }
         const artefacts = res.artefacts;
@@ -1107,7 +1107,7 @@ function NewShipment() {
           ? `Поставку ${res.shipmentCode} створено, авто закрите`
           : `Поставку ${res.shipmentCode} створено`,
       );
-      await leaveCreateFormAfterSuccess({ shipmentId: res.shipmentId, closed: res.closed });
+      await leaveCreateFormAfterSuccess({ closed: res.closed });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
     } finally {
