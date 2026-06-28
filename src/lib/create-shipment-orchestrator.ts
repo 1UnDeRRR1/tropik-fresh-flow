@@ -183,7 +183,7 @@ export async function createShipmentFlow(
       reason: safeReason(vIns.error ?? new Error("vehicle_insert_failed")),
     };
   }
-  const vehicleId = (vIns.data as { id: string }).id;
+  const vehicleId = (vIns.data as unknown as { id: string }).id;
 
   // 4. INSERT shipment (parent — single source of freight for this auto in
   //    scenario A; scenario "довантаження" will be added later and forces 0).
@@ -223,7 +223,7 @@ export async function createShipmentFlow(
       artefacts: delV.error ? { vehicleId } : undefined,
     };
   }
-  const shipmentId = (sIns.data as { id: string }).id;
+  const shipmentId = (sIns.data as unknown as { id: string }).id;
 
   // 5. INSERT shipment_items via existing commit helper. Track artefacts so
   //    we can roll back precisely on partial failure.
