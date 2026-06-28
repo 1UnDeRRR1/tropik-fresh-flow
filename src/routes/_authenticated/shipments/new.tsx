@@ -1033,6 +1033,27 @@ function NewShipment() {
         products,
       });
       if (!res.ok) {
+        if (res.partialSuccess && res.artefacts?.shipmentId) {
+          // Vehicle did not actually close, but shipment + items + vehicle exist.
+          // Treat as warning, not error: refresh lists, clear local draft and
+          // navigate to the created shipment so user cannot resubmit this form.
+          qc.invalidateQueries({ queryKey: ["shipments-list"] });
+          qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
+          qc.invalidateQueries({ queryKey: ["shipments"] });
+          qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+          toast.warning(
+            `Поставку створено, але авто не закрите: ${res.reason}. Закрийте авто вручну пізніше.`,
+            { duration: 12_000 },
+          );
+          setScenarioOpen(false);
+          setDrafts([emptyDraftRow()]);
+          navigate({
+            to: "/shipments/$id/products",
+            params: { id: res.artefacts.shipmentId },
+            replace: true,
+          });
+          return;
+        }
         const artefacts = res.artefacts;
         if (artefacts) {
           const parts: string[] = [];
@@ -1059,6 +1080,9 @@ function NewShipment() {
           : `Поставку ${res.shipmentCode} створено`,
       );
       setScenarioOpen(false);
+      // Clear local draft so unmount + replace:true cannot leak filled form
+      // back into a fresh /shipments/new mount via cache/back navigation.
+      setDrafts([emptyDraftRow()]);
       navigate({
         to: "/shipments/$id/products",
         params: { id: res.shipmentId },
