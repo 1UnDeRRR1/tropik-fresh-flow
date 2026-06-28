@@ -305,6 +305,7 @@ export async function createShipmentFlow(
         stage: "close_vehicle",
         reason: safeReason(upd.error),
         artefacts: { vehicleId, shipmentId, itemIds: insertedItemIds },
+        partialSuccess: true,
       };
     }
     closed = true;
