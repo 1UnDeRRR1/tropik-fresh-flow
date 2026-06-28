@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
 import { useStableQueryData } from "@/lib/query-stability";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
