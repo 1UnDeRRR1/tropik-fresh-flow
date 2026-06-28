@@ -171,11 +171,11 @@ export async function createShipmentFlow(
     created_by: userId,
     // status omitted → DB default 'open'.
   };
-  const vIns = await supabase
+  const vIns = (await supabase
     .from("vehicles" as never)
     .insert(vehiclePayload as never)
     .select("id")
-    .single();
+    .single()) as { data: { id: string } | null; error: { message: string } | null };
   if (vIns.error || !vIns.data) {
     return {
       ok: false,
@@ -183,7 +183,7 @@ export async function createShipmentFlow(
       reason: safeReason(vIns.error ?? new Error("vehicle_insert_failed")),
     };
   }
-  const vehicleId = (vIns.data as unknown as { id: string }).id;
+  const vehicleId = vIns.data.id;
 
   // 4. INSERT shipment (parent — single source of freight for this auto in
   //    scenario A; scenario "довантаження" will be added later and forces 0).
