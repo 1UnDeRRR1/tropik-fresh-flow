@@ -172,6 +172,7 @@ function NewShipment() {
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+  const qc = useQueryClient();
 
   const resetLocalDraft = useCallback(() => {
     setMode(search.vehicleId ? "existing" : "new");
@@ -293,8 +294,6 @@ function NewShipment() {
     },
   });
   const products: ProductRef[] = productsList ?? [];
-
-  const qc = useQueryClient();
 
   const { data: openVehicles } = useQuery({
     queryKey: ["open-vehicles", user?.id, country],
