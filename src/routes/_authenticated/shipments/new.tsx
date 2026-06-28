@@ -52,6 +52,7 @@ import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
 import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
+import { CreateScenarioDialog } from "@/components/shipments/CreateScenarioDialog";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
   emptyDraftRow,
@@ -59,6 +60,10 @@ import {
   type DraftRow,
   type ProductRef,
 } from "@/lib/shipment-row-engine";
+import {
+  createShipmentFlow,
+  type CreateShipmentScenario,
+} from "@/lib/create-shipment-orchestrator";
 
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
@@ -161,6 +166,12 @@ function NewShipment() {
   // into the commit payload in Build 2B.
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportCurrency, setTransportCurrency] = useState<"EUR" | "USD">("EUR");
+
+  // Build 2B-B-2 — scenario dialog + submit lock. No DB writes until the
+  // user confirms a scenario in the dialog.
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
@@ -959,6 +970,106 @@ function NewShipment() {
     navigate({ to: "/shipments" });
   };
 
+  // Build 2B-B-2 — scenario confirm handler. Validation is already enforced
+  // by the gate on the "Створити" button; this function performs the
+  // orchestrated DB writes and navigates to the new shipment on success.
+  async function handleConfirmScenario(scenario: CreateShipmentScenario) {
+    if (submitLockRef.current) return;
+    if (!user) {
+      toast.error("Сесія не активна");
+      return;
+    }
+    if (!selectedSupplier) {
+      toast.error("Постачальник не вибраний");
+      return;
+    }
+    if (!country || !loadingDate || !computedEta) {
+      toast.error("Заповніть постачальника, країну та дати");
+      return;
+    }
+    if (transportValue == null) {
+      toast.error("Вкажіть транспорт (фрахт)");
+      return;
+    }
+    if (mode === "existing") {
+      // Этап A не підтримує довантаження — другий перемикач буде в наступному Build.
+      toast.error("Сценарій довантаження ще не доступний у цьому кроці.");
+      return;
+    }
+    const drafstToCommit = drafts.filter(
+      (d) =>
+        d.product_name.trim() !== "" ||
+        d.origin_country.trim() !== "" ||
+        Number(d.pallet_count) > 0 ||
+        Number(d.net_weight_kg) > 0 ||
+        Number(d.gross_weight_kg) > 0 ||
+        Number(d.unit_price) > 0,
+    );
+    if (drafstToCommit.length === 0) {
+      toast.error("Немає позицій для збереження");
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const res = await createShipmentFlow({
+        scenario,
+        userId: user.id,
+        supplier: {
+          id: selectedSupplier.id,
+          name: selectedSupplier.name,
+          alias: selectedSupplier.alias ?? null,
+          code_base: selectedSupplier.code_base ?? null,
+          import_manager_id:
+            (selectedSupplier as { import_manager_id?: string | null }).import_manager_id ?? null,
+        },
+        country,
+        loadingDate,
+        eta: computedEta,
+        transportAmount: transportValue,
+        transportCurrency,
+        drafts: drafstToCommit,
+        products,
+      });
+      if (!res.ok) {
+        const artefacts = res.artefacts;
+        if (artefacts) {
+          const parts: string[] = [];
+          if (artefacts.vehicleId) parts.push(`vehicle=${artefacts.vehicleId}`);
+          if (artefacts.shipmentId) parts.push(`shipment=${artefacts.shipmentId}`);
+          if (artefacts.itemIds?.length) parts.push(`items=${artefacts.itemIds.length}`);
+          toast.error(
+            `Помилка створення (${res.stage}): ${res.reason}. Не видалено: ${parts.join(", ")}`,
+            { duration: 12_000 },
+          );
+        } else {
+          toast.error(`Помилка створення (${res.stage}): ${res.reason}`);
+        }
+        return;
+      }
+      // Success: refresh open vehicles and navigate to products screen.
+      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      qc.invalidateQueries({ queryKey: ["shipments"] });
+      toast.success(
+        res.closed
+          ? `Поставку ${res.shipmentCode} створено, авто закрите`
+          : `Поставку ${res.shipmentCode} створено`,
+      );
+      setScenarioOpen(false);
+      navigate({
+        to: "/shipments/$id/products",
+        params: { id: res.shipmentId },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+
   return (
     <div
       className="shipment-create-screen space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]"
@@ -1210,21 +1321,27 @@ function NewShipment() {
             return (
               <Button
                 type="button"
-                disabled={!canSubmit}
+                disabled={!canSubmit || isSubmitting}
                 onClick={() => {
-                  // Build 2B-B-1 — validation only, no persistence.
-                  toast.info(
-                    "Перевірки пройдено. Збереження буде увімкнено в наступному кроці.",
-                  );
+                  // Build 2B-B-2 — open scenario dialog. No DB writes yet.
+                  if (!canSubmit || isSubmitting) return;
+                  setScenarioOpen(true);
                 }}
                 className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
               >
-                Створити
+                {isSubmitting ? "Створення…" : "Створити"}
               </Button>
             );
           })()}
         </div>
       </div>
+
+      <CreateScenarioDialog
+        open={scenarioOpen}
+        isSubmitting={isSubmitting}
+        onClose={() => setScenarioOpen(false)}
+        onConfirm={(scenario) => void handleConfirmScenario(scenario)}
+      />
     </div>
   );
 }
