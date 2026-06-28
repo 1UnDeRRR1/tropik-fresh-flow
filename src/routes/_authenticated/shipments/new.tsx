@@ -970,6 +970,106 @@ function NewShipment() {
     navigate({ to: "/shipments" });
   };
 
+  // Build 2B-B-2 — scenario confirm handler. Validation is already enforced
+  // by the gate on the "Створити" button; this function performs the
+  // orchestrated DB writes and navigates to the new shipment on success.
+  async function handleConfirmScenario(scenario: CreateShipmentScenario) {
+    if (submitLockRef.current) return;
+    if (!user) {
+      toast.error("Сесія не активна");
+      return;
+    }
+    if (!selectedSupplier) {
+      toast.error("Постачальник не вибраний");
+      return;
+    }
+    if (!country || !loadingDate || !computedEta) {
+      toast.error("Заповніть постачальника, країну та дати");
+      return;
+    }
+    if (transportValue == null) {
+      toast.error("Вкажіть транспорт (фрахт)");
+      return;
+    }
+    if (mode === "existing") {
+      // Этап A не підтримує довантаження — другий перемикач буде в наступному Build.
+      toast.error("Сценарій довантаження ще не доступний у цьому кроці.");
+      return;
+    }
+    const drafstToCommit = drafts.filter(
+      (d) =>
+        d.product_name.trim() !== "" ||
+        d.origin_country.trim() !== "" ||
+        Number(d.pallet_count) > 0 ||
+        Number(d.net_weight_kg) > 0 ||
+        Number(d.gross_weight_kg) > 0 ||
+        Number(d.unit_price) > 0,
+    );
+    if (drafstToCommit.length === 0) {
+      toast.error("Немає позицій для збереження");
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const res = await createShipmentFlow({
+        scenario,
+        userId: user.id,
+        supplier: {
+          id: selectedSupplier.id,
+          name: selectedSupplier.name,
+          alias: selectedSupplier.alias ?? null,
+          code_base: selectedSupplier.code_base ?? null,
+          import_manager_id:
+            (selectedSupplier as { import_manager_id?: string | null }).import_manager_id ?? null,
+        },
+        country,
+        loadingDate,
+        eta: computedEta,
+        transportAmount: transportValue,
+        transportCurrency,
+        drafts: drafstToCommit,
+        products,
+      });
+      if (!res.ok) {
+        const artefacts = res.artefacts;
+        if (artefacts) {
+          const parts: string[] = [];
+          if (artefacts.vehicleId) parts.push(`vehicle=${artefacts.vehicleId}`);
+          if (artefacts.shipmentId) parts.push(`shipment=${artefacts.shipmentId}`);
+          if (artefacts.itemIds?.length) parts.push(`items=${artefacts.itemIds.length}`);
+          toast.error(
+            `Помилка створення (${res.stage}): ${res.reason}. Не видалено: ${parts.join(", ")}`,
+            { duration: 12_000 },
+          );
+        } else {
+          toast.error(`Помилка створення (${res.stage}): ${res.reason}`);
+        }
+        return;
+      }
+      // Success: refresh open vehicles and navigate to products screen.
+      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      qc.invalidateQueries({ queryKey: ["shipments"] });
+      toast.success(
+        res.closed
+          ? `Поставку ${res.shipmentCode} створено, авто закрите`
+          : `Поставку ${res.shipmentCode} створено`,
+      );
+      setScenarioOpen(false);
+      navigate({
+        to: "/shipments/$id/products",
+        params: { id: res.shipmentId },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+
   return (
     <div
       className="shipment-create-screen space-y-3 pb-[calc(var(--keyboard-inset,0px)+5rem)]"
