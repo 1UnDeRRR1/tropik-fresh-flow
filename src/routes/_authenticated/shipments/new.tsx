@@ -1221,20 +1221,27 @@ function NewShipment() {
             return (
               <Button
                 type="button"
-                disabled={!canSubmit}
+                disabled={!canSubmit || isSubmitting}
                 onClick={() => {
-                  // Build 2B-B-1 — validation only, no persistence.
-                  toast.info(
-                    "Перевірки пройдено. Збереження буде увімкнено в наступному кроці.",
-                  );
+                  // Build 2B-B-2 — open scenario dialog. No DB writes yet.
+                  if (!canSubmit || isSubmitting) return;
+                  setScenarioOpen(true);
                 }}
                 className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90"
               >
-                Створити
+                {isSubmitting ? "Створення…" : "Створити"}
               </Button>
             );
           })()}
         </div>
+      </div>
+
+      <CreateScenarioDialog
+        open={scenarioOpen}
+        isSubmitting={isSubmitting}
+        onClose={() => setScenarioOpen(false)}
+        onConfirm={(scenario) => void handleConfirmScenario(scenario)}
+      />
       </div>
     </div>
   );
