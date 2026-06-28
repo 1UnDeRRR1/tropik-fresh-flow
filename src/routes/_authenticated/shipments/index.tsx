@@ -31,7 +31,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { ShipmentQuickView } from "@/components/ShipmentQuickView";
 
+type ShipmentsSearch = { tab?: "shipments" | "vehicles" };
+
 export const Route = createFileRoute("/_authenticated/shipments/")({
+  validateSearch: (search: Record<string, unknown>): ShipmentsSearch => ({
+    tab: search.tab === "vehicles" || search.tab === "shipments" ? search.tab : undefined,
+  }),
   component: () => <StaffOnly><ShipmentsList /></StaffOnly>,
 });
 
@@ -109,7 +114,10 @@ function BucketToggle({
 }
 
 function ShipmentsList() {
-  const [tab, setTab] = useState<"shipments" | "vehicles">("shipments");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<"shipments" | "vehicles">(
+    () => search.tab ?? "shipments",
+  );
   const [board, setBoard] = useState<BucketView>("active");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [countryFilter, setCountryFilter] = useState<string>("all");
@@ -117,6 +125,11 @@ function ShipmentsList() {
   const isStaff = hasRole(["super_admin", "admin", "import_manager"]);
   const isAdmin = hasRole(["super_admin", "admin"]);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    if (search.tab) setTab(search.tab);
+  }, [search.tab]);
+
   const { data: currentManagerId } = useQuery({
     queryKey: ["current-import-manager-id", user?.id],
     enabled: !!user,
@@ -135,6 +148,7 @@ function ShipmentsList() {
         .select(`
           id, code, status, pipeline_status, eta, loading_date, country, import_manager_id, created_by, unloaded_at, archived_at, cancelled_at, updated_at,
           loading_address, loading_reference, tractor_plate, vehicle_plate, driver_name, temperature_mode,
+          vehicle:vehicles(status),
           suppliers(name, country),
           import_managers(full_name),
           shipment_items(product_name,pallet_count,pallet_weight,net_weight_kg,final_cost_indicative,final_cost_invoice),
@@ -204,6 +218,8 @@ function ShipmentsList() {
       const arch = (r as { archived_at?: string | null }).archived_at;
       if (arch) return false;
       if (board === "unloaded") return !!u;
+      const vehicleStatus = (r as { vehicle?: { status?: string | null } | null }).vehicle?.status;
+      if (vehicleStatus === "open") return false;
       return !u;
     })
     .filter((r) => r.fact > 0)
