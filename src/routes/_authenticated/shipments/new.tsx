@@ -52,6 +52,7 @@ import { matchesWordStart } from "@/lib/compact-search";
 import { resolveCountry } from "@/lib/country-search";
 import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
+import { CreateScenarioDialog } from "@/components/shipments/CreateScenarioDialog";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
   emptyDraftRow,
@@ -59,6 +60,10 @@ import {
   type DraftRow,
   type ProductRef,
 } from "@/lib/shipment-row-engine";
+import {
+  createShipmentFlow,
+  type CreateShipmentScenario,
+} from "@/lib/create-shipment-orchestrator";
 
 const VEHICLE_MAX_PALLETS = 26;
 const VEHICLE_MAX_KG = 21500;
