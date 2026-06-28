@@ -1242,7 +1242,6 @@ function NewShipment() {
         onClose={() => setScenarioOpen(false)}
         onConfirm={(scenario) => void handleConfirmScenario(scenario)}
       />
-      </div>
     </div>
   );
 }
