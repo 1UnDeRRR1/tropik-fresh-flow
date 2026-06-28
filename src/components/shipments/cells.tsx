@@ -241,12 +241,18 @@ export function PriceCell({
   onValueChange,
   onCurrencyChange,
   readOnly = false,
+  className,
+  inputClassName,
+  selectClassName,
 }: {
   value: number;
   currency: "EUR" | "USD";
   onValueChange: (v: number) => void;
   onCurrencyChange: (c: "EUR" | "USD") => void;
   readOnly?: boolean;
+  className?: string;
+  inputClassName?: string;
+  selectClassName?: string;
 }) {
   const [text, setText] = useState<string>(value === 0 ? "" : String(value));
   const [focused, setFocused] = useState(false);
@@ -260,6 +266,7 @@ export function PriceCell({
     <div className={cn(
       "flex items-center gap-1 rounded-md border border-input bg-background",
       isEmpty && "border-destructive/70 ring-1 ring-destructive/40",
+      className,
     )}>
       <Input
         type="text"
@@ -297,6 +304,7 @@ export function PriceCell({
           focused && FOCUS_STYLE,
           isEmpty && "placeholder:text-destructive/80",
           readOnly && "cursor-default",
+          inputClassName,
         )}
       />
       <select
@@ -304,7 +312,10 @@ export function PriceCell({
         value={currency}
         disabled={readOnly}
         onChange={(e) => onCurrencyChange(e.target.value as "EUR" | "USD")}
-        className="h-10 rounded border-transparent bg-transparent px-2 text-[13px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70"
+        className={cn(
+          "h-10 rounded border-transparent bg-transparent px-2 text-[13px] focus:border-input focus:bg-background disabled:cursor-not-allowed disabled:opacity-70",
+          selectClassName,
+        )}
       >
         <option value="EUR">€</option>
         <option value="USD">$</option>

@@ -176,7 +176,6 @@ export function NewShipmentProductCard({
   const invalidNet = netNum <= 0;
   const invalidGross = grossNum <= 0;
   const netGtGross = netNum > 0 && grossNum > 0 && netNum > grossNum;
-  const invalidPrice = !form.unit_price || Number(form.unit_price) <= 0;
 
   type Hint =
     | { status: "pallet_no_match" | "product_no_match" | "product_ambiguous" | "country_no_match" }
@@ -602,14 +601,14 @@ export function NewShipmentProductCard({
       {/* Row 7: Price + Currency */}
       <div className="mb-2">
         <FieldLabel>Ціна за кг</FieldLabel>
-        <div className={cn(invalidPrice && "field-invalid")}>
-          <PriceCell
-            value={form.unit_price}
-            currency={form.price_currency}
-            onValueChange={(v) => onPatch({ unit_price: v })}
-            onCurrencyChange={(c) => onPatch({ price_currency: c })}
-          />
-        </div>
+        <PriceCell
+          value={form.unit_price}
+          currency={form.price_currency}
+          onValueChange={(v) => onPatch({ unit_price: v })}
+          onCurrencyChange={(c) => onPatch({ price_currency: c })}
+          inputClassName="h-9 text-[13px]"
+          selectClassName="h-9 text-[13px]"
+        />
       </div>
 
       {/* Row 8: Cost preview (Build 2B-A — read-only, no DB writes). */}
@@ -727,7 +726,7 @@ export function NewShipmentProductCard({
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground tabular-nums">
             {customsStatus === "yellow" && customsRef && (
               <div className="col-span-2 text-[10px] leading-snug text-amber-600 dark:text-amber-400">
-                Країну в митній базі не знайдено. Митні платежі розраховані по найвищому індикативу — {customsRef.country}
+                Митні платежі розраховані по найвищому індикативу — {customsRef.country}
               </div>
             )}
             {customsStatus === "red" && (
