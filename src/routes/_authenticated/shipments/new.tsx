@@ -173,6 +173,49 @@ function NewShipment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
 
+  const resetLocalDraft = useCallback(() => {
+    setMode(search.vehicleId ? "existing" : "new");
+    setVehicleId(search.vehicleId ?? "");
+    setCountry("");
+    setCountryTouched(false);
+    setLoadingDate("");
+    setSupplierId("");
+    setCode("");
+    setEtaOverride("");
+    setEtaTouched(false);
+    setSupplierInput("");
+    setCountryInput("");
+    setVehicleInput("");
+    setInvalid(new Set());
+    setDrafts([emptyDraftRow()]);
+    setTransportAmount("");
+    setTransportCurrency("EUR");
+    setScenarioOpen(false);
+  }, [search.vehicleId]);
+
+  const refreshShipmentLists = useCallback(async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["shipments-list"] }),
+      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] }),
+      qc.invalidateQueries({ queryKey: ["shipments"] }),
+      qc.invalidateQueries({ queryKey: ["open-vehicles"] }),
+      qc.invalidateQueries({ queryKey: ["logistics-board"] }),
+    ]);
+  }, [qc]);
+
+  const leaveCreateFormAfterSuccess = useCallback(
+    async (target: { shipmentId: string; closed: boolean }) => {
+      await refreshShipmentLists();
+      resetLocalDraft();
+      navigate({
+        to: target.closed ? "/shipments" : "/shipments",
+        search: target.closed ? { tab: "shipments" } : { tab: "vehicles" },
+        replace: true,
+      });
+    },
+    [navigate, refreshShipmentLists, resetLocalDraft],
+  );
+
   const patchDraft = useCallback((localId: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
   }, []);
@@ -1037,21 +1080,11 @@ function NewShipment() {
           // Vehicle did not actually close, but shipment + items + vehicle exist.
           // Treat as warning, not error: refresh lists, clear local draft and
           // navigate to the created shipment so user cannot resubmit this form.
-          qc.invalidateQueries({ queryKey: ["shipments-list"] });
-          qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
-          qc.invalidateQueries({ queryKey: ["shipments"] });
-          qc.invalidateQueries({ queryKey: ["open-vehicles"] });
           toast.warning(
             `Поставку створено, але авто не закрите: ${res.reason}. Закрийте авто вручну пізніше.`,
             { duration: 12_000 },
           );
-          setScenarioOpen(false);
-          setDrafts([emptyDraftRow()]);
-          navigate({
-            to: "/shipments/$id/products",
-            params: { id: res.artefacts.shipmentId },
-            replace: true,
-          });
+          await leaveCreateFormAfterSuccess({ shipmentId: res.artefacts.shipmentId, closed: false });
           return;
         }
         const artefacts = res.artefacts;
@@ -1069,25 +1102,13 @@ function NewShipment() {
         }
         return;
       }
-      // Success: refresh lists and navigate to the created shipment (replace history entry).
-      qc.invalidateQueries({ queryKey: ["shipments-list"] });
-      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
-      qc.invalidateQueries({ queryKey: ["shipments"] });
-      qc.invalidateQueries({ queryKey: ["open-vehicles"] });
+      // Success: refresh lists and navigate to the table that now owns the saved shipment.
       toast.success(
         res.closed
           ? `Поставку ${res.shipmentCode} створено, авто закрите`
           : `Поставку ${res.shipmentCode} створено`,
       );
-      setScenarioOpen(false);
-      // Clear local draft so unmount + replace:true cannot leak filled form
-      // back into a fresh /shipments/new mount via cache/back navigation.
-      setDrafts([emptyDraftRow()]);
-      navigate({
-        to: "/shipments/$id/products",
-        params: { id: res.shipmentId },
-        replace: true,
-      });
+      await leaveCreateFormAfterSuccess({ shipmentId: res.shipmentId, closed: res.closed });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
     } finally {
