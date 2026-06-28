@@ -195,12 +195,16 @@ function NewShipment() {
   }, [search.vehicleId]);
 
   const refreshShipmentLists = useCallback(async () => {
+    // Force network refetch (not just invalidate) because the global
+    // QueryClient sets refetchOnMount:false. Plain invalidate would only
+    // mark inactive queries stale; after navigation /shipments would still
+    // render the previous cache until realtime or a manual reload kicks in.
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ["shipments-list"] }),
-      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] }),
-      qc.invalidateQueries({ queryKey: ["shipments"] }),
-      qc.invalidateQueries({ queryKey: ["open-vehicles"] }),
-      qc.invalidateQueries({ queryKey: ["logistics-board"] }),
+      qc.refetchQueries({ queryKey: ["shipments-list"] }),
+      qc.refetchQueries({ queryKey: ["open-vehicles-list"] }),
+      qc.refetchQueries({ queryKey: ["shipments"] }),
+      qc.refetchQueries({ queryKey: ["open-vehicles"] }),
+      qc.refetchQueries({ queryKey: ["logistics-board"] }),
     ]);
   }, [qc]);
 
