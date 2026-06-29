@@ -76,12 +76,19 @@ export function CreateScenarioDialog({
   isSubmitting,
   onConfirm,
   onClose,
+  childMode = false,
+  onTopUp,
 }: {
   open: boolean;
   isSubmitting: boolean;
   onConfirm: (scenario: CreateShipmentScenario) => void;
   onClose: () => void;
+  /** Form is already locked to a parent vehicle (entry via "Додати"). */
+  childMode?: boolean;
+  /** Called when user picks "Створити та довантажити" in standalone mode. */
+  onTopUp?: () => void;
 }) {
+  const options = buildOptions(childMode);
   return (
     <Dialog
       open={open}
@@ -106,7 +113,7 @@ export function CreateScenarioDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-2">
-          {OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const active = !opt.disabled;
             return (
               <button
@@ -115,6 +122,11 @@ export function CreateScenarioDialog({
                 disabled={!active || isSubmitting}
                 onClick={() => {
                   if (!active) return;
+                  if (opt.id === "and_topup") {
+                    onTopUp?.();
+                    return;
+                  }
+                  if (opt.id === "with_reserve") return;
                   onConfirm(opt.id as CreateShipmentScenario);
                 }}
                 className={cn(
@@ -143,6 +155,7 @@ export function CreateScenarioDialog({
             );
           })}
         </div>
+
 
         <DialogFooter className="mt-1 sm:justify-between">
           <Button
