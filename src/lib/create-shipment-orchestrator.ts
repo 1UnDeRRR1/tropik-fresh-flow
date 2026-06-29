@@ -52,13 +52,16 @@ export type CreateShipmentInput = {
     code_base: string | null;
     import_manager_id: string | null;
   };
-  country: string;                  // canonical UA country name
-  loadingDate: string;              // YYYY-MM-DD
-  eta: string;                      // YYYY-MM-DD
-  transportAmount: number;          // > 0
-  transportCurrency: "EUR" | "USD";
+  country: string;                  // canonical UA country name (ignored in child mode)
+  loadingDate: string;              // YYYY-MM-DD (ignored in child mode)
+  eta: string;                      // YYYY-MM-DD (ignored in child mode)
+  transportAmount: number;          // > 0 in standalone; ignored (forced 0) in child mode
+  transportCurrency: "EUR" | "USD"; // ignored (forced USD) in child mode
   drafts: DraftRow[];               // already validated non-empty
   products: ProductRef[];
+  /** Build 2D — child mode: child shipment inside an existing open vehicle. */
+  mode?: "standalone" | "child";
+  parentVehicleId?: string;         // required when mode='child'
 };
 
 export type CreateShipmentSuccess = {
