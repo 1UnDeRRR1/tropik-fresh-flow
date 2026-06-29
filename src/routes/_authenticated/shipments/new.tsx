@@ -897,9 +897,26 @@ function NewShipment() {
     return Number.isFinite(n) && n > 0 ? n : null;
   };
   const transportValue = parseTransport(transportAmount);
-  const invalidTransport = transportValue == null;
+  // Build 2D — in child mode the transport field is hidden + readonly and
+  // freight is inherited from the parent vehicle. It is NEVER required.
+  const invalidTransport = isChildMode ? false : transportValue == null;
 
-  const transportField = (
+  const transportField = isChildMode ? (
+    <div>
+      <div className={fieldLabelCls}>
+        <Lock className="mr-1 inline h-3 w-3" /> Транспорт (успадковано від авто)
+      </div>
+      <div className="flex h-9 items-center justify-between rounded-md border border-input bg-secondary/30 px-2 text-[13px]">
+        <span className="text-muted-foreground">Фрахт авто (USD)</span>
+        <span className="font-semibold tabular-nums">
+          {inheritedFreightUsd > 0 ? inheritedFreightUsd.toFixed(2) : "—"} $
+        </span>
+      </div>
+      <div className="mt-0.5 text-[10px] text-muted-foreground">
+        Для цієї поставки фрахт = 0. Преві’ю собівартості рахується за фрахтом авто.
+      </div>
+    </div>
+  ) : (
     <div ref={transportWrapRef}>
       <div className={fieldLabelCls}>Транспорт (фрахт)</div>
       <div
@@ -913,16 +930,12 @@ function NewShipment() {
           value={transportAmount}
           aria-label="Транспорт (фрахт)"
           onChange={(e) => {
-            // Only digits, dot, comma while typing.
             const cleaned = e.target.value.replace(/[^\d.,]/g, "");
             setTransportAmount(cleaned);
             if (parseTransport(cleaned) != null) clearInvalid("transport");
           }}
           onBlur={() => {
             if (!transportAmount.trim()) {
-              // Empty is invalid for a required field but we don't shake on
-              // first focus-out from a never-touched field; only shake when
-              // there was actual typed garbage to reject.
               return;
             }
             if (parseTransport(transportAmount) == null) {
