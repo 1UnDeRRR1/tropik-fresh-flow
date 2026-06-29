@@ -93,6 +93,7 @@ type OpenVehicle = {
     code: string | null;
     logistics_cost: number | null;
     logistics_cost_currency: string | null;
+    logistics_cost_usd: number | null;
     created_by: string | null;
     suppliers: { name: string | null } | null;
     shipment_items: {
