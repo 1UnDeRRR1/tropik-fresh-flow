@@ -1078,18 +1078,22 @@ function NewShipment() {
       toast.error("Постачальник не вибраний");
       return;
     }
-    if (!country || !loadingDate || !computedEta) {
-      toast.error("Заповніть постачальника, країну та дати");
-      return;
-    }
-    if (transportValue == null) {
-      toast.error("Вкажіть транспорт (фрахт)");
-      return;
-    }
-    if (mode === "existing") {
-      // Этап A не підтримує довантаження — другий перемикач буде в наступному Build.
-      toast.error("Сценарій довантаження ще не доступний у цьому кроці.");
-      return;
+    // Build 2D — child mode bypasses transport / country / dates validation;
+    // those fields are inherited from the parent vehicle in the orchestrator.
+    if (!isChildMode) {
+      if (!country || !loadingDate || !computedEta) {
+        toast.error("Заповніть постачальника, країну та дати");
+        return;
+      }
+      if (transportValue == null) {
+        toast.error("Вкажіть транспорт (фрахт)");
+        return;
+      }
+    } else {
+      if (!vehicleId) {
+        toast.error("Авто для довантаження не вибране");
+        return;
+      }
     }
     const drafstToCommit = drafts.filter(
       (d) =>
@@ -1122,10 +1126,14 @@ function NewShipment() {
         country,
         loadingDate,
         eta: computedEta,
-        transportAmount: transportValue,
+        transportAmount: isChildMode ? 0 : (transportValue ?? 0),
         transportCurrency,
         drafts: drafstToCommit,
         products,
+        // Build 2D — child branch: re-fetches parent vehicle, skips
+        // vehicle INSERT, inherits country/dates/code, forces freight=0.
+        mode: isChildMode ? "child" : "standalone",
+        parentVehicleId: isChildMode ? vehicleId : undefined,
       });
       if (!res.ok) {
         if (res.partialSuccess && res.artefacts?.shipmentId) {
