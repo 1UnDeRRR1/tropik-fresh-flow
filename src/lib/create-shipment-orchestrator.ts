@@ -410,10 +410,11 @@ export async function createShipmentFlow(
       responsibleManagerId: supplier.import_manager_id ?? userId,
     });
     if (!res.ok) {
-      // Rollback inserted items (and freshly minted positions) + shipment + vehicle.
+      // Rollback inserted items (and freshly minted positions) + shipment.
+      // In child mode the parent vehicle is NEVER deleted.
       if (res.createdPositionId) createdPositionIds.push(res.createdPositionId);
       const artefacts = await bestEffortRollback({
-        vehicleId,
+        vehicleId: isChild ? null : vehicleId,
         shipmentId,
         itemIds: insertedItemIds,
         positionIds: createdPositionIds,
