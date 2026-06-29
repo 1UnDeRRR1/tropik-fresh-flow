@@ -171,6 +171,9 @@ function NewShipment() {
   // Build 2B-B-2 — scenario dialog + submit lock. No DB writes until the
   // user confirms a scenario in the dialog.
   const [scenarioOpen, setScenarioOpen] = useState(false);
+  // Build 2D — picker dialog for "Створити та довантажити" from standalone
+  // form. Opens when the user chooses the "and_topup" scenario tile.
+  const [pickOpen, setPickOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const qc = useQueryClient();
