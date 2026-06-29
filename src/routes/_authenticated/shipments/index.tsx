@@ -1081,7 +1081,7 @@ function VehicleCard({
                 title={redactCommercial && !hasFreeCapacity ? "Авто заповнене — довантаження неможливе" : undefined}
                 onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
               >
-                + Постач.
+                + Додати
               </Button>
               <Button
                 size="sm"
