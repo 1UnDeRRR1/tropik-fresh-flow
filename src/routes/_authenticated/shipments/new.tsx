@@ -684,6 +684,37 @@ function NewShipment() {
     };
   }, [mode, selectedVehicle]);
 
+  // ───────── Build 2D — child-mode wiring ────────────────────────────────
+  // True when the form is locked to a parent vehicle (entry via "Додати"
+  // from open vehicles, OR after the user picked one in the topup dialog).
+  const isChildMode = mode === "existing" && !!selectedVehicle;
+
+  // Build 2D §6 — preview must use inherited freight from the parent
+  // vehicle, NOT zero. Sum logistics_cost_usd across every shipment
+  // already attached to the chosen vehicle. EUR-only shipments without a
+  // computed USD value (NULL) are skipped — same convention the DB triggers
+  // use for the per-position transport allocation.
+  const inheritedFreightUsd = useMemo(() => {
+    if (!isChildMode || !selectedVehicle?.shipments) return 0;
+    let pool = 0;
+    for (const s of selectedVehicle.shipments) {
+      const v = Number(s.logistics_cost_usd ?? 0);
+      if (Number.isFinite(v) && v > 0) pool += v;
+    }
+    return pool;
+  }, [isChildMode, selectedVehicle]);
+
+  // Build 2D §1 — keep `country` state in sync with the locked parent
+  // vehicle so country-derived queries / preview calls behave identically
+  // to standalone mode. UI fields remain hidden in child mode.
+  useEffect(() => {
+    if (mode !== "existing") return;
+    const c = selectedVehicle?.country;
+    if (c && c !== country) setCountry(c);
+    const ld = selectedVehicle?.loading_date;
+    if (ld && ld !== loadingDate) setLoadingDate(ld);
+  }, [mode, selectedVehicle?.country, selectedVehicle?.loading_date, country, loadingDate]);
+
   const totalPallets = draftTotals.pallets + loadedExisting.pallets;
   const totalKg = draftTotals.kg + loadedExisting.kg;
   const remainPallets = Math.max(0, VEHICLE_MAX_PALLETS - totalPallets);
