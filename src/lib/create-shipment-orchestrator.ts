@@ -357,14 +357,17 @@ export async function createShipmentFlow(
     .single();
   if (sIns.error || !sIns.data) {
     const reason = safeReason(sIns.error ?? new Error("shipment_insert_failed"));
-    // Rollback vehicle.
-    const delV = await supabase.from("vehicles" as never).delete().eq("id", vehicleId);
-    return {
-      ok: false,
-      stage: "insert_shipment",
-      reason,
-      artefacts: delV.error ? { vehicleId } : undefined,
-    };
+    // Rollback vehicle ONLY when we created it (standalone mode).
+    if (!isChild) {
+      const delV = await supabase.from("vehicles" as never).delete().eq("id", vehicleId);
+      return {
+        ok: false,
+        stage: "insert_shipment",
+        reason,
+        artefacts: delV.error ? { vehicleId } : undefined,
+      };
+    }
+    return { ok: false, stage: "insert_shipment", reason };
   }
   const shipmentId = (sIns.data as unknown as { id: string }).id;
 
