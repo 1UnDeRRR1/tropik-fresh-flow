@@ -114,24 +114,87 @@ export async function createShipmentFlow(
     scenario,
     userId,
     supplier,
-    country,
-    loadingDate,
-    eta,
-    transportAmount,
-    transportCurrency,
     drafts,
     products,
   } = input;
 
-  const alias = getSupplierAlias(supplier);
-  const countryCode = getCountryCode(country);
+  const isChild = input.mode === "child" && !!input.parentVehicleId;
 
-  // 1. Sequences (read-only RPC) — fetched fresh just before writes.
-  let vehicleSeq: number;
-  try {
-    vehicleSeq = await fetchNextVehicleSequence(countryCode);
-  } catch (e) {
-    return { ok: false, stage: "sequence_vehicle", reason: safeReason(e) };
+  // Build 2D — child mode forbids "create_and_close". Defensive guard
+  // (UI does not surface that option in child mode either).
+  if (isChild && scenario === "create_and_close") {
+    return {
+      ok: false,
+      stage: "parent_fetch",
+      reason: "Сценарій 'Створити та закрити' недоступний у режимі довантаження",
+    };
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Child mode: re-read parent vehicle from DB (source of truth) BEFORE any
+  // sequence/FX work. Inherits country / loading_date / eta / code; ignores
+  // freight/currency inputs from the form.
+  // ────────────────────────────────────────────────────────────────────────
+  let parentVehicle: {
+    id: string;
+    code: string;
+    country: string;
+    loading_date: string | null;
+    eta: string | null;
+    status: string;
+  } | null = null;
+  if (isChild) {
+    const pv = (await supabase
+      .from("vehicles" as never)
+      .select("id,code,country,loading_date,eta,status")
+      .eq("id", input.parentVehicleId!)
+      .maybeSingle()) as {
+        data: {
+          id: string;
+          code: string;
+          country: string;
+          loading_date: string | null;
+          eta: string | null;
+          status: string;
+        } | null;
+        error: { message: string } | null;
+      };
+    if (pv.error || !pv.data) {
+      return {
+        ok: false,
+        stage: "parent_fetch",
+        reason: safeReason(pv.error ?? new Error("parent_vehicle_not_found")),
+      };
+    }
+    if (pv.data.status !== "open") {
+      return {
+        ok: false,
+        stage: "parent_fetch",
+        reason: `Авто вже не у статусі 'open' (поточний статус: '${pv.data.status}'). Оновіть список і спробуйте ще раз.`,
+      };
+    }
+    parentVehicle = pv.data;
+  }
+
+  // Effective parent-derived fields (used everywhere downstream).
+  const effCountry = parentVehicle?.country ?? input.country;
+  const effLoadingDate = parentVehicle?.loading_date ?? input.loadingDate;
+  const effEta = parentVehicle?.eta ?? input.eta;
+  // In child mode freight is forced to 0 USD regardless of form input.
+  const transportAmount = isChild ? 0 : input.transportAmount;
+  const transportCurrency: "EUR" | "USD" = isChild ? "USD" : input.transportCurrency;
+
+  const alias = getSupplierAlias(supplier);
+  const countryCode = getCountryCode(effCountry);
+
+  // 1. Sequences. Vehicle sequence is NOT consumed in child mode.
+  let vehicleSeq: number | null = null;
+  if (!isChild) {
+    try {
+      vehicleSeq = await fetchNextVehicleSequence(countryCode);
+    } catch (e) {
+      return { ok: false, stage: "sequence_vehicle", reason: safeReason(e) };
+    }
   }
   let supplierSeq: number;
   try {
@@ -140,10 +203,13 @@ export async function createShipmentFlow(
     return { ok: false, stage: "sequence_supplier", reason: safeReason(e) };
   }
 
-  const vehicleCode = formatVehicleCode(countryCode, vehicleSeq);
+  const vehicleCode = isChild
+    ? parentVehicle!.code
+    : formatVehicleCode(countryCode, vehicleSeq!);
   const shipmentCode = formatShipmentCode({ alias, supplierSeq, vehicleCode });
 
-  // 2. FX rate (only when freight or any item price is in EUR).
+  // 2. FX rate. In child mode transport=USD forced, so FX is only needed when
+  //    at least one item is priced in EUR (per Build 2D §7).
   const needFx =
     transportCurrency === "EUR" ||
     drafts.some((d) => d.price_currency === "EUR");
@@ -165,37 +231,103 @@ export async function createShipmentFlow(
   const fxRate = eurUsd?.rate ?? null;
   const fxDate = eurUsd?.date ?? null;
 
-  const logisticsCostUsd =
-    transportCurrency === "USD"
+  const logisticsCostUsd = isChild
+    ? 0
+    : transportCurrency === "USD"
       ? transportAmount
       : fxRate != null
         ? Number((transportAmount * fxRate).toFixed(2))
         : null;
 
-  // 3. INSERT vehicle.
-  const vehiclePayload = {
-    code: vehicleCode,
-    country,
-    country_code: countryCode,
-    sequence_no: vehicleSeq,
-    loading_date: loadingDate,
-    eta,
-    created_by: userId,
-    // status omitted → DB default 'open'.
-  };
-  const vIns = (await supabase
-    .from("vehicles" as never)
-    .insert(vehiclePayload as never)
-    .select("id")
-    .single()) as { data: { id: string } | null; error: { message: string } | null };
-  if (vIns.error || !vIns.data) {
-    return {
-      ok: false,
-      stage: "insert_vehicle",
-      reason: safeReason(vIns.error ?? new Error("vehicle_insert_failed")),
+  // 3. INSERT vehicle — standalone only. Child mode reuses parent vehicle.
+  let vehicleId: string;
+  if (isChild) {
+    vehicleId = parentVehicle!.id;
+
+    // 3b. Capacity guard (freshness-check, NOT atomic — race window remains
+    //     between this SELECT and the shipment_items INSERT below). Atomic
+    //     enforcement would need a DB-level trigger/RPC — out of scope for 2D.
+    const cap = (await supabase
+      .from("shipment_items")
+      .select(
+        "pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,shipments!inner(vehicle_id)",
+      )
+      .eq("shipments.vehicle_id", vehicleId)) as {
+        data:
+          | {
+              pallet_count: number | null;
+              pallet_weight: number | null;
+              net_weight_kg: number | null;
+              gross_weight_kg: number | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      };
+    if (cap.error) {
+      return { ok: false, stage: "capacity_guard", reason: safeReason(cap.error) };
+    }
+    let usedPallets = 0;
+    let usedGross = 0;
+    for (const it of cap.data ?? []) {
+      const pc = Number(it.pallet_count ?? 0);
+      usedPallets += pc;
+      const g = Number(it.gross_weight_kg ?? 0);
+      if (g > 0) usedGross += g;
+      else {
+        const net = Number(it.net_weight_kg ?? 0);
+        const pw = Number(it.pallet_weight ?? 0);
+        usedGross += net > 0 ? net : pc * pw;
+      }
+    }
+    let draftPallets = 0;
+    let draftGross = 0;
+    for (const d of drafts) {
+      const pc = Number(d.pallet_count ?? 0);
+      draftPallets += pc;
+      const g = Number(d.gross_weight_kg ?? 0);
+      if (g > 0) draftGross += g;
+      else {
+        const net = Number(d.net_weight_kg ?? 0);
+        const pw = Number(d.pallet_weight ?? 0);
+        draftGross += net > 0 ? net : pc * pw;
+      }
+    }
+    const CAP_PAL = 26;
+    const CAP_GROSS = 21500;
+    if (usedPallets + draftPallets > CAP_PAL || usedGross + draftGross > CAP_GROSS) {
+      const freePal = Math.max(0, CAP_PAL - usedPallets);
+      const freeGross = Math.max(0, CAP_GROSS - usedGross);
+      return {
+        ok: false,
+        stage: "capacity_guard",
+        reason: `Недостатньо вільного місця в авто ${parentVehicle!.code}: вільно ${freePal} пал / ${Math.round(freeGross)} кг, потрібно ${draftPallets} пал / ${Math.round(draftGross)} кг`,
+      };
+    }
+  } else {
+    const vehiclePayload = {
+      code: vehicleCode,
+      country: effCountry,
+      country_code: countryCode,
+      sequence_no: vehicleSeq!,
+      loading_date: effLoadingDate,
+      eta: effEta,
+      created_by: userId,
+      // status omitted → DB default 'open'.
     };
+    const vIns = (await supabase
+      .from("vehicles" as never)
+      .insert(vehiclePayload as never)
+      .select("id")
+      .single()) as { data: { id: string } | null; error: { message: string } | null };
+    if (vIns.error || !vIns.data) {
+      return {
+        ok: false,
+        stage: "insert_vehicle",
+        reason: safeReason(vIns.error ?? new Error("vehicle_insert_failed")),
+      };
+    }
+    vehicleId = vIns.data.id;
   }
-  const vehicleId = vIns.data.id;
 
   // 4. INSERT shipment (parent — single source of freight for this auto in
   //    scenario A; scenario "довантаження" will be added later and forces 0).
