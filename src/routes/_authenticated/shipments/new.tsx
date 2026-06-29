@@ -53,6 +53,7 @@ import { resolveCountry } from "@/lib/country-search";
 import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
 import { CreateScenarioDialog } from "@/components/shipments/CreateScenarioDialog";
+import { PickOpenVehicleDialog } from "@/components/shipments/PickOpenVehicleDialog";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
   emptyDraftRow,
@@ -93,6 +94,7 @@ type OpenVehicle = {
     code: string | null;
     logistics_cost: number | null;
     logistics_cost_currency: string | null;
+    logistics_cost_usd: number | null;
     created_by: string | null;
     suppliers: { name: string | null } | null;
     shipment_items: {
@@ -170,6 +172,9 @@ function NewShipment() {
   // Build 2B-B-2 — scenario dialog + submit lock. No DB writes until the
   // user confirms a scenario in the dialog.
   const [scenarioOpen, setScenarioOpen] = useState(false);
+  // Build 2D — picker dialog for "Створити та довантажити" from standalone
+  // form. Opens when the user chooses the "and_topup" scenario tile.
+  const [pickOpen, setPickOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const qc = useQueryClient();
@@ -308,7 +313,7 @@ function NewShipment() {
       let q = supabase
         .from("vehicles" as never)
         .select(
-          "id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(id,code,logistics_cost,logistics_cost_currency,created_by,suppliers(name),shipment_items(id,product_name,variety,caliber,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))",
+          "id,code,country,country_code,loading_date,eta,total_pallets,total_weight_kg,created_by,shipments(id,code,logistics_cost,logistics_cost_currency,logistics_cost_usd,created_by,suppliers(name),shipment_items(id,product_name,variety,caliber,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))",
         )
         .eq("status", "open")
         .order("created_at", { ascending: false });
@@ -679,6 +684,37 @@ function NewShipment() {
     };
   }, [mode, selectedVehicle]);
 
+  // ───────── Build 2D — child-mode wiring ────────────────────────────────
+  // True when the form is locked to a parent vehicle (entry via "Додати"
+  // from open vehicles, OR after the user picked one in the topup dialog).
+  const isChildMode = mode === "existing" && !!selectedVehicle;
+
+  // Build 2D §6 — preview must use inherited freight from the parent
+  // vehicle, NOT zero. Sum logistics_cost_usd across every shipment
+  // already attached to the chosen vehicle. EUR-only shipments without a
+  // computed USD value (NULL) are skipped — same convention the DB triggers
+  // use for the per-position transport allocation.
+  const inheritedFreightUsd = useMemo(() => {
+    if (!isChildMode || !selectedVehicle?.shipments) return 0;
+    let pool = 0;
+    for (const s of selectedVehicle.shipments) {
+      const v = Number(s.logistics_cost_usd ?? 0);
+      if (Number.isFinite(v) && v > 0) pool += v;
+    }
+    return pool;
+  }, [isChildMode, selectedVehicle]);
+
+  // Build 2D §1 — keep `country` state in sync with the locked parent
+  // vehicle so country-derived queries / preview calls behave identically
+  // to standalone mode. UI fields remain hidden in child mode.
+  useEffect(() => {
+    if (mode !== "existing") return;
+    const c = selectedVehicle?.country;
+    if (c && c !== country) setCountry(c);
+    const ld = selectedVehicle?.loading_date;
+    if (ld && ld !== loadingDate) setLoadingDate(ld);
+  }, [mode, selectedVehicle?.country, selectedVehicle?.loading_date, country, loadingDate]);
+
   const totalPallets = draftTotals.pallets + loadedExisting.pallets;
   const totalKg = draftTotals.kg + loadedExisting.kg;
   const remainPallets = Math.max(0, VEHICLE_MAX_PALLETS - totalPallets);
@@ -861,9 +897,26 @@ function NewShipment() {
     return Number.isFinite(n) && n > 0 ? n : null;
   };
   const transportValue = parseTransport(transportAmount);
-  const invalidTransport = transportValue == null;
+  // Build 2D — in child mode the transport field is hidden + readonly and
+  // freight is inherited from the parent vehicle. It is NEVER required.
+  const invalidTransport = isChildMode ? false : transportValue == null;
 
-  const transportField = (
+  const transportField = isChildMode ? (
+    <div>
+      <div className={fieldLabelCls}>
+        <Lock className="mr-1 inline h-3 w-3" /> Транспорт (успадковано від авто)
+      </div>
+      <div className="flex h-9 items-center justify-between rounded-md border border-input bg-secondary/30 px-2 text-[13px]">
+        <span className="text-muted-foreground">Фрахт авто (USD)</span>
+        <span className="font-semibold tabular-nums">
+          {inheritedFreightUsd > 0 ? inheritedFreightUsd.toFixed(2) : "—"} $
+        </span>
+      </div>
+      <div className="mt-0.5 text-[10px] text-muted-foreground">
+        Для цієї поставки фрахт = 0. Преві’ю собівартості рахується за фрахтом авто.
+      </div>
+    </div>
+  ) : (
     <div ref={transportWrapRef}>
       <div className={fieldLabelCls}>Транспорт (фрахт)</div>
       <div
@@ -877,16 +930,12 @@ function NewShipment() {
           value={transportAmount}
           aria-label="Транспорт (фрахт)"
           onChange={(e) => {
-            // Only digits, dot, comma while typing.
             const cleaned = e.target.value.replace(/[^\d.,]/g, "");
             setTransportAmount(cleaned);
             if (parseTransport(cleaned) != null) clearInvalid("transport");
           }}
           onBlur={() => {
             if (!transportAmount.trim()) {
-              // Empty is invalid for a required field but we don't shake on
-              // first focus-out from a never-touched field; only shake when
-              // there was actual typed garbage to reject.
               return;
             }
             if (parseTransport(transportAmount) == null) {
@@ -1029,18 +1078,22 @@ function NewShipment() {
       toast.error("Постачальник не вибраний");
       return;
     }
-    if (!country || !loadingDate || !computedEta) {
-      toast.error("Заповніть постачальника, країну та дати");
-      return;
-    }
-    if (transportValue == null) {
-      toast.error("Вкажіть транспорт (фрахт)");
-      return;
-    }
-    if (mode === "existing") {
-      // Этап A не підтримує довантаження — другий перемикач буде в наступному Build.
-      toast.error("Сценарій довантаження ще не доступний у цьому кроці.");
-      return;
+    // Build 2D — child mode bypasses transport / country / dates validation;
+    // those fields are inherited from the parent vehicle in the orchestrator.
+    if (!isChildMode) {
+      if (!country || !loadingDate || !computedEta) {
+        toast.error("Заповніть постачальника, країну та дати");
+        return;
+      }
+      if (transportValue == null) {
+        toast.error("Вкажіть транспорт (фрахт)");
+        return;
+      }
+    } else {
+      if (!vehicleId) {
+        toast.error("Авто для довантаження не вибране");
+        return;
+      }
     }
     const drafstToCommit = drafts.filter(
       (d) =>
@@ -1073,10 +1126,14 @@ function NewShipment() {
         country,
         loadingDate,
         eta: computedEta,
-        transportAmount: transportValue,
+        transportAmount: isChildMode ? 0 : (transportValue ?? 0),
         transportCurrency,
         drafts: drafstToCommit,
         products,
+        // Build 2D — child branch: re-fetches parent vehicle, skips
+        // vehicle INSERT, inherits country/dates/code, forces freight=0.
+        mode: isChildMode ? "child" : "standalone",
+        parentVehicleId: isChildMode ? vehicleId : undefined,
       });
       if (!res.ok) {
         if (res.partialSuccess && res.artefacts?.shipmentId) {
@@ -1245,8 +1302,8 @@ function NewShipment() {
               otherKg={otherKg}
               productOriginLocked={locked}
               index={idx}
-              transportAmount={transportValue}
-              transportCurrency={transportCurrency}
+              transportAmount={isChildMode ? inheritedFreightUsd : transportValue}
+              transportCurrency={isChildMode ? "USD" : transportCurrency}
               onPatch={(patch) => patchDraft(d.localId, patch)}
               onRemove={() => removeDraft(d.localId)}
             />
@@ -1392,6 +1449,37 @@ function NewShipment() {
         isSubmitting={isSubmitting}
         onClose={() => setScenarioOpen(false)}
         onConfirm={(scenario) => void handleConfirmScenario(scenario)}
+        childMode={isChildMode}
+        onTopUp={() => {
+          // Build 2D — user picked "Створити та довантажити" from the
+          // standalone form. Close the scenario tile and open the picker.
+          // Zero DB writes here; orchestrator runs only after pick.
+          setScenarioOpen(false);
+          setPickOpen(true);
+        }}
+      />
+
+      {/* Build 2D — picker for "Створити та довантажити". The dialog is a
+          pure read query; selecting a vehicle flips the form into child
+          mode (mode='existing' + vehicleId) and immediately triggers the
+          orchestrator. No writes happen until the orchestrator runs. */}
+      <PickOpenVehicleDialog
+        open={pickOpen}
+        country={country}
+        draftPallets={draftTotals.pallets}
+        draftGrossKg={draftTotals.kg}
+        onClose={() => setPickOpen(false)}
+        onPick={(v) => {
+          setPickOpen(false);
+          setMode("existing");
+          setVehicleId(v.id);
+          // Allow React to flush state, then run the orchestrator. The
+          // orchestrator re-reads the parent vehicle from DB (source of
+          // truth) regardless of what we have in local state.
+          setTimeout(() => {
+            void handleConfirmScenario("create");
+          }, 0);
+        }}
       />
     </div>
   );

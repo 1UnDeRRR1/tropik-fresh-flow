@@ -20,52 +20,75 @@ import { cn } from "@/lib/utils";
 
 import type { CreateShipmentScenario } from "@/lib/create-shipment-orchestrator";
 
+type OptionId = CreateShipmentScenario | "with_reserve" | "and_topup";
 type Option = {
-  id: CreateShipmentScenario | "with_reserve" | "and_topup";
+  id: OptionId;
   title: string;
   hint: string;
   disabled?: boolean;
   comingSoon?: boolean;
 };
 
-const OPTIONS: Option[] = [
-  {
-    id: "create",
-    title: "Створити",
-    hint: "Авто залишається відкритим, інші менеджери можуть додавати свої поставки.",
-  },
-  {
-    id: "with_reserve",
-    title: "Створити з резервом",
-    hint: "Зарезервувати місце в авто під майбутню довантаження.",
-    disabled: true,
-    comingSoon: true,
-  },
-  {
-    id: "create_and_close",
-    title: "Створити та закрити",
-    hint: "Авто закривається одразу після створення — додавати інші поставки не можна.",
-  },
-  {
-    id: "and_topup",
-    title: "Створити та довантажити",
-    hint: "Створити поставку і одразу додати ще одну до цього ж авто.",
-    disabled: true,
-    comingSoon: true,
-  },
-];
+// Build 2D — "and_topup" is now active. Selecting it does NOT immediately
+// invoke the orchestrator: the parent opens PickOpenVehicleDialog and only
+// then runs createShipmentFlow with mode='child'.
+function buildOptions(childMode: boolean): Option[] {
+  if (childMode) {
+    // Child mode: only standalone "Створити" is meaningful. "Створити та
+    // закрити" must not appear (closing a vehicle that already hosts a
+    // parent shipment is the parent owner's action, not the child's).
+    return [
+      {
+        id: "create",
+        title: "Створити",
+        hint: "Створити поставку всередині обраного авто. Авто залишається відкритим.",
+      },
+    ];
+  }
+  return [
+    {
+      id: "create",
+      title: "Створити",
+      hint: "Авто залишається відкритим, інші менеджери можуть додавати свої поставки.",
+    },
+    {
+      id: "with_reserve",
+      title: "Створити з резервом",
+      hint: "Зарезервувати місце в авто під майбутню довантаження.",
+      disabled: true,
+      comingSoon: true,
+    },
+    {
+      id: "create_and_close",
+      title: "Створити та закрити",
+      hint: "Авто закривається одразу після створення — додавати інші поставки не можна.",
+    },
+    {
+      id: "and_topup",
+      title: "Створити та довантажити",
+      hint: "Обрати існуюче відкрите авто і додати в нього цю поставку (фрахт успадковується).",
+    },
+  ];
+}
 
 export function CreateScenarioDialog({
   open,
   isSubmitting,
   onConfirm,
   onClose,
+  childMode = false,
+  onTopUp,
 }: {
   open: boolean;
   isSubmitting: boolean;
   onConfirm: (scenario: CreateShipmentScenario) => void;
   onClose: () => void;
+  /** Form is already locked to a parent vehicle (entry via "Додати"). */
+  childMode?: boolean;
+  /** Called when user picks "Створити та довантажити" in standalone mode. */
+  onTopUp?: () => void;
 }) {
+  const options = buildOptions(childMode);
   return (
     <Dialog
       open={open}
@@ -90,7 +113,7 @@ export function CreateScenarioDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-2">
-          {OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const active = !opt.disabled;
             return (
               <button
@@ -99,6 +122,11 @@ export function CreateScenarioDialog({
                 disabled={!active || isSubmitting}
                 onClick={() => {
                   if (!active) return;
+                  if (opt.id === "and_topup") {
+                    onTopUp?.();
+                    return;
+                  }
+                  if (opt.id === "with_reserve") return;
                   onConfirm(opt.id as CreateShipmentScenario);
                 }}
                 className={cn(
@@ -127,6 +155,7 @@ export function CreateScenarioDialog({
             );
           })}
         </div>
+
 
         <DialogFooter className="mt-1 sm:justify-between">
           <Button
