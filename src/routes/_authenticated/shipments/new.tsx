@@ -1449,6 +1449,37 @@ function NewShipment() {
         isSubmitting={isSubmitting}
         onClose={() => setScenarioOpen(false)}
         onConfirm={(scenario) => void handleConfirmScenario(scenario)}
+        childMode={isChildMode}
+        onTopUp={() => {
+          // Build 2D — user picked "Створити та довантажити" from the
+          // standalone form. Close the scenario tile and open the picker.
+          // Zero DB writes here; orchestrator runs only after pick.
+          setScenarioOpen(false);
+          setPickOpen(true);
+        }}
+      />
+
+      {/* Build 2D — picker for "Створити та довантажити". The dialog is a
+          pure read query; selecting a vehicle flips the form into child
+          mode (mode='existing' + vehicleId) and immediately triggers the
+          orchestrator. No writes happen until the orchestrator runs. */}
+      <PickOpenVehicleDialog
+        open={pickOpen}
+        country={country}
+        draftPallets={draftTotals.pallets}
+        draftGrossKg={draftTotals.kg}
+        onClose={() => setPickOpen(false)}
+        onPick={(v) => {
+          setPickOpen(false);
+          setMode("existing");
+          setVehicleId(v.id);
+          // Allow React to flush state, then run the orchestrator. The
+          // orchestrator re-reads the parent vehicle from DB (source of
+          // truth) regardless of what we have in local state.
+          setTimeout(() => {
+            void handleConfirmScenario("create");
+          }, 0);
+        }}
       />
     </div>
   );
