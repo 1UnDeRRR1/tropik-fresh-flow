@@ -82,7 +82,9 @@ export type CreateShipmentFailure = {
     | "insert_vehicle"
     | "insert_shipment"
     | "insert_items"
-    | "close_vehicle";
+    | "close_vehicle"
+    | "parent_fetch"      // Build 2D — child mode: parent vehicle missing/closed
+    | "capacity_guard";   // Build 2D — child mode: not enough free pallets/gross
   reason: string;
   /** Artefacts that survived the rollback attempt — must be surfaced to user. */
   artefacts?: {
