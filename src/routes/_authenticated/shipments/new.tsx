@@ -1302,8 +1302,8 @@ function NewShipment() {
               otherKg={otherKg}
               productOriginLocked={locked}
               index={idx}
-              transportAmount={transportValue}
-              transportCurrency={transportCurrency}
+              transportAmount={isChildMode ? inheritedFreightUsd : transportValue}
+              transportCurrency={isChildMode ? "USD" : transportCurrency}
               onPatch={(patch) => patchDraft(d.localId, patch)}
               onRemove={() => removeDraft(d.localId)}
             />
