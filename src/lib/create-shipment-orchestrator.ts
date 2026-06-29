@@ -288,8 +288,7 @@ export async function createShipmentFlow(
       if (g > 0) draftGross += g;
       else {
         const net = Number(d.net_weight_kg ?? 0);
-        const pw = Number(d.pallet_weight ?? 0);
-        draftGross += net > 0 ? net : pc * pw;
+        draftGross += net > 0 ? net : 0;
       }
     }
     const CAP_PAL = 26;
