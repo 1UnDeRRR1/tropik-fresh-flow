@@ -1068,7 +1068,10 @@ function NewShipment() {
   // Build 2B-B-2 — scenario confirm handler. Validation is already enforced
   // by the gate on the "Створити" button; this function performs the
   // orchestrated DB writes and navigates to the new shipment on success.
-  async function handleConfirmScenario(scenario: CreateShipmentScenario) {
+  async function handleConfirmScenario(
+    scenario: CreateShipmentScenario,
+    override?: { parentVehicleId?: string },
+  ) {
     if (submitLockRef.current) return;
     if (!user) {
       toast.error("Сесія не активна");
@@ -1078,9 +1081,16 @@ function NewShipment() {
       toast.error("Постачальник не вибраний");
       return;
     }
-    // Build 2D — child mode bypasses transport / country / dates validation;
-    // those fields are inherited from the parent vehicle in the orchestrator.
-    if (!isChildMode) {
+    // Build 2D fix — child mode is decided by an EXPLICIT parentVehicleId
+    // passed by the caller (topup picker), OR by the current form state
+    // (entry via "Додати" from open vehicles, or ?vehicleId= search param).
+    // We must NOT rely on React state that was set in the same tick as this
+    // call, because setState is async and the closure would read stale values.
+    const explicitParentId = override?.parentVehicleId;
+    const effectiveChildMode = explicitParentId ? true : isChildMode;
+    const effectiveParentVehicleId = explicitParentId ?? (isChildMode ? vehicleId : undefined);
+
+    if (!effectiveChildMode) {
       if (!country || !loadingDate || !computedEta) {
         toast.error("Заповніть постачальника, країну та дати");
         return;
@@ -1090,11 +1100,17 @@ function NewShipment() {
         return;
       }
     } else {
-      if (!vehicleId) {
+      if (!effectiveParentVehicleId) {
         toast.error("Авто для довантаження не вибране");
         return;
       }
+      // Defensive: child mode must never run "create_and_close".
+      if (scenario === "create_and_close") {
+        toast.error("У режимі довантаження не можна закривати авто");
+        return;
+      }
     }
+
     const drafstToCommit = drafts.filter(
       (d) =>
         d.product_name.trim() !== "" ||
