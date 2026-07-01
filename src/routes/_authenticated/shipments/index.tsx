@@ -776,6 +776,22 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Авто закрите");
+
+    // Build 2E-B — after successful vehicle close, close any lingering
+    // active reserves on this vehicle. RPC uses SECURITY DEFINER and
+    // requires vehicle.status='closed', which is now guaranteed. Failure
+    // is a warning only — we do NOT roll back the vehicle close.
+    try {
+      const rr = await closeVehicleReserves(id);
+      if (!rr.ok) {
+        toast.warning(`Авто закрите, але резерви не закриті: ${rr.reason}`);
+      }
+    } catch (e) {
+      toast.warning(
+        `Авто закрите, але резерви не закриті: ${e instanceof Error ? e.message : "невідома помилка"}`,
+      );
+    }
+
     // Vehicle-level action: invalidate all views that depend on vehicle
     // status so the shared vehicle (parent + child shipments) leaves
     // "Не закриті авто" and appears on the shipments board in one refresh.
@@ -786,6 +802,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       qc.refetchQueries({ queryKey: ["vehicles-open"], type: "all" }),
       qc.refetchQueries({ queryKey: ["vehicles-list"], type: "all" }),
       qc.refetchQueries({ queryKey: ["logistics-board"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["vehicle-reserves-open"], type: "all" }),
     ]);
     refetch();
   };
