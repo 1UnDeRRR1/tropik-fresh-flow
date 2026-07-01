@@ -203,7 +203,7 @@ export function PickOpenVehicleDialog({
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {matched.map(({ v, agg, resPal, resGross, freePal, freeGross }) => (
+              {matched.map(({ v, agg, resPal, resGross, ownPal, freePal, freeGross }) => (
                 <li key={v.id}>
                   <button
                     type="button"
@@ -235,6 +235,11 @@ export function PickOpenVehicleDialog({
                         вільно: {freePal} пал · {Math.round(freeGross)} кг
                       </span>
                     </div>
+                    {ownPal > 0 && (
+                      <div className="mt-0.5 text-[10px] text-brand">
+                        з них мій: {ownPal} пал (не блокує)
+                      </div>
+                    )}
                     {agg.suppliers.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {agg.suppliers.map((s, i) => (
