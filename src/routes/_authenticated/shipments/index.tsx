@@ -968,6 +968,7 @@ function VehicleCard({
   const SWIPE_CLOSE_THRESHOLD = 18;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const swipeOffsetRef = useRef(0);
