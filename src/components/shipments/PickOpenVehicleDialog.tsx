@@ -179,7 +179,7 @@ export function PickOpenVehicleDialog({
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {matched.map(({ v, agg, freePal, freeGross }) => (
+              {matched.map(({ v, agg, resPal, resGross, freePal, freeGross }) => (
                 <li key={v.id}>
                   <button
                     type="button"
@@ -202,7 +202,10 @@ export function PickOpenVehicleDialog({
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-muted-foreground">
                       <span>
-                        {agg.pallets}/26 пал · {Math.round(agg.gross)}/21500 кг
+                        зайнято {agg.pallets} пал
+                        {resPal > 0 ? ` + резерв ${resPal} пал` : ""} ·{" "}
+                        {Math.round(agg.gross)}
+                        {resGross > 0 ? ` + ${Math.round(resGross)}` : ""} кг
                       </span>
                       <span className="text-foreground">
                         вільно: {freePal} пал · {Math.round(freeGross)} кг
