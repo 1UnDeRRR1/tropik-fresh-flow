@@ -177,6 +177,8 @@ function NewShipment() {
   // Build 2D — picker dialog for "Створити та довантажити" from standalone
   // form. Opens when the user chooses the "and_topup" scenario tile.
   const [pickOpen, setPickOpen] = useState(false);
+  // Build 2E-B — reserve dialog for "Створити з резервом" (standalone only).
+  const [reserveOpen, setReserveOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const qc = useQueryClient();
