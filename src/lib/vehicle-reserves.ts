@@ -96,3 +96,44 @@ export function sumReserves(rs: Pick<ActiveReserve, "pallets" | "gross_kg">[]): 
   }
   return { pallets, gross_kg };
 }
+
+// Build 2E-C — owner-aware FIFO consumption of caller's own active reserves
+// on a vehicle. Called ONCE after a successful child shipment create; if it
+// fails, no retry — UI shows a warning and lets the user act manually.
+export type ConsumeReservesResult = {
+  consumed_reserve_ids: string[];
+  consumed_pallets: number;
+  consumed_gross_kg: number;
+  remaining_active_count: number;
+};
+
+export async function consumeVehicleReservesForChild(
+  vehicleId: string,
+  pallets: number,
+  grossKg: number,
+): Promise<{ ok: true; data: ConsumeReservesResult } | { ok: false; reason: string }> {
+  const { data, error } = await supabase.rpc(
+    "consume_vehicle_reserves_for_child" as never,
+    {
+      p_vehicle_id: vehicleId,
+      p_pallets: Math.max(0, Math.round(pallets)),
+      p_gross_kg: Math.max(0, Number(grossKg)),
+    } as never,
+  );
+  if (error) return { ok: false, reason: error.message };
+  const raw = (data ?? {}) as {
+    consumed_reserve_ids?: string[] | null;
+    consumed_pallets?: number | null;
+    consumed_gross_kg?: number | null;
+    remaining_active_count?: number | null;
+  };
+  return {
+    ok: true,
+    data: {
+      consumed_reserve_ids: raw.consumed_reserve_ids ?? [],
+      consumed_pallets: Number(raw.consumed_pallets ?? 0),
+      consumed_gross_kg: Number(raw.consumed_gross_kg ?? 0),
+      remaining_active_count: Number(raw.remaining_active_count ?? 0),
+    },
+  };
+}
