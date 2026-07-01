@@ -112,6 +112,6 @@
   .tmg-shipments .tmg-row-meta,
   .tmg-shipments .tmg-meta-left,
   .tmg-shipments .tmg-meta-right { font-size: 13.5px; }
-  .tmg-shipments .tmg-l2-etd { min-width: 14ch; }
-  .tmg-shipments .tmg-l2-free { min-width: 18ch; }
+  /* Fixed 16/19 character grid is enforced by content padding + monospace,
+     so no min-width override is needed on narrow phones. */
 }
