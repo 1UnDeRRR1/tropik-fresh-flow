@@ -3829,6 +3829,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consume_vehicle_reserves_for_child: {
+        Args: { p_gross_kg: number; p_pallets: number; p_vehicle_id: string }
+        Returns: Json
+      }
       create_vehicle_reserve: {
         Args: {
           p_gross_kg: number
