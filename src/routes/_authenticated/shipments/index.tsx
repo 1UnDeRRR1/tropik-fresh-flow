@@ -7,6 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { cancelShipment } from "@/lib/shipments.functions";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
+import {
+  MobileGlassTable,
+  type MobileGlassRow,
+  type MobileGlassDetailLine,
+} from "@/components/tropik/mobile-glass-table";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -662,10 +667,16 @@ type OpenVehicleRow = {
   created_by: string | null;
   shipments: {
     id: string;
+    created_at: string | null;
     import_manager_id: string | null;
     created_by?: string | null;
+    logistics_cost: number | null;
+    logistics_cost_currency: string | null;
+    logistics_cost_usd: number | null;
     suppliers: { name: string | null } | null;
+    import_managers: { full_name: string | null } | null;
     shipment_items?: Array<{
+      product_name: string | null;
       pallet_count: number | null;
       pallet_weight: number | null;
       net_weight_kg: number | null;
@@ -714,7 +725,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,import_manager_id,created_by,suppliers(name),shipment_items(pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,created_at,import_manager_id,created_by,logistics_cost,logistics_cost_currency,logistics_cost_usd,suppliers(name),import_managers(full_name),shipment_items(product_name,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
@@ -850,475 +861,164 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     return available;
   });
 
+  // Determine the "mother" (first) shipment of a vehicle: earliest created_at,
+  // fallback to shipment whose created_by matches vehicles.created_by, then
+  // to the first entry. Used to derive author name, transport cost preview,
+  // and close-permission.
+  const motherShipmentOf = (v: OpenVehicleRow) => {
+    const ships = v.shipments ?? [];
+    if (ships.length === 0) return null;
+    const withDate = ships.filter((s) => !!s.created_at);
+    if (withDate.length > 0) {
+      return withDate.reduce((a, b) =>
+        (a.created_at ?? "") <= (b.created_at ?? "") ? a : b,
+      );
+    }
+    const byCreator = ships.find((s) => v.created_by && s.created_by === v.created_by);
+    return byCreator ?? ships[0];
+  };
+
+  // Aggregated "Завантажено" description: single-product cards show the
+  // product name; multi-product cards show only totals.
+  const loadedDescription = (v: OpenVehicleRow, palletsTotal: number, grossTotal: number) => {
+    const names = new Set<string>();
+    for (const s of v.shipments ?? []) {
+      for (const it of s.shipment_items ?? []) {
+        const n = (it.product_name ?? "").trim();
+        if (n) names.add(n);
+      }
+    }
+    const totals = `${palletsTotal}п / ${Math.round(grossTotal)} кг`;
+    if (names.size === 1) {
+      const [name] = Array.from(names);
+      return `${name} ${totals}`;
+    }
+    return totals;
+  };
+
+  const formatMoney = (amount: number | null, currency: string | null) => {
+    if (amount == null || Number.isNaN(Number(amount))) return "—";
+    const rounded = Math.round(Number(amount));
+    const cur = (currency ?? "").trim();
+    return cur ? `${rounded.toLocaleString("uk-UA")} ${cur}` : `${rounded.toLocaleString("uk-UA")}`;
+  };
+
+  const rows: MobileGlassRow[] = visible.map((v) => {
+    const mother = motherShipmentOf(v);
+    const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
+    const isMotherAuthor = !!mother && (
+      (mother.created_by != null && mother.created_by === user?.id)
+      || (!!currentManagerId && mother.import_manager_id === currentManagerId)
+      || mother.import_manager_id === user?.id
+    );
+    const canClose = isAdmin || isMotherAuthor;
+
+    const _agg = aggregateVehicleFromItems(v);
+    const pallets = _agg.pallets;
+    const weight = _agg.gross;
+    const rs = reservesByVehicle.get(v.id) ?? [];
+    const ownReserve = rs.find((r) => r.owner_user_id === user?.id) ?? null;
+    const allResPal = rs.reduce((a, r) => a + Number(r.pallets ?? 0), 0);
+    const allResGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
+    const otherResPal = allResPal - (ownReserve ? Number(ownReserve.pallets ?? 0) : 0);
+    const otherResGross = allResGross - (ownReserve ? Number(ownReserve.gross_kg ?? 0) : 0);
+
+    // Author card = user is mother author OR user owns an active reserve here.
+    const isAuthorCard = isMotherAuthor || !!ownReserve;
+
+    const freePal = isAuthorCard
+      ? Math.max(0, CAP_PALLETS - pallets - otherResPal)
+      : Math.max(0, CAP_PALLETS - pallets - allResPal);
+    const freeGross = isAuthorCard
+      ? Math.max(0, CAP_GROSS_KG - weight - otherResGross)
+      : Math.max(0, CAP_GROSS_KG - weight - allResGross);
+
+    // Free-capacity gate for the "+ Додати" button. Owner (mother author or
+    // own-shipment on the vehicle) can always add. Others need top-up rule.
+    const effPallets = pallets + allResPal;
+    const effWeight = weight + allResGross;
+    const { available: topUpAvailable } = computeTopUp(effPallets, effWeight);
+    const isOwnVehicle = !!ownShipment || v.created_by === user?.id || isMotherAuthor;
+    const hasFreeCapacity = isOwnVehicle
+      ? effPallets < CAP_PALLETS && effWeight < CAP_GROSS_KG
+      : topUpAvailable;
+
+    const authorName = (mother?.import_managers?.full_name ?? "").trim() || "—";
+
+    // Level 1
+    const level1Main = `${v.code} • ${toUaCountry(v.country)} • ${authorName}`;
+    const level1MetaLeft = `ETD ${fmtEtaShort(v.loading_date)}`;
+    const level1MetaRight = (
+      <span className="font-bold" style={{ color: "#FFFF00" }}>
+        Вільно: {freePal}п / {freeGross.toLocaleString("uk-UA")} кг
+      </span>
+    );
+
+    // Level 2
+    const lines: MobileGlassDetailLine[] = [
+      { left: "Завантажено:", right: loadedDescription(v, pallets, weight) },
+    ];
+    if (isAuthorCard) {
+      if (ownReserve) {
+        lines.push({
+          left: "Резерв:",
+          right: `${Number(ownReserve.pallets ?? 0)}п / ${Math.round(Number(ownReserve.gross_kg ?? 0)).toLocaleString("uk-UA")} кг`,
+        });
+      }
+    } else {
+      lines.push({
+        left: "Попередня вартість транспорту:",
+        right: formatMoney(mother?.logistics_cost ?? null, mother?.logistics_cost_currency ?? null),
+      });
+    }
+
+    const onAdd = () => navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
+    const onCloseClick = () => closeVehicle(v.id);
+
+    const actions = (
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-8 px-3 text-[12px]"
+          disabled={!isOwnVehicle && !hasFreeCapacity}
+          title={!isOwnVehicle && !hasFreeCapacity ? "Авто заповнене — довантаження неможливе" : undefined}
+          onClick={(e) => { e.stopPropagation(); onAdd(); }}
+        >
+          + Додати
+        </Button>
+        {canClose ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-3 text-[12px]"
+            onClick={(e) => { e.stopPropagation(); onCloseClick(); }}
+          >
+            Закрити
+          </Button>
+        ) : null}
+      </div>
+    );
+
+    return {
+      id: v.id,
+      level1: {
+        mainLeft: level1Main,
+        metaLeft: level1MetaLeft,
+        metaRight: level1MetaRight,
+      },
+      level2: { lines, actions },
+    };
+  });
+
   return (
     <SectionCard title={`🚛 Відкриті авто (${visible.length})`}>
       {!visible.length ? (
         <EmptyState title="Відкритих авто немає" />
       ) : (
-      <div className="grid gap-2 sm:grid-cols-2">
-        {visible.map((v) => {
-          const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
-          const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
-          const redactCommercial = !isAdmin && !isOwnVehicle;
-          const sups = redactCommercial
-            ? []
-            : ((v.shipments ?? []).map((s) => s.suppliers?.name).filter(Boolean) as string[]);
-          // P-Fix — gross-based aggregation from items, see aggregateVehicleFromItems().
-          const _agg = aggregateVehicleFromItems(v);
-          const pallets = _agg.pallets;
-          const weight = _agg.gross;
-          // Build 2E-B — reserve-aware effective occupancy for capacity gating
-          // and the residual chip. The bar itself still reflects fact only so
-          // users can see the difference between shipped and reserved.
-          const rs = reservesByVehicle.get(v.id) ?? [];
-          const resPal = rs.reduce((a, r) => a + Number(r.pallets ?? 0), 0);
-          const resGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
-          const ownReserve = rs.find((r) => r.owner_user_id === user?.id) ?? null;
-          const effPallets = pallets + resPal;
-          const effWeight = weight + resGross;
-          const palletsPct = Math.min(100, (pallets / CAP_PALLETS) * 100);
-          const weightPct = Math.min(100, (weight / CAP_GROSS_KG) * 100);
-          const { available: topUpAvailable } = computeTopUp(effPallets, effWeight);
-          // Own vehicle: owner can always add. Other manager's: only if top-up rule passes.
-          const hasFreeCapacity = isOwnVehicle ? effPallets < CAP_PALLETS && effWeight < CAP_GROSS_KG : topUpAvailable;
-          const handleCardClick = () => {
-            if (ownShipment) {
-              navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
-            } else {
-              if (!hasFreeCapacity && !isAdmin) return;
-              navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
-            }
-          };
-          const onReleaseReserve = ownReserve
-            ? async () => {
-                const r = await releaseVehicleReserve(ownReserve.id);
-                if (!r.ok) {
-                  toast.error(`Не вдалося зняти резерв: ${r.reason}`);
-                  return;
-                }
-                toast.success("Резерв знято");
-                await Promise.all([
-                  qc.refetchQueries({ queryKey: ["vehicle-reserves-open"], type: "all" }),
-                  qc.refetchQueries({ queryKey: ["open-vehicles-list"], type: "all" }),
-                ]);
-                refetchReserves();
-              }
-            : undefined;
-          return (
-            <VehicleCard
-              key={v.id}
-              v={v}
-              sups={sups}
-              pallets={pallets}
-              weight={weight}
-              reservePallets={resPal}
-              reserveGross={resGross}
-              ownReservePallets={ownReserve ? Number(ownReserve.pallets ?? 0) : 0}
-              ownReserveGross={ownReserve ? Number(ownReserve.gross_kg ?? 0) : 0}
-              onReleaseReserve={onReleaseReserve}
-              palletsPct={palletsPct}
-              weightPct={weightPct}
-              ownShipment={ownShipment}
-              isAdmin={isAdmin}
-              redactCommercial={redactCommercial}
-              hasFreeCapacity={hasFreeCapacity}
-              onCardClick={handleCardClick}
-              onAddSupplier={() => navigate({ to: "/shipments/new", search: { vehicleId: v.id } })}
-              onClose={() => closeVehicle(v.id)}
-              onDeleted={() => refetch()}
-            />
-          );
-        })}
-      </div>
+        <MobileGlassTable rows={rows} theme="dark" summary={false} />
       )}
     </SectionCard>
-  );
-}
-
-function VehicleCard({
-  v, sups, pallets, weight,
-  reservePallets, reserveGross, ownReservePallets, ownReserveGross, onReleaseReserve,
-  palletsPct, weightPct, ownShipment, isAdmin,
-  redactCommercial, hasFreeCapacity,
-  onCardClick, onAddSupplier, onClose, onDeleted,
-}: {
-  v: OpenVehicleRow;
-  sups: string[];
-  pallets: number;
-  weight: number;
-  reservePallets: number;
-  reserveGross: number;
-  ownReservePallets: number;
-  ownReserveGross: number;
-  onReleaseReserve?: () => Promise<void> | void;
-  palletsPct: number;
-  weightPct: number;
-  ownShipment: { id: string; import_manager_id: string | null } | undefined;
-  isAdmin: boolean;
-  redactCommercial: boolean;
-  hasFreeCapacity: boolean;
-  onCardClick: () => void;
-  onAddSupplier: () => void;
-  onClose: () => void;
-  onDeleted: () => void;
-}) {
-  const DELETE_REVEAL = 144;
-  const SWIPE_ACTIVATION = 6;
-  const SWIPE_OPEN_THRESHOLD = 36;
-  const SWIPE_CLOSE_THRESHOLD = 18;
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [releaseOpen, setReleaseOpen] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const swipeOffsetRef = useRef(0);
-  const gesture = useRef<{
-    pointerId: number | null;
-    startX: number;
-    startY: number;
-    startOffset: number;
-    dragging: boolean;
-  }>({
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    startOffset: 0,
-    dragging: false,
-  });
-  const suppressClick = useRef(false);
-
-  const setSwipePosition = (nextOffset: number) => {
-    swipeOffsetRef.current = nextOffset;
-    setSwipeOffset(nextOffset);
-  };
-
-  const closeDelete = () => {
-    setDeleteOpen(false);
-    setSwipePosition(0);
-  };
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!ownShipment) return;
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest("button, a, input, textarea, select")) return;
-    gesture.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      startOffset: deleteOpen ? -DELETE_REVEAL : 0,
-      dragging: false,
-    };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  };
-
-  const resetGesture = () => {
-    gesture.current = {
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      startOffset: 0,
-      dragging: false,
-    };
-    setDragging(false);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!ownShipment) return;
-    if (gesture.current.pointerId !== e.pointerId) return;
-
-    const dx = e.clientX - gesture.current.startX;
-    const dy = e.clientY - gesture.current.startY;
-
-    if (!gesture.current.dragging) {
-      if (Math.abs(dx) < SWIPE_ACTIVATION && Math.abs(dy) < SWIPE_ACTIVATION) return;
-      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
-        e.currentTarget.releasePointerCapture?.(e.pointerId);
-        resetGesture();
-        return;
-      }
-      gesture.current.dragging = true;
-      setDragging(true);
-      suppressClick.current = true;
-    }
-
-    e.preventDefault();
-    const nextOffset = Math.max(-DELETE_REVEAL, Math.min(0, gesture.current.startOffset + dx));
-    setSwipePosition(nextOffset);
-  };
-
-  const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (gesture.current.pointerId !== e.pointerId) return;
-
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
-
-    if (gesture.current.dragging) {
-      const finalOffset = swipeOffsetRef.current;
-      const shouldOpen = deleteOpen
-        ? finalOffset <= -SWIPE_CLOSE_THRESHOLD
-        : finalOffset <= -SWIPE_OPEN_THRESHOLD;
-      setDeleteOpen(shouldOpen);
-      setSwipePosition(shouldOpen ? -DELETE_REVEAL : 0);
-      suppressClick.current = true;
-    }
-
-    resetGesture();
-  };
-
-  const handleCardClick = () => {
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return;
-    }
-    if (deleteOpen) {
-      closeDelete();
-      return;
-    }
-    onCardClick();
-  };
-
-  const cancelShipmentFn = useServerFn(cancelShipment);
-  const qc = useQueryClient();
-  const doDelete = async () => {
-    if (!ownShipment) return;
-    setConfirmOpen(false);
-    closeDelete();
-    try {
-      const res = await cancelShipmentFn({ data: { shipmentId: ownShipment.id } });
-      toast.success(
-        res.alreadyCancelled
-          ? "Поставку вже було скасовано"
-          : `Поставку скасовано${res.archived > 0 ? ` (в архів: ${res.archived})` : ""}`,
-      );
-      qc.invalidateQueries({ queryKey: ["shipments-list"] });
-      qc.invalidateQueries({ queryKey: ["open-vehicles-list"] });
-      qc.invalidateQueries({ queryKey: ["manager-offers"] });
-      qc.invalidateQueries({ queryKey: ["tropik-archive"] });
-      qc.invalidateQueries({ queryKey: ["shipment-quickview", ownShipment.id] });
-      onDeleted();
-    } catch (err) {
-      const msg = err instanceof Response ? await err.text() : (err as Error)?.message ?? "Помилка";
-      toast.error(msg || "Не вдалося скасувати поставку");
-    }
-  };
-
-  return (
-    <>
-      <div
-        data-focus-id={`v:${v.id} ${(v.shipments ?? []).map((s) => `mgr:${s.import_manager_id ?? ""}`).join(" ")}`}
-        className="relative overflow-hidden rounded-xl border border-border bg-card hover:border-brand/40"
-      >
-        {ownShipment && (
-          <div className="absolute inset-y-0 right-0 z-0 flex w-36 items-stretch justify-end">
-            <div className="flex w-36 items-stretch">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeDelete();
-                }}
-                className="flex w-11 items-center justify-center bg-secondary text-secondary-foreground transition-opacity hover:bg-secondary/80"
-                aria-label="Скасувати свайп"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setConfirmOpen(true);
-                }}
-                className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-1 bg-destructive text-destructive-foreground transition-opacity",
-                  deleteOpen ? "opacity-100" : "opacity-80",
-                )}
-                aria-label="Видалити поставку"
-              >
-                <Trash2 className="h-5 w-5" />
-                <span className="text-[11px] font-semibold">Видалити</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={handleCardClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              if (deleteOpen) {
-                closeDelete();
-                return;
-              }
-              onCardClick();
-            }
-            if (e.key === "Escape" && deleteOpen) {
-              e.preventDefault();
-              closeDelete();
-            }
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
-          style={{ transform: `translateX(${swipeOffset}px)`, touchAction: ownShipment ? "pan-y" : "auto" }}
-          className={cn(
-            "relative z-10 cursor-pointer select-none rounded-xl bg-card p-2 active:scale-[0.99]",
-            dragging ? "transition-none" : "transition-transform duration-[260ms] ease-out",
-          )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <div className="text-sm font-bold text-brand leading-tight">{v.code}</div>
-                {redactCommercial && (
-                  <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-                    довантаж.
-                  </span>
-                )}
-              </div>
-              <div className="truncate text-[10px] text-muted-foreground leading-tight">{toUaCountry(v.country)} · ETA {v.eta ?? "—"}</div>
-            </div>
-            <div className="flex shrink-0 gap-1">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 px-2 text-[11px]"
-                disabled={redactCommercial && !hasFreeCapacity}
-                title={redactCommercial && !hasFreeCapacity ? "Авто заповнене — довантаження неможливе" : undefined}
-                onClick={(e) => { e.stopPropagation(); onAddSupplier(); }}
-              >
-                + Додати
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-[11px]"
-                disabled={!isAdmin && !ownShipment}
-                title={!isAdmin && !ownShipment ? "Закрити може лише адмін або менеджер, що додав свій товар" : undefined}
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
-              >
-                Закрити
-              </Button>
-            </div>
-          </div>
-          {sups.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {sups.map((s, i) => (
-                <span key={i} className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px]">{s}</span>
-              ))}
-            </div>
-          )}
-          <div className="mt-1.5 space-y-1 text-[10px]">
-            <div className="flex items-center justify-between">
-              <span>Палети {pallets}/26</span>
-              <span className="text-muted-foreground">
-                залиш. {Math.max(0, 26 - pallets - reservePallets)}
-                {reservePallets > 0 ? ` · резерв ${reservePallets}` : ""}
-              </span>
-            </div>
-            <div className="h-1 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Вага {Math.round(weight)}/21500 кг</span>
-              <span className="text-muted-foreground">
-                залиш. {Math.max(0, 21500 - Math.round(weight) - Math.round(reserveGross))} кг
-                {reserveGross > 0 ? ` · резерв ${Math.round(reserveGross)} кг` : ""}
-              </span>
-            </div>
-            <div className="h-1 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
-            </div>
-            {(reservePallets > 0 || ownReservePallets > 0) && (
-              <div className="mt-1 flex flex-wrap items-center gap-1">
-                {reservePallets > 0 && (
-                  <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    Резерв: {reservePallets} пал / {Math.round(reserveGross)} кг
-                  </span>
-                )}
-                {ownReservePallets > 0 && onReleaseReserve && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
-                    Мій резерв: {ownReservePallets} пал / {Math.round(ownReserveGross)} кг
-                    <button
-                      type="button"
-                      title="Зняти мій резерв"
-                      aria-label="Зняти мій резерв"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setReleaseOpen(true);
-                      }}
-                      className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-brand hover:bg-brand/20"
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </span>
-                )}
-                {(pallets + reservePallets > 26 ||
-                  Math.round(weight) + Math.round(reserveGross) > 21500) && (
-                  <span
-                    className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive"
-                    title="Сумарно факт + активні резерви перевищують ліміт авто (26 пал / 21 500 кг). Можлива тимчасова десинхронізація після невдалого списання резерву."
-                  >
-                    перевищення резерву
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Видалити поставку?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Поставка з авто {v.code} буде видалена без можливості відновлення.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Ні</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void doDelete();
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Так
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={releaseOpen} onOpenChange={setReleaseOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Зняти резерв?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Ваш резерв на авто {v.code} буде знято, а місце знову стане
-              доступним для довантаження.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Ні</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                setReleaseOpen(false);
-                if (onReleaseReserve) void onReleaseReserve();
-              }}
-            >
-              Так
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
   );
 }
 
