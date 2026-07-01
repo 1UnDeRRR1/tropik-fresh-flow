@@ -517,6 +517,34 @@ export async function createShipmentFlow(
     closed = true;
   }
 
+  // Build 2E-C — after a successful child create, consume caller's own
+  // active reserves on this vehicle (FIFO). Single call, no retry. On
+  // failure we do NOT roll back the shipment; caller surfaces a warning.
+  let reserveConsume: CreateShipmentSuccess["reserveConsume"] = undefined;
+  if (isChild) {
+    let childPallets = 0;
+    let childGross = 0;
+    for (const d of drafts) {
+      const pc = Number(d.pallet_count ?? 0);
+      childPallets += pc;
+      const g = Number(d.gross_weight_kg ?? 0);
+      if (g > 0) childGross += g;
+      else {
+        const net = Number(d.net_weight_kg ?? 0);
+        childGross += net > 0 ? net : 0;
+      }
+    }
+    const cr = await consumeVehicleReservesForChild(vehicleId, childPallets, childGross);
+    reserveConsume = cr.ok
+      ? {
+          ok: true,
+          consumedPallets: cr.data.consumed_pallets,
+          consumedGrossKg: cr.data.consumed_gross_kg,
+          consumedReserveIds: cr.data.consumed_reserve_ids,
+        }
+      : { ok: false, reason: cr.reason };
+  }
+
   return {
     ok: true,
     vehicleId,
@@ -524,6 +552,7 @@ export async function createShipmentFlow(
     shipmentId,
     shipmentCode,
     closed,
+    reserveConsume,
   };
 }
 
