@@ -1142,15 +1142,16 @@ function NewShipment() {
         country,
         loadingDate,
         eta: computedEta,
-        transportAmount: isChildMode ? 0 : (transportValue ?? 0),
+        transportAmount: effectiveChildMode ? 0 : (transportValue ?? 0),
         transportCurrency,
         drafts: drafstToCommit,
         products,
-        // Build 2D — child branch: re-fetches parent vehicle, skips
-        // vehicle INSERT, inherits country/dates/code, forces freight=0.
-        mode: isChildMode ? "child" : "standalone",
-        parentVehicleId: isChildMode ? vehicleId : undefined,
+        // Build 2D fix — pass explicit parentVehicleId so the write path
+        // never depends on possibly-stale React state.
+        mode: effectiveChildMode ? "child" : "standalone",
+        parentVehicleId: effectiveChildMode ? effectiveParentVehicleId : undefined,
       });
+
       if (!res.ok) {
         if (res.partialSuccess && res.artefacts?.shipmentId) {
           // Vehicle did not actually close, but shipment + items + vehicle exist.
