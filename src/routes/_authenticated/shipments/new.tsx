@@ -1469,8 +1469,10 @@ function NewShipment() {
                 const p = Number(d.pallet_count) || 0;
                 const n = Number(d.net_weight_kg) || 0;
                 const g = Number(d.gross_weight_kg) || 0;
+                const pr = Number(d.unit_price) || 0;
                 if (!(p > 0) || !(n > 0) || !(g > 0)) return false;
                 if (!(g > n)) return false;
+                if (!(pr > 0)) return false;
                 return true;
               });
             const headerValid =
