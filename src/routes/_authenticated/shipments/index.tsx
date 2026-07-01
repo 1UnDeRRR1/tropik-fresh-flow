@@ -936,7 +936,9 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 }
 
 function VehicleCard({
-  v, sups, pallets, weight, palletsPct, weightPct, ownShipment, isAdmin,
+  v, sups, pallets, weight,
+  reservePallets, reserveGross, ownReservePallets, ownReserveGross, onReleaseReserve,
+  palletsPct, weightPct, ownShipment, isAdmin,
   redactCommercial, hasFreeCapacity,
   onCardClick, onAddSupplier, onClose, onDeleted,
 }: {
@@ -944,6 +946,11 @@ function VehicleCard({
   sups: string[];
   pallets: number;
   weight: number;
+  reservePallets: number;
+  reserveGross: number;
+  ownReservePallets: number;
+  ownReserveGross: number;
+  onReleaseReserve?: () => Promise<void> | void;
   palletsPct: number;
   weightPct: number;
   ownShipment: { id: string; import_manager_id: string | null } | undefined;
