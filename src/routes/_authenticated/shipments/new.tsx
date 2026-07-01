@@ -53,6 +53,8 @@ import { resolveCountry } from "@/lib/country-search";
 import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
 import { CreateScenarioDialog } from "@/components/shipments/CreateScenarioDialog";
+import { ReserveInputDialog, type ReserveInput } from "@/components/shipments/ReserveInputDialog";
+import { createVehicleReserve } from "@/lib/vehicle-reserves";
 import { PickOpenVehicleDialog } from "@/components/shipments/PickOpenVehicleDialog";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
