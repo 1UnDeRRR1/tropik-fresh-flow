@@ -983,11 +983,39 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     const level1MetaLeft = <span className="tmg-l2-etd">{etdText}</span>;
 
     // Level 1 — row 2 right: "Вільно 26п/21.500кг" (yellow, no colon).
+    // Level 1 — row 2 left: "ETD DD Month" padded to exactly 16 chars.
+    // Two adjustable spaces (after "ETD" and after "DD") absorb the delta so
+    // "E" stays at column 1 and the month tail stays at column 16 across cards.
+    const etdText = (() => {
+      if (!v.loading_date) return "ETD —".padEnd(16, " ");
+      const d = new Date(v.loading_date);
+      if (Number.isNaN(d.getTime())) return "ETD —".padEnd(16, " ");
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = d.toLocaleDateString("uk-UA", { month: "long" });
+      // "ETD" (3) + s1 + day (2) + s2 + month  → total 16
+      const extra = Math.max(0, 16 - (3 + 1 + 2 + 1 + month.length));
+      const s1 = Math.floor(extra / 2);
+      const s2 = extra - s1;
+      return `ETD ${" ".repeat(s1)}${day} ${" ".repeat(s2)}${month}`;
+    })();
+    const level1MetaLeft = <span className="tmg-l2-etd">{etdText}</span>;
+
+    // Level 1 — row 2 right: "Вільно Xп / Yкг" padded to exactly 19 chars.
+    // 'В' anchors at column 1, 'г' anchors at column 19. Adjustable spaces
+    // sit between the number and around the "/" separator.
     const freeGrossFmt = Math.round(freeGross).toLocaleString("de-DE"); // dot as thousand sep
+    const freeText = (() => {
+      const P = `${freePal}п`;
+      const W = `${freeGrossFmt}кг`;
+      // "Вільно" (6) + " " + P + a + "/" + b + W → total 19
+      const fixed = 6 + 1 + P.length + 1 + W.length;
+      const extra = Math.max(0, 19 - fixed);
+      const a = Math.floor(extra / 2);
+      const b = extra - a;
+      return `Вільно ${P}${" ".repeat(a)}/${" ".repeat(b)}${W}`;
+    })();
     const level1MetaRight = (
-      <span className="tmg-l2-free">
-        Вільно {freePal}п/{freeGrossFmt}кг
-      </span>
+      <span className="tmg-l2-free">{freeText}</span>
     );
 
     // Level 2
