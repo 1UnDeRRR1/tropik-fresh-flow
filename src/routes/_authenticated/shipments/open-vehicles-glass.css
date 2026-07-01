@@ -76,15 +76,20 @@
 .tmg-shipments .tmg-meta-right {
   font-size: 15px;
   font-weight: 700;
+  /* Monospace so every character occupies the same column: guarantees
+     "В" locks to column 1 and "г" locks to column 19 on the free-space
+     label, and the ETD label lines up across all cards. */
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
   font-variant-numeric: tabular-nums;
   white-space: pre;         /* preserve reserved spaces */
   overflow: visible;
+  letter-spacing: 0;
 }
 .tmg-shipments .tmg-l2-etd {
   color: #4aa3ff;           /* project-consistent blue for dates */
   padding-left: 2px;
   display: inline-block;
-  min-width: 16ch;
   text-align: left;
 }
 .tmg-shipments .tmg-l2-free {
@@ -92,8 +97,7 @@
   justify-self: end;
   padding-right: 2px;
   display: inline-block;
-  min-width: 20ch;
-  text-align: right;
+  text-align: left;
 }
 
 /* Narrower phones: keep proportion, allow track to reach the true edges. */
