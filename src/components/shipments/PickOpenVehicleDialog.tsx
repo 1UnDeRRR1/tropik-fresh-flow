@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchActiveReservesByVehicle,
+  type ActiveReserve,
+} from "@/lib/vehicle-reserves";
 
 const CAP_PALLETS = 26;
 const CAP_GROSS_KG = 21500;
