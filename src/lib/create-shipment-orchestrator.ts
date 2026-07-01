@@ -279,6 +279,32 @@ export async function createShipmentFlow(
         usedGross += net > 0 ? net : pc * pw;
       }
     }
+
+    // Build 2E-B — active vehicle_reserves count as occupied space. Best-
+    // effort read (RLS permits authenticated SELECT per 2E-A). Adds pallets
+    // and gross_kg to used* before the fits check. No consume logic here:
+    // the owner of a reserve must release it manually before their own child
+    // shipment fits.
+    const resQ = (await supabase
+      .from("vehicle_reserves" as never)
+      .select("pallets,gross_kg")
+      .eq("vehicle_id", vehicleId)
+      .eq("status", "active")) as {
+        data: { pallets: number | null; gross_kg: number | null }[] | null;
+        error: { message: string } | null;
+      };
+    if (resQ.error) {
+      return { ok: false, stage: "capacity_guard", reason: safeReason(resQ.error) };
+    }
+    let reservePallets = 0;
+    let reserveGross = 0;
+    for (const r of resQ.data ?? []) {
+      reservePallets += Number(r.pallets ?? 0);
+      reserveGross += Number(r.gross_kg ?? 0);
+    }
+    usedPallets += reservePallets;
+    usedGross += reserveGross;
+
     let draftPallets = 0;
     let draftGross = 0;
     for (const d of drafts) {
@@ -296,10 +322,14 @@ export async function createShipmentFlow(
     if (usedPallets + draftPallets > CAP_PAL || usedGross + draftGross > CAP_GROSS) {
       const freePal = Math.max(0, CAP_PAL - usedPallets);
       const freeGross = Math.max(0, CAP_GROSS - usedGross);
+      const reserveNote =
+        reservePallets > 0 || reserveGross > 0
+          ? ` (з них резерв: ${reservePallets} пал / ${Math.round(reserveGross)} кг)`
+          : "";
       return {
         ok: false,
         stage: "capacity_guard",
-        reason: `Недостатньо вільного місця в авто ${parentVehicle!.code}: вільно ${freePal} пал / ${Math.round(freeGross)} кг, потрібно ${draftPallets} пал / ${Math.round(draftGross)} кг`,
+        reason: `Недостатньо вільного місця в авто ${parentVehicle!.code}: вільно ${freePal} пал / ${Math.round(freeGross)} кг${reserveNote}, потрібно ${draftPallets} пал / ${Math.round(draftGross)} кг`,
       };
     }
   } else {
