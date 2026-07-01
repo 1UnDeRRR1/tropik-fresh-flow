@@ -1194,6 +1194,25 @@ function NewShipment() {
           ? `Поставку ${res.shipmentCode} створено, авто закрите`
           : `Поставку ${res.shipmentCode} створено`,
       );
+
+      // Build 2E-B — two-step reserve write for the "Створити з резервом"
+      // flow. Shipment is already committed; a failing reserve does NOT
+      // roll back the shipment, per approved plan. Warning toast only.
+      if (override?.reserve && res.vehicleId) {
+        const rr = await createVehicleReserve(
+          res.vehicleId,
+          override.reserve.pallets,
+          override.reserve.grossKg,
+          override.reserve.note,
+        );
+        if (!rr.ok) {
+          toast.warning(
+            `Поставку створено, але резерв не застосовано: ${rr.reason}`,
+            { duration: 12_000 },
+          );
+        }
+      }
+
       await leaveCreateFormAfterSuccess({ closed: res.closed });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
