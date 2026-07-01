@@ -662,10 +662,16 @@ type OpenVehicleRow = {
   created_by: string | null;
   shipments: {
     id: string;
+    created_at: string | null;
     import_manager_id: string | null;
     created_by?: string | null;
+    logistics_cost: number | null;
+    logistics_cost_currency: string | null;
+    logistics_cost_usd: number | null;
     suppliers: { name: string | null } | null;
+    import_managers: { full_name: string | null } | null;
     shipment_items?: Array<{
+      product_name: string | null;
       pallet_count: number | null;
       pallet_weight: number | null;
       net_weight_kg: number | null;
