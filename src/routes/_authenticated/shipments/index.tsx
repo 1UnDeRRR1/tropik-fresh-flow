@@ -946,12 +946,34 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
     const authorName = (mother?.import_managers?.full_name ?? "").trim() || "—";
 
-    // Level 1
-    const level1Main = `${v.code} • ${toUaCountry(v.country)} • ${authorName}`;
-    const level1MetaLeft = `ETD ${fmtEtaShort(v.loading_date)}`;
+    // Level 1 — row 1: Country • Code • Manager (styled via CSS classes).
+    const level1Main = (
+      <span className="tmg-l1-line1">
+        <span className="tmg-l1-country">{toUaCountry(v.country)}</span>
+        <span className="tmg-l1-sep">•</span>
+        <span className="tmg-l1-code">{v.code}</span>
+        <span className="tmg-l1-sep">•</span>
+        <span className="tmg-l1-manager">{authorName}</span>
+      </span>
+    );
+
+    // Level 1 — row 2 left: "ETD  DD  MonthUA" (long month, blue, reserved width).
+    const etdText = (() => {
+      if (!v.loading_date) return "ETD —";
+      const d = new Date(v.loading_date);
+      if (Number.isNaN(d.getTime())) return "ETD —";
+      const day = String(d.getDate()).padStart(2, "0");
+      // Genitive Ukrainian month (long).
+      const month = d.toLocaleDateString("uk-UA", { month: "long" });
+      return `ETD ${day} ${month}`;
+    })();
+    const level1MetaLeft = <span className="tmg-l2-etd">{etdText}</span>;
+
+    // Level 1 — row 2 right: "Вільно 26п/21.500кг" (yellow, no colon).
+    const freeGrossFmt = Math.round(freeGross).toLocaleString("de-DE"); // dot as thousand sep
     const level1MetaRight = (
-      <span className="font-bold" style={{ color: "#FFFF00" }}>
-        Вільно: {freePal}п / {freeGross.toLocaleString("uk-UA")} кг
+      <span className="tmg-l2-free">
+        Вільно {freePal}п/{freeGrossFmt}кг
       </span>
     );
 
