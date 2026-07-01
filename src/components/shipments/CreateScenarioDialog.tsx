@@ -54,9 +54,7 @@ function buildOptions(childMode: boolean): Option[] {
     {
       id: "with_reserve",
       title: "Створити з резервом",
-      hint: "Зарезервувати місце в авто під майбутню довантаження.",
-      disabled: true,
-      comingSoon: true,
+      hint: "Створити поставку та зарезервувати вільне місце в цьому ж авто під наступну довантаження.",
     },
     {
       id: "create_and_close",
