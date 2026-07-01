@@ -7,6 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { cancelShipment } from "@/lib/shipments.functions";
 import { PageHeader } from "@/components/AppShell";
 import { SectionCard, EmptyState } from "@/components/cards";
+import {
+  MobileGlassTable,
+  type MobileGlassRow,
+  type MobileGlassDetailLine,
+} from "@/components/tropik/mobile-glass-table";
 
 import { Button } from "@/components/ui/button";
 import {
