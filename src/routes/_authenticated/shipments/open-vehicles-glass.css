@@ -1,0 +1,112 @@
+/* Scoped overrides for MobileGlassTable used in "Не закриті авто".
+   Applies only when the .tmg-shipments modifier class is present. */
+
+.tmg-table.tmg-shipments {
+  /* Center the table horizontally, cap height so the fixed bottom nav
+     (~64px + safe-area) never overlaps the expanded card. */
+  width: min(430px, calc(100vw - 16px));
+  height: calc(
+    100svh
+    - var(--tmg-shipments-top-offset, 240px)
+    - 64px
+    - env(safe-area-inset-bottom, 0px)
+    - 12px
+  );
+  margin: 0 auto;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system,
+    "SF Pro Display", "Segoe UI", sans-serif;
+  letter-spacing: -0.005em;
+}
+
+/* Row trigger: +20% vertical padding (was 6/12 → 8/12; +8/12 open state).
+   Center the content vertically. */
+.tmg-shipments .tmg-row-trigger {
+  padding: 9px 12px;
+}
+.tmg-shipments .tmg-card.is-open .tmg-row-trigger,
+.tmg-shipments .tmg-card.is-closing .tmg-row-trigger {
+  padding-top: 11px;
+  padding-bottom: 10px;
+}
+
+/* Level-1 row 1: Country • Code • Manager — inline, ellipsis-safe. */
+.tmg-shipments .tmg-l1-line1 {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 17px;
+  line-height: 1.2;
+}
+.tmg-shipments .tmg-l1-country {
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.tmg-shipments .tmg-l1-sep {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
+}
+.tmg-shipments .tmg-l1-code,
+.tmg-shipments .tmg-l1-manager {
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 400;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tmg-shipments .tmg-l1-manager {
+  flex: 1 1 auto;
+}
+
+/* Level-1 row 2: override the shared meta styles to match row-1 typography. */
+.tmg-shipments .tmg-row-meta {
+  margin-top: 4px;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  font-size: 15px;
+  line-height: 1.2;
+  color: inherit;
+  font-weight: 700;
+  align-items: baseline;
+}
+.tmg-shipments .tmg-meta-left,
+.tmg-shipments .tmg-meta-right {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;         /* preserve reserved spaces */
+  overflow: visible;
+}
+.tmg-shipments .tmg-l2-etd {
+  color: #4aa3ff;           /* project-consistent blue for dates */
+  padding-left: 2px;
+  display: inline-block;
+  min-width: 15ch;
+}
+.tmg-shipments .tmg-l2-free {
+  color: #ffff00;
+  justify-self: end;
+  padding-right: 2px;
+  display: inline-block;
+  min-width: 19ch;
+  text-align: right;
+}
+
+/* Narrower phones: keep proportion, allow track to reach the true edges. */
+@media (max-width: 380px) {
+  .tmg-table.tmg-shipments {
+    width: 100vw;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+  .tmg-shipments .tmg-l1-line1 { font-size: 15.5px; }
+  .tmg-shipments .tmg-row-meta,
+  .tmg-shipments .tmg-meta-left,
+  .tmg-shipments .tmg-meta-right { font-size: 13.5px; }
+  .tmg-shipments .tmg-l2-etd { min-width: 14ch; }
+  .tmg-shipments .tmg-l2-free { min-width: 18ch; }
+}
