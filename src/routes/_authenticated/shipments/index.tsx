@@ -12,6 +12,7 @@ import {
   type MobileGlassRow,
   type MobileGlassDetailLine,
 } from "@/components/tropik/mobile-glass-table";
+import "./open-vehicles-glass.css";
 
 import { Button } from "@/components/ui/button";
 import {
