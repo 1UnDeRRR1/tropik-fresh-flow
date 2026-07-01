@@ -39,6 +39,7 @@ import {
   getSupplierAlias,
 } from "@/lib/shipment-code";
 import { getLatestEurUsdRate } from "@/lib/currency";
+import { consumeVehicleReservesForChild } from "@/lib/vehicle-reserves";
 
 export type CreateShipmentScenario = "create" | "create_and_close";
 
