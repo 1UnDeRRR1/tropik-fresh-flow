@@ -1285,6 +1285,30 @@ function VehicleCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={releaseOpen} onOpenChange={setReleaseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Зняти резерв?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ваш резерв на авто {v.code} буде знято, а місце знову стане
+              доступним для довантаження.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ні</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setReleaseOpen(false);
+                if (onReleaseReserve) void onReleaseReserve();
+              }}
+            >
+              Так
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
