@@ -1502,7 +1502,28 @@ function NewShipment() {
           setScenarioOpen(false);
           setPickOpen(true);
         }}
+        onWithReserve={() => {
+          // Build 2E-B — user picked "Створити з резервом". Open the
+          // reserve input modal; no DB writes until confirm.
+          setScenarioOpen(false);
+          setReserveOpen(true);
+        }}
       />
+
+      {/* Build 2E-B — reserve input modal. Two-step: standalone create,
+          then create_vehicle_reserve on the new vehicle. */}
+      <ReserveInputDialog
+        open={reserveOpen}
+        isSubmitting={isSubmitting}
+        draftPallets={draftTotals.pallets}
+        draftGrossKg={draftTotals.kg}
+        onClose={() => setReserveOpen(false)}
+        onConfirm={(reserve) => {
+          setReserveOpen(false);
+          void handleConfirmScenario("create", { reserve });
+        }}
+      />
+
 
       {/* Build 2D — picker for "Створити та довантажити". The dialog is a
           pure read query; selecting a vehicle flips the form into child
