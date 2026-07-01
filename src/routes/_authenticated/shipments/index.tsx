@@ -690,6 +690,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data, refetch } = useQuery({
     queryKey: ["open-vehicles-list"],
     queryFn: async () => {
