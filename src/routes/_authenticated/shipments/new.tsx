@@ -210,8 +210,13 @@ function NewShipment() {
       qc.refetchQueries({ queryKey: ["shipments"] }),
       qc.refetchQueries({ queryKey: ["open-vehicles"] }),
       qc.refetchQueries({ queryKey: ["logistics-board"] }),
+      // Build 2E-B — refresh reserve-aware lists.
+      qc.refetchQueries({ queryKey: ["vehicle-reserves-open"] }),
+      qc.refetchQueries({ queryKey: ["pick-open-vehicles"] }),
+      qc.refetchQueries({ queryKey: ["pick-open-vehicles-reserves"] }),
     ]);
   }, [qc]);
+
 
   const leaveCreateFormAfterSuccess = useCallback(
     async (target: { closed: boolean }) => {
