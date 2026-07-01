@@ -722,6 +722,23 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     },
   });
 
+  // Build 2E-B — active reserves for the currently listed open vehicles.
+  // Keyed by the vehicle id set so realtime + list refetch keeps them
+  // in sync. Read-only; writes go through RPC wrappers.
+  const openVehicleIds = (data ?? []).map((v) => v.id);
+  const reservesKey = openVehicleIds.slice().sort().join(",");
+  const { data: reserves, refetch: refetchReserves } = useQuery({
+    queryKey: ["vehicle-reserves-open", reservesKey],
+    enabled: openVehicleIds.length > 0,
+    queryFn: () => fetchActiveReservesByVehicle(openVehicleIds),
+  });
+  const reservesByVehicle = new Map<string, ActiveReserve[]>();
+  for (const r of reserves ?? []) {
+    const arr = reservesByVehicle.get(r.vehicle_id) ?? [];
+    arr.push(r);
+    reservesByVehicle.set(r.vehicle_id, arr);
+  }
+
   const closeVehicle = async (id: string) => {
     // Validate all shipment items in this vehicle have required fields
     const { data: ships } = await supabase
