@@ -741,6 +741,17 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Авто закрите");
+    // Vehicle-level action: invalidate all views that depend on vehicle
+    // status so the shared vehicle (parent + child shipments) leaves
+    // "Не закриті авто" and appears on the shipments board in one refresh.
+    await Promise.all([
+      qc.refetchQueries({ queryKey: ["open-vehicles-list"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["shipments-list"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["open-vehicles"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["vehicles-open"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["vehicles-list"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["logistics-board"], type: "all" }),
+    ]);
     refetch();
   };
 
