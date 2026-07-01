@@ -860,7 +860,20 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     const resGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
     const { available } = computeTopUp(agg.pallets + resPal, agg.gross + resGross);
     return available;
-  });
+  })
+    // Default order: nearest ETD (loading_date) first, nulls last.
+    // Within the same date — country name alphabetical (uk locale).
+    .slice()
+    .sort((a, b) => {
+      const da = a.loading_date ?? "";
+      const db = b.loading_date ?? "";
+      if (da && db && da !== db) return da.localeCompare(db);
+      if (da && !db) return -1;
+      if (!da && db) return 1;
+      const ca = toUaCountry(a.country) ?? a.country ?? "";
+      const cb = toUaCountry(b.country) ?? b.country ?? "";
+      return ca.localeCompare(cb, "uk");
+    });
 
   // Determine the "mother" (first) shipment of a vehicle: earliest created_at,
   // fallback to shipment whose created_by matches vehicles.created_by, then
