@@ -1068,7 +1068,10 @@ function NewShipment() {
   // Build 2B-B-2 — scenario confirm handler. Validation is already enforced
   // by the gate on the "Створити" button; this function performs the
   // orchestrated DB writes and navigates to the new shipment on success.
-  async function handleConfirmScenario(scenario: CreateShipmentScenario) {
+  async function handleConfirmScenario(
+    scenario: CreateShipmentScenario,
+    override?: { parentVehicleId?: string },
+  ) {
     if (submitLockRef.current) return;
     if (!user) {
       toast.error("Сесія не активна");
@@ -1078,9 +1081,16 @@ function NewShipment() {
       toast.error("Постачальник не вибраний");
       return;
     }
-    // Build 2D — child mode bypasses transport / country / dates validation;
-    // those fields are inherited from the parent vehicle in the orchestrator.
-    if (!isChildMode) {
+    // Build 2D fix — child mode is decided by an EXPLICIT parentVehicleId
+    // passed by the caller (topup picker), OR by the current form state
+    // (entry via "Додати" from open vehicles, or ?vehicleId= search param).
+    // We must NOT rely on React state that was set in the same tick as this
+    // call, because setState is async and the closure would read stale values.
+    const explicitParentId = override?.parentVehicleId;
+    const effectiveChildMode = explicitParentId ? true : isChildMode;
+    const effectiveParentVehicleId = explicitParentId ?? (isChildMode ? vehicleId : undefined);
+
+    if (!effectiveChildMode) {
       if (!country || !loadingDate || !computedEta) {
         toast.error("Заповніть постачальника, країну та дати");
         return;
@@ -1090,11 +1100,17 @@ function NewShipment() {
         return;
       }
     } else {
-      if (!vehicleId) {
+      if (!effectiveParentVehicleId) {
         toast.error("Авто для довантаження не вибране");
         return;
       }
+      // Defensive: child mode must never run "create_and_close".
+      if (scenario === "create_and_close") {
+        toast.error("У режимі довантаження не можна закривати авто");
+        return;
+      }
     }
+
     const drafstToCommit = drafts.filter(
       (d) =>
         d.product_name.trim() !== "" ||
@@ -1126,15 +1142,16 @@ function NewShipment() {
         country,
         loadingDate,
         eta: computedEta,
-        transportAmount: isChildMode ? 0 : (transportValue ?? 0),
+        transportAmount: effectiveChildMode ? 0 : (transportValue ?? 0),
         transportCurrency,
         drafts: drafstToCommit,
         products,
-        // Build 2D — child branch: re-fetches parent vehicle, skips
-        // vehicle INSERT, inherits country/dates/code, forces freight=0.
-        mode: isChildMode ? "child" : "standalone",
-        parentVehicleId: isChildMode ? vehicleId : undefined,
+        // Build 2D fix — pass explicit parentVehicleId so the write path
+        // never depends on possibly-stale React state.
+        mode: effectiveChildMode ? "child" : "standalone",
+        parentVehicleId: effectiveChildMode ? effectiveParentVehicleId : undefined,
       });
+
       if (!res.ok) {
         if (res.partialSuccess && res.artefacts?.shipmentId) {
           // Vehicle did not actually close, but shipment + items + vehicle exist.
@@ -1471,15 +1488,16 @@ function NewShipment() {
         onClose={() => setPickOpen(false)}
         onPick={(v) => {
           setPickOpen(false);
+          // Reflect the pick in local state for UI consistency (readonly
+          // parent-derived fields, capacity bar), but DO NOT rely on it for
+          // the write path — pass parentVehicleId explicitly instead so a
+          // stale-closure read of `isChildMode`/`vehicleId` cannot degrade
+          // the flow into a new standalone vehicle create.
           setMode("existing");
           setVehicleId(v.id);
-          // Allow React to flush state, then run the orchestrator. The
-          // orchestrator re-reads the parent vehicle from DB (source of
-          // truth) regardless of what we have in local state.
-          setTimeout(() => {
-            void handleConfirmScenario("create");
-          }, 0);
+          void handleConfirmScenario("create", { parentVehicleId: v.id });
         }}
+
       />
     </div>
   );
