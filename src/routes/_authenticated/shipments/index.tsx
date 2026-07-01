@@ -1213,21 +1213,54 @@ function VehicleCard({
           <div className="mt-1.5 space-y-1 text-[10px]">
             <div className="flex items-center justify-between">
               <span>Палети {pallets}/26</span>
-              <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+              <span className="text-muted-foreground">
+                залиш. {Math.max(0, 26 - pallets - reservePallets)}
+                {reservePallets > 0 ? ` · резерв ${reservePallets}` : ""}
+              </span>
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-secondary">
               <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
             </div>
             <div className="flex items-center justify-between">
               <span>Вага {Math.round(weight)}/21500 кг</span>
-              <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
+              <span className="text-muted-foreground">
+                залиш. {Math.max(0, 21500 - Math.round(weight) - Math.round(reserveGross))} кг
+                {reserveGross > 0 ? ` · резерв ${Math.round(reserveGross)} кг` : ""}
+              </span>
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-secondary">
               <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
             </div>
+            {(reservePallets > 0 || ownReservePallets > 0) && (
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                {reservePallets > 0 && (
+                  <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    Резерв: {reservePallets} пал / {Math.round(reserveGross)} кг
+                  </span>
+                )}
+                {ownReservePallets > 0 && onReleaseReserve && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                    Мій резерв: {ownReservePallets} пал / {Math.round(ownReserveGross)} кг
+                    <button
+                      type="button"
+                      title="Зняти мій резерв"
+                      aria-label="Зняти мій резерв"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReleaseOpen(true);
+                      }}
+                      className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-brand hover:bg-brand/20"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
