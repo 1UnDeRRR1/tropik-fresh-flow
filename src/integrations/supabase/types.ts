@@ -2039,6 +2039,13 @@ export type Database = {
             foreignKeyName: "position_logistics_legs_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "vehicle_capacity_v"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "position_logistics_legs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -2878,6 +2885,13 @@ export type Database = {
             foreignKeyName: "shipments_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "vehicle_capacity_v"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "shipments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -3212,6 +3226,60 @@ export type Database = {
           },
         ]
       }
+      vehicle_reserves: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          gross_kg: number
+          id: string
+          note: string | null
+          owner_user_id: string
+          pallets: number
+          status: Database["public"]["Enums"]["reserve_status"]
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          gross_kg: number
+          id?: string
+          note?: string | null
+          owner_user_id: string
+          pallets: number
+          status?: Database["public"]["Enums"]["reserve_status"]
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          gross_kg?: number
+          id?: string
+          note?: string | null
+          owner_user_id?: string
+          pallets?: number
+          status?: Database["public"]["Enums"]["reserve_status"]
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_reserves_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_capacity_v"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "vehicle_reserves_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           closed_at: string | null
@@ -3535,6 +3603,20 @@ export type Database = {
           },
         ]
       }
+      vehicle_capacity_v: {
+        Row: {
+          fact_gross_kg: number | null
+          fact_pallets: number | null
+          free_gross_kg: number | null
+          free_pallets: number | null
+          max_gross_kg: number | null
+          max_pallets: number | null
+          reserved_gross_kg: number | null
+          reserved_pallets: number | null
+          vehicle_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _bvp_link: {
@@ -3644,6 +3726,10 @@ export type Database = {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
+      close_vehicle_reserves: {
+        Args: { p_vehicle_id: string }
+        Returns: number
+      }
       confirm_manager_offer_customs_override: {
         Args: { p_duty: number; p_offer_id: string }
         Returns: {
@@ -3742,6 +3828,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      create_vehicle_reserve: {
+        Args: {
+          p_gross_kg: number
+          p_note?: string
+          p_pallets: number
+          p_vehicle_id: string
+        }
+        Returns: string
       }
       current_import_manager_id: { Args: never; Returns: string }
       effective_manager_ids: { Args: { _user_id: string }; Returns: string[] }
@@ -3917,6 +4012,10 @@ export type Database = {
       }
       recompute_vehicle_totals_for: {
         Args: { _vehicle_id: string }
+        Returns: undefined
+      }
+      release_vehicle_reserve: {
+        Args: { p_reserve_id: string }
         Returns: undefined
       }
       rpc_activity_close_stale: { Args: never; Returns: number }
@@ -4218,6 +4317,7 @@ export type Database = {
         | "rejected"
         | "confirmed"
         | "unloaded"
+      reserve_status: "active" | "consumed" | "released" | "closed"
       shipment_status:
         | "draft"
         | "loading"
@@ -4451,6 +4551,7 @@ export const Constants = {
         "confirmed",
         "unloaded",
       ],
+      reserve_status: ["active", "consumed", "released", "closed"],
       shipment_status: [
         "draft",
         "loading",
