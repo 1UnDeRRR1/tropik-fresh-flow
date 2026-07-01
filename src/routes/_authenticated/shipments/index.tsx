@@ -835,10 +835,18 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     const hasShipments = (v.shipments ?? []).length > 0;
     const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
     const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
-    if (isOwnVehicle) return true;
+    // Build 2E-B — surface any vehicle where this user owns an active
+    // reserve so they can release it, even without their own shipment.
+    const hasOwnReserve = (reservesByVehicle.get(v.id) ?? []).some(
+      (r) => r.owner_user_id === user?.id,
+    );
+    if (isOwnVehicle || hasOwnReserve) return true;
     if (!hasShipments) return false;
     const agg = aggregateVehicleFromItems(v);
-    const { available } = computeTopUp(agg.pallets, agg.gross);
+    const rs = reservesByVehicle.get(v.id) ?? [];
+    const resPal = rs.reduce((a, r) => a + Number(r.pallets ?? 0), 0);
+    const resGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
+    const { available } = computeTopUp(agg.pallets + resPal, agg.gross + resGross);
     return available;
   });
 
