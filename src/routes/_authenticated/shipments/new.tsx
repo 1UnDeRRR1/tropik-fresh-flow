@@ -1079,7 +1079,7 @@ function NewShipment() {
   // orchestrated DB writes and navigates to the new shipment on success.
   async function handleConfirmScenario(
     scenario: CreateShipmentScenario,
-    override?: { parentVehicleId?: string },
+    override?: { parentVehicleId?: string; reserve?: ReserveInput },
   ) {
     if (submitLockRef.current) return;
     if (!user) {
