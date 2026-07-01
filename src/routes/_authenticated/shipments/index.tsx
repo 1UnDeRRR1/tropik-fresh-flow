@@ -1035,13 +1035,24 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
   });
 
   return (
-    <SectionCard title={`🚛 Відкриті авто (${visible.length})`}>
+    <div className="space-y-2">
+      <div className="px-1 text-sm font-semibold text-foreground/80">
+        🚛 Відкриті авто ({visible.length})
+      </div>
       {!visible.length ? (
         <EmptyState title="Відкритих авто немає" />
       ) : (
-        <MobileGlassTable rows={rows} theme="dark" summary={false} />
+        <MobileGlassTable
+          rows={rows}
+          theme="dark"
+          summary={false}
+          className="tmg-shipments"
+          topSnap
+          topOffsetPx={0}
+          bottomOffsetPx={8}
+        />
       )}
-    </SectionCard>
+    </div>
   );
 }
 
