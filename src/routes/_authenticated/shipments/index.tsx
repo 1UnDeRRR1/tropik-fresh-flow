@@ -970,19 +970,6 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       </span>
     );
 
-    // Level 1 — row 2 left: "ETD  DD  MonthUA" (long month, blue, reserved width).
-    const etdText = (() => {
-      if (!v.loading_date) return "ETD —";
-      const d = new Date(v.loading_date);
-      if (Number.isNaN(d.getTime())) return "ETD —";
-      const day = String(d.getDate()).padStart(2, "0");
-      // Genitive Ukrainian month (long).
-      const month = d.toLocaleDateString("uk-UA", { month: "long" });
-      return `ETD ${day} ${month}`;
-    })();
-    const level1MetaLeft = <span className="tmg-l2-etd">{etdText}</span>;
-
-    // Level 1 — row 2 right: "Вільно 26п/21.500кг" (yellow, no colon).
     // Level 1 — row 2 left: "ETD DD Month" padded to exactly 16 chars.
     // Two adjustable spaces (after "ETD" and after "DD") absorb the delta so
     // "E" stays at column 1 and the month tail stays at column 16 across cards.
