@@ -6,12 +6,13 @@ import { Plus, MoreVertical, Trash2, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cancelShipment } from "@/lib/shipments.functions";
 import { PageHeader } from "@/components/AppShell";
-import { SectionCard, EmptyState } from "@/components/cards";
+import { EmptyState } from "@/components/cards";
 import {
   MobileGlassTable,
   type MobileGlassRow,
   type MobileGlassDetailLine,
 } from "@/components/tropik/mobile-glass-table";
+import "./open-vehicles-glass.css";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -945,12 +946,34 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 
     const authorName = (mother?.import_managers?.full_name ?? "").trim() || "—";
 
-    // Level 1
-    const level1Main = `${v.code} • ${toUaCountry(v.country)} • ${authorName}`;
-    const level1MetaLeft = `ETD ${fmtEtaShort(v.loading_date)}`;
+    // Level 1 — row 1: Country • Code • Manager (styled via CSS classes).
+    const level1Main = (
+      <span className="tmg-l1-line1">
+        <span className="tmg-l1-country">{toUaCountry(v.country)}</span>
+        <span className="tmg-l1-sep">•</span>
+        <span className="tmg-l1-code">{v.code}</span>
+        <span className="tmg-l1-sep">•</span>
+        <span className="tmg-l1-manager">{authorName}</span>
+      </span>
+    );
+
+    // Level 1 — row 2 left: "ETD  DD  MonthUA" (long month, blue, reserved width).
+    const etdText = (() => {
+      if (!v.loading_date) return "ETD —";
+      const d = new Date(v.loading_date);
+      if (Number.isNaN(d.getTime())) return "ETD —";
+      const day = String(d.getDate()).padStart(2, "0");
+      // Genitive Ukrainian month (long).
+      const month = d.toLocaleDateString("uk-UA", { month: "long" });
+      return `ETD ${day} ${month}`;
+    })();
+    const level1MetaLeft = <span className="tmg-l2-etd">{etdText}</span>;
+
+    // Level 1 — row 2 right: "Вільно 26п/21.500кг" (yellow, no colon).
+    const freeGrossFmt = Math.round(freeGross).toLocaleString("de-DE"); // dot as thousand sep
     const level1MetaRight = (
-      <span className="font-bold" style={{ color: "#FFFF00" }}>
-        Вільно: {freePal}п / {freeGross.toLocaleString("uk-UA")} кг
+      <span className="tmg-l2-free">
+        Вільно {freePal}п/{freeGrossFmt}кг
       </span>
     );
 
@@ -1012,13 +1035,24 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
   });
 
   return (
-    <SectionCard title={`🚛 Відкриті авто (${visible.length})`}>
+    <div className="space-y-2">
+      <div className="px-1 text-sm font-semibold text-foreground/80">
+        🚛 Відкриті авто ({visible.length})
+      </div>
       {!visible.length ? (
         <EmptyState title="Відкритих авто немає" />
       ) : (
-        <MobileGlassTable rows={rows} theme="dark" summary={false} />
+        <MobileGlassTable
+          rows={rows}
+          theme="dark"
+          summary={false}
+          className="tmg-shipments"
+          topSnap
+          topOffsetPx={0}
+          bottomOffsetPx={8}
+        />
       )}
-    </SectionCard>
+    </div>
   );
 }
 
