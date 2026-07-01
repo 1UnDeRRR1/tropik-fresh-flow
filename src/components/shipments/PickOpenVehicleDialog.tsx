@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchActiveReservesByVehicle,
+  type ActiveReserve,
+} from "@/lib/vehicle-reserves";
 
 const CAP_PALLETS = 26;
 const CAP_GROSS_KG = 21500;
@@ -109,12 +113,38 @@ export function PickOpenVehicleDialog({
     },
   });
 
+  // Build 2E-B — pull active reserves for the same set of open vehicles so
+  // the fits filter treats reserved pallets/kg as occupied.
+  const vehicleIds = (q.data ?? []).map((v) => v.id);
+  const reservesQ = useQuery({
+    queryKey: ["pick-open-vehicles-reserves", country, vehicleIds.join(",")],
+    enabled: open && !!country && vehicleIds.length > 0,
+    staleTime: 0,
+    refetchOnMount: "always",
+    queryFn: () => fetchActiveReservesByVehicle(vehicleIds),
+  });
+  const reservesByVehicle = new Map<string, ActiveReserve[]>();
+  for (const r of reservesQ.data ?? []) {
+    const arr = reservesByVehicle.get(r.vehicle_id) ?? [];
+    arr.push(r);
+    reservesByVehicle.set(r.vehicle_id, arr);
+  }
+
   const rows = (q.data ?? []).map((v) => {
     const agg = aggregate(v);
-    const freePal = Math.max(0, CAP_PALLETS - agg.pallets);
-    const freeGross = Math.max(0, CAP_GROSS_KG - agg.gross);
+    const rs = reservesByVehicle.get(v.id) ?? [];
+    let resPal = 0;
+    let resGross = 0;
+    for (const r of rs) {
+      resPal += Number(r.pallets ?? 0);
+      resGross += Number(r.gross_kg ?? 0);
+    }
+    const usedPal = agg.pallets + resPal;
+    const usedGross = agg.gross + resGross;
+    const freePal = Math.max(0, CAP_PALLETS - usedPal);
+    const freeGross = Math.max(0, CAP_GROSS_KG - usedGross);
     const fits = freePal >= draftPallets && freeGross >= draftGrossKg;
-    return { v, agg, freePal, freeGross, fits };
+    return { v, agg, resPal, resGross, freePal, freeGross, fits };
   });
   const matched = rows.filter((r) => r.fits);
 
@@ -149,7 +179,7 @@ export function PickOpenVehicleDialog({
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {matched.map(({ v, agg, freePal, freeGross }) => (
+              {matched.map(({ v, agg, resPal, resGross, freePal, freeGross }) => (
                 <li key={v.id}>
                   <button
                     type="button"
@@ -172,7 +202,10 @@ export function PickOpenVehicleDialog({
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] tabular-nums text-muted-foreground">
                       <span>
-                        {agg.pallets}/26 пал · {Math.round(agg.gross)}/21500 кг
+                        зайнято {agg.pallets} пал
+                        {resPal > 0 ? ` + резерв ${resPal} пал` : ""} ·{" "}
+                        {Math.round(agg.gross)}
+                        {resGross > 0 ? ` + ${Math.round(resGross)}` : ""} кг
                       </span>
                       <span className="text-foreground">
                         вільно: {freePal} пал · {Math.round(freeGross)} кг

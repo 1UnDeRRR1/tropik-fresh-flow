@@ -53,6 +53,8 @@ import { resolveCountry } from "@/lib/country-search";
 import { NewShipmentProductCard } from "@/components/shipments/NewShipmentProductCard";
 import { StrictDatePicker } from "@/components/shipments/StrictDatePicker";
 import { CreateScenarioDialog } from "@/components/shipments/CreateScenarioDialog";
+import { ReserveInputDialog, type ReserveInput } from "@/components/shipments/ReserveInputDialog";
+import { createVehicleReserve } from "@/lib/vehicle-reserves";
 import { PickOpenVehicleDialog } from "@/components/shipments/PickOpenVehicleDialog";
 import { triggerInvalidFeedback } from "@/lib/invalid-feedback";
 import {
@@ -175,6 +177,8 @@ function NewShipment() {
   // Build 2D — picker dialog for "Створити та довантажити" from standalone
   // form. Opens when the user chooses the "and_topup" scenario tile.
   const [pickOpen, setPickOpen] = useState(false);
+  // Build 2E-B — reserve dialog for "Створити з резервом" (standalone only).
+  const [reserveOpen, setReserveOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
   const qc = useQueryClient();
@@ -210,8 +214,13 @@ function NewShipment() {
       qc.refetchQueries({ queryKey: ["shipments"] }),
       qc.refetchQueries({ queryKey: ["open-vehicles"] }),
       qc.refetchQueries({ queryKey: ["logistics-board"] }),
+      // Build 2E-B — refresh reserve-aware lists.
+      qc.refetchQueries({ queryKey: ["vehicle-reserves-open"] }),
+      qc.refetchQueries({ queryKey: ["pick-open-vehicles"] }),
+      qc.refetchQueries({ queryKey: ["pick-open-vehicles-reserves"] }),
     ]);
   }, [qc]);
+
 
   const leaveCreateFormAfterSuccess = useCallback(
     async (target: { closed: boolean }) => {
@@ -1070,7 +1079,7 @@ function NewShipment() {
   // orchestrated DB writes and navigates to the new shipment on success.
   async function handleConfirmScenario(
     scenario: CreateShipmentScenario,
-    override?: { parentVehicleId?: string },
+    override?: { parentVehicleId?: string; reserve?: ReserveInput },
   ) {
     if (submitLockRef.current) return;
     if (!user) {
@@ -1185,6 +1194,25 @@ function NewShipment() {
           ? `Поставку ${res.shipmentCode} створено, авто закрите`
           : `Поставку ${res.shipmentCode} створено`,
       );
+
+      // Build 2E-B — two-step reserve write for the "Створити з резервом"
+      // flow. Shipment is already committed; a failing reserve does NOT
+      // roll back the shipment, per approved plan. Warning toast only.
+      if (override?.reserve && res.vehicleId) {
+        const rr = await createVehicleReserve(
+          res.vehicleId,
+          override.reserve.pallets,
+          override.reserve.grossKg,
+          override.reserve.note,
+        );
+        if (!rr.ok) {
+          toast.warning(
+            `Поставку створено, але резерв не застосовано: ${rr.reason}`,
+            { duration: 12_000 },
+          );
+        }
+      }
+
       await leaveCreateFormAfterSuccess({ closed: res.closed });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Невідома помилка створення");
@@ -1474,7 +1502,28 @@ function NewShipment() {
           setScenarioOpen(false);
           setPickOpen(true);
         }}
+        onWithReserve={() => {
+          // Build 2E-B — user picked "Створити з резервом". Open the
+          // reserve input modal; no DB writes until confirm.
+          setScenarioOpen(false);
+          setReserveOpen(true);
+        }}
       />
+
+      {/* Build 2E-B — reserve input modal. Two-step: standalone create,
+          then create_vehicle_reserve on the new vehicle. */}
+      <ReserveInputDialog
+        open={reserveOpen}
+        isSubmitting={isSubmitting}
+        draftPallets={draftTotals.pallets}
+        draftGrossKg={draftTotals.kg}
+        onClose={() => setReserveOpen(false)}
+        onConfirm={(reserve) => {
+          setReserveOpen(false);
+          void handleConfirmScenario("create", { reserve });
+        }}
+      />
+
 
       {/* Build 2D — picker for "Створити та довантажити". The dialog is a
           pure read query; selecting a vehicle flips the form into child

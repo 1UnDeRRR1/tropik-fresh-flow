@@ -54,9 +54,7 @@ function buildOptions(childMode: boolean): Option[] {
     {
       id: "with_reserve",
       title: "Створити з резервом",
-      hint: "Зарезервувати місце в авто під майбутню довантаження.",
-      disabled: true,
-      comingSoon: true,
+      hint: "Створити поставку та зарезервувати вільне місце в цьому ж авто під наступну довантаження.",
     },
     {
       id: "create_and_close",
@@ -78,6 +76,7 @@ export function CreateScenarioDialog({
   onClose,
   childMode = false,
   onTopUp,
+  onWithReserve,
 }: {
   open: boolean;
   isSubmitting: boolean;
@@ -87,6 +86,8 @@ export function CreateScenarioDialog({
   childMode?: boolean;
   /** Called when user picks "Створити та довантажити" in standalone mode. */
   onTopUp?: () => void;
+  /** Called when user picks "Створити з резервом" in standalone mode. */
+  onWithReserve?: () => void;
 }) {
   const options = buildOptions(childMode);
   return (
@@ -126,7 +127,10 @@ export function CreateScenarioDialog({
                     onTopUp?.();
                     return;
                   }
-                  if (opt.id === "with_reserve") return;
+                  if (opt.id === "with_reserve") {
+                    onWithReserve?.();
+                    return;
+                  }
                   onConfirm(opt.id as CreateShipmentScenario);
                 }}
                 className={cn(

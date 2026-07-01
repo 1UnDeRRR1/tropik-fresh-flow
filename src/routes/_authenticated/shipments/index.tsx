@@ -26,6 +26,12 @@ import { toast } from "sonner";
 import { useFocusHighlight } from "@/lib/use-focus-highlight";
 import { useStableQueryData } from "@/lib/query-stability";
 import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
+import {
+  fetchActiveReservesByVehicle,
+  releaseVehicleReserve,
+  closeVehicleReserves,
+  type ActiveReserve,
+} from "@/lib/vehicle-reserves";
 
 import { StaffOnly } from "@/components/StaffOnly";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -134,8 +140,20 @@ function ShipmentsList() {
   // Realtime: keep both tabs in sync without page reload after create/close.
   useRealtimeInvalidate(
     "shipments-list-rt",
-    ["shipments", "vehicles", "shipment_items", "distributions", "distribution_items"],
-    [["shipments-list"], ["open-vehicles-list"]],
+    [
+      "shipments",
+      "vehicles",
+      "shipment_items",
+      "distributions",
+      "distribution_items",
+      // Build 2E-B — pick up reserve create/release/close in the list.
+      "vehicle_reserves",
+    ],
+    [
+      ["shipments-list"],
+      ["open-vehicles-list"],
+      ["vehicle-reserves-open"],
+    ],
   );
 
   const { data: currentManagerId } = useQuery({
@@ -704,6 +722,23 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     },
   });
 
+  // Build 2E-B — active reserves for the currently listed open vehicles.
+  // Keyed by the vehicle id set so realtime + list refetch keeps them
+  // in sync. Read-only; writes go through RPC wrappers.
+  const openVehicleIds = (data ?? []).map((v) => v.id);
+  const reservesKey = openVehicleIds.slice().sort().join(",");
+  const { data: reserves, refetch: refetchReserves } = useQuery({
+    queryKey: ["vehicle-reserves-open", reservesKey],
+    enabled: openVehicleIds.length > 0,
+    queryFn: () => fetchActiveReservesByVehicle(openVehicleIds),
+  });
+  const reservesByVehicle = new Map<string, ActiveReserve[]>();
+  for (const r of reserves ?? []) {
+    const arr = reservesByVehicle.get(r.vehicle_id) ?? [];
+    arr.push(r);
+    reservesByVehicle.set(r.vehicle_id, arr);
+  }
+
   const closeVehicle = async (id: string) => {
     // Validate all shipment items in this vehicle have required fields
     const { data: ships } = await supabase
@@ -741,6 +776,22 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Авто закрите");
+
+    // Build 2E-B — after successful vehicle close, close any lingering
+    // active reserves on this vehicle. RPC uses SECURITY DEFINER and
+    // requires vehicle.status='closed', which is now guaranteed. Failure
+    // is a warning only — we do NOT roll back the vehicle close.
+    try {
+      const rr = await closeVehicleReserves(id);
+      if (!rr.ok) {
+        toast.warning(`Авто закрите, але резерви не закриті: ${rr.reason}`);
+      }
+    } catch (e) {
+      toast.warning(
+        `Авто закрите, але резерви не закриті: ${e instanceof Error ? e.message : "невідома помилка"}`,
+      );
+    }
+
     // Vehicle-level action: invalidate all views that depend on vehicle
     // status so the shared vehicle (parent + child shipments) leaves
     // "Не закриті авто" and appears on the shipments board in one refresh.
@@ -751,6 +802,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       qc.refetchQueries({ queryKey: ["vehicles-open"], type: "all" }),
       qc.refetchQueries({ queryKey: ["vehicles-list"], type: "all" }),
       qc.refetchQueries({ queryKey: ["logistics-board"], type: "all" }),
+      qc.refetchQueries({ queryKey: ["vehicle-reserves-open"], type: "all" }),
     ]);
     refetch();
   };
@@ -783,10 +835,18 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     const hasShipments = (v.shipments ?? []).length > 0;
     const ownShipment = (v.shipments ?? []).find((s) => isOwnedShipment(s, user?.id, currentManagerId));
     const isOwnVehicle = !!ownShipment || v.created_by === user?.id;
-    if (isOwnVehicle) return true;
+    // Build 2E-B — surface any vehicle where this user owns an active
+    // reserve so they can release it, even without their own shipment.
+    const hasOwnReserve = (reservesByVehicle.get(v.id) ?? []).some(
+      (r) => r.owner_user_id === user?.id,
+    );
+    if (isOwnVehicle || hasOwnReserve) return true;
     if (!hasShipments) return false;
     const agg = aggregateVehicleFromItems(v);
-    const { available } = computeTopUp(agg.pallets, agg.gross);
+    const rs = reservesByVehicle.get(v.id) ?? [];
+    const resPal = rs.reduce((a, r) => a + Number(r.pallets ?? 0), 0);
+    const resGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
+    const { available } = computeTopUp(agg.pallets + resPal, agg.gross + resGross);
     return available;
   });
 
@@ -807,11 +867,20 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           const _agg = aggregateVehicleFromItems(v);
           const pallets = _agg.pallets;
           const weight = _agg.gross;
+          // Build 2E-B — reserve-aware effective occupancy for capacity gating
+          // and the residual chip. The bar itself still reflects fact only so
+          // users can see the difference between shipped and reserved.
+          const rs = reservesByVehicle.get(v.id) ?? [];
+          const resPal = rs.reduce((a, r) => a + Number(r.pallets ?? 0), 0);
+          const resGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
+          const ownReserve = rs.find((r) => r.owner_user_id === user?.id) ?? null;
+          const effPallets = pallets + resPal;
+          const effWeight = weight + resGross;
           const palletsPct = Math.min(100, (pallets / CAP_PALLETS) * 100);
           const weightPct = Math.min(100, (weight / CAP_GROSS_KG) * 100);
-          const { available: topUpAvailable } = computeTopUp(pallets, weight);
+          const { available: topUpAvailable } = computeTopUp(effPallets, effWeight);
           // Own vehicle: owner can always add. Other manager's: only if top-up rule passes.
-          const hasFreeCapacity = isOwnVehicle ? pallets < CAP_PALLETS && weight < CAP_GROSS_KG : topUpAvailable;
+          const hasFreeCapacity = isOwnVehicle ? effPallets < CAP_PALLETS && effWeight < CAP_GROSS_KG : topUpAvailable;
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
@@ -820,6 +889,21 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
               navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
             }
           };
+          const onReleaseReserve = ownReserve
+            ? async () => {
+                const r = await releaseVehicleReserve(ownReserve.id);
+                if (!r.ok) {
+                  toast.error(`Не вдалося зняти резерв: ${r.reason}`);
+                  return;
+                }
+                toast.success("Резерв знято");
+                await Promise.all([
+                  qc.refetchQueries({ queryKey: ["vehicle-reserves-open"], type: "all" }),
+                  qc.refetchQueries({ queryKey: ["open-vehicles-list"], type: "all" }),
+                ]);
+                refetchReserves();
+              }
+            : undefined;
           return (
             <VehicleCard
               key={v.id}
@@ -827,6 +911,11 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
               sups={sups}
               pallets={pallets}
               weight={weight}
+              reservePallets={resPal}
+              reserveGross={resGross}
+              ownReservePallets={ownReserve ? Number(ownReserve.pallets ?? 0) : 0}
+              ownReserveGross={ownReserve ? Number(ownReserve.gross_kg ?? 0) : 0}
+              onReleaseReserve={onReleaseReserve}
               palletsPct={palletsPct}
               weightPct={weightPct}
               ownShipment={ownShipment}
@@ -847,7 +936,9 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
 }
 
 function VehicleCard({
-  v, sups, pallets, weight, palletsPct, weightPct, ownShipment, isAdmin,
+  v, sups, pallets, weight,
+  reservePallets, reserveGross, ownReservePallets, ownReserveGross, onReleaseReserve,
+  palletsPct, weightPct, ownShipment, isAdmin,
   redactCommercial, hasFreeCapacity,
   onCardClick, onAddSupplier, onClose, onDeleted,
 }: {
@@ -855,6 +946,11 @@ function VehicleCard({
   sups: string[];
   pallets: number;
   weight: number;
+  reservePallets: number;
+  reserveGross: number;
+  ownReservePallets: number;
+  ownReserveGross: number;
+  onReleaseReserve?: () => Promise<void> | void;
   palletsPct: number;
   weightPct: number;
   ownShipment: { id: string; import_manager_id: string | null } | undefined;
@@ -872,6 +968,7 @@ function VehicleCard({
   const SWIPE_CLOSE_THRESHOLD = 18;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const swipeOffsetRef = useRef(0);
@@ -1117,21 +1214,54 @@ function VehicleCard({
           <div className="mt-1.5 space-y-1 text-[10px]">
             <div className="flex items-center justify-between">
               <span>Палети {pallets}/26</span>
-              <span className="text-muted-foreground">залиш. {Math.max(0, 26 - pallets)}</span>
+              <span className="text-muted-foreground">
+                залиш. {Math.max(0, 26 - pallets - reservePallets)}
+                {reservePallets > 0 ? ` · резерв ${reservePallets}` : ""}
+              </span>
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-secondary">
               <div className="h-full bg-brand" style={{ width: `${palletsPct}%` }} />
             </div>
             <div className="flex items-center justify-between">
               <span>Вага {Math.round(weight)}/21500 кг</span>
-              <span className="text-muted-foreground">залиш. {Math.max(0, 21500 - Math.round(weight))} кг</span>
+              <span className="text-muted-foreground">
+                залиш. {Math.max(0, 21500 - Math.round(weight) - Math.round(reserveGross))} кг
+                {reserveGross > 0 ? ` · резерв ${Math.round(reserveGross)} кг` : ""}
+              </span>
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-secondary">
               <div className="h-full bg-brand" style={{ width: `${weightPct}%` }} />
             </div>
+            {(reservePallets > 0 || ownReservePallets > 0) && (
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                {reservePallets > 0 && (
+                  <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    Резерв: {reservePallets} пал / {Math.round(reserveGross)} кг
+                  </span>
+                )}
+                {ownReservePallets > 0 && onReleaseReserve && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                    Мій резерв: {ownReservePallets} пал / {Math.round(ownReserveGross)} кг
+                    <button
+                      type="button"
+                      title="Зняти мій резерв"
+                      aria-label="Зняти мій резерв"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReleaseOpen(true);
+                      }}
+                      className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-brand hover:bg-brand/20"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
@@ -1149,6 +1279,30 @@ function VehicleCard({
                 void doDelete();
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Так
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={releaseOpen} onOpenChange={setReleaseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Зняти резерв?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ваш резерв на авто {v.code} буде знято, а місце знову стане
+              доступним для довантаження.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ні</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setReleaseOpen(false);
+                if (onReleaseReserve) void onReleaseReserve();
+              }}
             >
               Так
             </AlertDialogAction>
