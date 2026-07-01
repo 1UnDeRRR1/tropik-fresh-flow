@@ -127,7 +127,10 @@ export function CreateScenarioDialog({
                     onTopUp?.();
                     return;
                   }
-                  if (opt.id === "with_reserve") return;
+                  if (opt.id === "with_reserve") {
+                    onWithReserve?.();
+                    return;
+                  }
                   onConfirm(opt.id as CreateShipmentScenario);
                 }}
                 className={cn(
