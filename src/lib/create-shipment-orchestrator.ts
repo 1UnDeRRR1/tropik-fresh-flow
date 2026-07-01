@@ -71,6 +71,10 @@ export type CreateShipmentSuccess = {
   shipmentId: string;
   shipmentCode: string;
   closed: boolean;
+  /** Build 2E-C — child mode only. Present when consume RPC was called. */
+  reserveConsume?:
+    | { ok: true; consumedPallets: number; consumedGrossKg: number; consumedReserveIds: string[] }
+    | { ok: false; reason: string };
 };
 
 export type CreateShipmentFailure = {
