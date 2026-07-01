@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   fetchActiveReservesByVehicle,
   type ActiveReserve,
@@ -94,6 +95,8 @@ export function PickOpenVehicleDialog({
   onClose: () => void;
   onPick: (vehicle: PickableVehicle) => void;
 }) {
+  const { user } = useAuth();
+  const uid = user?.id ?? null;
   const q = useQuery({
     queryKey: ["pick-open-vehicles", country],
     enabled: open && !!country,
@@ -113,8 +116,9 @@ export function PickOpenVehicleDialog({
     },
   });
 
-  // Build 2E-B — pull active reserves for the same set of open vehicles so
-  // the fits filter treats reserved pallets/kg as occupied.
+  // Build 2E-B/2E-C — pull active reserves for the same set of open
+  // vehicles. Own reserves do NOT block the caller (2E-C consume will use
+  // them). Others' reserves still occupy space.
   const vehicleIds = (q.data ?? []).map((v) => v.id);
   const reservesQ = useQuery({
     queryKey: ["pick-open-vehicles-reserves", country, vehicleIds.join(",")],
@@ -133,18 +137,38 @@ export function PickOpenVehicleDialog({
   const rows = (q.data ?? []).map((v) => {
     const agg = aggregate(v);
     const rs = reservesByVehicle.get(v.id) ?? [];
-    let resPal = 0;
-    let resGross = 0;
+    let ownPal = 0;
+    let ownGross = 0;
+    let otherPal = 0;
+    let otherGross = 0;
     for (const r of rs) {
-      resPal += Number(r.pallets ?? 0);
-      resGross += Number(r.gross_kg ?? 0);
+      const p = Number(r.pallets ?? 0);
+      const g = Number(r.gross_kg ?? 0);
+      if (uid && r.owner_user_id === uid) {
+        ownPal += p;
+        ownGross += g;
+      } else {
+        otherPal += p;
+        otherGross += g;
+      }
     }
-    const usedPal = agg.pallets + resPal;
-    const usedGross = agg.gross + resGross;
+    // For the caller: own reserve doesn't occupy space.
+    const usedPal = agg.pallets + otherPal;
+    const usedGross = agg.gross + otherGross;
     const freePal = Math.max(0, CAP_PALLETS - usedPal);
     const freeGross = Math.max(0, CAP_GROSS_KG - usedGross);
     const fits = freePal >= draftPallets && freeGross >= draftGrossKg;
-    return { v, agg, resPal, resGross, freePal, freeGross, fits };
+    return {
+      v,
+      agg,
+      resPal: otherPal + ownPal,
+      resGross: otherGross + ownGross,
+      ownPal,
+      ownGross,
+      freePal,
+      freeGross,
+      fits,
+    };
   });
   const matched = rows.filter((r) => r.fits);
 
@@ -179,7 +203,7 @@ export function PickOpenVehicleDialog({
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {matched.map(({ v, agg, resPal, resGross, freePal, freeGross }) => (
+              {matched.map(({ v, agg, resPal, resGross, ownPal, freePal, freeGross }) => (
                 <li key={v.id}>
                   <button
                     type="button"
@@ -211,6 +235,11 @@ export function PickOpenVehicleDialog({
                         вільно: {freePal} пал · {Math.round(freeGross)} кг
                       </span>
                     </div>
+                    {ownPal > 0 && (
+                      <div className="mt-0.5 text-[10px] text-brand">
+                        з них мій: {ownPal} пал (не блокує)
+                      </div>
+                    )}
                     {agg.suppliers.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {agg.suppliers.map((s, i) => (

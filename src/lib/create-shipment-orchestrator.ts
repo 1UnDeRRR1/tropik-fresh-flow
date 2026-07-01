@@ -39,6 +39,7 @@ import {
   getSupplierAlias,
 } from "@/lib/shipment-code";
 import { getLatestEurUsdRate } from "@/lib/currency";
+import { consumeVehicleReservesForChild } from "@/lib/vehicle-reserves";
 
 export type CreateShipmentScenario = "create" | "create_and_close";
 
@@ -71,6 +72,10 @@ export type CreateShipmentSuccess = {
   shipmentId: string;
   shipmentCode: string;
   closed: boolean;
+  /** Build 2E-C — child mode only. Present when consume RPC was called. */
+  reserveConsume?:
+    | { ok: true; consumedPallets: number; consumedGrossKg: number; consumedReserveIds: string[] }
+    | { ok: false; reason: string };
 };
 
 export type CreateShipmentFailure = {
@@ -280,30 +285,42 @@ export async function createShipmentFlow(
       }
     }
 
-    // Build 2E-B — active vehicle_reserves count as occupied space. Best-
-    // effort read (RLS permits authenticated SELECT per 2E-A). Adds pallets
-    // and gross_kg to used* before the fits check. No consume logic here:
-    // the owner of a reserve must release it manually before their own child
-    // shipment fits.
+    // Build 2E-C — owner-aware reserve capacity. Split active reserves into
+    // OWN (caller's) and OTHERS. Only others' reserves occupy space for the
+    // caller; own reserves will be consumed by the RPC AFTER child create.
     const resQ = (await supabase
       .from("vehicle_reserves" as never)
-      .select("pallets,gross_kg")
+      .select("pallets,gross_kg,owner_user_id")
       .eq("vehicle_id", vehicleId)
       .eq("status", "active")) as {
-        data: { pallets: number | null; gross_kg: number | null }[] | null;
+        data: {
+          pallets: number | null;
+          gross_kg: number | null;
+          owner_user_id: string | null;
+        }[] | null;
         error: { message: string } | null;
       };
     if (resQ.error) {
       return { ok: false, stage: "capacity_guard", reason: safeReason(resQ.error) };
     }
-    let reservePallets = 0;
-    let reserveGross = 0;
+    let ownReservePallets = 0;
+    let ownReserveGross = 0;
+    let otherReservePallets = 0;
+    let otherReserveGross = 0;
     for (const r of resQ.data ?? []) {
-      reservePallets += Number(r.pallets ?? 0);
-      reserveGross += Number(r.gross_kg ?? 0);
+      const p = Number(r.pallets ?? 0);
+      const g = Number(r.gross_kg ?? 0);
+      if (r.owner_user_id === userId) {
+        ownReservePallets += p;
+        ownReserveGross += g;
+      } else {
+        otherReservePallets += p;
+        otherReserveGross += g;
+      }
     }
-    usedPallets += reservePallets;
-    usedGross += reserveGross;
+    // Others' reserves are treated as occupied for the caller.
+    usedPallets += otherReservePallets;
+    usedGross += otherReserveGross;
 
     let draftPallets = 0;
     let draftGross = 0;
@@ -322,10 +339,18 @@ export async function createShipmentFlow(
     if (usedPallets + draftPallets > CAP_PAL || usedGross + draftGross > CAP_GROSS) {
       const freePal = Math.max(0, CAP_PAL - usedPallets);
       const freeGross = Math.max(0, CAP_GROSS - usedGross);
-      const reserveNote =
-        reservePallets > 0 || reserveGross > 0
-          ? ` (з них резерв: ${reservePallets} пал / ${Math.round(reserveGross)} кг)`
-          : "";
+      const parts: string[] = [];
+      if (otherReservePallets > 0 || otherReserveGross > 0) {
+        parts.push(
+          `чужий резерв: ${otherReservePallets} пал / ${Math.round(otherReserveGross)} кг`,
+        );
+      }
+      if (ownReservePallets > 0 || ownReserveGross > 0) {
+        parts.push(
+          `мій резерв (не блокує): ${ownReservePallets} пал / ${Math.round(ownReserveGross)} кг`,
+        );
+      }
+      const reserveNote = parts.length > 0 ? ` (${parts.join("; ")})` : "";
       return {
         ok: false,
         stage: "capacity_guard",
@@ -492,6 +517,34 @@ export async function createShipmentFlow(
     closed = true;
   }
 
+  // Build 2E-C — after a successful child create, consume caller's own
+  // active reserves on this vehicle (FIFO). Single call, no retry. On
+  // failure we do NOT roll back the shipment; caller surfaces a warning.
+  let reserveConsume: CreateShipmentSuccess["reserveConsume"] = undefined;
+  if (isChild) {
+    let childPallets = 0;
+    let childGross = 0;
+    for (const d of drafts) {
+      const pc = Number(d.pallet_count ?? 0);
+      childPallets += pc;
+      const g = Number(d.gross_weight_kg ?? 0);
+      if (g > 0) childGross += g;
+      else {
+        const net = Number(d.net_weight_kg ?? 0);
+        childGross += net > 0 ? net : 0;
+      }
+    }
+    const cr = await consumeVehicleReservesForChild(vehicleId, childPallets, childGross);
+    reserveConsume = cr.ok
+      ? {
+          ok: true,
+          consumedPallets: cr.data.consumed_pallets,
+          consumedGrossKg: cr.data.consumed_gross_kg,
+          consumedReserveIds: cr.data.consumed_reserve_ids,
+        }
+      : { ok: false, reason: cr.reason };
+  }
+
   return {
     ok: true,
     vehicleId,
@@ -499,6 +552,7 @@ export async function createShipmentFlow(
     shipmentId,
     shipmentCode,
     closed,
+    reserveConsume,
   };
 }
 

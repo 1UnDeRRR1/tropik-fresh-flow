@@ -1213,6 +1213,16 @@ function NewShipment() {
         }
       }
 
+      // Build 2E-C — surface consume-RPC failure (child mode only). Shipment
+      // is already created; user must release/adjust reserve manually. No
+      // auto retry.
+      if (res.reserveConsume && res.reserveConsume.ok === false) {
+        toast.warning(
+          "Поставку створено, але резерв не списано автоматично. Зніміть резерв вручну.",
+          { duration: 12_000 },
+        );
+      }
+
       await leaveCreateFormAfterSuccess({ closed: res.closed });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Невідома помилка створення");

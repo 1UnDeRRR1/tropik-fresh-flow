@@ -1256,6 +1256,15 @@ function VehicleCard({
                     </button>
                   </span>
                 )}
+                {(pallets + reservePallets > 26 ||
+                  Math.round(weight) + Math.round(reserveGross) > 21500) && (
+                  <span
+                    className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive"
+                    title="Сумарно факт + активні резерви перевищують ліміт авто (26 пал / 21 500 кг). Можлива тимчасова десинхронізація після невдалого списання резерву."
+                  >
+                    перевищення резерву
+                  </span>
+                )}
               </div>
             )}
           </div>
