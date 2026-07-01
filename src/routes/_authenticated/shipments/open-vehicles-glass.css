@@ -84,14 +84,15 @@
   color: #4aa3ff;           /* project-consistent blue for dates */
   padding-left: 2px;
   display: inline-block;
-  min-width: 15ch;
+  min-width: 16ch;
+  text-align: left;
 }
 .tmg-shipments .tmg-l2-free {
   color: #ffff00;
   justify-self: end;
   padding-right: 2px;
   display: inline-block;
-  min-width: 19ch;
+  min-width: 20ch;
   text-align: right;
 }
 
