@@ -1488,15 +1488,16 @@ function NewShipment() {
         onClose={() => setPickOpen(false)}
         onPick={(v) => {
           setPickOpen(false);
+          // Reflect the pick in local state for UI consistency (readonly
+          // parent-derived fields, capacity bar), but DO NOT rely on it for
+          // the write path — pass parentVehicleId explicitly instead so a
+          // stale-closure read of `isChildMode`/`vehicleId` cannot degrade
+          // the flow into a new standalone vehicle create.
           setMode("existing");
           setVehicleId(v.id);
-          // Allow React to flush state, then run the orchestrator. The
-          // orchestrator re-reads the parent vehicle from DB (source of
-          // truth) regardless of what we have in local state.
-          setTimeout(() => {
-            void handleConfirmScenario("create");
-          }, 0);
+          void handleConfirmScenario("create", { parentVehicleId: v.id });
         }}
+
       />
     </div>
   );
