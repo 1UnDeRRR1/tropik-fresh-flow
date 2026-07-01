@@ -764,21 +764,34 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
         .select("product_name,origin_country,pallet_count,pallet_weight,net_weight_kg,unit_price")
         .in("shipment_id", shipIds);
       const rows = (items ?? []) as Array<{ product_name: string | null; origin_country: string | null; pallet_count: number | null; pallet_weight: number | null; net_weight_kg: number | null; unit_price: number | null }>;
-      const bad = rows.filter((r) => {
+      // Collect precise missing-field reasons across all bad rows so the
+      // toast tells the user WHAT is missing, not the full generic list.
+      const missingCounts: Record<string, number> = {};
+      let badRows = 0;
+      for (const r of rows) {
         const pc = Number(r.pallet_count ?? 0);
+        if (!(pc > 0)) continue; // skip empty placeholder rows
         const pw = Number(r.pallet_weight ?? 0);
         const net = Number(r.net_weight_kg ?? 0);
-        const lineWeight = net > 0 ? net : pc * pw; // net first, legacy fallback
-        return pc > 0 && (
-          !(r.product_name ?? "").trim() ||
-          (r.product_name ?? "") === "Новий товар" ||
-          !(r.origin_country ?? "").trim() ||
-          lineWeight <= 0 ||
-          !r.unit_price || Number(r.unit_price) <= 0
-        );
-      }).length;
-      if (bad > 0) {
-        toast.error(`Не можна закрити: ${bad} поз. з незаповн. полями (товар / країна / палети / вага / ціна)`);
+        const lineWeight = net > 0 ? net : pc * pw;
+        const missing: string[] = [];
+        const name = (r.product_name ?? "").trim();
+        if (!name || name === "Новий товар") missing.push("товар");
+        if (!(r.origin_country ?? "").trim()) missing.push("країна");
+        if (!(lineWeight > 0)) missing.push("вага");
+        if (!r.unit_price || Number(r.unit_price) <= 0) missing.push("ціна");
+        if (missing.length > 0) {
+          badRows += 1;
+          for (const k of missing) missingCounts[k] = (missingCounts[k] ?? 0) + 1;
+        }
+      }
+      if (badRows > 0) {
+        const fields = Object.keys(missingCounts);
+        const msg =
+          fields.length === 1
+            ? `Не можна закрити: ${badRows} поз. без ${fields[0]}`
+            : `Не можна закрити: ${badRows} поз. з незаповненими полями: ${fields.join(", ")}`;
+        toast.error(msg);
         return;
       }
     }
