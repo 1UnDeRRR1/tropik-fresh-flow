@@ -1416,10 +1416,12 @@ function NewShipment() {
             const p = Number(d.pallet_count) || 0;
             const n = Number(d.net_weight_kg) || 0;
             const g = Number(d.gross_weight_kg) || 0;
+            const pr = Number(d.unit_price) || 0;
             if (!(p > 0)) local.push("палети");
             if (!(n > 0)) local.push("нетто");
             if (!(g > 0)) local.push("брутто");
             if (n > 0 && g > 0 && !(g > n)) local.push("брутто ≤ нетто");
+            if (!(pr > 0)) local.push("ціна");
             if (local.length > 0) rowIssues.push(`${label}: ${local.join(", ")}`);
             void i;
           });
