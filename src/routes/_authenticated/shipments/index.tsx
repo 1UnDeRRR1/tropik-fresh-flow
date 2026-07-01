@@ -6,7 +6,7 @@ import { Plus, MoreVertical, Trash2, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cancelShipment } from "@/lib/shipments.functions";
 import { PageHeader } from "@/components/AppShell";
-import { SectionCard, EmptyState } from "@/components/cards";
+import { EmptyState } from "@/components/cards";
 import {
   MobileGlassTable,
   type MobileGlassRow,
