@@ -720,7 +720,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,import_manager_id,created_by,suppliers(name),shipment_items(pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,created_at,import_manager_id,created_by,logistics_cost,logistics_cost_currency,logistics_cost_usd,suppliers(name),import_managers(full_name),shipment_items(product_name,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
