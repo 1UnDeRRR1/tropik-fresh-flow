@@ -252,6 +252,11 @@ function getMissingFields(item: ItemRow): RequiredField[] {
   return missing;
 }
 
+// Auto-close only. NEVER auto-reopens a closed vehicle — a closed vehicle can
+// only return to "open" via an explicit user reopen action, which currently
+// does not exist. Merely editing / exiting a shipment (parent or child) must
+// not resurrect a closed vehicle. This was the root cause of the
+// "закрите авто самопроизвольно повертається у Не закриті авто" regression.
 async function syncVehicleStateForShipment(shipmentId: string) {
   const { data: shipment } = await supabase
     .from("shipments")
@@ -264,29 +269,29 @@ async function syncVehicleStateForShipment(shipmentId: string) {
 
   const { data: vehicle } = await supabase
     .from("vehicles" as never)
-    .select("id,total_pallets,total_weight_kg,status,closed_by,closed_at")
+    .select("id,total_pallets,total_weight_kg,status,closed_at")
     .eq("id", vehicleId)
     .maybeSingle();
 
+  const currentStatus = (vehicle as { status?: string | null } | null)?.status ?? null;
+  // If vehicle is already closed — DO NOT TOUCH IT. No reopen, no closed_at
+  // reset. Reopening only via an explicit action, which is out of scope here.
+  if (currentStatus === "closed") return;
+
   const totalPallets = Number((vehicle as { total_pallets?: number | null } | null)?.total_pallets ?? 0);
   const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
-  const closedBy = (vehicle as { closed_by?: string | null } | null)?.closed_by ?? null;
-  const closedAt = (vehicle as { closed_at?: string | null } | null)?.closed_at ?? null;
   // Авто закривається автоматично, якщо:
   //   • завантажено ≥ 26 палет (незалежно від ваги), АБО
   //   • завантажено ≥ 21000 кг (незалежно від кількості палет).
   const shouldBeClosed =
     totalPallets >= MAX_PALLETS || totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG;
-  const nextStatus = shouldBeClosed ? "closed" : "open";
-
-  if (closedBy && !shouldBeClosed) return;
-  if ((vehicle as { status?: string | null } | null)?.status === nextStatus && (shouldBeClosed || !closedAt)) return;
+  if (!shouldBeClosed) return;
 
   await supabase
     .from("vehicles" as never)
     .update({
-      status: nextStatus,
-      closed_at: shouldBeClosed ? closedAt ?? new Date().toISOString() : null,
+      status: "closed",
+      closed_at: new Date().toISOString(),
     } as never)
     .eq("id", vehicleId);
 }
