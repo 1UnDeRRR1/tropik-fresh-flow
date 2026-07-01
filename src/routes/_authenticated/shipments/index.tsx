@@ -867,11 +867,20 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
           const _agg = aggregateVehicleFromItems(v);
           const pallets = _agg.pallets;
           const weight = _agg.gross;
+          // Build 2E-B — reserve-aware effective occupancy for capacity gating
+          // and the residual chip. The bar itself still reflects fact only so
+          // users can see the difference between shipped and reserved.
+          const rs = reservesByVehicle.get(v.id) ?? [];
+          const resPal = rs.reduce((a, r) => a + Number(r.pallets ?? 0), 0);
+          const resGross = rs.reduce((a, r) => a + Number(r.gross_kg ?? 0), 0);
+          const ownReserve = rs.find((r) => r.owner_user_id === user?.id) ?? null;
+          const effPallets = pallets + resPal;
+          const effWeight = weight + resGross;
           const palletsPct = Math.min(100, (pallets / CAP_PALLETS) * 100);
           const weightPct = Math.min(100, (weight / CAP_GROSS_KG) * 100);
-          const { available: topUpAvailable } = computeTopUp(pallets, weight);
+          const { available: topUpAvailable } = computeTopUp(effPallets, effWeight);
           // Own vehicle: owner can always add. Other manager's: only if top-up rule passes.
-          const hasFreeCapacity = isOwnVehicle ? pallets < CAP_PALLETS && weight < CAP_GROSS_KG : topUpAvailable;
+          const hasFreeCapacity = isOwnVehicle ? effPallets < CAP_PALLETS && effWeight < CAP_GROSS_KG : topUpAvailable;
           const handleCardClick = () => {
             if (ownShipment) {
               navigate({ to: "/shipments/$id/products", params: { id: ownShipment.id } });
@@ -880,6 +889,21 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
               navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
             }
           };
+          const onReleaseReserve = ownReserve
+            ? async () => {
+                const r = await releaseVehicleReserve(ownReserve.id);
+                if (!r.ok) {
+                  toast.error(`Не вдалося зняти резерв: ${r.reason}`);
+                  return;
+                }
+                toast.success("Резерв знято");
+                await Promise.all([
+                  qc.refetchQueries({ queryKey: ["vehicle-reserves-open"], type: "all" }),
+                  qc.refetchQueries({ queryKey: ["open-vehicles-list"], type: "all" }),
+                ]);
+                refetchReserves();
+              }
+            : undefined;
           return (
             <VehicleCard
               key={v.id}
@@ -887,6 +911,11 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
               sups={sups}
               pallets={pallets}
               weight={weight}
+              reservePallets={resPal}
+              reserveGross={resGross}
+              ownReservePallets={ownReserve ? Number(ownReserve.pallets ?? 0) : 0}
+              ownReserveGross={ownReserve ? Number(ownReserve.gross_kg ?? 0) : 0}
+              onReleaseReserve={onReleaseReserve}
               palletsPct={palletsPct}
               weightPct={weightPct}
               ownShipment={ownShipment}
