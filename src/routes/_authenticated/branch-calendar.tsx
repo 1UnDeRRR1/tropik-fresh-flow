@@ -10,7 +10,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
-import { MalekhivBranchCalendarList } from "@/components/malekhiv/MalekhivBranchCalendarList";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
@@ -269,10 +269,6 @@ function BranchCalendarPage() {
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : grouped.length === 0 ? (
         <EmptyState title="Активних поставок немає" />
-      ) : branchId === MALEKHIV_BRANCH_ID ? (
-        // Malekhiv-only: L1/L2 render via MobileGlassTable per day. Only
-        // branch-specific allocated quantity/weight is displayed (no roll-up).
-        <MalekhivBranchCalendarList grouped={grouped} />
       ) : (
         <div className="space-y-3">
           {grouped.map((d) => {
