@@ -1,12 +1,14 @@
 import type { PipelineStatus } from "@/lib/pipeline-status";
-import { CostPair } from "@/components/CostPair";
 import { Button } from "@/components/ui/button";
 import { toUaCountry } from "@/lib/countries";
 
 /**
- * Block 1 — Malekhiv Головна L2 drill content, extracted from the previous
- * Dialog body in dashboard/branch.tsx. Rendered inline under a compact L1
- * row inside <InlineExpansion>. No DialogHeader/DialogContent chrome.
+ * Block 1 — Malekhiv Головна L2 drill content.
+ *
+ * VISUAL CONTRACT: a single glass panel under L1. No nested cards, no
+ * rounded-lg bg-secondary blocks, no card-in-card. All info sits directly
+ * inside one flat surface (`.bie-l2-glass` in inline-expansion.css).
+ * Business logic and text preserved; only the visual substrate is flattened.
  */
 
 export type DrillRow = {
@@ -51,23 +53,55 @@ function isOfferLockedByEta(eta: string | null | undefined) {
   return diffDays <= 1;
 }
 
+function fmtMoney(n: number | null | undefined) {
+  if (n == null) return null;
+  return Number(n).toFixed(2);
+}
+
 export function BranchDrillContent({
   row,
   freePallets,
   onOfferClick,
 }: {
   row: DrillRow;
-  /** How many pallets are still free to be offered to other branches. */
   freePallets: number;
   onOfferClick: () => void;
 }) {
   const country = row.country ? toUaCountry(row.country) : "";
-  const extras: Array<{ label: string; value: string }> = [];
-  if (row.variety) extras.push({ label: "Сорт", value: row.variety });
-  if (row.caliber) extras.push({ label: "Калібр", value: row.caliber });
-  if (row.brand) extras.push({ label: "Бренд", value: row.brand });
-  if (row.class) extras.push({ label: "Клас", value: row.class });
-  if (row.packaging) extras.push({ label: "Упаковка", value: row.packaging });
+  const rows: Array<{ label: string; value: React.ReactNode }> = [];
+  rows.push({ label: "ETA", value: row.eta ?? "—" });
+  rows.push({
+    label: "Палети",
+    value: (
+      <>
+        <span className="tabular-nums">{row.pallets}п</span>
+        {row.weight > 0 ? (
+          <span className="ml-2 text-muted-foreground tabular-nums">
+            · {row.weight.toFixed(0)} кг
+          </span>
+        ) : null}
+      </>
+    ),
+  });
+  rows.push({ label: "Код", value: <span className="font-mono">{row.code}</span> });
+  if (row.variety) rows.push({ label: "Сорт", value: row.variety });
+  if (row.caliber) rows.push({ label: "Калібр", value: row.caliber });
+  if (row.brand) rows.push({ label: "Бренд", value: row.brand });
+  if (row.class) rows.push({ label: "Клас", value: row.class });
+  if (row.packaging) rows.push({ label: "Упаковка", value: row.packaging });
+  if (row.indicative != null) {
+    rows.push({
+      label: "Собівартість (інд.)",
+      value: <span className="tabular-nums">{fmtMoney(row.indicative)} / кг</span>,
+    });
+  }
+  if (row.invoice != null) {
+    rows.push({
+      label: "Собівартість (інв.)",
+      value: <span className="tabular-nums">{fmtMoney(row.invoice)} / кг</span>,
+    });
+  }
+  if (row.manager_name) rows.push({ label: "Менеджер", value: row.manager_name });
 
   const etaChanged = !!row.baseline_eta && row.baseline_eta !== row.eta;
   const palletsChanged =
@@ -79,121 +113,89 @@ export function BranchDrillContent({
   const invChanged =
     row.baseline_inv != null &&
     Number(row.baseline_inv) !== Number(row.invoice ?? 0);
-  const anyChange = etaChanged || palletsChanged || indChanged || invChanged;
+
+  const changes: Array<{ label: string; before: string; after: string }> = [];
+  if (etaChanged) {
+    changes.push({
+      label: "Дата",
+      before: fmtDate(row.baseline_eta),
+      after: fmtDate(row.eta),
+    });
+  }
+  if (palletsChanged) {
+    changes.push({
+      label: "Кількість",
+      before: `${row.baseline_pallets}п`,
+      after: `${row.pallets}п`,
+    });
+  }
+  if (indChanged) {
+    changes.push({
+      label: "Собів. інд.",
+      before: Number(row.baseline_ind).toFixed(2),
+      after: Number(row.indicative ?? 0).toFixed(2),
+    });
+  }
+  if (invChanged) {
+    changes.push({
+      label: "Собів. інв.",
+      before: Number(row.baseline_inv).toFixed(2),
+      after: Number(row.invoice ?? 0).toFixed(2),
+    });
+  }
 
   const offerLocked = isOfferLockedByEta(row.eta);
   const showOfferBlock = row.is_real_shipment_code && freePallets > 0;
 
   return (
-    <div className="space-y-3">
-      <div className="text-base font-semibold text-foreground">
+    <section className="bie-l2-glass">
+      <header className="bie-l2-title">
         {row.product}
-        {country ? <span> · {country}</span> : null}
-      </div>
+        {country ? <span className="bie-l2-title-sub"> · {country}</span> : null}
+      </header>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-secondary px-2 py-1.5">
-          <div className="text-[10px] text-info">ETA</div>
-          <div className="text-sm font-bold tabular-nums text-info">{row.eta ?? "—"}</div>
-          <div className="mt-1 text-[11px] font-mono text-muted-foreground">{row.code}</div>
-        </div>
-        <div className="rounded-lg bg-secondary px-2 py-1.5 text-right">
-          <div className="text-[10px] text-muted-foreground">Палети</div>
-          <div className="text-sm font-bold tabular-nums text-brand">{row.pallets}п</div>
-          {row.weight > 0 ? (
-            <div className="mt-1 text-[11px] tabular-nums text-muted-foreground">
-              {row.weight.toFixed(0)} кг
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <dl className="bie-l2-list">
+        {rows.map((r) => (
+          <div key={r.label} className="bie-l2-item">
+            <dt>{r.label}</dt>
+            <dd>{r.value}</dd>
+          </div>
+        ))}
+      </dl>
 
-      {extras.length ? (
-        <ul className="space-y-1 rounded-xl border border-border px-3 py-2 text-xs">
-          {extras.map((x) => (
-            <li key={x.label} className="flex justify-between gap-2">
-              <span className="text-muted-foreground">{x.label}:</span>
-              <span className="font-medium text-foreground">{x.value}</span>
+      {changes.length ? (
+        <ul className="bie-l2-changes">
+          {changes.map((c) => (
+            <li key={c.label}>
+              <b>{c.label}:</b>{" "}
+              <span className="bie-l2-strike tabular-nums">{c.before}</span>
+              {" → "}
+              <b className="tabular-nums">{c.after}</b>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {(row.indicative != null || row.invoice != null) ? (
-        <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
-          <span className="text-muted-foreground">Собівартість</span>
-          <CostPair indicative={row.indicative} invoice={row.invoice} suffix=" кг" size="sm" />
-        </div>
-      ) : null}
-
-      {row.manager_name ? (
-        <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-xs">
-          <span className="text-muted-foreground">Менеджер</span>
-          <span className="font-medium text-foreground">{row.manager_name}</span>
-        </div>
-      ) : null}
-
-      {anyChange ? (
-        <div className="space-y-1">
-          {etaChanged ? (
-            <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
-              <b>Дата змінена:</b>{" "}
-              <span className="line-through tabular-nums">{fmtDate(row.baseline_eta)}</span>{" "}
-              → стало <b className="tabular-nums">{fmtDate(row.eta)}</b>
-            </div>
-          ) : null}
-          {palletsChanged ? (
-            <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
-              <b>Кількість змінена:</b>{" "}
-              <span className="line-through tabular-nums">{row.baseline_pallets}п</span>{" "}
-              → стало <b className="tabular-nums">{row.pallets}п</b>
-            </div>
-          ) : null}
-          {indChanged ? (
-            <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
-              <b>Собівартість індикативна:</b>{" "}
-              <span className="line-through tabular-nums">
-                {Number(row.baseline_ind).toFixed(2)}
-              </span>{" "}
-              → стало{" "}
-              <b className="tabular-nums">{Number(row.indicative ?? 0).toFixed(2)}</b>
-            </div>
-          ) : null}
-          {invChanged ? (
-            <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
-              <b>Собівартість інвойсна:</b>{" "}
-              <span className="line-through tabular-nums">
-                {Number(row.baseline_inv).toFixed(2)}
-              </span>{" "}
-              → стало{" "}
-              <b className="tabular-nums">{Number(row.invoice ?? 0).toFixed(2)}</b>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {showOfferBlock ? (
-        <div className="space-y-2">
+        <div className="bie-l2-actions">
           {offerLocked ? (
-            <div className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+            <span className="bie-l2-note">
               За 24 години до ETA пропозиція філіям недоступна.
-            </div>
+            </span>
           ) : null}
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={offerLocked}
-              onClick={() => {
-                if (offerLocked) return;
-                onOfferClick();
-              }}
-            >
-              Запропонувати філії ({freePallets}п)
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={offerLocked}
+            onClick={() => {
+              if (offerLocked) return;
+              onOfferClick();
+            }}
+          >
+            Запропонувати філії ({freePallets}п)
+          </Button>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
