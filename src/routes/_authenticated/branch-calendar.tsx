@@ -269,10 +269,6 @@ function BranchCalendarPage() {
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : grouped.length === 0 ? (
         <EmptyState title="Активних поставок немає" />
-      ) : branchId === MALEKHIV_BRANCH_ID ? (
-        // Malekhiv-only: L1/L2 render via MobileGlassTable per day. Only
-        // branch-specific allocated quantity/weight is displayed (no roll-up).
-        <MalekhivBranchCalendarList grouped={grouped} />
       ) : (
         <div className="space-y-3">
           {grouped.map((d) => {
