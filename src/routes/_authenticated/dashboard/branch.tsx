@@ -123,18 +123,34 @@ function BranchFlatList({
   rows,
   onOpen,
   isMalekhiv = false,
+  inlineMode = false,
+  expandedRowKey = null,
+  closingRowKey = null,
+  activeInlineLevel = "l2",
+  renderInline,
 }: {
   rows: Row[];
   onOpen: (r: Row) => void;
   isMalekhiv?: boolean;
+  inlineMode?: boolean;
+  expandedRowKey?: string | null;
+  closingRowKey?: string | null;
+  activeInlineLevel?: "l2" | "l3";
+  renderInline?: (
+    r: Row,
+    phase: "opening" | "open" | "closing",
+    level: "l2" | "l3",
+  ) => React.ReactNode;
 }) {
   // Tight middle-dot separator (narrow spaces around it) — same character,
   // just less air on each side. Keeps elements visually distinct.
   const SEP_TIGHT = "\u2009·\u2009";
+  const activeKey = inlineMode ? (expandedRowKey ?? closingRowKey) : null;
+  const activeIdx = activeKey ? rows.findIndex((r) => r.key === activeKey) : -1;
   return (
     <div className="branch-table-wrap rounded-2xl border border-border bg-card shadow-card">
       <ul className="divide-y divide-border px-3" data-malekhiv-card={isMalekhiv ? "" : undefined}>
-        {rows.map((r) => {
+        {rows.map((r, idx) => {
           const countryFull = r.country ? toUaCountry(r.country) : "";
           const countryShortRaw = r.country ? toShortUaCountry(r.country) : "";
           const variety = r.variety ?? "";
@@ -158,8 +174,31 @@ function BranchFlatList({
             (rawMgr ? 3 + rawMgr.length : 0);
           const mgr = rawMgr && metaApproxLen > 34 ? shortenManager(rawMgr) : rawMgr;
 
+          const isActive = inlineMode && r.key === activeKey;
+          const isNeighbor =
+            inlineMode &&
+            activeIdx >= 0 &&
+            (idx === activeIdx - 1 || idx === activeIdx + 1);
+          const inlineState = isActive
+            ? "active"
+            : isNeighbor
+              ? "neighbor-blur"
+              : undefined;
+
+          let phase: "opening" | "open" | "closing" | null = null;
+          if (inlineMode) {
+            if (closingRowKey === r.key) phase = "closing";
+            else if (expandedRowKey === r.key) phase = "open";
+          }
+          // Distinguish first render (opening) from subsequent (open): the
+          // InlineExpansion mounts fresh whenever expandedRowKey flips onto
+          // this row, so passing "opening" only on the mounting render is
+          // handled by React remount (key on the panel). We use the current
+          // phase directly and let InlineExpansion treat every mount as
+          // "opening" via a stable key trick below.
+
           return (
-            <li key={r.key}>
+            <li key={r.key} data-inline-state={inlineState}>
               <button
                 type="button"
                 onClick={() => onOpen(r)}
@@ -191,6 +230,9 @@ function BranchFlatList({
                   </span>
                 </div>
               </button>
+              {inlineMode && phase && renderInline
+                ? renderInline(r, phase, activeInlineLevel)
+                : null}
             </li>
           );
         })}
@@ -198,6 +240,7 @@ function BranchFlatList({
     </div>
   );
 }
+
 
 
 
