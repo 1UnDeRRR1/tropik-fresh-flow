@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, defaultRoutePerRole } from "@/lib/auth";
 import { EmptyState } from "@/components/cards";
@@ -13,6 +13,10 @@ import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
 import { Button } from "@/components/ui/button";
 import { OfferDialog } from "@/components/OfferDialog";
+import { OfferAllocationForm } from "@/components/OfferAllocationForm";
+import { InlineExpansion } from "./-branch-inline/InlineExpansion";
+import { BranchDrillContent } from "./-branch-inline/BranchDrillContent";
+
 
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
@@ -123,18 +127,34 @@ function BranchFlatList({
   rows,
   onOpen,
   isMalekhiv = false,
+  inlineMode = false,
+  expandedRowKey = null,
+  closingRowKey = null,
+  activeInlineLevel = "l2",
+  renderInline,
 }: {
   rows: Row[];
   onOpen: (r: Row) => void;
   isMalekhiv?: boolean;
+  inlineMode?: boolean;
+  expandedRowKey?: string | null;
+  closingRowKey?: string | null;
+  activeInlineLevel?: "l2" | "l3";
+  renderInline?: (
+    r: Row,
+    phase: "opening" | "open" | "closing",
+    level: "l2" | "l3",
+  ) => React.ReactNode;
 }) {
   // Tight middle-dot separator (narrow spaces around it) — same character,
   // just less air on each side. Keeps elements visually distinct.
   const SEP_TIGHT = "\u2009·\u2009";
+  const activeKey = inlineMode ? (expandedRowKey ?? closingRowKey) : null;
+  const activeIdx = activeKey ? rows.findIndex((r) => r.key === activeKey) : -1;
   return (
     <div className="branch-table-wrap rounded-2xl border border-border bg-card shadow-card">
       <ul className="divide-y divide-border px-3" data-malekhiv-card={isMalekhiv ? "" : undefined}>
-        {rows.map((r) => {
+        {rows.map((r, idx) => {
           const countryFull = r.country ? toUaCountry(r.country) : "";
           const countryShortRaw = r.country ? toShortUaCountry(r.country) : "";
           const variety = r.variety ?? "";
@@ -158,8 +178,31 @@ function BranchFlatList({
             (rawMgr ? 3 + rawMgr.length : 0);
           const mgr = rawMgr && metaApproxLen > 34 ? shortenManager(rawMgr) : rawMgr;
 
+          const isActive = inlineMode && r.key === activeKey;
+          const isNeighbor =
+            inlineMode &&
+            activeIdx >= 0 &&
+            (idx === activeIdx - 1 || idx === activeIdx + 1);
+          const inlineState = isActive
+            ? "active"
+            : isNeighbor
+              ? "neighbor-blur"
+              : undefined;
+
+          let phase: "opening" | "open" | "closing" | null = null;
+          if (inlineMode) {
+            if (closingRowKey === r.key) phase = "closing";
+            else if (expandedRowKey === r.key) phase = "open";
+          }
+          // Distinguish first render (opening) from subsequent (open): the
+          // InlineExpansion mounts fresh whenever expandedRowKey flips onto
+          // this row, so passing "opening" only on the mounting render is
+          // handled by React remount (key on the panel). We use the current
+          // phase directly and let InlineExpansion treat every mount as
+          // "opening" via a stable key trick below.
+
           return (
-            <li key={r.key}>
+            <li key={r.key} data-inline-state={inlineState}>
               <button
                 type="button"
                 onClick={() => onOpen(r)}
@@ -191,6 +234,9 @@ function BranchFlatList({
                   </span>
                 </div>
               </button>
+              {inlineMode && phase && renderInline
+                ? renderInline(r, phase, activeInlineLevel)
+                : null}
             </li>
           );
         })}
@@ -198,6 +244,7 @@ function BranchFlatList({
     </div>
   );
 }
+
 
 
 
@@ -212,6 +259,26 @@ function BranchDashboard() {
   const [sortBy, setSortBy] = useState<SortKey>("eta");
   const [productFilter, setProductFilter] = useState<string>("__all__");
   const [countryFilter, setCountryFilter] = useState<string>("__all__");
+
+  // ── Malekhiv inline expansion state (Block 1). Only used when isMalekhiv.
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
+  const [closingRowKey, setClosingRowKey] = useState<string | null>(null);
+  const [activeInlineLevel, setActiveInlineLevel] = useState<"l2" | "l3">("l2");
+  const inlineListWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const closeInlineActive = useCallback(() => {
+    setExpandedRowKey((k) => {
+      if (!k) return null;
+      setClosingRowKey(k);
+      return null;
+    });
+    setActiveInlineLevel("l2");
+  }, []);
+  const onInlineClosed = useCallback(() => {
+    setClosingRowKey(null);
+    setActiveInlineLevel("l2");
+  }, []);
+
 
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
   useEffect(() => {
@@ -228,6 +295,26 @@ function BranchDashboard() {
     document.body.removeAttribute("data-branch-test");
     return undefined;
   }, [isMalekhiv]);
+
+  // Outside-click closes active inline card. Bottom-nav taps are excluded so
+  // the user can leave the screen without an extra tap-to-close.
+  useEffect(() => {
+    if (!isMalekhiv) return;
+    if (!expandedRowKey) return;
+    const onDown = (ev: PointerEvent) => {
+      const t = ev.target as Node | null;
+      const wrap = inlineListWrapRef.current;
+      if (!wrap || !t) return;
+      const active = wrap.querySelector('li[data-inline-state="active"]');
+      if (active && active.contains(t)) return;
+      const inNav = (t as Element).closest?.("[data-malekhiv-bottom-nav]");
+      if (inNav) return;
+      closeInlineActive();
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [isMalekhiv, expandedRowKey, closeInlineActive]);
+
 
   const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
@@ -968,14 +1055,100 @@ function BranchDashboard() {
           title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
       ) : (
-        <BranchFlatList
-          rows={filteredRows}
-          onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
-          isMalekhiv={isMalekhiv}
-        />
+        <div ref={inlineListWrapRef}>
+          <BranchFlatList
+            rows={filteredRows}
+            onOpen={(r) => {
+              if (!isMalekhiv) {
+                setDrill({ key: r.key, product: r.product, country: r.country });
+                return;
+              }
+              // Block 1 rule: tapping another row while one is open only
+              // closes the current one; the second tap opens the new one.
+              if (closingRowKey) return;
+              if (expandedRowKey) {
+                closeInlineActive();
+                return;
+              }
+              setActiveInlineLevel("l2");
+              setExpandedRowKey(r.key);
+            }}
+            isMalekhiv={isMalekhiv}
+            inlineMode={isMalekhiv}
+            expandedRowKey={expandedRowKey}
+            closingRowKey={closingRowKey}
+            activeInlineLevel={activeInlineLevel}
+            renderInline={(r, phase) => {
+              const full = filteredRows.find((x) => x.key === r.key);
+              if (!full) return null;
+              const free = full.is_real_shipment_code
+                ? statsFor({
+                    distribution_id: full.distribution_id,
+                    shipment_item_id: full.shipment_item_id,
+                    pallets: full.pallets,
+                  }).free
+                : 0;
+              return (
+                <InlineExpansion
+                  key={r.key}
+                  phase={phase === "closing" ? "closing" : "open"}
+                  level={activeInlineLevel}
+                  onClosed={onInlineClosed}
+                  l2Content={
+                    <BranchDrillContent
+                      row={{
+                        key: full.key,
+                        distribution_id: full.distribution_id,
+                        shipment_item_id: full.shipment_item_id,
+                        code: full.code,
+                        eta: full.eta,
+                        product: full.product,
+                        country: full.country,
+                        caliber: full.caliber,
+                        variety: full.variety,
+                        brand: full.brand,
+                        class: full.class,
+                        packaging: full.packaging,
+                        manager_name: full.manager_name,
+                        pallets: full.pallets,
+                        weight: full.weight,
+                        indicative: full.indicative,
+                        invoice: full.invoice,
+                        baseline_eta: full.baseline_eta,
+                        baseline_pallets: full.baseline_pallets,
+                        baseline_ind: full.baseline_ind,
+                        baseline_inv: full.baseline_inv,
+                        is_real_shipment_code: full.is_real_shipment_code,
+                      }}
+                      freePallets={free}
+                      onOfferClick={() => setActiveInlineLevel("l3")}
+                    />
+                  }
+                  l3Content={
+                    <OfferAllocationForm
+                      variant="inline"
+                      item={{
+                        shipment_item_id: full.shipment_item_id,
+                        distribution_id: full.distribution_id,
+                        product_name: full.product,
+                        caliber: full.caliber,
+                        available_pallets: free,
+                        shipment_code: full.code,
+                        shipment_eta: full.eta,
+                      }}
+                      onCancel={() => closeInlineActive()}
+                      onSubmitted={() => closeInlineActive()}
+                    />
+                  }
+                />
+              );
+            }}
+          />
+        </div>
       )}
 
-      <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
+      <Dialog open={!isMalekhiv && !!drill} onOpenChange={(o) => !o && setDrill(null)}>
+
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           {drillRow ? (
             <>
