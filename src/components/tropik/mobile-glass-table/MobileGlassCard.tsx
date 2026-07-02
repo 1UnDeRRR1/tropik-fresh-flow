@@ -1,15 +1,19 @@
 import type { RefCallback } from "react";
-import type { MobileGlassRow } from "./types";
+import type { MobileGlassLevelContext, MobileGlassRow } from "./types";
+import type { MobileGlassActiveLevel } from "./useMobileGlassExpansion";
 import { LevelTwoDetailsPanel } from "./LevelTwoDetailsPanel";
-import { compactDetailLines, cx, hasRenderableValue } from "./utils";
+import { cx, hasRenderableValue } from "./utils";
 
 export interface MobileGlassCardProps {
   row: MobileGlassRow;
   isOpen: boolean;
   isClosing: boolean;
   isNeighborBlur: boolean;
+  activeLevel: MobileGlassActiveLevel;
+  levelContext: MobileGlassLevelContext;
   registerCard: RefCallback<HTMLElement>;
   registerPanel: RefCallback<HTMLDivElement>;
+  registerInner: RefCallback<HTMLDivElement>;
   onTriggerClick: () => void;
 }
 
@@ -18,14 +22,27 @@ export function MobileGlassCard({
   isOpen,
   isClosing,
   isNeighborBlur,
+  activeLevel,
+  levelContext,
   registerCard,
   registerPanel,
+  registerInner,
   onTriggerClick,
 }: MobileGlassCardProps) {
-  const levelTwoLines = compactDetailLines(row.level2?.lines);
-  const hasActions = hasRenderableValue(row.level2?.actions);
-  const hasLevelTwo = levelTwoLines.length > 0 || hasActions;
-  const isInteractive = hasLevelTwo && !row.disabled;
+  const hasLevelTwoLines = (row.level2?.lines?.length ?? 0) > 0;
+  const hasLevelTwoActions = hasRenderableValue(
+    typeof row.level2?.actions === "function" ? "fn" : row.level2?.actions,
+  );
+  const hasLevelTwo = hasLevelTwoLines || hasLevelTwoActions;
+  const hasLevelThree = !!row.level3;
+  const isInteractive = (hasLevelTwo || hasLevelThree) && !row.disabled;
+
+  const showL3 = activeLevel === "l3" && hasLevelThree;
+
+  const resolvedActions =
+    typeof row.level2?.actions === "function"
+      ? row.level2.actions(levelContext)
+      : row.level2?.actions;
 
   return (
     <article
@@ -39,6 +56,7 @@ export function MobileGlassCard({
       )}
       data-glass-card=""
       data-row-id={row.id}
+      data-active-level={showL3 ? "l3" : "l2"}
       ref={registerCard}
     >
       <button
@@ -64,11 +82,17 @@ export function MobileGlassCard({
       </button>
 
       <div className="tmg-detail-panel" ref={registerPanel}>
-        <div className="tmg-detail-inner">
-          <LevelTwoDetailsPanel
-            lines={levelTwoLines}
-            actions={row.level2?.actions}
-          />
+        <div className="tmg-detail-inner" ref={registerInner}>
+          {showL3 ? (
+            <div className="tmg-level-three">
+              {row.level3?.render(levelContext)}
+            </div>
+          ) : (
+            <LevelTwoDetailsPanel
+              lines={row.level2?.lines}
+              actions={resolvedActions}
+            />
+          )}
         </div>
       </div>
     </article>

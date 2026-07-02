@@ -8,6 +8,8 @@ import {
   type RefObject,
 } from "react";
 
+export type MobileGlassActiveLevel = "l2" | "l3";
+
 export interface UseMobileGlassExpansionOptions {
   rowIds: string[];
   trackRef: RefObject<HTMLDivElement | null>;
@@ -33,23 +35,33 @@ export function useMobileGlassExpansion({
 }: UseMobileGlassExpansionOptions) {
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [closingRowId, setClosingRowId] = useState<string | null>(null);
+  const [activeLevel, setActiveLevelState] = useState<MobileGlassActiveLevel>("l2");
 
   const openRowIdRef = useRef<string | null>(null);
+  const activeLevelRef = useRef<MobileGlassActiveLevel>("l2");
   const lockRef = useRef(false);
   const snapTimerRef = useRef<number | null>(null);
 
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const panelRefs = useRef(new Map<string, HTMLDivElement>());
+  const innerRefs = useRef(new Map<string, HTMLDivElement>());
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
     openRowIdRef.current = openRowId;
   }, [openRowId]);
 
   useEffect(() => {
+    activeLevelRef.current = activeLevel;
+  }, [activeLevel]);
+
+  useEffect(() => {
     return () => {
       if (snapTimerRef.current !== null) {
         window.clearTimeout(snapTimerRef.current);
       }
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
     };
   }, []);
 
@@ -67,6 +79,15 @@ export function useMobileGlassExpansion({
       (node) => {
         if (node) panelRefs.current.set(rowId, node);
         else panelRefs.current.delete(rowId);
+      },
+    [],
+  );
+
+  const registerInner = useCallback(
+    (rowId: string): RefCallback<HTMLDivElement> =>
+      (node) => {
+        if (node) innerRefs.current.set(rowId, node);
+        else innerRefs.current.delete(rowId);
       },
     [],
   );
@@ -91,16 +112,47 @@ export function useMobileGlassExpansion({
     [bottomOffsetPx, trackRef],
   );
 
+  // Manual remeasure — sync the panel height to current inner content.
+  // Safe to call while lockRef is true; skipped if row isn't open.
+  const requestMeasure = useCallback(() => {
+    const rowId = openRowIdRef.current;
+    if (!rowId) return;
+    const panel = panelRefs.current.get(rowId);
+    const inner = innerRefs.current.get(rowId);
+    if (!panel || !inner) return;
+    if (lockRef.current) return;
+    panel.style.height = `${inner.scrollHeight}px`;
+  }, []);
+
+  // ResizeObserver on the active inner keeps panel height synced to content
+  // growth (async data, form state, keyboard). Attached in the open effect.
+  const ensureObserver = useCallback(() => {
+    if (resizeObserverRef.current) return resizeObserverRef.current;
+    if (typeof ResizeObserver === "undefined") return null;
+    const ro = new ResizeObserver(() => {
+      requestMeasure();
+    });
+    resizeObserverRef.current = ro;
+    return ro;
+  }, [requestMeasure]);
+
   useLayoutEffect(() => {
     if (!openRowId) return;
 
     const panel = panelRefs.current.get(openRowId);
-    if (!panel) {
+    const inner = innerRefs.current.get(openRowId);
+    if (!panel || !inner) {
       lockRef.current = false;
       return;
     }
 
-    panel.style.height = "0px";
+    // Start from current height (0 on first open, prev height on level swap)
+    // — do NOT reset to 0 here, or level-swap animation flashes.
+    // For a fresh open, browser already reports 0. For a level swap, the
+    // caller set height to 0 explicitly before triggering the re-render.
+
+    const observer = ensureObserver();
+    observer?.observe(inner);
 
     const unlockFallback = window.setTimeout(() => {
       lockRef.current = false;
@@ -109,7 +161,6 @@ export function useMobileGlassExpansion({
     const onTransitionEnd = (event: TransitionEvent) => {
       if (event.propertyName !== "height") return;
       if (openRowIdRef.current !== openRowId) return;
-
       panel.style.height = "auto";
       lockRef.current = false;
       window.clearTimeout(unlockFallback);
@@ -118,7 +169,7 @@ export function useMobileGlassExpansion({
     panel.addEventListener("transitionend", onTransitionEnd);
 
     window.requestAnimationFrame(() => {
-      panel.style.height = `${panel.scrollHeight}px`;
+      panel.style.height = `${inner.scrollHeight}px`;
     });
 
     window.setTimeout(() => {
@@ -128,21 +179,25 @@ export function useMobileGlassExpansion({
     return () => {
       panel.removeEventListener("transitionend", onTransitionEnd);
       window.clearTimeout(unlockFallback);
+      observer?.unobserve(inner);
     };
-  }, [alignCardBottomToTrack, animationMs, openRowId]);
+    // activeLevel is intentionally a dep so level swap re-runs this effect
+  }, [alignCardBottomToTrack, animationMs, ensureObserver, openRowId, activeLevel]);
 
   const openCard = useCallback(
-    (rowId: string) => {
+    (rowId: string, level: MobileGlassActiveLevel = "l2") => {
       lockRef.current = true;
       setClosingRowId(null);
+      setActiveLevelState(level);
+      activeLevelRef.current = level;
       setOpenRowId(rowId);
       onOpenChange?.(rowId);
     },
     [onOpenChange],
   );
 
-  const closeCard = useCallback(
-    (rowId: string) => {
+  const closeCardInternal = useCallback(
+    (rowId: string, resetLevel = true) => {
       const panel = panelRefs.current.get(rowId);
 
       lockRef.current = true;
@@ -153,12 +208,17 @@ export function useMobileGlassExpansion({
       if (!panel) {
         window.setTimeout(() => {
           setClosingRowId(null);
+          if (resetLevel) {
+            setActiveLevelState("l2");
+            activeLevelRef.current = "l2";
+          }
           lockRef.current = false;
         }, closeLockMs);
         return;
       }
 
-      panel.style.height = `${panel.scrollHeight}px`;
+      const inner = innerRefs.current.get(rowId);
+      panel.style.height = `${(inner ?? panel).scrollHeight}px`;
 
       window.requestAnimationFrame(() => {
         panel.style.height = "0px";
@@ -167,6 +227,10 @@ export function useMobileGlassExpansion({
       window.setTimeout(() => {
         setClosingRowId(null);
         panel.style.height = "";
+        if (resetLevel) {
+          setActiveLevelState("l2");
+          activeLevelRef.current = "l2";
+        }
         lockRef.current = false;
       }, closeLockMs);
     },
@@ -180,19 +244,73 @@ export function useMobileGlassExpansion({
       const currentOpen = openRowIdRef.current;
 
       if (currentOpen === rowId) {
-        closeCard(rowId);
+        closeCardInternal(rowId);
         return;
       }
 
       if (currentOpen && currentOpen !== rowId) {
-        closeCard(currentOpen);
-
+        closeCardInternal(currentOpen);
         if (closeCurrentBeforeOpenNext) return;
       }
 
-      openCard(rowId);
+      openCard(rowId, "l2");
     },
-    [closeCard, closeCurrentBeforeOpenNext, openCard],
+    [closeCardInternal, closeCurrentBeforeOpenNext, openCard],
+  );
+
+  // Two-step level transition: collapse to 0, swap content, expand.
+  const switchLevel = useCallback(
+    (rowId: string, next: MobileGlassActiveLevel) => {
+      if (activeLevelRef.current === next) return;
+      const panel = panelRefs.current.get(rowId);
+      const inner = innerRefs.current.get(rowId);
+      if (!panel || !inner) {
+        setActiveLevelState(next);
+        activeLevelRef.current = next;
+        return;
+      }
+      lockRef.current = true;
+
+      panel.style.height = `${inner.scrollHeight}px`;
+      window.requestAnimationFrame(() => {
+        panel.style.height = "0px";
+      });
+
+      const swapMs = Math.max(120, Math.floor(animationMs * 0.55));
+      window.setTimeout(() => {
+        setActiveLevelState(next);
+        activeLevelRef.current = next;
+        // The open effect re-runs on activeLevel change and animates 0 -> new scrollHeight.
+      }, swapMs);
+    },
+    [animationMs],
+  );
+
+  const openLevelThree = useCallback(
+    (rowId: string) => {
+      if (openRowIdRef.current !== rowId) {
+        openCard(rowId, "l3");
+        return;
+      }
+      switchLevel(rowId, "l3");
+    },
+    [openCard, switchLevel],
+  );
+
+  const closeLevelThree = useCallback(
+    (rowId: string) => {
+      if (openRowIdRef.current !== rowId) return;
+      switchLevel(rowId, "l2");
+    },
+    [switchLevel],
+  );
+
+  const closeCardPublic = useCallback(
+    (rowId: string) => {
+      if (openRowIdRef.current !== rowId) return;
+      closeCardInternal(rowId);
+    },
+    [closeCardInternal],
   );
 
   const snapNearestTopCard = useCallback(() => {
@@ -261,10 +379,16 @@ export function useMobileGlassExpansion({
   return {
     openRowId,
     closingRowId,
+    activeLevel,
     neighborRowIds,
     registerCard,
     registerPanel,
+    registerInner,
     handleCardClick,
     handleScroll,
+    openLevelThree,
+    closeLevelThree,
+    closeCard: closeCardPublic,
+    requestMeasure,
   };
 }
