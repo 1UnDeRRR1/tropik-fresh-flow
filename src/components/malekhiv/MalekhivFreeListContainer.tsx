@@ -37,9 +37,6 @@ export function MalekhivFreeListContainer({
     if (patch.pallets != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), pallets: false } }));
     if (patch.price != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), price: false } }));
   };
-    if (patch.pallets != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), pallets: false } }));
-    if (patch.price != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), price: false } }));
-  };
 
   const onSubmit = async (r: MalekhivFreeRow) => {
     const d = drafts[r.itemId] ?? { pallets: String(r.free), price: "", currency: "UAH" };
