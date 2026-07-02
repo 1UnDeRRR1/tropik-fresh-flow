@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
-import type { MobileGlassTableProps } from "./types";
+import type { MobileGlassLevelContext, MobileGlassTableProps } from "./types";
 import { MobileGlassCard } from "./MobileGlassCard";
 import { useMobileGlassExpansion } from "./useMobileGlassExpansion";
 import { cx } from "./utils";
@@ -62,18 +62,29 @@ export function MobileGlassTable({
         {rows.length === 0 ? (
           <div className="tmg-empty">{emptyState ?? "Немає даних"}</div>
         ) : (
-          rows.map((row) => (
-            <MobileGlassCard
-              key={row.id}
-              row={row}
-              isOpen={expansion.openRowId === row.id}
-              isClosing={expansion.closingRowId === row.id}
-              isNeighborBlur={expansion.neighborRowIds.has(row.id)}
-              registerCard={expansion.registerCard(row.id)}
-              registerPanel={expansion.registerPanel(row.id)}
-              onTriggerClick={() => expansion.handleCardClick(row.id)}
-            />
-          ))
+          rows.map((row) => {
+            const ctx: MobileGlassLevelContext = {
+              openLevelThree: () => expansion.openLevelThree(row.id),
+              closeLevelThree: () => expansion.closeLevelThree(row.id),
+              closeCard: () => expansion.closeCard(row.id),
+              requestMeasure: () => expansion.requestMeasure(),
+            };
+            return (
+              <MobileGlassCard
+                key={row.id}
+                row={row}
+                isOpen={expansion.openRowId === row.id}
+                isClosing={expansion.closingRowId === row.id}
+                isNeighborBlur={expansion.neighborRowIds.has(row.id)}
+                activeLevel={expansion.openRowId === row.id ? expansion.activeLevel : "l2"}
+                levelContext={ctx}
+                registerCard={expansion.registerCard(row.id)}
+                registerPanel={expansion.registerPanel(row.id)}
+                registerInner={expansion.registerInner(row.id)}
+                onTriggerClick={() => expansion.handleCardClick(row.id)}
+              />
+            );
+          })
         )}
       </div>
     </section>

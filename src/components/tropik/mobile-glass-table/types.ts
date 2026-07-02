@@ -28,15 +28,36 @@ export interface MobileGlassDetailLine {
   rightClassName?: string;
 }
 
+/**
+ * Runtime handles passed to L2 `actions` render fn and L3 `render` fn.
+ *
+ * A `ResizeObserver` is installed on the active detail-inner element, so
+ * `requestMeasure` is a manual safety valve — call it after synchronous
+ * DOM mutations that the observer might not catch in time. Normal
+ * content growth (async data load, form state change) is handled
+ * automatically.
+ */
+export interface MobileGlassLevelContext {
+  openLevelThree: () => void;
+  closeLevelThree: () => void;
+  closeCard: () => void;
+  requestMeasure: () => void;
+}
+
 export interface MobileGlassLevelTwo {
   lines?: MobileGlassDetailLine[];
-  actions?: ReactNode;
+  actions?: ReactNode | ((ctx: MobileGlassLevelContext) => ReactNode);
+}
+
+export interface MobileGlassLevelThree {
+  render: (ctx: MobileGlassLevelContext) => ReactNode;
 }
 
 export interface MobileGlassRow {
   id: string;
   level1: MobileGlassLevelOne;
   level2?: MobileGlassLevelTwo;
+  level3?: MobileGlassLevelThree;
   disabled?: boolean;
   className?: string;
 }
