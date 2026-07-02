@@ -24,6 +24,7 @@ import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
 const MALEKHIV_BRANCH_ID = "3bb65cb3-27a1-5f18-839a-340271d711fd";
+import { MalekhivFreeListContainer } from "@/components/malekhiv/MalekhivFreeListContainer";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
@@ -352,6 +353,15 @@ function BranchFreeList() {
 
       {!rows.length ? (
         <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
+      ) : profile?.branch_id === MALEKHIV_BRANCH_ID && user && profile?.branch_id ? (
+        // Malekhiv-only: L1/L2 render via MobileGlassTable + inline
+        // pallet/price form. Direct insert into branch_requests
+        // (request_type='free_offer') is preserved 1:1.
+        <MalekhivFreeListContainer
+          rows={rows}
+          userId={user.id}
+          branchId={profile.branch_id}
+        />
       ) : (
         <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <ul className="divide-y divide-border" data-malekhiv-card={profile?.branch_id === MALEKHIV_BRANCH_ID ? "" : undefined}>
@@ -415,6 +425,7 @@ function BranchFreeList() {
           </ul>
         </section>
       )}
+
 
       <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
         <DialogContent
