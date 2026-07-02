@@ -413,3 +413,32 @@
     font-size: 11.5px;
   }
 }
+
+/* Level-2 / Level-3: allow text to wrap. L1 stays nowrap. */
+.tmg-detail-line {
+  align-items: baseline;
+}
+.tmg-detail-line span,
+.tmg-detail-line strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+
+.tmg-level-three {
+  padding: 0 12px 12px;
+  color: var(--tmg-foreground);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.tmg-level-three::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 0 0 10px;
+  background: linear-gradient(90deg, transparent, var(--tmg-divider), transparent);
+}
+.tmg-card[data-active-level="l3"] .tmg-detail-inner {
+  /* keep same fade; L3 slides down from under L1 via the same panel height animation */
+}
