@@ -6,16 +6,15 @@ import "./inline-expansion.css";
  *
  * Owns the height animation for L2/L3 under a compact L1 row.
  *
- * Phase machine (driven by host):
- *   - "opening" → mount, height 0 → scrollHeight → "auto"
- *   - "open"    → height "auto", ResizeObserver keeps it synced
- *   - "closing" → height current → 0, then onClosed()
+ * Phases (driven by host):
+ *   - "open"    → mount runs 0 → scrollHeight → "auto"; then live in auto.
+ *   - "closing" → animate current height → 0, then onClosed().
  *
- * Level swap (L2 → L3) is a two-step within an "open" phase:
- *   fade content out → height → 0 → swap → grow to new scrollHeight → fade in.
+ * Level swap (L2 ↔ L3) is a two-step within "open":
+ *   current px → 0 → swap content → new scrollHeight → auto.
  *
- * No fixed height, no max-height, no internal scroll container. All strict
- * scope styles live in ./inline-expansion.css.
+ * No fixed height, no max-height, no internal scroll container.
+ * Strict-scope styles live in ./inline-expansion.css.
  */
 export function InlineExpansion({
   phase,
@@ -24,34 +23,31 @@ export function InlineExpansion({
   l3Content,
   onOpened,
   onClosed,
-  onSwapped,
 }: {
-  phase: "opening" | "open" | "closing";
-  /** Current level requested by host; triggers two-step swap when it changes. */
+  phase: "open" | "closing";
   level: "l2" | "l3";
   l2Content: React.ReactNode;
   l3Content: React.ReactNode;
   onOpened?: () => void;
   onClosed?: () => void;
-  /** Fired after the two-step L2↔L3 swap re-expands. */
-  onSwapped?: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLDivElement | null>(null);
   const [renderedLevel, setRenderedLevel] = useState(level);
   const [isSwapping, setIsSwapping] = useState(false);
   const swapTimerRef = useRef<number | null>(null);
-  const closingSafetyRef = useRef<number | null>(null);
+  const safetyRef = useRef<number | null>(null);
+  const openedOnce = useRef(false);
 
-  // --- Opening: mount at 0, expand to inner scrollHeight, then unlock to auto.
+  // Mount / open: animate 0 → auto exactly once per mount.
   useLayoutEffect(() => {
+    if (openedOnce.current) return;
+    openedOnce.current = true;
     const panel = panelRef.current;
     const inner = innerRef.current;
     if (!panel || !inner) return;
-    if (phase !== "opening") return;
 
     panel.style.height = "0px";
-    // rAF so the browser registers the 0 → target transition.
     const raf = requestAnimationFrame(() => {
       panel.style.height = `${inner.scrollHeight}px`;
     });
@@ -66,26 +62,25 @@ export function InlineExpansion({
       cancelAnimationFrame(raf);
       panel.removeEventListener("transitionend", onEnd);
     };
-  }, [phase, onOpened]);
+  }, [onOpened]);
 
-  // --- Closing: from current computed height → 0.
+  // Closing: current height → 0.
   useLayoutEffect(() => {
+    if (phase !== "closing") return;
     const panel = panelRef.current;
     if (!panel) return;
-    if (phase !== "closing") return;
 
     const current = panel.getBoundingClientRect().height;
     panel.style.height = `${current}px`;
-    // Force a reflow so the transition picks up the change from auto → px.
     void panel.offsetHeight;
     requestAnimationFrame(() => {
       panel.style.height = "0px";
     });
 
     const finish = () => {
-      if (closingSafetyRef.current) {
-        window.clearTimeout(closingSafetyRef.current);
-        closingSafetyRef.current = null;
+      if (safetyRef.current) {
+        window.clearTimeout(safetyRef.current);
+        safetyRef.current = null;
       }
       panel.removeEventListener("transitionend", onEnd);
       onClosed?.();
@@ -95,18 +90,17 @@ export function InlineExpansion({
       finish();
     };
     panel.addEventListener("transitionend", onEnd);
-    // Safety-net for missed transitionend (hidden tab / reduced motion).
-    closingSafetyRef.current = window.setTimeout(finish, 380);
+    safetyRef.current = window.setTimeout(finish, 380);
     return () => {
       panel.removeEventListener("transitionend", onEnd);
-      if (closingSafetyRef.current) {
-        window.clearTimeout(closingSafetyRef.current);
-        closingSafetyRef.current = null;
+      if (safetyRef.current) {
+        window.clearTimeout(safetyRef.current);
+        safetyRef.current = null;
       }
     };
   }, [phase, onClosed]);
 
-  // --- Level swap: two-step animation. Only runs while "open".
+  // Level swap: two-step animation while "open".
   useEffect(() => {
     if (phase !== "open") return;
     if (level === renderedLevel) return;
@@ -121,10 +115,8 @@ export function InlineExpansion({
       panel.style.height = "0px";
     });
 
-    const swapDelay = 180;
     swapTimerRef.current = window.setTimeout(() => {
       setRenderedLevel(level);
-      // After content swap, wait a tick for inner to measure the new content.
       requestAnimationFrame(() => {
         const inner = innerRef.current;
         if (!inner || !panel) return;
@@ -134,11 +126,10 @@ export function InlineExpansion({
           panel.style.height = "auto";
           setIsSwapping(false);
           panel.removeEventListener("transitionend", onEnd);
-          onSwapped?.();
         };
         panel.addEventListener("transitionend", onEnd);
       });
-    }, swapDelay);
+    }, 180);
 
     return () => {
       if (swapTimerRef.current) {
@@ -146,25 +137,7 @@ export function InlineExpansion({
         swapTimerRef.current = null;
       }
     };
-  }, [level, renderedLevel, phase, onSwapped]);
-
-  // --- ResizeObserver: keep panel synced with inner content growth while open.
-  useEffect(() => {
-    if (phase !== "open") return;
-    if (isSwapping) return;
-    const panel = panelRef.current;
-    const inner = innerRef.current;
-    if (!panel || !inner || typeof ResizeObserver === "undefined") return;
-
-    const ro = new ResizeObserver(() => {
-      if (!panel || !inner) return;
-      // Only nudge when auto — during transitions we leave height alone.
-      if (panel.style.height === "auto") return;
-      panel.style.height = `${inner.scrollHeight}px`;
-    });
-    ro.observe(inner);
-    return () => ro.disconnect();
-  }, [phase, isSwapping]);
+  }, [level, renderedLevel, phase]);
 
   return (
     <div
