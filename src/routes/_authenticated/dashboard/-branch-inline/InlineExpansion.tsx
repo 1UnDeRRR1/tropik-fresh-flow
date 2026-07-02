@@ -175,7 +175,7 @@ export function InlineExpansion({
     >
       <div ref={innerRef} className="bie-inner">
         <div className="bie-swap">
-          {renderedLevel === level ? children : null}
+          {renderedLevel === "l2" ? l2Content : l3Content}
         </div>
       </div>
     </div>
