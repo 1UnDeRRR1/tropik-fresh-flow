@@ -260,6 +260,26 @@ function BranchDashboard() {
   const [productFilter, setProductFilter] = useState<string>("__all__");
   const [countryFilter, setCountryFilter] = useState<string>("__all__");
 
+  // ── Malekhiv inline expansion state (Block 1). Only used when isMalekhiv.
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
+  const [closingRowKey, setClosingRowKey] = useState<string | null>(null);
+  const [activeInlineLevel, setActiveInlineLevel] = useState<"l2" | "l3">("l2");
+  const inlineListWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const closeInlineActive = useCallback(() => {
+    setExpandedRowKey((k) => {
+      if (!k) return null;
+      setClosingRowKey(k);
+      return null;
+    });
+    setActiveInlineLevel("l2");
+  }, []);
+  const onInlineClosed = useCallback(() => {
+    setClosingRowKey(null);
+    setActiveInlineLevel("l2");
+  }, []);
+
+
   const isMalekhiv = branchId === MALEKHIV_BRANCH_ID;
   useEffect(() => {
     (supabase as any).rpc("expire_branch_transfer_offers").then(() => {
