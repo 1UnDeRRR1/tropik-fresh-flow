@@ -1055,14 +1055,100 @@ function BranchDashboard() {
           title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
       ) : (
-        <BranchFlatList
-          rows={filteredRows}
-          onOpen={(r) => setDrill({ key: r.key, product: r.product, country: r.country })}
-          isMalekhiv={isMalekhiv}
-        />
+        <div ref={inlineListWrapRef}>
+          <BranchFlatList
+            rows={filteredRows}
+            onOpen={(r) => {
+              if (!isMalekhiv) {
+                setDrill({ key: r.key, product: r.product, country: r.country });
+                return;
+              }
+              // Block 1 rule: tapping another row while one is open only
+              // closes the current one; the second tap opens the new one.
+              if (closingRowKey) return;
+              if (expandedRowKey) {
+                closeInlineActive();
+                return;
+              }
+              setActiveInlineLevel("l2");
+              setExpandedRowKey(r.key);
+            }}
+            isMalekhiv={isMalekhiv}
+            inlineMode={isMalekhiv}
+            expandedRowKey={expandedRowKey}
+            closingRowKey={closingRowKey}
+            activeInlineLevel={activeInlineLevel}
+            renderInline={(r, phase) => {
+              const full = filteredRows.find((x) => x.key === r.key);
+              if (!full) return null;
+              const free = full.is_real_shipment_code
+                ? statsFor({
+                    distribution_id: full.distribution_id,
+                    shipment_item_id: full.shipment_item_id,
+                    pallets: full.pallets,
+                  }).free
+                : 0;
+              return (
+                <InlineExpansion
+                  key={r.key}
+                  phase={phase === "closing" ? "closing" : "open"}
+                  level={activeInlineLevel}
+                  onClosed={onInlineClosed}
+                  l2Content={
+                    <BranchDrillContent
+                      row={{
+                        key: full.key,
+                        distribution_id: full.distribution_id,
+                        shipment_item_id: full.shipment_item_id,
+                        code: full.code,
+                        eta: full.eta,
+                        product: full.product,
+                        country: full.country,
+                        caliber: full.caliber,
+                        variety: full.variety,
+                        brand: full.brand,
+                        class: full.class,
+                        packaging: full.packaging,
+                        manager_name: full.manager_name,
+                        pallets: full.pallets,
+                        weight: full.weight,
+                        indicative: full.indicative,
+                        invoice: full.invoice,
+                        baseline_eta: full.baseline_eta,
+                        baseline_pallets: full.baseline_pallets,
+                        baseline_ind: full.baseline_ind,
+                        baseline_inv: full.baseline_inv,
+                        is_real_shipment_code: full.is_real_shipment_code,
+                      }}
+                      freePallets={free}
+                      onOfferClick={() => setActiveInlineLevel("l3")}
+                    />
+                  }
+                  l3Content={
+                    <OfferAllocationForm
+                      variant="inline"
+                      item={{
+                        shipment_item_id: full.shipment_item_id,
+                        distribution_id: full.distribution_id,
+                        product_name: full.product,
+                        caliber: full.caliber,
+                        available_pallets: free,
+                        shipment_code: full.code,
+                        shipment_eta: full.eta,
+                      }}
+                      onCancel={() => closeInlineActive()}
+                      onSubmitted={() => closeInlineActive()}
+                    />
+                  }
+                />
+              );
+            }}
+          />
+        </div>
       )}
 
-      <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
+      <Dialog open={!isMalekhiv && !!drill} onOpenChange={(o) => !o && setDrill(null)}>
+
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           {drillRow ? (
             <>
