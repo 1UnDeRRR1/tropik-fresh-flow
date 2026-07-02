@@ -353,15 +353,6 @@ function BranchFreeList() {
 
       {!rows.length ? (
         <EmptyState title="Немає вільного товару" hint="Усі позиції розподілені або в очікуванні" />
-      ) : profile?.branch_id === MALEKHIV_BRANCH_ID && user && profile?.branch_id ? (
-        // Malekhiv-only: L1/L2 render via MobileGlassTable + inline
-        // pallet/price form. Direct insert into branch_requests
-        // (request_type='free_offer') is preserved 1:1.
-        <MalekhivFreeListContainer
-          rows={rows}
-          userId={user.id}
-          branchId={profile.branch_id}
-        />
       ) : (
         <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <ul className="divide-y divide-border" data-malekhiv-card={profile?.branch_id === MALEKHIV_BRANCH_ID ? "" : undefined}>
