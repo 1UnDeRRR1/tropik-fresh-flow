@@ -967,14 +967,6 @@ function BranchDashboard() {
         <EmptyState
           title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
         />
-      ) : isMalekhiv ? (
-        // Malekhiv-only: L1/L2/L3 render via MobileGlassTable. All other
-        // branches keep the legacy BranchFlatList + Dialog + OfferDialog.
-        <MalekhivBranchDashboardList
-          rows={filteredRows}
-          statsFor={statsFor}
-          isBranchOfferLockedByEta={isBranchOfferLockedByEta}
-        />
       ) : (
         <BranchFlatList
           rows={filteredRows}
