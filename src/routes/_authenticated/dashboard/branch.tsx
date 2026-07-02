@@ -296,6 +296,26 @@ function BranchDashboard() {
     return undefined;
   }, [isMalekhiv]);
 
+  // Outside-click closes active inline card. Bottom-nav taps are excluded so
+  // the user can leave the screen without an extra tap-to-close.
+  useEffect(() => {
+    if (!isMalekhiv) return;
+    if (!expandedRowKey) return;
+    const onDown = (ev: PointerEvent) => {
+      const t = ev.target as Node | null;
+      const wrap = inlineListWrapRef.current;
+      if (!wrap || !t) return;
+      const active = wrap.querySelector('li[data-inline-state="active"]');
+      if (active && active.contains(t)) return;
+      const inNav = (t as Element).closest?.("[data-malekhiv-bottom-nav]");
+      if (inNav) return;
+      closeInlineActive();
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [isMalekhiv, expandedRowKey, closeInlineActive]);
+
+
   const { data: dists, isPending: distsPending, isError: distsError } = useQuery({
     queryKey: ["branch-incoming-dists", branchId],
     enabled: !!branchId,
