@@ -555,6 +555,29 @@ function BranchOffersPage() {
         }
         if (rows.length === 0) return null;
 
+        if (branchId === MALEKHIV_BRANCH_ID) {
+          // Malekhiv-only: L1/L2 render via MobileGlassTable, inline pallet
+          // input + submit/cancel. Actions delegate to the parent's existing
+          // `submit` and `cancelRequest` mutations, so business logic is
+          // untouched. No position_id grouping. Активні: no UAH price.
+          return (
+            <MalekhivBranchOffersList
+              bucket={bucket}
+              rows={rows}
+              responseByOffer={responseByOffer}
+              shipmentById={shipmentById}
+              managerNameById={managerNameById}
+              drafts={drafts}
+              onDraftChange={(offerId, value) => setDrafts((p) => ({ ...p, [offerId]: value }))}
+              onSubmit={(offerId, pallets) => submit.mutate({ offerId, pallets })}
+              onCancel={(responseId) => cancelRequest.mutate(responseId)}
+              submitting={submit.isPending}
+              cancelling={cancelRequest.isPending}
+            />
+          );
+        }
+
+
         return (
           <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
             <ul className="divide-y divide-border" data-malekhiv-card={branchId === MALEKHIV_BRANCH_ID ? "" : undefined}>
