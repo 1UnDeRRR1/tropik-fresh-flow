@@ -147,7 +147,7 @@ export function MalekhivBottomNav({ items, isActive }: Props) {
   }, [activeIdx, items.length, ready]);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-2 py-1.5">
+    <div className="mx-auto w-full max-w-3xl px-2 py-1.5" data-malekhiv-bottom-nav="">
       {/* Compact tunnel: rounded bordered pill containing the scroller. */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-card/80 backdrop-blur">
         <div
