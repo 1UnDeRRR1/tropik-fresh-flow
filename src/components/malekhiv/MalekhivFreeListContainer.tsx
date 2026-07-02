@@ -28,10 +28,15 @@ export function MalekhivFreeListContainer({
     itemId: string,
     patch: Partial<{ pallets: string; price: string; currency: string }>,
   ) => {
-    setDrafts((prev) => ({
-      ...prev,
-      [itemId]: { pallets: String(rows.find((r) => r.itemId === itemId)?.free ?? ""), price: "", currency: "UAH", ...prev[itemId], ...patch },
-    }));
+    setDrafts((prev) => {
+      const row = rows.find((r) => r.itemId === itemId);
+      const defaults = { pallets: String(row?.free ?? ""), price: "", currency: "UAH" };
+      const current = prev[itemId] ?? defaults;
+      return { ...prev, [itemId]: { ...current, ...patch } };
+    });
+    if (patch.pallets != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), pallets: false } }));
+    if (patch.price != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), price: false } }));
+  };
     if (patch.pallets != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), pallets: false } }));
     if (patch.price != null) setInvalid((s) => ({ ...s, [itemId]: { ...(s[itemId] ?? { pallets: false, price: false }), price: false } }));
   };
