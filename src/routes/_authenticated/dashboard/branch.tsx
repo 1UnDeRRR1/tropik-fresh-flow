@@ -13,6 +13,10 @@ import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
 import { Button } from "@/components/ui/button";
 import { OfferDialog } from "@/components/OfferDialog";
+import { OfferAllocationForm } from "@/components/OfferAllocationForm";
+import { InlineExpansion } from "./-branch-inline/InlineExpansion";
+import { BranchDrillContent } from "./-branch-inline/BranchDrillContent";
+
 
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
