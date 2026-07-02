@@ -13,7 +13,7 @@ import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
 import { Button } from "@/components/ui/button";
 import { OfferDialog } from "@/components/OfferDialog";
-import { MalekhivBranchDashboardList } from "@/components/malekhiv/MalekhivBranchDashboardList";
+
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
