@@ -20,15 +20,17 @@ import "./inline-expansion.css";
 export function InlineExpansion({
   phase,
   level,
-  children,
+  l2Content,
+  l3Content,
   onOpened,
   onClosed,
   onSwapped,
 }: {
   phase: "opening" | "open" | "closing";
-  /** Current level shown; used only to trigger the two-step swap when it changes. */
+  /** Current level requested by host; triggers two-step swap when it changes. */
   level: "l2" | "l3";
-  children: React.ReactNode;
+  l2Content: React.ReactNode;
+  l3Content: React.ReactNode;
   onOpened?: () => void;
   onClosed?: () => void;
   /** Fired after the two-step L2↔L3 swap re-expands. */
