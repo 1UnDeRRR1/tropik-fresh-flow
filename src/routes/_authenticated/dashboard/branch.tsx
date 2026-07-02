@@ -13,6 +13,7 @@ import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
 import { Button } from "@/components/ui/button";
 import { OfferDialog } from "@/components/OfferDialog";
+import { MalekhivBranchDashboardList } from "@/components/malekhiv/MalekhivBranchDashboardList";
 import { useProductAliases } from "@/hooks/useProductAliases";
 import { useCountryAliases } from "@/hooks/useCountryAliases";
 import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
@@ -965,6 +966,14 @@ function BranchDashboard() {
       ) : !filteredRows.length ? (
         <EmptyState
           title={productFilter !== "__all__" || countryFilter !== "__all__" ? "Немає товару за фільтром" : "Поки немає підтвердженого товару"}
+        />
+      ) : isMalekhiv ? (
+        // Malekhiv-only: L1/L2/L3 render via MobileGlassTable. All other
+        // branches keep the legacy BranchFlatList + Dialog + OfferDialog.
+        <MalekhivBranchDashboardList
+          rows={filteredRows}
+          statsFor={statsFor}
+          isBranchOfferLockedByEta={isBranchOfferLockedByEta}
         />
       ) : (
         <BranchFlatList
