@@ -93,86 +93,68 @@ li[data-inline-state="neighbor-blur"] {
   opacity: 0;
 }
 
-/* ---------- L2 single glass panel ---------- */
+/* ---------- L2 content (NO own card). Just spacing/typography.
+   The glass surface belongs to li[data-inline-state="active"]::before,
+   which spans L1 + this panel as one continuous plate. ---------- */
 
-.bie-l2-glass {
-  position: relative;
-  border-radius: 18px;
-  padding: 14px 16px 16px 16px;
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(22px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
-    0 10px 28px -18px rgba(0, 0, 0, 0.35);
-  /* Visually continue the L1 card: pull upward and clip the top edge. */
-  margin-top: -6px;
+.bie-l2-flat {
+  /* no background, no border, no radius, no shadow — single surface is ::before */
+  padding: 4px 12px 12px 12px;
   color: hsl(var(--foreground));
 }
 
-:root.dark .bie-l2-glass,
-.dark .bie-l2-glass {
-  background: rgba(12, 14, 18, 0.7);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
-    0 14px 32px -18px rgba(0, 0, 0, 0.85);
-}
-
-.bie-l2-glass .bie-l2-title {
+.bie-l2-flat .bie-l2-title {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.25;
-  margin-bottom: 10px;
+  margin: 2px 0 8px 0;
 }
 
-.bie-l2-glass .bie-l2-title-sub {
+.bie-l2-flat .bie-l2-title-sub {
   font-weight: 500;
   color: hsl(var(--muted-foreground));
 }
 
-.bie-l2-glass .bie-l2-list {
+.bie-l2-flat .bie-l2-list {
   display: flex;
   flex-direction: column;
   margin: 0;
 }
 
-.bie-l2-glass .bie-l2-item {
+.bie-l2-flat .bie-l2-item {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  padding: 6px 0;
+  padding: 5px 0;
   font-size: 13px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-:root.dark .bie-l2-glass .bie-l2-item,
-.dark .bie-l2-glass .bie-l2-item {
+:root.dark .bie-l2-flat .bie-l2-item,
+.dark .bie-l2-flat .bie-l2-item {
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-.bie-l2-glass .bie-l2-item:last-child {
+.bie-l2-flat .bie-l2-item:last-child {
   border-bottom: 0;
 }
 
-.bie-l2-glass .bie-l2-item dt {
+.bie-l2-flat .bie-l2-item dt {
   color: hsl(var(--muted-foreground));
   font-weight: 400;
 }
 
-.bie-l2-glass .bie-l2-item dd {
+.bie-l2-flat .bie-l2-item dd {
   margin: 0;
   font-weight: 500;
   text-align: right;
 }
 
-.bie-l2-glass .bie-l2-changes {
+.bie-l2-flat .bie-l2-changes {
   list-style: none;
-  padding: 10px 0 0 0;
-  margin: 10px 0 0 0;
+  padding: 8px 0 0 0;
+  margin: 8px 0 0 0;
   border-top: 1px dashed rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
@@ -181,25 +163,25 @@ li[data-inline-state="neighbor-blur"] {
   color: hsl(var(--warning, 30 90% 45%));
 }
 
-:root.dark .bie-l2-glass .bie-l2-changes,
-.dark .bie-l2-glass .bie-l2-changes {
+:root.dark .bie-l2-flat .bie-l2-changes,
+.dark .bie-l2-flat .bie-l2-changes {
   border-top-color: rgba(255, 255, 255, 0.12);
 }
 
-.bie-l2-glass .bie-l2-strike {
+.bie-l2-flat .bie-l2-strike {
   text-decoration: line-through;
   opacity: 0.75;
 }
 
-.bie-l2-glass .bie-l2-actions {
+.bie-l2-flat .bie-l2-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
-.bie-l2-glass .bie-l2-note {
+.bie-l2-flat .bie-l2-note {
   font-size: 11px;
   color: hsl(var(--warning, 30 90% 45%));
 }
