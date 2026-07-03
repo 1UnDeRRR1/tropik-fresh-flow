@@ -148,7 +148,7 @@ export function BranchDrillContent({
   const showOfferBlock = row.is_real_shipment_code && freePallets > 0;
 
   return (
-    <section className="bie-l2-glass">
+    <section className="bie-l2-flat">
       <header className="bie-l2-title">
         {row.product}
         {country ? <span className="bie-l2-title-sub"> · {country}</span> : null}
