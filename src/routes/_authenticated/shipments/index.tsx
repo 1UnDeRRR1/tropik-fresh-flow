@@ -668,6 +668,7 @@ type OpenVehicleRow = {
   created_by: string | null;
   shipments: {
     id: string;
+    code: string | null;
     created_at: string | null;
     import_manager_id: string | null;
     created_by?: string | null;
@@ -685,6 +686,30 @@ type OpenVehicleRow = {
     }> | null;
   }[] | null;
 };
+
+// Per-shipment gross aggregate for the open-vehicle L2 breakdown. Mirrors
+// the vehicle-wide `aggregateVehicleFromItems` fallback chain.
+function aggregateShipmentFromItems(
+  s: NonNullable<OpenVehicleRow["shipments"]>[number],
+): { pallets: number; gross: number; products: string[] } {
+  let pallets = 0;
+  let gross = 0;
+  const names = new Set<string>();
+  for (const it of s.shipment_items ?? []) {
+    const pc = Number(it.pallet_count ?? 0);
+    pallets += pc;
+    const g = Number(it.gross_weight_kg ?? 0);
+    if (g > 0) gross += g;
+    else {
+      const net = Number(it.net_weight_kg ?? 0);
+      const pw = Number(it.pallet_weight ?? 0);
+      gross += net > 0 ? net : pc * pw;
+    }
+    const n = (it.product_name ?? "").trim();
+    if (n) names.add(n);
+  }
+  return { pallets, gross, products: Array.from(names) };
+}
 
 // P-Fix — derive vehicle pallets/gross from shipment_items so the open-vehicles
 // card reflects the same gross-based numbers the products editor uses. The DB
