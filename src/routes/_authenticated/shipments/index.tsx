@@ -668,6 +668,7 @@ type OpenVehicleRow = {
   created_by: string | null;
   shipments: {
     id: string;
+    code: string | null;
     created_at: string | null;
     import_manager_id: string | null;
     created_by?: string | null;
@@ -685,6 +686,30 @@ type OpenVehicleRow = {
     }> | null;
   }[] | null;
 };
+
+// Per-shipment gross aggregate for the open-vehicle L2 breakdown. Mirrors
+// the vehicle-wide `aggregateVehicleFromItems` fallback chain.
+function aggregateShipmentFromItems(
+  s: NonNullable<OpenVehicleRow["shipments"]>[number],
+): { pallets: number; gross: number; products: string[] } {
+  let pallets = 0;
+  let gross = 0;
+  const names = new Set<string>();
+  for (const it of s.shipment_items ?? []) {
+    const pc = Number(it.pallet_count ?? 0);
+    pallets += pc;
+    const g = Number(it.gross_weight_kg ?? 0);
+    if (g > 0) gross += g;
+    else {
+      const net = Number(it.net_weight_kg ?? 0);
+      const pw = Number(it.pallet_weight ?? 0);
+      gross += net > 0 ? net : pc * pw;
+    }
+    const n = (it.product_name ?? "").trim();
+    if (n) names.add(n);
+  }
+  return { pallets, gross, products: Array.from(names) };
+}
 
 // P-Fix — derive vehicle pallets/gross from shipment_items so the open-vehicles
 // card reflects the same gross-based numbers the products editor uses. The DB
@@ -726,7 +751,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles" as never)
-        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,created_at,import_manager_id,created_by,logistics_cost,logistics_cost_currency,logistics_cost_usd,suppliers(name),import_managers(full_name),shipment_items(product_name,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
+        .select("id,code,country,loading_date,eta,total_pallets,total_weight_kg,created_by, shipments(id,code,created_at,import_manager_id,created_by,logistics_cost,logistics_cost_currency,logistics_cost_usd,suppliers(name),import_managers(full_name),shipment_items(product_name,pallet_count,pallet_weight,net_weight_kg,gross_weight_kg))")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (error) return [] as OpenVehicleRow[];
@@ -1034,6 +1059,51 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
         left: "Попередня вартість транспорту:",
         right: formatMoney(mother?.logistics_cost ?? null, mother?.logistics_cost_currency ?? null),
       });
+    }
+
+    // Per-shipment breakdown inside the vehicle: shipment code (link for
+    // own shipment), product summary, pallets / gross kg. Non-owners see
+    // read-only line — the shipment page decides what is editable.
+    const shipmentsInVehicle = v.shipments ?? [];
+    if (shipmentsInVehicle.length > 0) {
+      lines.push({
+        id: `divider-${v.id}`,
+        left: <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Вантаж у авто</span>,
+        right: <span className="text-[11px] text-muted-foreground">{shipmentsInVehicle.length} поз.</span>,
+      });
+      for (const s of shipmentsInVehicle) {
+        const ss = aggregateShipmentFromItems(s);
+        const owned = isOwnedShipment(s, user?.id, currentManagerId);
+        const canOpen = owned || isAdmin;
+        const codeLabel = s.code ?? "—";
+        const products = ss.products.length > 0 ? ss.products.join(", ") : "—";
+        const owner = (s.import_managers?.full_name ?? "").trim();
+        const left = (
+          <span className="flex flex-col gap-0.5 text-[12px]">
+            {canOpen ? (
+              <Link
+                to="/shipments/$id/products"
+                params={{ id: s.id }}
+                onClick={(e) => e.stopPropagation()}
+                className="font-semibold text-brand underline-offset-2 hover:underline"
+              >
+                {codeLabel}
+              </Link>
+            ) : (
+              <span className="font-semibold text-foreground">{codeLabel}</span>
+            )}
+            <span className="text-[11px] text-muted-foreground">
+              {products}{owner ? ` · ${owner}` : ""}
+            </span>
+          </span>
+        );
+        const right = (
+          <span className="tabular-nums text-[12px] text-foreground">
+            {ss.pallets}п / {Math.round(ss.gross).toLocaleString("uk-UA")} кг
+          </span>
+        );
+        lines.push({ id: `ship-${s.id}`, left, right });
+      }
     }
 
     const onAdd = () => navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
