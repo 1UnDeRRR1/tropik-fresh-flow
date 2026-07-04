@@ -69,6 +69,7 @@ import { Route as AuthenticatedAdminCountriesMasterRouteImport } from './routes/
 import { Route as AuthenticatedAdminCountriesRouteImport } from './routes/_authenticated/admin/countries'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin/branches'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicHooksShipmentsLifecycleRouteImport } from './routes/api/public/hooks/shipments-lifecycle'
 import { Route as ApiPublicHooksRefreshFxRouteImport } from './routes/api/public/hooks/refresh-fx'
 import { Route as AuthenticatedShipmentsIdProductsRouteImport } from './routes/_authenticated/shipments/$id.products'
@@ -410,6 +411,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksShipmentsLifecycleRoute =
   ApiPublicHooksShipmentsLifecycleRouteImport.update({
     id: '/api/public/hooks/shipments-lifecycle',
@@ -462,6 +468,7 @@ export interface FileRoutesByFullPath {
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/transfers': typeof AuthenticatedTransfersRoute
   '/o/$token': typeof OTokenRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
@@ -524,6 +531,7 @@ export interface FileRoutesByTo {
   '/transfers': typeof AuthenticatedTransfersRoute
   '/o/$token': typeof OTokenRoute
   '/': typeof AuthenticatedIndexRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/countries': typeof AuthenticatedAdminCountriesRoute
@@ -591,6 +599,7 @@ export interface FileRoutesById {
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/o/$token': typeof OTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/countries': typeof AuthenticatedAdminCountriesRoute
@@ -658,6 +667,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/transfers'
     | '/o/$token'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/branches'
     | '/admin/countries'
@@ -720,6 +730,7 @@ export interface FileRouteTypes {
     | '/transfers'
     | '/o/$token'
     | '/'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/admin/branches'
     | '/admin/countries'
@@ -786,6 +797,7 @@ export interface FileRouteTypes {
     | '/_authenticated/transfers'
     | '/o/$token'
     | '/_authenticated/'
+    | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/countries'
@@ -832,6 +844,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   OTokenRoute: typeof OTokenRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicHooksRefreshFxRoute: typeof ApiPublicHooksRefreshFxRoute
   ApiPublicHooksShipmentsLifecycleRoute: typeof ApiPublicHooksShipmentsLifecycleRoute
@@ -1259,6 +1272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/shipments-lifecycle': {
       id: '/api/public/hooks/shipments-lifecycle'
       path: '/api/public/hooks/shipments-lifecycle'
@@ -1489,6 +1509,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   OTokenRoute: OTokenRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicHooksRefreshFxRoute: ApiPublicHooksRefreshFxRoute,
   ApiPublicHooksShipmentsLifecycleRoute: ApiPublicHooksShipmentsLifecycleRoute,
