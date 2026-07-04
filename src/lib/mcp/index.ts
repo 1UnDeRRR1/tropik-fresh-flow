@@ -38,6 +38,7 @@ const qaTools =
         qaProbeFixturesTool,
         qaProbePrimitivesTool,
         qaRunShipmentSmokeTool,
+        qaDirectDogruzNoOfferTool,
         qaCleanupRunTool,
       ]
     : [];

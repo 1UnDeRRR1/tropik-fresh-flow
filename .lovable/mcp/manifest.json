@@ -103,6 +103,18 @@
         "outputSchema": null
       },
       {
+        "name": "qa_direct_dogruz_no_offer",
+        "title": "QA direct dogruz without offer",
+        "description": "QA-ONLY write scenario. Creates a direct open vehicle shipment with import manager 1, then creates a second direct shipment by import manager 2 inside the same open vehicle. No offer, no branch response, no VS, no reserve, no close. Returns captured_ids for qa_cleanup_run. Never returns tokens.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": null,
+        "outputSchema": null
+      },
+      {
         "name": "qa_cleanup_run",
         "title": "QA cleanup run",
         "description": "QA-ONLY: delete rows created by a previous qa_run_shipment_smoke run, using its captured_ids payload. Deletes only by captured ids, in reverse dependency order. Idempotent — safe to rerun. Never touches reference/master data. Never uses date-based filters.",
