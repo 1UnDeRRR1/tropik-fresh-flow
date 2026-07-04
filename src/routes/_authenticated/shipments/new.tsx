@@ -715,13 +715,13 @@ function NewShipment() {
     return { pallets, kg };
   }, [drafts]);
 
-  // For existing vehicle mode we add the already-loaded counters.
+  // For existing vehicle mode we add the already-loaded counters using the
+  // same gross-first aggregation as the rest of the form so the sticky bar,
+  // remaining capacity, and overweight warnings match the outer card.
   const loadedExisting = useMemo(() => {
     if (mode !== "existing" || !selectedVehicle) return { pallets: 0, kg: 0 };
-    return {
-      pallets: Number(selectedVehicle.total_pallets ?? 0),
-      kg: Number(selectedVehicle.total_weight_kg ?? 0),
-    };
+    const a = aggregateVehicleGrossFromItems(selectedVehicle);
+    return { pallets: a.pallets, kg: a.gross };
   }, [mode, selectedVehicle]);
 
   // ───────── Build 2D — child-mode wiring ────────────────────────────────
