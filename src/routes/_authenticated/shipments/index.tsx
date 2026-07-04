@@ -336,7 +336,7 @@ function ShipmentsList() {
                   options={countryOptions}
                   allValue="all"
                   allLabel="Усі країни"
-                  placeholder="Країна постачальника"
+                  placeholder="Країна завантаження"
                 />
               </div>
             )}
