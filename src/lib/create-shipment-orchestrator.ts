@@ -545,6 +545,62 @@ export async function createShipmentFlow(
       : { ok: false, reason: cr.reason };
   }
 
+  // Auto-close: after items are inserted (standalone OR child), if actual
+  // loaded shipment_items on this vehicle reach the auto-close threshold
+  // (>= 26 pallets OR >= 21000 kg gross), close the vehicle. Uses gross-first
+  // fallback from shipment_items — NOT vehicles.total_weight_kg. Reserves are
+  // intentionally NOT counted. Skipped if create_and_close already closed it.
+  if (!closed) {
+    const capRes = (await supabase
+      .from("shipment_items")
+      .select(
+        "pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,shipments!inner(vehicle_id)",
+      )
+      .eq("shipments.vehicle_id", vehicleId)) as {
+        data:
+          | {
+              pallet_count: number | null;
+              pallet_weight: number | null;
+              net_weight_kg: number | null;
+              gross_weight_kg: number | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      };
+    if (!capRes.error) {
+      let loadedPallets = 0;
+      let loadedGross = 0;
+      for (const it of capRes.data ?? []) {
+        const pc = Number(it.pallet_count ?? 0);
+        loadedPallets += pc;
+        const g = Number(it.gross_weight_kg ?? 0);
+        if (g > 0) loadedGross += g;
+        else {
+          const net = Number(it.net_weight_kg ?? 0);
+          const pw = Number(it.pallet_weight ?? 0);
+          loadedGross += net > 0 ? net : pc * pw;
+        }
+      }
+      const AUTOCLOSE_PAL = 26;
+      const AUTOCLOSE_GROSS = 21000;
+      if (loadedPallets >= AUTOCLOSE_PAL || loadedGross >= AUTOCLOSE_GROSS) {
+        const upd = (await supabase
+          .from("vehicles" as never)
+          .update({ status: "closed", closed_at: new Date().toISOString() } as never)
+          .eq("id", vehicleId)
+          .eq("status", "open")
+          .select("id,status")
+          .maybeSingle()) as {
+            data: { id: string; status: string } | null;
+            error: { message: string } | null;
+          };
+        if (!upd.error && upd.data?.status === "closed") {
+          closed = true;
+        }
+      }
+    }
+  }
+
   return {
     ok: true,
     vehicleId,
