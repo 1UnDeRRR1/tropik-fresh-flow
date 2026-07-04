@@ -229,7 +229,7 @@ function ShipmentsList() {
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) {
-      const c = (r as { suppliers?: { country?: string | null } | null }).suppliers?.country;
+      const c = (r as { country?: string | null }).country;
       if (c && c.trim()) {
         const ua = toUaCountry(c) || c;
         set.add(ua);
@@ -261,7 +261,7 @@ function ShipmentsList() {
     })
     .filter((r) => {
       if (!isAdmin || countryFilter === "all") return true;
-      const raw = (r as { suppliers?: { country?: string | null } | null }).suppliers?.country ?? "";
+      const raw = (r as { country?: string | null }).country ?? "";
       const ua = toUaCountry(raw) || raw;
       return ua === countryFilter;
     })
@@ -336,7 +336,7 @@ function ShipmentsList() {
                   options={countryOptions}
                   allValue="all"
                   allLabel="Усі країни"
-                  placeholder="Країна постачальника"
+                  placeholder="Країна завантаження"
                 />
               </div>
             )}
@@ -354,8 +354,8 @@ function ShipmentsList() {
               {filtered.map((s) => {
                 const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                 const supplierName = (s as { suppliers?: { name?: string | null } | null }).suppliers?.name ?? "—";
-                const supplierCountry =
-                  toUaCountry((s as { suppliers?: { country?: string | null } | null }).suppliers?.country ?? "") || "—";
+                const loadingCountry =
+                  toUaCountry((s as { country?: string | null }).country ?? "") || "—";
                 return (
                   <ShipmentRow
                     key={s.id}
@@ -369,7 +369,7 @@ function ShipmentsList() {
                     dist={s.dist}
                     remaining={s.remaining}
                     supplierName={supplierName}
-                    supplierCountry={supplierCountry}
+                    loadingCountry={loadingCountry}
                     vehicle={s.tractor_plate ?? s.vehicle_plate ?? null}
                     driver={s.driver_name ?? null}
                     address={s.loading_address ?? null}
@@ -401,7 +401,7 @@ function ShipmentRow({
   dist,
   remaining,
   supplierName,
-  supplierCountry,
+  loadingCountry,
   vehicle,
   driver,
   address,
@@ -421,7 +421,7 @@ function ShipmentRow({
   dist: number;
   remaining: number;
   supplierName: string;
-  supplierCountry: string;
+  loadingCountry: string;
   vehicle: string | null;
   driver: string | null;
   address: string | null;
@@ -481,7 +481,7 @@ function ShipmentRow({
             <span className="text-muted-foreground"> · </span>
             <span className="text-foreground">{supplierName}</span>
             <span className="text-muted-foreground"> · </span>
-            <span className="text-muted-foreground">{supplierCountry}</span>
+            <span className="text-muted-foreground">{loadingCountry}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1 pl-2">
             <span className="text-sm font-bold tabular-nums text-foreground">{pallets}п</span>
@@ -1074,32 +1074,51 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       for (const s of shipmentsInVehicle) {
         const ss = aggregateShipmentFromItems(s);
         const owned = isOwnedShipment(s, user?.id, currentManagerId);
-        const canOpen = owned || isAdmin;
+        const showCode = owned || isAdmin;
         const codeLabel = s.code ?? "—";
         const products = ss.products.length > 0 ? ss.products.join(", ") : "—";
         const owner = (s.import_managers?.full_name ?? "").trim();
         const left = (
           <span className="flex flex-col gap-0.5 text-[12px]">
-            {canOpen ? (
-              <Link
-                to="/shipments/$id/products"
-                params={{ id: s.id }}
-                onClick={(e) => e.stopPropagation()}
-                className="font-semibold text-brand underline-offset-2 hover:underline"
-              >
-                {codeLabel}
-              </Link>
+            {showCode ? (
+              owned ? (
+                <Link
+                  to="/shipments/$id/products"
+                  params={{ id: s.id }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-brand underline-offset-2 hover:underline"
+                >
+                  {codeLabel}
+                </Link>
+              ) : (
+                <span className="font-semibold text-foreground">{codeLabel}</span>
+              )
             ) : (
-              <span className="font-semibold text-foreground">{codeLabel}</span>
+              <span className="text-[12px] text-foreground">{products}</span>
             )}
-            <span className="text-[11px] text-muted-foreground">
-              {products}{owner ? ` · ${owner}` : ""}
-            </span>
+            {showCode && (
+              <span className="text-[11px] text-muted-foreground">
+                {products}{owner ? ` · ${owner}` : ""}
+              </span>
+            )}
           </span>
         );
         const right = (
-          <span className="tabular-nums text-[12px] text-foreground">
-            {ss.pallets}п / {Math.round(ss.gross).toLocaleString("uk-UA")} кг
+          <span className="flex flex-col items-end gap-1">
+            <span className="tabular-nums text-[12px] text-foreground">
+              {ss.pallets}п / {Math.round(ss.gross).toLocaleString("uk-UA")} кг
+            </span>
+            {owned && (
+              <Button asChild size="sm" variant="secondary" className="h-7 px-2 text-[11px]">
+                <Link
+                  to="/shipments/$id/products"
+                  params={{ id: s.id }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Редагувати
+                </Link>
+              </Button>
+            )}
           </span>
         );
         lines.push({ id: `ship-${s.id}`, left, right });
