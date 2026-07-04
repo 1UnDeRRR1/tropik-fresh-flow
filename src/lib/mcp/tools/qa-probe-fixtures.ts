@@ -275,19 +275,21 @@ export default defineTool({
       : country;
     const countryDiscovery = mode === "discovered" ? await discoverCountry() : { candidates: [] as { name: string; code: string | null }[] };
 
-    // Product — with unconditional discovery fallback so `product_name` is
-    // never null when any usable product exists in the DB.
+    // Product — mirror app source (product_dictionary). Always run discovery
+    // for the candidates list, and prefer the hinted name when it resolves.
     const product = await validateProduct(targetProduct);
-    let productPrimary: { name: string; product_id: string } | null =
-      product.exists && product.product_id ? { name: product.name, product_id: product.product_id } : null;
-    let productCandidates: { name: string }[] = [];
+    const productDiscovery = await discoverProduct();
+    let productPrimary: { name: string; product_id: string; source: ProductSource } | null =
+      product.exists && product.product_id ? { name: product.name, product_id: product.product_id, source: product.source } : null;
     let productNote = product.note;
-    if (!productPrimary) {
-      const d = await discoverProduct();
-      productPrimary = d.primary;
-      productCandidates = d.candidates;
-      if (d.primary) productNote = `${product.note}; fell back to first active product`;
+    if (!productPrimary && productDiscovery.primary) {
+      productPrimary = productDiscovery.primary;
+      productNote = `${product.note}; fell back to first ${productDiscovery.primary.source} entry`;
     }
+    const productCandidates = productDiscovery.candidates;
+    const productCandidatesEmpty = productCandidates.length === 0 && !productPrimary;
+    const productCheckedSources = productDiscovery.checked_sources;
+
 
     // Branches
     const branchDiscovery = mode === "discovered" ? await discoverBranches() : { rows: [] };
