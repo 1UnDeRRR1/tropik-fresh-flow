@@ -1356,8 +1356,8 @@ function NewShipment() {
               <div className="rounded-md border border-border bg-secondary/30 px-2 py-1.5 text-[11px] text-muted-foreground">
                 <span className="font-semibold text-foreground">{selectedVehicle.code}</span> ·{" "}
                 {selectedVehicle.country} · ETD {selectedVehicle.loading_date ?? "—"} · ETA{" "}
-                {selectedVehicle.eta ?? "—"} · {Number(selectedVehicle.total_pallets ?? 0)}/26 пал ·{" "}
-                {Math.round(Number(selectedVehicle.total_weight_kg ?? 0))}/21500 кг · власник{" "}
+                {selectedVehicle.eta ?? "—"} ·{" "}
+                {(() => { const a = aggregateVehicleGrossFromItems(selectedVehicle); return `${a.pallets}/26 пал · ${Math.round(a.gross)}/21500 кг`; })()} · власник{" "}
                 {selectedVehicleOwnerName}
               </div>
             ) : (
