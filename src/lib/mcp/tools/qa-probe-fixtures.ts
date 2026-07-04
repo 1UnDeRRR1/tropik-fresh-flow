@@ -158,6 +158,17 @@ async function palletStandardsPresent() {
   return !r.error && (r.data?.length ?? 0) > 0;
 }
 
+async function discoverPackage(): Promise<{ package_used: string | null; sample_id: string | null }> {
+  const r = await readOnlyAdmin
+    .read<{ id: string; package_used: string | null }>("pallet_standards")
+    .select("id,package_used")
+    .order("package_used", { ascending: true })
+    .limit(1)
+    .run();
+  const row = r.data?.[0] ?? null;
+  return { package_used: row?.package_used ?? null, sample_id: row?.id ?? null };
+}
+
 async function fxRow() {
   const r = await readOnlyAdmin
     .read<{ rate: number | null; date: string | null }>("exchange_rates")
