@@ -75,31 +75,54 @@ async function discoverCountry() {
   return { primary: rows[0] ?? null, candidates: rows };
 }
 
-async function validateProduct(name: string) {
+async function validateProduct(name: string): Promise<{ name: string; exists: boolean; product_id: string | null; note: string }> {
   const direct = await readOnlyAdmin
     .read<{ id: string; name: string | null }>("products")
     .select("id,name")
-    .eq("name", name)
-    .runSingle();
-  if (!direct.error && direct.data) return { name, exists: true, product_id: direct.data.id, note: "matched products.name" };
+    .ilike("name", name)
+    .limit(1)
+    .run();
+  if (!direct.error && direct.data && direct.data[0]) {
+    return { name: direct.data[0].name ?? name, exists: true, product_id: direct.data[0].id, note: "matched products.name (ilike)" };
+  }
+  // Fallback: resolve alias → product_dictionary.product_name_ua → products.name.
   const alias = await readOnlyAdmin
-    .read<{ product_id: string; alias: string }>("product_aliases")
-    .select("product_id,alias")
+    .read<{ canonical_product_id: string; alias: string }>("product_aliases")
+    .select("canonical_product_id,alias")
     .ilike("alias", name)
     .limit(1)
     .run();
   if (!alias.error && alias.data && alias.data[0]) {
-    return { name, exists: true, product_id: alias.data[0].product_id, note: "matched product_aliases.alias" };
+    const canon = alias.data[0].canonical_product_id;
+    const dict = await readOnlyAdmin
+      .read<{ product_name_ua: string | null }>("product_dictionary")
+      .select("product_name_ua")
+      .eq("canonical_product_id", canon)
+      .runSingle();
+    const uaName = dict.data?.product_name_ua ?? null;
+    if (uaName) {
+      const byUa = await readOnlyAdmin
+        .read<{ id: string; name: string | null }>("products")
+        .select("id,name")
+        .ilike("name", uaName)
+        .limit(1)
+        .run();
+      if (!byUa.error && byUa.data && byUa.data[0]) {
+        return { name: byUa.data[0].name ?? uaName, exists: true, product_id: byUa.data[0].id, note: "matched via product_aliases → product_dictionary → products" };
+      }
+      return { name: uaName, exists: false, product_id: null, note: "alias resolved but no matching products row" };
+    }
   }
-  return { name, exists: false, product_id: null as string | null, note: "not found in products or product_aliases" };
+  return { name, exists: false, product_id: null, note: "not found in products or product_aliases" };
 }
 
 async function discoverProduct(): Promise<{ primary: { name: string; product_id: string } | null; candidates: { name: string }[] }> {
   const hinted = await validateProduct(DEFAULT_PRODUCT_HINT);
-  if (hinted.exists && hinted.product_id) return { primary: { name: DEFAULT_PRODUCT_HINT, product_id: hinted.product_id }, candidates: [{ name: DEFAULT_PRODUCT_HINT }] };
+  if (hinted.exists && hinted.product_id) return { primary: { name: hinted.name, product_id: hinted.product_id }, candidates: [{ name: hinted.name }] };
   const list = await readOnlyAdmin
-    .read<{ id: string; name: string | null }>("products")
-    .select("id,name")
+    .read<{ id: string; name: string | null; is_active: boolean | null }>("products")
+    .select("id,name,is_active")
+    .eq("is_active", true)
     .order("name", { ascending: true })
     .limit(5)
     .run();
@@ -133,6 +156,17 @@ async function discoverBranches() {
 async function palletStandardsPresent() {
   const r = await readOnlyAdmin.read("pallet_standards").select("id").limit(1).run();
   return !r.error && (r.data?.length ?? 0) > 0;
+}
+
+async function discoverPackage(): Promise<{ package_used: string | null; sample_id: string | null }> {
+  const r = await readOnlyAdmin
+    .read<{ id: string; package_used: string | null }>("pallet_standards")
+    .select("id,package_used")
+    .order("package_used", { ascending: true })
+    .limit(1)
+    .run();
+  const row = r.data?.[0] ?? null;
+  return { package_used: row?.package_used ?? null, sample_id: row?.id ?? null };
 }
 
 async function fxRow() {
@@ -206,14 +240,18 @@ export default defineTool({
       : country;
     const countryDiscovery = mode === "discovered" ? await discoverCountry() : { candidates: [] as { name: string; code: string | null }[] };
 
-    // Product
+    // Product — with unconditional discovery fallback so `product_name` is
+    // never null when any usable product exists in the DB.
     const product = await validateProduct(targetProduct);
-    let productPrimary = product.product_id ? { name: product.name, product_id: product.product_id } : null;
+    let productPrimary: { name: string; product_id: string } | null =
+      product.exists && product.product_id ? { name: product.name, product_id: product.product_id } : null;
     let productCandidates: { name: string }[] = [];
-    if (mode === "discovered" && !product.exists) {
+    let productNote = product.note;
+    if (!productPrimary) {
       const d = await discoverProduct();
       productPrimary = d.primary;
       productCandidates = d.candidates;
+      if (d.primary) productNote = `${product.note}; fell back to first active product`;
     }
 
     // Branches
@@ -230,7 +268,18 @@ export default defineTool({
           : { id: "", exists: false, code: null, name: null, is_active: null });
 
     const pallet_standards_present = await palletStandardsPresent();
+    const packageFallback = targetPackage ? { package_used: targetPackage, sample_id: null } : await discoverPackage();
     const fx = await fxRow();
+
+    const notes: string[] = [];
+    if (!fx.present) {
+      notes.push(
+        "fx_eur_usd absent: not blocking. Future runner should use USD-only pricing/transport OR a separate approved test-data setup should insert a test EUR/USD rate. This probe never writes exchange_rates.",
+      );
+    }
+    if (!targetPackage && packageFallback.package_used) {
+      notes.push(`package_used fell back to first pallet_standards.package_used = "${packageFallback.package_used}"`);
+    }
 
     const missing: string[] = [];
     if (!supplier.exists) missing.push("supplier");
@@ -240,10 +289,12 @@ export default defineTool({
     if (!branch_a.exists) missing.push("branch_a");
     if (!branch_b.exists) missing.push("branch_b");
     if (!pallet_standards_present) missing.push("pallet_standards");
-    if (!fx.present) missing.push("fx_eur_usd");
     if (mode === "discovered" && branchDiscovery.rows.length < 2) missing.push("branch_candidates_insufficient");
+    // fx_eur_usd deliberately NOT in `missing`: USD-only scenarios are viable.
 
     const ok = missing.length === 0;
+
+    const effectivePackage = targetPackage || packageFallback.package_used || null;
 
     const suggested_fixtures_json = mode === "discovered"
       ? {
@@ -252,7 +303,7 @@ export default defineTool({
           loading_country: loading_country.exists ? loading_country.name : (countryDiscovery.candidates[0]?.name ?? null),
           product_name: productPrimary?.name ?? null,
           caliber: targetCaliber,
-          package_used: targetPackage || null,
+          package_used: effectivePackage,
           branch_a_id: branch_a.exists ? branch_a.id : (branchDiscovery.rows[0]?.id ?? null),
           branch_b_id: branch_b.exists ? branch_b.id : (branchDiscovery.rows[1]?.id ?? null),
         }
@@ -265,9 +316,9 @@ export default defineTool({
         supplier: { id: supplier.id, exists: supplier.exists, name: supplier.name, country: supplier.country, import_manager_id: supplier.import_manager_id, is_active: supplier.is_active },
         country: { name: country.name, exists: country.exists, code: country.code },
         loading_country: { name: loading_country.name, exists: loading_country.exists, code: loading_country.code },
-        product: { name: productPrimary?.name ?? targetProduct, exists: !!(productPrimary && productPrimary.product_id), product_id: productPrimary?.product_id ?? null, note: product.note },
+        product: { name: productPrimary?.name ?? targetProduct, exists: !!(productPrimary && productPrimary.product_id), product_id: productPrimary?.product_id ?? null, note: productNote },
         caliber: targetCaliber,
-        package_used: targetPackage || null,
+        package_used: effectivePackage,
         branch_a,
         branch_b,
         pallet_standards_present,
@@ -286,6 +337,7 @@ export default defineTool({
           }
         : {}),
       missing,
+      notes,
       config_errors,
     } as const;
     return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload as unknown as Record<string, unknown> };

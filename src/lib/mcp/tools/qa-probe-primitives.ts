@@ -69,17 +69,19 @@ async function probeReadOnlyRpc(entry: PrimitiveEntry): Promise<ReadOnlyProbe> {
   let payload: Record<string, unknown> = {};
   switch (entry.name) {
     case "rpc_resolve_country":
-      payload = { p_country: "" };
+      // Real signature: rpc_resolve_country({ p_input })
+      payload = { p_input: "" };
       break;
     case "rpc_resolve_product_exact":
-      // Signature may vary between environments — we try a permissive shape.
-      payload = { p_name: "", p_variety: null };
+      // Real signature: rpc_resolve_product_exact({ p_query, p_include_reserve? })
+      payload = { p_query: "", p_include_reserve: false };
       break;
     case "has_role":
       payload = { _user_id: ZERO_UUID, _role: "import_manager" };
       break;
     case "current_import_manager_id":
-      payload = { uid: ZERO_UUID };
+      // Real signature: no arguments (Args: never).
+      payload = {};
       break;
     default:
       payload = {};
@@ -143,7 +145,7 @@ export default defineTool({
   name: "qa_probe_primitives",
   title: "QA probe primitives",
   description:
-    "Read-only preflight. Calls only known safe read-only RPCs (rpc_resolve_country, rpc_resolve_product_exact, has_role, current_import_manager_id) with no-op arguments. Table/view existence via SELECT ... LIMIT 0 through the SELECT-only wrapper. Mutating RPCs are DECLARED but NEVER executed in this no-write Build; catalog_exists is reported as \"unknown\" because no safe existing catalog-read path is available.",
+    "Read-only preflight. Calls only known safe read-only RPCs with their real signatures — rpc_resolve_country({p_input}), rpc_resolve_product_exact({p_query,p_include_reserve}), has_role({_user_id,_role}), current_import_manager_id() — with no-op arguments. Table/view existence via SELECT ... LIMIT 0 through the SELECT-only wrapper. Mutating RPCs are DECLARED but NEVER executed in this no-write Build; catalog_exists is reported as \"unknown\" because no safe existing catalog-read path is available.",
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_args, ctx: ToolContext) => {
     const gate = qaGateStatus();

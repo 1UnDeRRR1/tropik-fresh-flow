@@ -57,7 +57,7 @@ export const TABLES: PrimitiveEntry[] = [
   { name: "shipment_items", kind: "table", purpose: "Products within a shipment.", columns: ["id", "shipment_id", "product_id", "pallet_count", "position_id"] },
   { name: "shipment_item_changes", kind: "table", purpose: "Audit trail of item changes.", columns: ["id", "shipment_item_id"] },
   { name: "shipment_changes", kind: "table", purpose: "Audit trail of shipment changes.", columns: ["id", "shipment_id"] },
-  { name: "operational_positions", kind: "table", purpose: "Product position lifecycle anchor.", columns: ["id"] },
+  { name: "operational_positions", kind: "table", purpose: "Product position lifecycle anchor. PK is position_id (not id).", columns: ["position_id", "product_id", "product_origin_country_id", "current_status", "owner_user_id"] },
   { name: "position_shipment_links", kind: "table", purpose: "Position ↔ shipment_item links.", columns: ["id", "position_id", "shipment_item_id"] },
   { name: "vehicle_reserves", kind: "table", purpose: "Reserve capacity on open vehicle.", columns: ["id", "vehicle_id", "owner_user_id", "pallets", "gross_kg", "status"] },
   { name: "distributions", kind: "table", purpose: "Distribution parent row.", columns: ["id", "shipment_id"] },

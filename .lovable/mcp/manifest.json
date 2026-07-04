@@ -81,7 +81,7 @@
       {
         "name": "qa_probe_primitives",
         "title": "QA probe primitives",
-        "description": "Read-only preflight. Calls only known safe read-only RPCs (rpc_resolve_country, rpc_resolve_product_exact, has_role, current_import_manager_id) with no-op arguments. Table/view existence via SELECT ... LIMIT 0 through the SELECT-only wrapper. Mutating RPCs are DECLARED but NEVER executed in this no-write Build; catalog_exists is reported as \"unknown\" because no safe existing catalog-read path is available.",
+        "description": "Read-only preflight. Calls only known safe read-only RPCs with their real signatures — rpc_resolve_country({p_input}), rpc_resolve_product_exact({p_query,p_include_reserve}), has_role({_user_id,_role}), current_import_manager_id() — with no-op arguments. Table/view existence via SELECT ... LIMIT 0 through the SELECT-only wrapper. Mutating RPCs are DECLARED but NEVER executed in this no-write Build; catalog_exists is reported as \"unknown\" because no safe existing catalog-read path is available.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
