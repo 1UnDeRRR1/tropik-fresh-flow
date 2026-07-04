@@ -1,6 +1,9 @@
 import { auth, defineMcp } from "@lovable.dev/mcp-js";
 import echoTool from "./tools/echo";
 import qaWhoamiTool from "./tools/qa-whoami";
+import qaProbeUsersTool from "./tools/qa-probe-users";
+import qaProbeFixturesTool from "./tools/qa-probe-fixtures";
+import qaProbePrimitivesTool from "./tools/qa-probe-primitives";
 import { parseSupabaseRef } from "./qa/env";
 
 // Resolve the Supabase OAuth issuer for /mcp.
@@ -25,7 +28,9 @@ function resolveMcpOauthIssuer(): string {
 // project-ref match, admin allow-list) are enforced inside qa_whoami itself
 // via process.env, and reported in its response payload.
 const qaTools =
-  import.meta.env.VITE_QA_MCP_TOOLS_ENABLED === "true" ? [qaWhoamiTool] : [];
+  import.meta.env.VITE_QA_MCP_TOOLS_ENABLED === "true"
+    ? [qaWhoamiTool, qaProbeUsersTool, qaProbeFixturesTool, qaProbePrimitivesTool]
+    : [];
 
 export default defineMcp({
   name: "tropik-fresh-flow-mcp",
