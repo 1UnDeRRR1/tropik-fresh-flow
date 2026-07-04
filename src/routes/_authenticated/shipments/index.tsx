@@ -1061,6 +1061,51 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       });
     }
 
+    // Per-shipment breakdown inside the vehicle: shipment code (link for
+    // own shipment), product summary, pallets / gross kg. Non-owners see
+    // read-only line — the shipment page decides what is editable.
+    const shipmentsInVehicle = v.shipments ?? [];
+    if (shipmentsInVehicle.length > 0) {
+      lines.push({
+        id: `divider-${v.id}`,
+        left: <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Вантаж у авто</span>,
+        right: <span className="text-[11px] text-muted-foreground">{shipmentsInVehicle.length} поз.</span>,
+      });
+      for (const s of shipmentsInVehicle) {
+        const ss = aggregateShipmentFromItems(s);
+        const owned = isOwnedShipment(s, user?.id, currentManagerId);
+        const canOpen = owned || isAdmin;
+        const codeLabel = s.code ?? "—";
+        const products = ss.products.length > 0 ? ss.products.join(", ") : "—";
+        const owner = (s.import_managers?.full_name ?? "").trim();
+        const left = (
+          <span className="flex flex-col gap-0.5 text-[12px]">
+            {canOpen ? (
+              <Link
+                to="/shipments/$id/products"
+                params={{ id: s.id }}
+                onClick={(e) => e.stopPropagation()}
+                className="font-semibold text-brand underline-offset-2 hover:underline"
+              >
+                {codeLabel}
+              </Link>
+            ) : (
+              <span className="font-semibold text-foreground">{codeLabel}</span>
+            )}
+            <span className="text-[11px] text-muted-foreground">
+              {products}{owner ? ` · ${owner}` : ""}
+            </span>
+          </span>
+        );
+        const right = (
+          <span className="tabular-nums text-[12px] text-foreground">
+            {ss.pallets}п / {Math.round(ss.gross).toLocaleString("uk-UA")} кг
+          </span>
+        );
+        lines.push({ id: `ship-${s.id}`, left, right });
+      }
+    }
+
     const onAdd = () => navigate({ to: "/shipments/new", search: { vehicleId: v.id } });
     const onCloseClick = () => closeVehicle(v.id);
 
