@@ -240,14 +240,18 @@ export default defineTool({
       : country;
     const countryDiscovery = mode === "discovered" ? await discoverCountry() : { candidates: [] as { name: string; code: string | null }[] };
 
-    // Product
+    // Product — with unconditional discovery fallback so `product_name` is
+    // never null when any usable product exists in the DB.
     const product = await validateProduct(targetProduct);
-    let productPrimary = product.product_id ? { name: product.name, product_id: product.product_id } : null;
+    let productPrimary: { name: string; product_id: string } | null =
+      product.exists && product.product_id ? { name: product.name, product_id: product.product_id } : null;
     let productCandidates: { name: string }[] = [];
-    if (mode === "discovered" && !product.exists) {
+    let productNote = product.note;
+    if (!productPrimary) {
       const d = await discoverProduct();
       productPrimary = d.primary;
       productCandidates = d.candidates;
+      if (d.primary) productNote = `${product.note}; fell back to first active product`;
     }
 
     // Branches
@@ -264,7 +268,18 @@ export default defineTool({
           : { id: "", exists: false, code: null, name: null, is_active: null });
 
     const pallet_standards_present = await palletStandardsPresent();
+    const packageFallback = targetPackage ? { package_used: targetPackage, sample_id: null } : await discoverPackage();
     const fx = await fxRow();
+
+    const notes: string[] = [];
+    if (!fx.present) {
+      notes.push(
+        "fx_eur_usd absent: not blocking. Future runner should use USD-only pricing/transport OR a separate approved test-data setup should insert a test EUR/USD rate. This probe never writes exchange_rates.",
+      );
+    }
+    if (!targetPackage && packageFallback.package_used) {
+      notes.push(`package_used fell back to first pallet_standards.package_used = "${packageFallback.package_used}"`);
+    }
 
     const missing: string[] = [];
     if (!supplier.exists) missing.push("supplier");
@@ -274,10 +289,12 @@ export default defineTool({
     if (!branch_a.exists) missing.push("branch_a");
     if (!branch_b.exists) missing.push("branch_b");
     if (!pallet_standards_present) missing.push("pallet_standards");
-    if (!fx.present) missing.push("fx_eur_usd");
     if (mode === "discovered" && branchDiscovery.rows.length < 2) missing.push("branch_candidates_insufficient");
+    // fx_eur_usd deliberately NOT in `missing`: USD-only scenarios are viable.
 
     const ok = missing.length === 0;
+
+    const effectivePackage = targetPackage || packageFallback.package_used || null;
 
     const suggested_fixtures_json = mode === "discovered"
       ? {
@@ -286,7 +303,7 @@ export default defineTool({
           loading_country: loading_country.exists ? loading_country.name : (countryDiscovery.candidates[0]?.name ?? null),
           product_name: productPrimary?.name ?? null,
           caliber: targetCaliber,
-          package_used: targetPackage || null,
+          package_used: effectivePackage,
           branch_a_id: branch_a.exists ? branch_a.id : (branchDiscovery.rows[0]?.id ?? null),
           branch_b_id: branch_b.exists ? branch_b.id : (branchDiscovery.rows[1]?.id ?? null),
         }
@@ -299,9 +316,9 @@ export default defineTool({
         supplier: { id: supplier.id, exists: supplier.exists, name: supplier.name, country: supplier.country, import_manager_id: supplier.import_manager_id, is_active: supplier.is_active },
         country: { name: country.name, exists: country.exists, code: country.code },
         loading_country: { name: loading_country.name, exists: loading_country.exists, code: loading_country.code },
-        product: { name: productPrimary?.name ?? targetProduct, exists: !!(productPrimary && productPrimary.product_id), product_id: productPrimary?.product_id ?? null, note: product.note },
+        product: { name: productPrimary?.name ?? targetProduct, exists: !!(productPrimary && productPrimary.product_id), product_id: productPrimary?.product_id ?? null, note: productNote },
         caliber: targetCaliber,
-        package_used: targetPackage || null,
+        package_used: effectivePackage,
         branch_a,
         branch_b,
         pallet_standards_present,
@@ -320,6 +337,7 @@ export default defineTool({
           }
         : {}),
       missing,
+      notes,
       config_errors,
     } as const;
     return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload as unknown as Record<string, unknown> };
