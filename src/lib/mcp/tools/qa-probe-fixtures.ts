@@ -94,9 +94,9 @@ async function validateProduct(name: string) {
   return { name, exists: false, product_id: null as string | null, note: "not found in products or product_aliases" };
 }
 
-async function discoverProduct() {
+async function discoverProduct(): Promise<{ primary: { name: string; product_id: string } | null; candidates: { name: string }[] }> {
   const hinted = await validateProduct(DEFAULT_PRODUCT_HINT);
-  if (hinted.exists) return { primary: { name: DEFAULT_PRODUCT_HINT, product_id: hinted.product_id }, candidates: [{ name: DEFAULT_PRODUCT_HINT }] };
+  if (hinted.exists && hinted.product_id) return { primary: { name: DEFAULT_PRODUCT_HINT, product_id: hinted.product_id }, candidates: [{ name: DEFAULT_PRODUCT_HINT }] };
   const list = await readOnlyAdmin
     .read<{ id: string; name: string | null }>("products")
     .select("id,name")
