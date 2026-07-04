@@ -269,7 +269,7 @@ async function syncVehicleStateForShipment(shipmentId: string) {
 
   const { data: vehicle } = await supabase
     .from("vehicles" as never)
-    .select("id,total_pallets,total_weight_kg,status,closed_at")
+    .select("id,status,closed_at")
     .eq("id", vehicleId)
     .maybeSingle();
 
@@ -278,11 +278,36 @@ async function syncVehicleStateForShipment(shipmentId: string) {
   // reset. Reopening only via an explicit action, which is out of scope here.
   if (currentStatus === "closed") return;
 
-  const totalPallets = Number((vehicle as { total_pallets?: number | null } | null)?.total_pallets ?? 0);
-  const totalWeight = Number((vehicle as { total_weight_kg?: number | null } | null)?.total_weight_kg ?? 0);
+  // Aggregate loaded pallets/gross from actual shipment_items on this vehicle.
+  // Gross-first fallback: gross_weight_kg → net_weight_kg → pallet_count*pallet_weight.
+  // Do NOT use vehicles.total_weight_kg — it is net-ish via DB trigger.
+  const { data: itemsRows } = await supabase
+    .from("shipment_items")
+    .select(
+      "pallet_count,pallet_weight,net_weight_kg,gross_weight_kg,shipments!inner(vehicle_id)",
+    )
+    .eq("shipments.vehicle_id", vehicleId);
+  let totalPallets = 0;
+  let totalWeight = 0;
+  for (const it of (itemsRows ?? []) as Array<{
+    pallet_count: number | null;
+    pallet_weight: number | null;
+    net_weight_kg: number | null;
+    gross_weight_kg: number | null;
+  }>) {
+    const pc = Number(it.pallet_count ?? 0);
+    totalPallets += pc;
+    const g = Number(it.gross_weight_kg ?? 0);
+    if (g > 0) totalWeight += g;
+    else {
+      const net = Number(it.net_weight_kg ?? 0);
+      const pw = Number(it.pallet_weight ?? 0);
+      totalWeight += net > 0 ? net : pc * pw;
+    }
+  }
   // Авто закривається автоматично, якщо:
   //   • завантажено ≥ 26 палет (незалежно від ваги), АБО
-  //   • завантажено ≥ 21000 кг (незалежно від кількості палет).
+  //   • завантажено ≥ 21000 кг брутто (незалежно від кількості палет).
   const shouldBeClosed =
     totalPallets >= MAX_PALLETS || totalWeight >= MIN_AUTOCLOSE_WEIGHT_KG;
   if (!shouldBeClosed) return;
