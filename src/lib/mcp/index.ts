@@ -1,6 +1,9 @@
 import { auth, defineMcp } from "@lovable.dev/mcp-js";
 import echoTool from "./tools/echo";
 import qaWhoamiTool from "./tools/qa-whoami";
+import qaProbeUsersTool from "./tools/qa-probe-users";
+import qaProbeFixturesTool from "./tools/qa-probe-fixtures";
+import qaProbePrimitivesTool from "./tools/qa-probe-primitives";
 import { parseSupabaseRef } from "./qa/env";
 
 // Resolve the Supabase OAuth issuer for /mcp.
