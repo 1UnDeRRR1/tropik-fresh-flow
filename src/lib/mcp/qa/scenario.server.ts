@@ -340,27 +340,45 @@ export async function runShipmentSmoke(input: ScenarioInput): Promise<ScenarioRe
     }
     steps.push({ step: "s1_attach_offer", ok: true });
 
-    // ----- S2: branch A creates response --------------------------------
-    const respIns = await ba.client
+    // ----- S2: capture ALL auto-created responses; branch A requests ----
+    // target_mode='all' triggers auto-create manager_offer_responses for
+    // every branch. Capture every response id for this offer so cleanup
+    // never leaves siblings behind. Only branch_A's row is mutated below.
+    const allResp = await m1.client
       .from("manager_offer_responses" as never)
-      .insert({
-        offer_id: offerId,
-        branch_id: fx.branch_a_id!,
-        requested_pallets: 5,
-      } as never)
-      .select("id")
-      .single();
-    const respRow = respIns.data as { id: string } | null;
-    if (respIns.error || !respRow) {
-      steps.push({ step: "s2_branch_request", ok: false, error: sanitizeErr(respIns.error?.message ?? "insert_failed") });
+      .select("id,branch_id")
+      .eq("offer_id", offerId);
+    if (allResp.error) {
+      steps.push({ step: "s2_capture_responses", ok: false, error: sanitizeErr(allResp.error.message) });
+      return done("s2_capture_responses");
+    }
+    const respRows = (allResp.data as { id: string; branch_id: string }[] | null) ?? [];
+    for (const r of respRows) {
+      const handle = r.branch_id === fx.branch_a_id ? "qa_branch_A" : `auto:${r.branch_id}`;
+      captured.offer_responses.push({ id: r.id, offer_id: offerId, branch_handle: handle });
+    }
+    steps.push({ step: "s2_capture_responses", ok: true, detail: `captured=${respRows.length}` });
+
+    const baRow = respRows.find((r) => r.branch_id === fx.branch_a_id) ?? null;
+    if (!baRow) {
+      steps.push({ step: "branch_A_response_missing", ok: false, error: "no manager_offer_responses row for branch_a_id after offer create" });
+      return done("branch_A_response_missing");
+    }
+    const responseIdBA = baRow.id;
+
+    // Branch A sets requested_pallets
+    const reqUpd = await ba.client
+      .from("manager_offer_responses" as never)
+      .update({ requested_pallets: 5 } as never)
+      .eq("id", responseIdBA);
+    if (reqUpd.error) {
+      steps.push({ step: "s2_branch_request", ok: false, error: sanitizeErr(reqUpd.error.message) });
       return done("s2_branch_request");
     }
-    const responseIdBA = respRow.id;
-    captured.offer_responses.push({ id: responseIdBA, offer_id: offerId, branch_handle: "qa_branch_A" });
     steps.push({ step: "s2_branch_request", ok: true, detail: `response_id=${responseIdBA}` });
 
     // ----- S3: M1 approves (reduced qty) --------------------------------
-    const approvedQty = 5; // approve as-requested (still counts as "reduce/approve" path)
+    const approvedQty = 5;
     const respUpd = await m1.client
       .from("manager_offer_responses" as never)
       .update({ approved_pallets: approvedQty } as never)
