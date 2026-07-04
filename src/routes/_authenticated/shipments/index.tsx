@@ -421,7 +421,7 @@ function ShipmentRow({
   dist: number;
   remaining: number;
   supplierName: string;
-  supplierCountry: string;
+  loadingCountry: string;
   vehicle: string | null;
   driver: string | null;
   address: string | null;
