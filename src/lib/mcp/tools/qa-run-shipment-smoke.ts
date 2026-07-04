@@ -16,9 +16,9 @@ import { runShipmentSmoke } from "../qa/scenario.server";
 
 export default defineTool({
   name: "qa_run_shipment_smoke",
-  title: "QA run shipment smoke",
+  title: "QA offer-linked shipment lifecycle smoke",
   description:
-    "QA-ONLY write-and-cleanup harness. Runs the real shipment lifecycle end to end (offer → branch response → take into work → shipment + item + child shipment on same vehicle) under actor JWTs, then returns captured_ids for qa_cleanup_run. Never uses service_role. Never returns tokens.",
+    "QA-ONLY offer-linked shipment lifecycle smoke. Runs the offer → branch response → take-into-work → shipment + child-shipment path end to end under actor JWTs. NOT a universal shipment smoke — for direct shipment creation without offers, use qa_direct_dogruz_no_offer. Returns captured_ids for qa_cleanup_run. Never uses service_role. Never returns tokens.",
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async (_args, ctx: ToolContext) => {
     const gate = qaGateStatus();
