@@ -75,62 +75,97 @@ async function discoverCountry() {
   return { primary: rows[0] ?? null, candidates: rows };
 }
 
-async function validateProduct(name: string): Promise<{ name: string; exists: boolean; product_id: string | null; note: string }> {
+// Product source: the app reads its product list from
+// `product_dictionary.product_name_ua` (see src/routes/_authenticated/shipments/new.tsx
+// and src/hooks/useProductAliases.ts). The `products` table exists but does
+// not carry the same UA canonical names, so probing it misses items like
+// "Мандарин". Mirror the app path: product_dictionary → product_aliases →
+// product_dictionary, with `products` only as a last-resort tie-breaker.
+
+type ProductSource = "product_dictionary" | "product_aliases->product_dictionary" | "products" | "none";
+type ProductHit = { name: string; exists: boolean; product_id: string | null; note: string; source: ProductSource };
+
+async function validateProduct(name: string): Promise<ProductHit> {
+  // 1) Direct match on product_dictionary.product_name_ua (case-insensitive).
   const direct = await readOnlyAdmin
+    .read<{ id: string; product_name_ua: string | null }>("product_dictionary")
+    .select("id,product_name_ua")
+    .ilike("product_name_ua", name)
+    .limit(1)
+    .run();
+  if (!direct.error && direct.data && direct.data[0]) {
+    const row = direct.data[0];
+    return { name: row.product_name_ua ?? name, exists: true, product_id: row.id, note: "matched product_dictionary.product_name_ua (ilike)", source: "product_dictionary" };
+  }
+  // 2) Alias → product_dictionary. Try both alias and alias_normalized columns.
+  for (const col of ["alias", "alias_normalized"] as const) {
+    const alias = await readOnlyAdmin
+      .read<{ canonical_product_id: string }>("product_aliases")
+      .select(`canonical_product_id,${col}`)
+      .ilike(col, name)
+      .limit(1)
+      .run();
+    if (!alias.error && alias.data && alias.data[0]) {
+      const canon = alias.data[0].canonical_product_id;
+      const dict = await readOnlyAdmin
+        .read<{ id: string; product_name_ua: string | null }>("product_dictionary")
+        .select("id,product_name_ua")
+        .eq("canonical_product_id", canon)
+        .runSingle();
+      if (!dict.error && dict.data && dict.data.product_name_ua) {
+        return { name: dict.data.product_name_ua, exists: true, product_id: dict.data.id, note: `matched via product_aliases.${col} → product_dictionary`, source: "product_aliases->product_dictionary" };
+      }
+    }
+  }
+  // 3) Last resort: legacy products table.
+  const legacy = await readOnlyAdmin
     .read<{ id: string; name: string | null }>("products")
     .select("id,name")
     .ilike("name", name)
     .limit(1)
     .run();
-  if (!direct.error && direct.data && direct.data[0]) {
-    return { name: direct.data[0].name ?? name, exists: true, product_id: direct.data[0].id, note: "matched products.name (ilike)" };
+  if (!legacy.error && legacy.data && legacy.data[0]) {
+    return { name: legacy.data[0].name ?? name, exists: true, product_id: legacy.data[0].id, note: "matched products.name (legacy fallback)", source: "products" };
   }
-  // Fallback: resolve alias → product_dictionary.product_name_ua → products.name.
-  const alias = await readOnlyAdmin
-    .read<{ canonical_product_id: string; alias: string }>("product_aliases")
-    .select("canonical_product_id,alias")
-    .ilike("alias", name)
-    .limit(1)
-    .run();
-  if (!alias.error && alias.data && alias.data[0]) {
-    const canon = alias.data[0].canonical_product_id;
-    const dict = await readOnlyAdmin
-      .read<{ product_name_ua: string | null }>("product_dictionary")
-      .select("product_name_ua")
-      .eq("canonical_product_id", canon)
-      .runSingle();
-    const uaName = dict.data?.product_name_ua ?? null;
-    if (uaName) {
-      const byUa = await readOnlyAdmin
-        .read<{ id: string; name: string | null }>("products")
-        .select("id,name")
-        .ilike("name", uaName)
-        .limit(1)
-        .run();
-      if (!byUa.error && byUa.data && byUa.data[0]) {
-        return { name: byUa.data[0].name ?? uaName, exists: true, product_id: byUa.data[0].id, note: "matched via product_aliases → product_dictionary → products" };
-      }
-      return { name: uaName, exists: false, product_id: null, note: "alias resolved but no matching products row" };
-    }
-  }
-  return { name, exists: false, product_id: null, note: "not found in products or product_aliases" };
+  return { name, exists: false, product_id: null, note: "not found in product_dictionary, product_aliases, or products", source: "none" };
 }
 
-async function discoverProduct(): Promise<{ primary: { name: string; product_id: string } | null; candidates: { name: string }[] }> {
+async function discoverProduct(): Promise<{ primary: { name: string; product_id: string; source: ProductSource } | null; candidates: { name: string }[]; checked_sources: string[] }> {
+  const checked_sources = ["product_dictionary.product_name_ua", "product_aliases.alias", "product_aliases.alias_normalized", "products.name"];
   const hinted = await validateProduct(DEFAULT_PRODUCT_HINT);
-  if (hinted.exists && hinted.product_id) return { primary: { name: hinted.name, product_id: hinted.product_id }, candidates: [{ name: hinted.name }] };
+  // First 10 canonical names from product_dictionary — mirrors app assortment.
   const list = await readOnlyAdmin
+    .read<{ id: string; product_name_ua: string | null }>("product_dictionary")
+    .select("id,product_name_ua")
+    .order("product_name_ua", { ascending: true })
+    .limit(10)
+    .run();
+  const rows = (list.data ?? []).filter((r) => !!r.product_name_ua);
+  const candidates = rows.map((r) => ({ name: r.product_name_ua as string }));
+
+  if (hinted.exists && hinted.product_id) {
+    return { primary: { name: hinted.name, product_id: hinted.product_id, source: hinted.source }, candidates, checked_sources };
+  }
+  if (rows[0]) {
+    return { primary: { name: rows[0].product_name_ua as string, product_id: rows[0].id, source: "product_dictionary" }, candidates, checked_sources };
+  }
+  // Absolute last resort: legacy products table.
+  const legacy = await readOnlyAdmin
     .read<{ id: string; name: string | null; is_active: boolean | null }>("products")
     .select("id,name,is_active")
     .eq("is_active", true)
     .order("name", { ascending: true })
-    .limit(5)
+    .limit(10)
     .run();
-  const rows = (list.data ?? []).filter((r) => !!r.name);
-  return {
-    primary: rows[0] ? { name: rows[0].name as string, product_id: rows[0].id } : null,
-    candidates: rows.map((r) => ({ name: r.name as string })),
-  };
+  const legacyRows = (legacy.data ?? []).filter((r) => !!r.name);
+  if (legacyRows[0]) {
+    return {
+      primary: { name: legacyRows[0].name as string, product_id: legacyRows[0].id, source: "products" },
+      candidates: legacyRows.map((r) => ({ name: r.name as string })),
+      checked_sources,
+    };
+  }
+  return { primary: null, candidates: [], checked_sources };
 }
 
 async function validateBranch(id: string) {
@@ -240,19 +275,21 @@ export default defineTool({
       : country;
     const countryDiscovery = mode === "discovered" ? await discoverCountry() : { candidates: [] as { name: string; code: string | null }[] };
 
-    // Product — with unconditional discovery fallback so `product_name` is
-    // never null when any usable product exists in the DB.
+    // Product — mirror app source (product_dictionary). Always run discovery
+    // for the candidates list, and prefer the hinted name when it resolves.
     const product = await validateProduct(targetProduct);
-    let productPrimary: { name: string; product_id: string } | null =
-      product.exists && product.product_id ? { name: product.name, product_id: product.product_id } : null;
-    let productCandidates: { name: string }[] = [];
+    const productDiscovery = await discoverProduct();
+    let productPrimary: { name: string; product_id: string; source: ProductSource } | null =
+      product.exists && product.product_id ? { name: product.name, product_id: product.product_id, source: product.source } : null;
     let productNote = product.note;
-    if (!productPrimary) {
-      const d = await discoverProduct();
-      productPrimary = d.primary;
-      productCandidates = d.candidates;
-      if (d.primary) productNote = `${product.note}; fell back to first active product`;
+    if (!productPrimary && productDiscovery.primary) {
+      productPrimary = productDiscovery.primary;
+      productNote = `${product.note}; fell back to first ${productDiscovery.primary.source} entry`;
     }
+    const productCandidates = productDiscovery.candidates;
+    const productCandidatesEmpty = productCandidates.length === 0 && !productPrimary;
+    const productCheckedSources = productDiscovery.checked_sources;
+
 
     // Branches
     const branchDiscovery = mode === "discovered" ? await discoverBranches() : { rows: [] };
@@ -316,7 +353,15 @@ export default defineTool({
         supplier: { id: supplier.id, exists: supplier.exists, name: supplier.name, country: supplier.country, import_manager_id: supplier.import_manager_id, is_active: supplier.is_active },
         country: { name: country.name, exists: country.exists, code: country.code },
         loading_country: { name: loading_country.name, exists: loading_country.exists, code: loading_country.code },
-        product: { name: productPrimary?.name ?? targetProduct, exists: !!(productPrimary && productPrimary.product_id), product_id: productPrimary?.product_id ?? null, note: productNote },
+        product: {
+          name: productPrimary?.name ?? targetProduct,
+          exists: !!(productPrimary && productPrimary.product_id),
+          product_id: productPrimary?.product_id ?? null,
+          source: productPrimary?.source ?? "none",
+          note: productNote,
+          checked_sources: productCheckedSources,
+          candidates_empty: productCandidatesEmpty,
+        },
         caliber: targetCaliber,
         package_used: effectivePackage,
         branch_a,
