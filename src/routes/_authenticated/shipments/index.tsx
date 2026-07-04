@@ -481,7 +481,7 @@ function ShipmentRow({
             <span className="text-muted-foreground"> · </span>
             <span className="text-foreground">{supplierName}</span>
             <span className="text-muted-foreground"> · </span>
-            <span className="text-muted-foreground">{supplierCountry}</span>
+            <span className="text-muted-foreground">{loadingCountry}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1 pl-2">
             <span className="text-sm font-bold tabular-nums text-foreground">{pallets}п</span>
