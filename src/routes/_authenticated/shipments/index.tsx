@@ -354,8 +354,8 @@ function ShipmentsList() {
               {filtered.map((s) => {
                 const isOwner = isOwnedShipment(s, user?.id, currentManagerId);
                 const supplierName = (s as { suppliers?: { name?: string | null } | null }).suppliers?.name ?? "—";
-                const supplierCountry =
-                  toUaCountry((s as { suppliers?: { country?: string | null } | null }).suppliers?.country ?? "") || "—";
+                const loadingCountry =
+                  toUaCountry((s as { country?: string | null }).country ?? "") || "—";
                 return (
                   <ShipmentRow
                     key={s.id}
@@ -369,7 +369,7 @@ function ShipmentsList() {
                     dist={s.dist}
                     remaining={s.remaining}
                     supplierName={supplierName}
-                    supplierCountry={supplierCountry}
+                    loadingCountry={loadingCountry}
                     vehicle={s.tractor_plate ?? s.vehicle_plate ?? null}
                     driver={s.driver_name ?? null}
                     address={s.loading_address ?? null}
