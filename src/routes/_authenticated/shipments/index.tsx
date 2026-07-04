@@ -744,6 +744,7 @@ function aggregateVehicleFromItems(v: OpenVehicleRow): { pallets: number; gross:
 function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | null }) {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
+  const isLogistics = hasRole("logistics");
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data, refetch } = useQuery({
