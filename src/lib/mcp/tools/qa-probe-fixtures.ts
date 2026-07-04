@@ -75,31 +75,54 @@ async function discoverCountry() {
   return { primary: rows[0] ?? null, candidates: rows };
 }
 
-async function validateProduct(name: string) {
+async function validateProduct(name: string): Promise<{ name: string; exists: boolean; product_id: string | null; note: string }> {
   const direct = await readOnlyAdmin
     .read<{ id: string; name: string | null }>("products")
     .select("id,name")
-    .eq("name", name)
-    .runSingle();
-  if (!direct.error && direct.data) return { name, exists: true, product_id: direct.data.id, note: "matched products.name" };
+    .ilike("name", name)
+    .limit(1)
+    .run();
+  if (!direct.error && direct.data && direct.data[0]) {
+    return { name: direct.data[0].name ?? name, exists: true, product_id: direct.data[0].id, note: "matched products.name (ilike)" };
+  }
+  // Fallback: resolve alias → product_dictionary.product_name_ua → products.name.
   const alias = await readOnlyAdmin
-    .read<{ product_id: string; alias: string }>("product_aliases")
-    .select("product_id,alias")
+    .read<{ canonical_product_id: string; alias: string }>("product_aliases")
+    .select("canonical_product_id,alias")
     .ilike("alias", name)
     .limit(1)
     .run();
   if (!alias.error && alias.data && alias.data[0]) {
-    return { name, exists: true, product_id: alias.data[0].product_id, note: "matched product_aliases.alias" };
+    const canon = alias.data[0].canonical_product_id;
+    const dict = await readOnlyAdmin
+      .read<{ product_name_ua: string | null }>("product_dictionary")
+      .select("product_name_ua")
+      .eq("canonical_product_id", canon)
+      .runSingle();
+    const uaName = dict.data?.product_name_ua ?? null;
+    if (uaName) {
+      const byUa = await readOnlyAdmin
+        .read<{ id: string; name: string | null }>("products")
+        .select("id,name")
+        .ilike("name", uaName)
+        .limit(1)
+        .run();
+      if (!byUa.error && byUa.data && byUa.data[0]) {
+        return { name: byUa.data[0].name ?? uaName, exists: true, product_id: byUa.data[0].id, note: "matched via product_aliases → product_dictionary → products" };
+      }
+      return { name: uaName, exists: false, product_id: null, note: "alias resolved but no matching products row" };
+    }
   }
-  return { name, exists: false, product_id: null as string | null, note: "not found in products or product_aliases" };
+  return { name, exists: false, product_id: null, note: "not found in products or product_aliases" };
 }
 
 async function discoverProduct(): Promise<{ primary: { name: string; product_id: string } | null; candidates: { name: string }[] }> {
   const hinted = await validateProduct(DEFAULT_PRODUCT_HINT);
-  if (hinted.exists && hinted.product_id) return { primary: { name: DEFAULT_PRODUCT_HINT, product_id: hinted.product_id }, candidates: [{ name: DEFAULT_PRODUCT_HINT }] };
+  if (hinted.exists && hinted.product_id) return { primary: { name: hinted.name, product_id: hinted.product_id }, candidates: [{ name: hinted.name }] };
   const list = await readOnlyAdmin
-    .read<{ id: string; name: string | null }>("products")
-    .select("id,name")
+    .read<{ id: string; name: string | null; is_active: boolean | null }>("products")
+    .select("id,name,is_active")
+    .eq("is_active", true)
     .order("name", { ascending: true })
     .limit(5)
     .run();
