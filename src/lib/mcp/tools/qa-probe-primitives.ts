@@ -69,17 +69,19 @@ async function probeReadOnlyRpc(entry: PrimitiveEntry): Promise<ReadOnlyProbe> {
   let payload: Record<string, unknown> = {};
   switch (entry.name) {
     case "rpc_resolve_country":
-      payload = { p_country: "" };
+      // Real signature: rpc_resolve_country({ p_input })
+      payload = { p_input: "" };
       break;
     case "rpc_resolve_product_exact":
-      // Signature may vary between environments — we try a permissive shape.
-      payload = { p_name: "", p_variety: null };
+      // Real signature: rpc_resolve_product_exact({ p_query, p_include_reserve? })
+      payload = { p_query: "", p_include_reserve: false };
       break;
     case "has_role":
       payload = { _user_id: ZERO_UUID, _role: "import_manager" };
       break;
     case "current_import_manager_id":
-      payload = { uid: ZERO_UUID };
+      // Real signature: no arguments (Args: never).
+      payload = {};
       break;
     default:
       payload = {};
