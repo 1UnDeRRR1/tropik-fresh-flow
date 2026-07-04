@@ -1086,7 +1086,7 @@ function NewShipment() {
               {item.code} · {item.country}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {Number(item.total_pallets ?? 0)}/26 пал · {Math.round(Number(item.total_weight_kg ?? 0))}/21500 кг
+              {(() => { const a = aggregateVehicleGrossFromItems(item); return `${a.pallets}/26 пал · ${Math.round(a.gross)}/21500 кг`; })()}
               {item.suppliersText ? ` · ${item.suppliersText}` : ""}
             </span>
           </div>
