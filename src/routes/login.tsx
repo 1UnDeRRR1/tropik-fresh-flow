@@ -31,15 +31,18 @@ import { Loader2 } from "lucide-react";
 export const Route = createFileRoute("/login")({
   // Same-origin relative-path only: starts with "/", no protocol-relative
   // "//", capped length. Prevents open-redirect abuse via ?next=.
-  validateSearch: (s: Record<string, unknown>) => ({
-    next:
-      typeof s.next === "string" &&
-      s.next.startsWith("/") &&
-      !s.next.startsWith("//") &&
-      s.next.length < 500
-        ? s.next
-        : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>): { next?: string } => {
+    const raw = s.next;
+    if (
+      typeof raw === "string" &&
+      raw.startsWith("/") &&
+      !raw.startsWith("//") &&
+      raw.length < 500
+    ) {
+      return { next: raw };
+    }
+    return {};
+  },
   component: LoginPage,
 });
 
