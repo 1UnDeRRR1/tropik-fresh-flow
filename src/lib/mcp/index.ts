@@ -6,6 +6,7 @@ import qaProbeFixturesTool from "./tools/qa-probe-fixtures";
 import qaProbePrimitivesTool from "./tools/qa-probe-primitives";
 import qaRunShipmentSmokeTool from "./tools/qa-run-shipment-smoke";
 import qaCleanupRunTool from "./tools/qa-cleanup-run";
+import qaDirectDogruzNoOfferTool from "./tools/qa-direct-dogruz-no-offer";
 import { parseSupabaseRef } from "./qa/env";
 
 // Resolve the Supabase OAuth issuer for /mcp.
@@ -37,6 +38,7 @@ const qaTools =
         qaProbeFixturesTool,
         qaProbePrimitivesTool,
         qaRunShipmentSmokeTool,
+        qaDirectDogruzNoOfferTool,
         qaCleanupRunTool,
       ]
     : [];

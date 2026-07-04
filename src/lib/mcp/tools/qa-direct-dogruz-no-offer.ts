@@ -1,9 +1,9 @@
-// src/lib/mcp/tools/qa-run-shipment-smoke.ts
+// src/lib/mcp/tools/qa-direct-dogruz-no-offer.ts
 //
-// Gated E2E shipment lifecycle smoke runner. Executes real writes under
-// actor JWTs from QA_MCP_TEST_USER_CREDENTIALS, then returns captured_ids
-// for the caller to feed to qa_cleanup_run. Never uses service_role.
-// Never returns tokens or passwords.
+// Gated QA-MCP write scenario: direct open-vehicle creation by M1 followed
+// by a direct child shipment by M2 on the SAME vehicle. No offer, no branch
+// response, no VS flow, no reserve, no close. Returns captured_ids for
+// qa_cleanup_run. Never uses service_role. Never returns tokens.
 
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import {
@@ -12,13 +12,13 @@ import {
   readFixturesConfig,
   readTestUserCredentials,
 } from "../qa/env";
-import { runShipmentSmoke } from "../qa/scenario.server";
+import { runDirectDogruzNoOffer } from "../qa/direct-dogruz.server";
 
 export default defineTool({
-  name: "qa_run_shipment_smoke",
-  title: "QA offer-linked shipment lifecycle smoke",
+  name: "qa_direct_dogruz_no_offer",
+  title: "QA direct dogruz without offer",
   description:
-    "QA-ONLY offer-linked shipment lifecycle smoke. Runs the offer → branch response → take-into-work → shipment + child-shipment path end to end under actor JWTs. NOT a universal shipment smoke — for direct shipment creation without offers, use qa_direct_dogruz_no_offer. Returns captured_ids for qa_cleanup_run. Never uses service_role. Never returns tokens.",
+    "QA-ONLY write scenario. Creates a direct open vehicle shipment with import manager 1, then creates a second direct shipment by import manager 2 inside the same open vehicle. No offer, no branch response, no VS, no reserve, no close. Returns captured_ids for qa_cleanup_run. Never returns tokens.",
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async (_args, ctx: ToolContext) => {
     const gate = qaGateStatus();
@@ -49,7 +49,7 @@ export default defineTool({
       return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
     }
 
-    const result = await runShipmentSmoke({
+    const result = await runDirectDogruzNoOffer({
       credentials: creds.credentials,
       fixtures: fx.fixtures,
     });
