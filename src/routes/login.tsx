@@ -29,14 +29,29 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
+  // Same-origin relative-path only: starts with "/", no protocol-relative
+  // "//", capped length. Prevents open-redirect abuse via ?next=.
+  validateSearch: (s: Record<string, unknown>): { next?: string } => {
+    const raw = s.next;
+    if (
+      typeof raw === "string" &&
+      raw.startsWith("/") &&
+      !raw.startsWith("//") &&
+      raw.length < 500
+    ) {
+      return { next: raw };
+    }
+    return {};
+  },
   component: LoginPage,
 });
 
 function LoginPage() {
   const { user, loading, dataLoaded } = useAuth();
   const { ready, target } = usePostLoginTarget();
+  const { next } = Route.useSearch();
   // Post-login navigation is handled entirely by the render-time <Navigate>
-  // branch below (which respects pending /o/<token> share redirects).
+  // branch below (which respects ?next=, then pending /o/<token> share redirects).
   // Public self-registration is disabled — accounts are created by an admin
   // via supabase/functions/admin-users (super-admin → Users screen).
   // (signup mode removed; admins create accounts via super-admin → Users)
@@ -46,6 +61,7 @@ function LoginPage() {
 
   // Single source of truth for post-login destination.
   if (user && ready) {
+    if (next) return <Navigate to={next} />;
     const pending = consumePendingShareRedirect();
     if (pending) return <Navigate to={pending} />;
     return <Navigate to={target} />;
