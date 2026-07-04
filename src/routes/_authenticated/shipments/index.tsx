@@ -229,7 +229,7 @@ function ShipmentsList() {
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) {
-      const c = (r as { suppliers?: { country?: string | null } | null }).suppliers?.country;
+      const c = (r as { country?: string | null }).country;
       if (c && c.trim()) {
         const ua = toUaCountry(c) || c;
         set.add(ua);
