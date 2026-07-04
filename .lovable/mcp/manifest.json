@@ -89,6 +89,40 @@
         },
         "inputSchema": null,
         "outputSchema": null
+      },
+      {
+        "name": "qa_run_shipment_smoke",
+        "title": "QA run shipment smoke",
+        "description": "QA-ONLY write-and-cleanup harness. Runs the real shipment lifecycle end to end (offer → branch response → take into work → shipment + item + child shipment on same vehicle) under actor JWTs, then returns captured_ids for qa_cleanup_run. Never uses service_role. Never returns tokens.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": null,
+        "outputSchema": null
+      },
+      {
+        "name": "qa_cleanup_run",
+        "title": "QA cleanup run",
+        "description": "QA-ONLY: delete rows created by a previous qa_run_shipment_smoke run, using its captured_ids payload. Deletes only by captured ids, in reverse dependency order. Idempotent — safe to rerun. Never touches reference/master data. Never uses date-based filters.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "captured_ids": {
+              "description": "The `captured_ids` object returned by qa_run_shipment_smoke."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
