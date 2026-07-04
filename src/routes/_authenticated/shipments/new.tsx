@@ -112,6 +112,37 @@ type OpenVehicle = {
   }[] | null;
 };
 
+// Gross-first aggregation for the "Додати" form vehicle summary. Mirrors
+// aggregateVehicleFromItems in shipments/index.tsx so the loaded kg shown
+// here matches the outer "Не закриті авто" card. Do NOT read
+// vehicles.total_weight_kg — that column is net-ish (SUM pallet_count *
+// pallet_weight) and misreports gross-loaded vehicles.
+function aggregateVehicleGrossFromItems(
+  v: Pick<OpenVehicle, "shipments" | "total_pallets" | "total_weight_kg">,
+): { pallets: number; gross: number } {
+  let pallets = 0;
+  let gross = 0;
+  let sawAny = false;
+  for (const s of v.shipments ?? []) {
+    for (const it of s.shipment_items ?? []) {
+      sawAny = true;
+      const pc = Number(it.pallet_count ?? 0);
+      pallets += pc;
+      const g = Number(it.gross_weight_kg ?? 0);
+      if (g > 0) gross += g;
+      else {
+        const net = Number(it.net_weight_kg ?? 0);
+        const pw = Number(it.pallet_weight ?? 0);
+        gross += net > 0 ? net : pc * pw;
+      }
+    }
+  }
+  if (!sawAny) {
+    return { pallets: Number(v.total_pallets ?? 0), gross: Number(v.total_weight_kg ?? 0) };
+  }
+  return { pallets, gross };
+}
+
 // Build 2A.5 — cost/customs/FX/transport preview is rendered inside
 // NewShipmentProductCard as a placeholder; full wiring lands in Build 2B.
 
