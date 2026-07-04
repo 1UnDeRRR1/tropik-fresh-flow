@@ -261,7 +261,7 @@ function ShipmentsList() {
     })
     .filter((r) => {
       if (!isAdmin || countryFilter === "all") return true;
-      const raw = (r as { suppliers?: { country?: string | null } | null }).suppliers?.country ?? "";
+      const raw = (r as { country?: string | null }).country ?? "";
       const ua = toUaCountry(raw) || raw;
       return ua === countryFilter;
     })
