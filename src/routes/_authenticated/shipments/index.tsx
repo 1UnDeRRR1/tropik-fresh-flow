@@ -401,7 +401,7 @@ function ShipmentRow({
   dist,
   remaining,
   supplierName,
-  supplierCountry,
+  loadingCountry,
   vehicle,
   driver,
   address,
