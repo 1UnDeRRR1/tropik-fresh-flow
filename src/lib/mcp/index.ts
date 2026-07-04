@@ -28,7 +28,9 @@ function resolveMcpOauthIssuer(): string {
 // project-ref match, admin allow-list) are enforced inside qa_whoami itself
 // via process.env, and reported in its response payload.
 const qaTools =
-  import.meta.env.VITE_QA_MCP_TOOLS_ENABLED === "true" ? [qaWhoamiTool] : [];
+  import.meta.env.VITE_QA_MCP_TOOLS_ENABLED === "true"
+    ? [qaWhoamiTool, qaProbeUsersTool, qaProbeFixturesTool, qaProbePrimitivesTool]
+    : [];
 
 export default defineMcp({
   name: "tropik-fresh-flow-mcp",

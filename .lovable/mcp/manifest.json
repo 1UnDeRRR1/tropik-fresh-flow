@@ -53,6 +53,42 @@
         },
         "inputSchema": null,
         "outputSchema": null
+      },
+      {
+        "name": "qa_probe_users",
+        "title": "QA probe users",
+        "description": "Read-only preflight: sign in each configured QA test user via publishable key, verify role and reference links under that user's JWT, then sign out. Never creates users, never mutates roles, never returns tokens.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": null,
+        "outputSchema": null
+      },
+      {
+        "name": "qa_probe_fixtures",
+        "title": "QA probe fixtures",
+        "description": "Read-only preflight: validates QA_MCP_FIXTURES_JSON when set, or discovers suitable reference/master fixtures and returns suggested_fixtures_json. Uses service_role via a SELECT-only wrapper. Never mutates reference/master data.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": null,
+        "outputSchema": null
+      },
+      {
+        "name": "qa_probe_primitives",
+        "title": "QA probe primitives",
+        "description": "Read-only preflight. Calls only known safe read-only RPCs (rpc_resolve_country, rpc_resolve_product_exact, has_role, current_import_manager_id) with no-op arguments. Table/view existence via SELECT ... LIMIT 0 through the SELECT-only wrapper. Mutating RPCs are DECLARED but NEVER executed in this no-write Build; catalog_exists is reported as \"unknown\" because no safe existing catalog-read path is available.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": null,
+        "outputSchema": null
       }
     ]
   }
