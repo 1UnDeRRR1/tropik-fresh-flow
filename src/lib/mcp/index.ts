@@ -4,6 +4,8 @@ import qaWhoamiTool from "./tools/qa-whoami";
 import qaProbeUsersTool from "./tools/qa-probe-users";
 import qaProbeFixturesTool from "./tools/qa-probe-fixtures";
 import qaProbePrimitivesTool from "./tools/qa-probe-primitives";
+import qaRunShipmentSmokeTool from "./tools/qa-run-shipment-smoke";
+import qaCleanupRunTool from "./tools/qa-cleanup-run";
 import { parseSupabaseRef } from "./qa/env";
 
 // Resolve the Supabase OAuth issuer for /mcp.
@@ -29,7 +31,14 @@ function resolveMcpOauthIssuer(): string {
 // via process.env, and reported in its response payload.
 const qaTools =
   import.meta.env.VITE_QA_MCP_TOOLS_ENABLED === "true"
-    ? [qaWhoamiTool, qaProbeUsersTool, qaProbeFixturesTool, qaProbePrimitivesTool]
+    ? [
+        qaWhoamiTool,
+        qaProbeUsersTool,
+        qaProbeFixturesTool,
+        qaProbePrimitivesTool,
+        qaRunShipmentSmokeTool,
+        qaCleanupRunTool,
+      ]
     : [];
 
 export default defineMcp({
