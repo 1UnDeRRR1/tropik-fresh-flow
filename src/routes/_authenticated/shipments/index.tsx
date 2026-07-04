@@ -1074,32 +1074,51 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       for (const s of shipmentsInVehicle) {
         const ss = aggregateShipmentFromItems(s);
         const owned = isOwnedShipment(s, user?.id, currentManagerId);
-        const canOpen = owned || isAdmin;
+        const showCode = owned || isAdmin;
         const codeLabel = s.code ?? "—";
         const products = ss.products.length > 0 ? ss.products.join(", ") : "—";
         const owner = (s.import_managers?.full_name ?? "").trim();
         const left = (
           <span className="flex flex-col gap-0.5 text-[12px]">
-            {canOpen ? (
-              <Link
-                to="/shipments/$id/products"
-                params={{ id: s.id }}
-                onClick={(e) => e.stopPropagation()}
-                className="font-semibold text-brand underline-offset-2 hover:underline"
-              >
-                {codeLabel}
-              </Link>
+            {showCode ? (
+              owned ? (
+                <Link
+                  to="/shipments/$id/products"
+                  params={{ id: s.id }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-brand underline-offset-2 hover:underline"
+                >
+                  {codeLabel}
+                </Link>
+              ) : (
+                <span className="font-semibold text-foreground">{codeLabel}</span>
+              )
             ) : (
-              <span className="font-semibold text-foreground">{codeLabel}</span>
+              <span className="text-[12px] text-foreground">{products}</span>
             )}
-            <span className="text-[11px] text-muted-foreground">
-              {products}{owner ? ` · ${owner}` : ""}
-            </span>
+            {showCode && (
+              <span className="text-[11px] text-muted-foreground">
+                {products}{owner ? ` · ${owner}` : ""}
+              </span>
+            )}
           </span>
         );
         const right = (
-          <span className="tabular-nums text-[12px] text-foreground">
-            {ss.pallets}п / {Math.round(ss.gross).toLocaleString("uk-UA")} кг
+          <span className="flex flex-col items-end gap-1">
+            <span className="tabular-nums text-[12px] text-foreground">
+              {ss.pallets}п / {Math.round(ss.gross).toLocaleString("uk-UA")} кг
+            </span>
+            {owned && (
+              <Button asChild size="sm" variant="secondary" className="h-7 px-2 text-[11px]">
+                <Link
+                  to="/shipments/$id/products"
+                  params={{ id: s.id }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Редагувати
+                </Link>
+              </Button>
+            )}
           </span>
         );
         lines.push({ id: `ship-${s.id}`, left, right });
