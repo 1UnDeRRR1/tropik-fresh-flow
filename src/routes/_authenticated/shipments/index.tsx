@@ -1075,7 +1075,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       for (const s of shipmentsInVehicle) {
         const ss = aggregateShipmentFromItems(s);
         const owned = isOwnedShipment(s, user?.id, currentManagerId);
-        const showCode = owned || isAdmin;
+        const showCode = owned || isAdmin || isLogistics;
         const codeLabel = s.code ?? "—";
         const products = ss.products.length > 0 ? ss.products.join(", ") : "—";
         const owner = (s.import_managers?.full_name ?? "").trim();
