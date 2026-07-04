@@ -744,6 +744,7 @@ function aggregateVehicleFromItems(v: OpenVehicleRow): { pallets: number; gross:
 function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | null }) {
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole(["super_admin", "admin"]);
+  const isLogistics = hasRole("logistics");
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data, refetch } = useQuery({
@@ -1074,7 +1075,7 @@ function OpenVehiclesBlock({ currentManagerId }: { currentManagerId?: string | n
       for (const s of shipmentsInVehicle) {
         const ss = aggregateShipmentFromItems(s);
         const owned = isOwnedShipment(s, user?.id, currentManagerId);
-        const showCode = owned || isAdmin;
+        const showCode = owned || isAdmin || isLogistics;
         const codeLabel = s.code ?? "—";
         const products = ss.products.length > 0 ? ss.products.join(", ") : "—";
         const owner = (s.import_managers?.full_name ?? "").trim();
