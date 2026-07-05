@@ -262,65 +262,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (cached.user) {
       void loadUserData(cached.user.id);
     }
-    supabase.auth.getSession().then(async ({ data }) => {
-      let nextSession = data.session ?? null;
+    // Fail-safe: if getSession / setSession hangs or throws, never leave
+    // `loading` stuck true — public routes and /login must remain usable.
+    const loadingTimeout = setTimeout(() => setLoading(false), 8000);
 
-      if (!nextSession && cached.session?.access_token && cached.session?.refresh_token) {
-        const { data: restored, error } = await supabase.auth.setSession({
-          access_token: cached.session.access_token,
-          refresh_token: cached.session.refresh_token,
-        });
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        let nextSession = data.session ?? null;
 
-        if (error) {
-          void logSystem({
-            level: "warning",
-            message: "Failed to restore persisted auth session during mobile resume",
-            module: "auth",
-            action: "restore_session_failed",
-            context: {
-              cached_user_id: cached.user?.id ?? null,
-              error: error.message,
-              timestamp: new Date().toISOString(),
-            },
+        if (!nextSession && cached.session?.access_token && cached.session?.refresh_token) {
+          const { data: restored, error } = await supabase.auth.setSession({
+            access_token: cached.session.access_token,
+            refresh_token: cached.session.refresh_token,
           });
-        }
 
-        nextSession = restored.session ?? null;
-      }
-
-      if (nextSession?.user) {
-        persistSessionBackup(nextSession);
-        applyIdentity(nextSession, nextSession.user);
-        if (currentUid !== nextSession.user.id) {
-          currentUid = nextSession.user.id;
-          await loadUserData(nextSession.user.id);
-        }
-      } else {
-        const fallback = readCachedSession();
-        if (fallback.user && fallback.session) {
-          applyIdentity(fallback.session, fallback.user);
-          if (currentUid !== fallback.user.id) {
-            currentUid = fallback.user.id;
-            await loadUserData(fallback.user.id);
+          if (error) {
+            void logSystem({
+              level: "warning",
+              message: "Failed to restore persisted auth session during mobile resume",
+              module: "auth",
+              action: "restore_session_failed",
+              context: {
+                cached_user_id: cached.user?.id ?? null,
+                error: error.message,
+                timestamp: new Date().toISOString(),
+              },
+            });
           }
-          void logSystem({
-            level: "warning",
-            message: "Recovered auth state from persisted storage after empty getSession result",
-            module: "auth",
-            action: "restore_session_fallback",
-            context: {
-              cached_user_id: fallback.user.id,
-              timestamp: new Date().toISOString(),
-            },
-          });
-        } else if (!currentUid) {
-          persistSessionBackup(null);
-          applyIdentity(null, null);
-          setDataLoaded(true);
+
+          nextSession = restored.session ?? null;
         }
-      }
-      setLoading(false);
-    });
+
+        if (nextSession?.user) {
+          persistSessionBackup(nextSession);
+          applyIdentity(nextSession, nextSession.user);
+          if (currentUid !== nextSession.user.id) {
+            currentUid = nextSession.user.id;
+            await loadUserData(nextSession.user.id);
+          }
+        } else {
+          const fallback = readCachedSession();
+          if (fallback.user && fallback.session) {
+            applyIdentity(fallback.session, fallback.user);
+            if (currentUid !== fallback.user.id) {
+              currentUid = fallback.user.id;
+              await loadUserData(fallback.user.id);
+            }
+            void logSystem({
+              level: "warning",
+              message: "Recovered auth state from persisted storage after empty getSession result",
+              module: "auth",
+              action: "restore_session_fallback",
+              context: {
+                cached_user_id: fallback.user.id,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          } else if (!currentUid) {
+            persistSessionBackup(null);
+            applyIdentity(null, null);
+            setDataLoaded(true);
+          }
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        void logSystem({
+          level: "warning",
+          message: "Initial getSession rejected; releasing loading gate",
+          module: "auth",
+          action: "get_session_rejected",
+          context: {
+            cached_user_id: cached.user?.id ?? null,
+            error: err instanceof Error ? err.message : String(err),
+            timestamp: new Date().toISOString(),
+          },
+        });
+      })
+      .finally(() => {
+        clearTimeout(loadingTimeout);
+        setLoading(false);
+      });
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
