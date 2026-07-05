@@ -66,7 +66,12 @@ function LoginPage() {
     if (pending) return <Navigate to={pending} />;
     return <Navigate to={target} />;
   }
-  if (loading || (user && !dataLoaded)) {
+  // Only hide the form while we already know a user exists and are waiting
+  // for their profile/roles to load (so we can redirect them). For
+  // unauthenticated visitors, render the form immediately even if
+  // AuthProvider.loading is still true — otherwise a stalled getSession()
+  // would leave /login completely blank.
+  if (user && !dataLoaded) {
     return (
       <div className="flex min-h-dvh items-center justify-center px-4 py-10" />
     );
