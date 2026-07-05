@@ -520,6 +520,26 @@ function BranchOffersPage() {
       <PageHeader
         title="Пропозиції ЗЕД"
       />
+      {proZedNotices.length > 0 && (
+        <div className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-destructive">
+            Про ЗЕД
+          </div>
+          <ul className="space-y-1 text-sm">
+            {proZedNotices.map((n) => (
+              <li key={n.offerId} className="text-foreground">
+                <span className="text-destructive">Пропозиція скасована</span>
+                {" — "}
+                <span className="font-medium">{n.productName}</span>
+                {" ("}
+                <span className="tabular-nums">{n.requestedPallets}п</span>
+                {")"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mb-3 rounded-xl border border-border bg-card p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <div>
