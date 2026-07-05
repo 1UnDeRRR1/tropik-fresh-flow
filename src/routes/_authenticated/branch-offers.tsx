@@ -238,6 +238,40 @@ function BranchOffersPage() {
     return m;
   }, [myResponses]);
 
+  // "Про ЗЕД" 48h cancellation notice.
+  // A branch sees a row here when the offer was cancelled by the manager AND
+  // this branch had asked for pallets but was NOT confirmed (approved is
+  // null OR <= 0) AND was NOT refused (refused_at is null). Rows self-expire
+  // 48h after the offer's updated_at. Confirmed (approved > 0) branches go
+  // through red archive "Скасовано"; refused branches go through red archive
+  // "Відмовлено" — neither appears here.
+  const proZedNotices = useMemo(() => {
+    const list = offers ?? [];
+    const cutoffMs = Date.now() - 48 * 60 * 60 * 1000;
+    return list
+      .filter((o) => {
+        if (o.status !== "deleted") return false;
+        const updatedMs = new Date(o.updated_at).getTime();
+        if (!Number.isFinite(updatedMs) || updatedMs < cutoffMs) return false;
+        const myR = responseByOffer[o.id];
+        if (!myR) return false;
+        if (myR.refused_at) return false;
+        if (myR.approved_pallets != null && Number(myR.approved_pallets) > 0) return false;
+        return true;
+      })
+      .map((o) => {
+        const myR = responseByOffer[o.id]!;
+        return {
+          offerId: o.id,
+          productName: o.product_name,
+          requestedPallets: Number(myR.requested_pallets ?? 0),
+          cancelledAt: o.updated_at,
+        };
+      });
+  }, [offers, responseByOffer]);
+
+
+
   const baseVisibleOffers = useMemo(() => {
     const list = offers ?? [];
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -486,6 +520,26 @@ function BranchOffersPage() {
       <PageHeader
         title="Пропозиції ЗЕД"
       />
+      {proZedNotices.length > 0 && (
+        <div className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-destructive">
+            Про ЗЕД
+          </div>
+          <ul className="space-y-1 text-sm">
+            {proZedNotices.map((n) => (
+              <li key={n.offerId} className="text-foreground">
+                <span className="text-destructive">Пропозиція скасована</span>
+                {" — "}
+                <span className="font-medium">{n.productName}</span>
+                {" ("}
+                <span className="tabular-nums">{n.requestedPallets}п</span>
+                {")"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mb-3 rounded-xl border border-border bg-card p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <div>
