@@ -3493,7 +3493,7 @@ function PublishOfferDialog({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose}>
-              Скасувати
+              Закрити
             </Button>
             <Button
               onClick={() => publish.mutate()}
