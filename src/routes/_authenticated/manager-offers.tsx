@@ -625,8 +625,28 @@ function ManagerOffersPage() {
         0,
       );
   };
-  const getPendingLinked = (offer: OfferWithResponses) =>
-    Math.max(sumApproved(offer) - sumLinked(offer), 0);
+  // Cancelled remainder recorded per response as
+  // manager_offer_allocation_parts rows with status='cancelled'. MUST be
+  // subtracted from open remaining, otherwise cancelled quantity re-surfaces
+  // as pending. See src/lib/manager-offer-remaining.ts for the canonical
+  // formula: open = approved - ordered - cancelled.
+  const sumCancelled = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce(
+        (sum, r) => sum + Number(cancelledByResponseId.get(r.id) ?? 0),
+        0,
+      );
+  };
+  const getOfferOpenRemaining = (offer: OfferWithResponses) =>
+    computeOfferRemaining({
+      approved: sumApproved(offer),
+      ordered: sumLinked(offer),
+      cancelled: sumCancelled(offer),
+    }).open;
+  const getPendingLinked = (offer: OfferWithResponses) => getOfferOpenRemaining(offer);
 
   // Two-tab business filter (spec v2):
   //   Активні       = not yet taken-into-work / not linked / not shipped.
