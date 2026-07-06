@@ -60,6 +60,7 @@ function BranchRequestsPage() {
     "branch-requests-realtime",
     [
       "branch_requests",
+      "branch_request_items",
       "distributions",
       "distribution_items",
       "shipment_items",

@@ -159,7 +159,14 @@ function BranchOffersPage() {
 
   useRealtimeInvalidate(
     `branch-offers-${branchId ?? "none"}`,
-    ["manager_offers", "manager_offer_responses", "shipments", "shipment_items"],
+    [
+      "manager_offers",
+      "manager_offer_responses",
+      "manager_offer_targets",
+      "manager_offer_allocation_parts",
+      "shipments",
+      "shipment_items",
+    ],
     [
       ["branch-active-offers"],
       ["my-branch-responses", branchId],
@@ -175,6 +182,8 @@ function BranchOffersPage() {
 
   const { data: offers, isLoading } = useQuery({
     queryKey: ["branch-active-offers"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       // P1 stabilization: limit to 300 newest offers and to last 30 days,
       // so the branch screen does not process unbounded test history.
@@ -195,6 +204,8 @@ function BranchOffersPage() {
   const { data: myResponses } = useQuery({
     queryKey: ["my-branch-responses", branchId],
     enabled: !!branchId,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       // P1 stabilization: cap to 500 most recent responses for this branch.
       const { data, error } = await supabase
@@ -482,6 +493,10 @@ function BranchOffersPage() {
     onSuccess: async (_, vars) => {
       toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
       await invalidateOfferWorkflowQueries();
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["branch-active-offers"] }),
+        qc.refetchQueries({ queryKey: ["my-branch-responses", branchId] }),
+      ]);
       // Block 2: auto-close the detail dialog after a successful request,
       // returning the user to the compact "Пропозиції" table.
       setSelectedOfferId(null);
@@ -500,6 +515,10 @@ function BranchOffersPage() {
     onSuccess: async () => {
       toast.success("Запит скасовано", { duration: 1500 });
       await invalidateOfferWorkflowQueries();
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["branch-active-offers"] }),
+        qc.refetchQueries({ queryKey: ["my-branch-responses", branchId] }),
+      ]);
       setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),

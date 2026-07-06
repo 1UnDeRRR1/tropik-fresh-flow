@@ -31,6 +31,7 @@ import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
@@ -108,9 +109,30 @@ function BranchFreeList() {
     window.setTimeout(() => setShake(false), 600);
   };
 
+  // Targeted realtime — keep the branch "Вільно" list fresh after upstream
+  // shipment/distribution/request activity without waiting for navigation.
+  useRealtimeInvalidate(
+    "branch-free-realtime",
+    [
+      "shipments",
+      "shipment_items",
+      "distributions",
+      "distribution_items",
+      "branch_requests",
+    ],
+    [
+      ["branch-free-items"],
+      ["branch-free-ships"],
+      ["branch-free-pending"],
+    ],
+    !!user?.id,
+  );
+
   // Read via branch-safe views — purchase prices are not exposed at all.
   const { data: items } = useQuery({
     queryKey: ["branch-free-items"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
@@ -138,6 +160,8 @@ function BranchFreeList() {
   const { data: ships } = useQuery({
     queryKey: ["branch-free-ships", shipmentIds.join(",")],
     enabled: shipmentIds.length > 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
@@ -159,6 +183,8 @@ function BranchFreeList() {
 
   const { data: pendingReqs } = useQuery({
     queryKey: ["branch-free-pending"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("branch_requests")
