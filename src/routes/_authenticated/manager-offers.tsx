@@ -249,6 +249,7 @@ function ManagerOffersPage() {
     [
       "manager_offers",
       "manager_offer_responses",
+      "manager_offer_targets",
       "manager_offer_allocation_parts",
       "shipments",
       "shipment_items",
