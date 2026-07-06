@@ -713,23 +713,35 @@ function ManagerOffersPage() {
 
   // Build F — controlled cancel via server fn. Replaces direct status='deleted'
   // for the trash/delete action so an Archive event is written.
+  // Build 1 (cancel reliability): success is reported ONLY after the server
+  // fn re-verifies manager_offers.status='deleted'. On error, keep the detail
+  // dialog open and surface an inline message inside the confirm AlertDialog.
   const cancelOfferFn = useServerFn(cancelManagerOffer);
+  const [cancelConfirmOfferId, setCancelConfirmOfferId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const cancelOffer = useMutation({
     mutationFn: async (id: string) => {
       return await cancelOfferFn({ data: { offerId: id } });
     },
-    onSuccess: async (res) => {
+    onSuccess: async (res, id) => {
       const archived = res?.archived ?? 0;
       toast.success(
         archived > 0
           ? `Пропозицію скасовано (в архів: ${archived})`
           : "Пропозицію скасовано",
       );
+      setCancelError(null);
+      setCancelConfirmOfferId(null);
+      if (detailOfferId === id) setDetailOfferId(null);
       await invalidateOfferWorkflowQueries();
       await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
     },
     onError: async (e: Error) => {
-      toast.error(e.message || "Не вдалося скасувати пропозицію");
+      const msg = e.message || "Не вдалося скасувати пропозицію";
+      toast.error(msg);
+      setCancelError(msg);
+      // Keep both AlertDialog and detail Dialog open; refetch so the row's
+      // real status is reflected without hiding it.
       await invalidateOfferWorkflowQueries();
     },
   });
