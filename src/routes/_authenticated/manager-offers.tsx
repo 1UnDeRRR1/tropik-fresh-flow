@@ -1648,6 +1648,37 @@ function ManagerOffersPage() {
           qc.invalidateQueries({ queryKey: ["manager-offer-targets-edit"] });
         }}
       />
+
+      <AlertDialog
+        open={!!pendingCancelOfferId}
+        onOpenChange={(o) => !o && setPendingCancelOfferId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Скасувати пропозицію?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Пропозиція зникне з активних, підтверджені обіцянки філій підуть в архів.
+              Дію не можна відкликати з інтерфейсу.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelOffer.isPending}>Ні</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelOffer.isPending}
+              onClick={() => {
+                const id = pendingCancelOfferId;
+                setPendingCancelOfferId(null);
+                if (id) {
+                  cancelOffer.mutate(id);
+                  setDetailOfferId(null);
+                }
+              }}
+            >
+              Так, скасувати
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
