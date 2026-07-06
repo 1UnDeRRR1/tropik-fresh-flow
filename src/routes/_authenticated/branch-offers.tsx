@@ -182,6 +182,8 @@ function BranchOffersPage() {
 
   const { data: offers, isLoading } = useQuery({
     queryKey: ["branch-active-offers"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       // P1 stabilization: limit to 300 newest offers and to last 30 days,
       // so the branch screen does not process unbounded test history.
