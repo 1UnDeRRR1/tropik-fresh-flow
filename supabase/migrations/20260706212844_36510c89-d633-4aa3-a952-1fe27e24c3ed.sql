@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.cancel_manager_offer_remaining(uuid, text) FROM anon;
