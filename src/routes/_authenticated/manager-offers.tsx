@@ -273,11 +273,17 @@ function ManagerOffersPage() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const invalidateOfferWorkflowQueries = async () => {
-    const keys = [
+    // Critical offer keys: refetch active queries so the acting user sees
+    // fresh data immediately even if realtime lags.
+    const refetchKeys = [
       ["manager-offers"],
       ["manager-offer-responses"],
       ["manager-offer-targets"],
       ["manager-offer-linked-shipments"],
+    ] as const;
+    // Cross-screen / secondary keys: mark stale, let each screen refetch on
+    // its own schedule.
+    const invalidateKeys = [
       ["link-dialog-offer"],
       ["shipments-link-options"],
       ["branch-active-offers"],
@@ -287,7 +293,10 @@ function ManagerOffersPage() {
       ["nav-pending-manager-responses"],
       ["dash-manager"],
     ] as const;
-    await Promise.all(keys.map((queryKey) => qc.invalidateQueries({ queryKey })));
+    await Promise.all([
+      ...refetchKeys.map((queryKey) => qc.refetchQueries({ queryKey })),
+      ...invalidateKeys.map((queryKey) => qc.invalidateQueries({ queryKey })),
+    ]);
   };
 
   function focusOffer(offerId: string, offerStatus: ManagerOfferStatus) {
