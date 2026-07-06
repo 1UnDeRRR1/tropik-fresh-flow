@@ -159,7 +159,14 @@ function BranchOffersPage() {
 
   useRealtimeInvalidate(
     `branch-offers-${branchId ?? "none"}`,
-    ["manager_offers", "manager_offer_responses", "shipments", "shipment_items"],
+    [
+      "manager_offers",
+      "manager_offer_responses",
+      "manager_offer_targets",
+      "manager_offer_allocation_parts",
+      "shipments",
+      "shipment_items",
+    ],
     [
       ["branch-active-offers"],
       ["my-branch-responses", branchId],
