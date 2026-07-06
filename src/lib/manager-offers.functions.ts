@@ -115,6 +115,34 @@ export const cancelManagerOffer = createServerFn({ method: "POST" })
       });
     }
 
+    // Build 1: post-RPC verification. The UI must never see "success" unless
+    // the row is actually deleted in DB. Re-read status via service role so
+    // RLS/visibility cannot mask the real state.
+    const { data: verifyRow, error: verifyErr } = await supabaseAdmin
+      .from("manager_offers")
+      .select("id, status")
+      .eq("id", offerId)
+      .maybeSingle();
+    if (verifyErr) {
+      throw new Response(
+        `Не вдалося перевірити статус пропозиції після скасування: ${verifyErr.message}`,
+        { status: 500 },
+      );
+    }
+    if (!verifyRow) {
+      throw new Response(
+        "Пропозицію не знайдено після скасування — статус не підтверджено",
+        { status: 500 },
+      );
+    }
+    const finalStatus = String(verifyRow.status ?? "");
+    if (finalStatus !== "deleted") {
+      throw new Response(
+        `Скасування не застосовано: статус залишився «${finalStatus || "невідомий"}»`,
+        { status: 500 },
+      );
+    }
+
     const archived = rows.filter((r) => r.action === "inserted").length;
     const reused = rows.filter((r) => r.action === "exists" || r.action === "skipped").length;
 
@@ -124,5 +152,6 @@ export const cancelManagerOffer = createServerFn({ method: "POST" })
       archived,
       reused,
       rows,
+      finalStatus,
     };
   });

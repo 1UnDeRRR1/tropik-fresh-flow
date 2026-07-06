@@ -13,6 +13,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -702,23 +713,35 @@ function ManagerOffersPage() {
 
   // Build F — controlled cancel via server fn. Replaces direct status='deleted'
   // for the trash/delete action so an Archive event is written.
+  // Build 1 (cancel reliability): success is reported ONLY after the server
+  // fn re-verifies manager_offers.status='deleted'. On error, keep the detail
+  // dialog open and surface an inline message inside the confirm AlertDialog.
   const cancelOfferFn = useServerFn(cancelManagerOffer);
+  const [cancelConfirmOfferId, setCancelConfirmOfferId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const cancelOffer = useMutation({
     mutationFn: async (id: string) => {
       return await cancelOfferFn({ data: { offerId: id } });
     },
-    onSuccess: async (res) => {
+    onSuccess: async (res, id) => {
       const archived = res?.archived ?? 0;
       toast.success(
         archived > 0
           ? `Пропозицію скасовано (в архів: ${archived})`
           : "Пропозицію скасовано",
       );
+      setCancelError(null);
+      setCancelConfirmOfferId(null);
+      if (detailOfferId === id) setDetailOfferId(null);
       await invalidateOfferWorkflowQueries();
       await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
     },
     onError: async (e: Error) => {
-      toast.error(e.message || "Не вдалося скасувати пропозицію");
+      const msg = e.message || "Не вдалося скасувати пропозицію";
+      toast.error(msg);
+      setCancelError(msg);
+      // Keep both AlertDialog and detail Dialog open; refetch so the row's
+      // real status is reflected without hiding it.
       await invalidateOfferWorkflowQueries();
     },
   });
@@ -1402,20 +1425,60 @@ function ManagerOffersPage() {
                   {o.status !== "deleted" && (
                     <ShareLinkButtons offer={o} />
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="Відкликати"
-                    title="Відкликати"
-                    disabled={cancelOffer.isPending}
-                    onClick={() => {
-                      cancelOffer.mutate(o.id);
-                      setDetailOfferId(null);
+                  <AlertDialog
+                    open={cancelConfirmOfferId === o.id}
+                    onOpenChange={(v) => {
+                      if (!v && !cancelOffer.isPending) {
+                        setCancelConfirmOfferId(null);
+                        setCancelError(null);
+                      }
                     }}
                   >
-
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Скасувати пропозицію"
+                        title="Скасувати пропозицію"
+                        disabled={cancelOffer.isPending}
+                        onClick={() => {
+                          setCancelError(null);
+                          setCancelConfirmOfferId(o.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Скасувати пропозицію?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Пропозицію «{o.product_name}» буде скасовано. Дія
+                          незворотна.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      {cancelError && cancelConfirmOfferId === o.id && (
+                        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          {cancelError}
+                        </div>
+                      )}
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={cancelOffer.isPending}>
+                          Закрити
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={cancelOffer.isPending}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCancelError(null);
+                            cancelOffer.mutate(o.id);
+                          }}
+                        >
+                          {cancelOffer.isPending ? "Скасовуємо…" : "Скасувати"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
 
                 <div className="mt-4">
@@ -2285,7 +2348,7 @@ function OfferEditor({
               Відправити вибірково
             </Button>
             <Button variant="outline" onClick={onClose}>
-              Скасувати
+              Закрити
             </Button>
           </div>
 
@@ -2317,7 +2380,7 @@ function OfferEditor({
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSelectiveOpen(false)}>
-                Скасувати
+                Закрити
               </Button>
               <Button
                 onClick={() => {
@@ -3435,7 +3498,7 @@ function PublishOfferDialog({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose}>
-              Скасувати
+              Закрити
             </Button>
             <Button
               onClick={() => publish.mutate()}
