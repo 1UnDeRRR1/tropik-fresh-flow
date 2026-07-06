@@ -229,7 +229,7 @@ export const cancelManagerOfferRemaining = createServerFn({ method: "POST" })
     // authorization + audit fields inside the SECURITY DEFINER function.
     const { data: rpcData, error: rpcErr } = await supabase.rpc(
       "cancel_manager_offer_remaining",
-      { p_offer_id: offerId, p_reason: reason ?? null },
+      reason ? { p_offer_id: offerId, p_reason: reason } : { p_offer_id: offerId },
     );
     if (rpcErr) {
       // Map known SQLSTATE / RAISE messages to user-friendly Ukrainian errors.
