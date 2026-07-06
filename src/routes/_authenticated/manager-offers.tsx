@@ -1280,6 +1280,22 @@ function ManagerOffersPage() {
                 : allLinkedExhausted
                   ? "Усі підтверджені палети вже прив'язані до поставки."
                   : null;
+            // Canonical open remaining for the "Скасувати залишок" gate.
+            // Must use approved - ordered - cancelled (never approved - linked alone).
+            const totalCancelled = activeResponses.reduce(
+              (s, r) => s + Number(cancelledByResponseId.get(r.id) ?? 0),
+              0,
+            );
+            const openRemaining = computeOfferRemaining({
+              approved: totalApproved,
+              ordered: totalLinked,
+              cancelled: totalCancelled,
+            }).open;
+            const canCancelRemainder =
+              openRemaining > 0 &&
+              totalLinked > 0 &&
+              !["deleted", "expired"].includes(o.status) &&
+              ["confirmed", "in_work", "linked", "closed"].includes(o.status);
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
