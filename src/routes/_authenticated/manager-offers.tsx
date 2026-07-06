@@ -712,22 +712,65 @@ function ManagerOffersPage() {
 
   // Build F — controlled cancel via server fn. Replaces direct status='deleted'
   // for the trash/delete action so an Archive event is written.
+  //
+  // Post-cancel verification: after the mutation resolves, re-read
+  // manager_offers.status for the same id. Only claim success if the row is
+  // gone or its status is 'deleted' (or any terminal non-active status). If
+  // the row is still "active" / "in_work" / "confirmed" we do NOT show a
+  // success toast — we surface a persistent failure chip on the offer card.
   const cancelOfferFn = useServerFn(cancelManagerOffer);
+  const [cancelFailedIds, setCancelFailedIds] = useState<Set<string>>(new Set());
+  const [pendingCancelOfferId, setPendingCancelOfferId] = useState<string | null>(null);
+  const markCancelFailed = (id: string) => {
+    setCancelFailedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+  const clearCancelFailed = (id: string) => {
+    setCancelFailedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
   const cancelOffer = useMutation({
     mutationFn: async (id: string) => {
-      return await cancelOfferFn({ data: { offerId: id } });
+      clearCancelFailed(id);
+      const res = await cancelOfferFn({ data: { offerId: id } });
+      // Verify: re-read manager_offers.status. RLS may hide the row entirely
+      // (also treated as success — from this user's view the offer is gone).
+      const { data: after } = await supabase
+        .from("manager_offers")
+        .select("id,status")
+        .eq("id", id)
+        .maybeSingle();
+      const stillActive =
+        !!after &&
+        after.status !== "deleted" &&
+        after.status !== "expired" &&
+        after.status !== "closed";
+      return { res, stillActive, id };
     },
-    onSuccess: async (res) => {
+    onSuccess: async ({ res, stillActive, id }) => {
+      await invalidateOfferWorkflowQueries();
+      await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
+      if (stillActive) {
+        markCancelFailed(id);
+        toast.error("Скасування не підтверджено — статус пропозиції не змінено");
+        return;
+      }
       const archived = res?.archived ?? 0;
       toast.success(
         archived > 0
           ? `Пропозицію скасовано (в архів: ${archived})`
           : "Пропозицію скасовано",
       );
-      await invalidateOfferWorkflowQueries();
-      await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
     },
-    onError: async (e: Error) => {
+    onError: async (e: Error, id) => {
+      markCancelFailed(id);
       toast.error(e.message || "Не вдалося скасувати пропозицію");
       await invalidateOfferWorkflowQueries();
     },
