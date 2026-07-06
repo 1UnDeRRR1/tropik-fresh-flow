@@ -204,6 +204,8 @@ function BranchOffersPage() {
   const { data: myResponses } = useQuery({
     queryKey: ["my-branch-responses", branchId],
     enabled: !!branchId,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       // P1 stabilization: cap to 500 most recent responses for this branch.
       const { data, error } = await supabase
