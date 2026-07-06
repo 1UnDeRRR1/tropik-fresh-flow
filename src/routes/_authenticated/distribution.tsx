@@ -183,6 +183,8 @@ function BranchFreeList() {
 
   const { data: pendingReqs } = useQuery({
     queryKey: ["branch-free-pending"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("branch_requests")
