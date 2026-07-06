@@ -70,21 +70,10 @@ function BranchRequestsPage() {
     !!user?.id,
   );
 
-  // Resolve the signed-in user's import_managers.id so we can compare against
-  // shipments.import_manager_id (which stores import_managers.id, not auth uid).
-  const { data: currentManagerId } = useQuery({
-    queryKey: ["current-import-manager-id", user?.id],
-    enabled: !!user?.id && !isAdmin,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("current_import_manager_id");
-      if (error) throw error;
-      return (data as string | null) ?? null;
-    },
-  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id, currentManagerId ?? ""],
-    enabled: !!user?.id && (isAdmin || currentManagerId !== undefined),
+    queryKey: ["branch-requests-full", isAdmin ? "all" : user?.id],
+    enabled: !!user?.id,
     queryFn: async () => {
       const { data: reqs, error } = await supabase
         .from("branch_requests")
@@ -155,16 +144,7 @@ function BranchRequestsPage() {
       });
 
       if (isAdmin) return rows;
-      // Manager sees a request when its shipment is theirs by either signal:
-      //   • shipments.import_manager_id === current_import_manager_id(auth.uid)
-      //   • shipments.created_by === auth.uid  (legacy fallback)
-      // `row.importManagerId` is `shipments.import_manager_id ?? shipments.created_by`,
-      // so accept a match against either the resolved manager id OR the auth uid.
-      return rows.filter(
-        (r) =>
-          (currentManagerId != null && r.importManagerId === currentManagerId) ||
-          r.importManagerId === user!.id,
-      );
+      return rows.filter((r) => r.importManagerId === user!.id);
     },
   });
 

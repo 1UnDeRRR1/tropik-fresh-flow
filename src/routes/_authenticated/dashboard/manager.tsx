@@ -97,19 +97,6 @@ function ManagerDashboard() {
     !!user?.id,
   );
 
-  // Resolve current signed-in user's import_managers.id — shipments.import_manager_id
-  // stores that (NOT auth uid), so counting pending branch_requests scoped to
-  // "my" shipments needs both id shapes.
-  const { data: currentManagerId } = useQuery({
-    enabled: !!user?.id,
-    queryKey: ["current-import-manager-id", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("current_import_manager_id");
-      if (error) throw error;
-      return (data as string | null) ?? null;
-    },
-  });
-
   const activeQuery = useQuery({
     queryKey: ["dash-manager", "active-overview"],
     queryFn: async () => {
@@ -122,7 +109,7 @@ function ManagerDashboard() {
 
   const summaryQuery = useQuery({
     enabled: !!user?.id,
-    queryKey: ["dash-manager", user?.id, currentManagerId ?? ""],
+    queryKey: ["dash-manager", user?.id],
     queryFn: async () => {
       const isoToday = new Date().toISOString().slice(0, 10);
       const iso24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -197,10 +184,8 @@ function ManagerDashboard() {
           .filter((r) => {
             const sh = r.shipments;
             if (!sh) return false;
-            // Match either the resolved import_managers.id OR the legacy created_by === auth uid fallback.
-            if (currentManagerId && sh.import_manager_id === currentManagerId) return true;
-            if (sh.created_by === user!.id) return true;
-            return false;
+            const responsible = sh.import_manager_id ?? sh.created_by ?? null;
+            return responsible === user!.id;
           }).length,
         plan: planWithRemaining,
       };
@@ -282,21 +267,6 @@ function ManagerDashboard() {
                 <div className="mt-1 text-xs opacity-80">Очікують підтвердження</div>
               </>
             )}
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/branch-requests" })}
-          className="block h-full text-left"
-        >
-          <div className="h-full rounded-2xl border border-transparent bg-amber-500 p-4 text-white shadow-card transition-transform duration-150 active:scale-[0.9]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-wide opacity-90">Запити з Вільно</span>
-              <MailQuestion className="h-4 w-4" />
-            </div>
-            <div className="mt-2 text-2xl font-black tracking-tight">{data?.requests ?? 0}</div>
-            <div className="mt-1 text-xs opacity-80">Пропозиції філій по вільному</div>
           </div>
         </button>
 
