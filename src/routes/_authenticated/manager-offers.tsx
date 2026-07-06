@@ -1539,6 +1539,55 @@ function ManagerOffersPage() {
                   {o.status !== "deleted" && (
                     <ShareLinkButtons offer={o} />
                   )}
+                  {canCancelRemainder && (
+                    <AlertDialog
+                      open={cancelRemainingOfferId === o.id}
+                      onOpenChange={(v) => {
+                        if (!v && !cancelRemaining.isPending) setCancelRemainingOfferId(null);
+                      }}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 hover:text-warning"
+                          aria-label="Скасувати залишок"
+                          title={`Скасувати залишок (${openRemaining} пал.)`}
+                          disabled={cancelRemaining.isPending}
+                          onClick={() => setCancelRemainingOfferId(o.id)}
+                        >
+                          <MinusCircle className="mr-1 h-3.5 w-3.5" />
+                          Скасувати залишок
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Скасувати залишок?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Буде скасовано лише залишок, який ще не прив'язаний до поставки. Вже завантажені палети не зміняться.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                          Підтверджено: {totalApproved} • Завантажено: {totalLinked}
+                          {totalCancelled > 0 && ` • Уже скасовано: ${totalCancelled}`} • Залишок: {openRemaining} пал.
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={cancelRemaining.isPending}>
+                            Закрити
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            disabled={cancelRemaining.isPending}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              cancelRemaining.mutate(o.id);
+                            }}
+                          >
+                            {cancelRemaining.isPending ? "Скасовуємо…" : "Скасувати залишок"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                   <AlertDialog
                     open={cancelConfirmOfferId === o.id}
                     onOpenChange={(v) => {
