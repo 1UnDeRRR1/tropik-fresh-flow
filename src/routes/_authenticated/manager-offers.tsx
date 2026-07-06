@@ -1461,13 +1461,19 @@ function ManagerOffersPage() {
                     aria-label="Відкликати"
                     title="Відкликати"
                     disabled={cancelOffer.isPending}
-                    onClick={() => {
-                      cancelOffer.mutate(o.id);
-                      setDetailOfferId(null);
-                    }}
+                    onClick={() => setPendingCancelOfferId(o.id)}
                   >
 
                     <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                  {cancelFailedIds.has(o.id) ? (
+                    <span
+                      className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive"
+                      title="Останнє скасування не підтверджено — спробуйте ще раз"
+                    >
+                      Скасування не вдалося
+                    </span>
+                  ) : null}
                   </Button>
                 </div>
 
