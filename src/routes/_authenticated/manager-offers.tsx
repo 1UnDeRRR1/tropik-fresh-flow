@@ -422,6 +422,49 @@ function ManagerOffersPage() {
     },
   });
 
+  // Cancelled remainder ledger — one row per (offer_id, response_id) that has
+  // any status='cancelled' allocation parts. Used by the confirmed-tab formula
+  // `open = approved - ordered - cancelled` so that manager-cancelled remainder
+  // is not re-surfaced as pending pallets.
+  const { data: cancelledParts } = useQuery({
+    queryKey: ["manager-offer-allocation-parts-cancelled", offerIds],
+    enabled: offerIds.length > 0,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offer_allocation_parts")
+        .select("offer_id, response_id, pallets, status")
+        .in("offer_id", offerIds)
+        .eq("status", "cancelled");
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        offer_id: string;
+        response_id: string;
+        pallets: number;
+        status: string;
+      }>;
+    },
+  });
+
+  const cancelledByResponseId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of cancelledParts ?? []) {
+      m.set(p.response_id, (m.get(p.response_id) ?? 0) + Number(p.pallets ?? 0));
+    }
+    return m;
+  }, [cancelledParts]);
+
+  const cancelledByOfferId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of cancelledParts ?? []) {
+      m.set(p.offer_id, (m.get(p.offer_id) ?? 0) + Number(p.pallets ?? 0));
+    }
+    return m;
+  }, [cancelledParts]);
+
+
 
   const linkedShipmentIds = useMemo(
     () =>
