@@ -1425,20 +1425,60 @@ function ManagerOffersPage() {
                   {o.status !== "deleted" && (
                     <ShareLinkButtons offer={o} />
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="Відкликати"
-                    title="Відкликати"
-                    disabled={cancelOffer.isPending}
-                    onClick={() => {
-                      cancelOffer.mutate(o.id);
-                      setDetailOfferId(null);
+                  <AlertDialog
+                    open={cancelConfirmOfferId === o.id}
+                    onOpenChange={(v) => {
+                      if (!v && !cancelOffer.isPending) {
+                        setCancelConfirmOfferId(null);
+                        setCancelError(null);
+                      }
                     }}
                   >
-
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Скасувати пропозицію"
+                        title="Скасувати пропозицію"
+                        disabled={cancelOffer.isPending}
+                        onClick={() => {
+                          setCancelError(null);
+                          setCancelConfirmOfferId(o.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Скасувати пропозицію?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Пропозицію «{o.product_name}» буде скасовано. Дія
+                          незворотна.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      {cancelError && cancelConfirmOfferId === o.id && (
+                        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          {cancelError}
+                        </div>
+                      )}
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={cancelOffer.isPending}>
+                          Закрити
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={cancelOffer.isPending}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCancelError(null);
+                            cancelOffer.mutate(o.id);
+                          }}
+                        >
+                          {cancelOffer.isPending ? "Скасовуємо…" : "Скасувати"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
 
                 <div className="mt-4">
