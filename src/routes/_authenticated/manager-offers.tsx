@@ -1474,7 +1474,6 @@ function ManagerOffersPage() {
                       Скасування не вдалося
                     </span>
                   ) : null}
-                  </Button>
                 </div>
 
                 <div className="mt-4">
