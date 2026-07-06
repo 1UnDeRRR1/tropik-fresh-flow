@@ -670,11 +670,11 @@ function BranchFreeList() {
                           onClick={() => {
                             setEditReq({
                               id: r.id,
-                              pallets: r.pallets,
-                              salePrice: r.sale_price,
+                              pallets: Number(r.pallets ?? 0),
+                              salePrice: r.sale_price == null ? null : Number(r.sale_price),
                               saleCurrency: r.sale_currency,
                             });
-                            setEditReqPallets(String(r.pallets));
+                            setEditReqPallets(String(Number(r.pallets ?? 0)));
                             setEditReqPrice(r.sale_price != null ? String(r.sale_price) : "");
                             setEditReqCurrency(r.sale_currency ?? "UAH");
                           }}
