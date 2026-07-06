@@ -700,8 +700,14 @@ function ManagerOffersPage() {
         if (!eligibleStatus && !o.linked_shipment_id && sumLinked(o) === 0) return false;
         const confirmedTotal = confirmedTotalOf(o);
         const linkedTotal = sumLinked(o);
-        const confirmedRemaining = confirmedTotal - linkedTotal;
-        // Hide cards with no remaining confirmed quantity — they belong to "Поставки".
+        const cancelledTotal = sumCancelled(o);
+        const confirmedRemaining = computeOfferRemaining({
+          approved: confirmedTotal,
+          ordered: linkedTotal,
+          cancelled: cancelledTotal,
+        }).open;
+        // Hide cards with no remaining confirmed quantity — they belong to "Поставки"
+        // or were closed via "Скасувати залишок".
         return confirmedRemaining > 0;
       });
     }
