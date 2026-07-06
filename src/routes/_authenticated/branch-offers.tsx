@@ -515,6 +515,10 @@ function BranchOffersPage() {
     onSuccess: async () => {
       toast.success("Запит скасовано", { duration: 1500 });
       await invalidateOfferWorkflowQueries();
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["branch-active-offers"] }),
+        qc.refetchQueries({ queryKey: ["my-branch-responses", branchId] }),
+      ]);
       setSelectedOfferId(null);
     },
     onError: (e: Error) => toast.error(e.message),
