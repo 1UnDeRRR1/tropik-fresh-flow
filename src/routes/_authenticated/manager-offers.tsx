@@ -2343,7 +2343,7 @@ function OfferEditor({
               Відправити вибірково
             </Button>
             <Button variant="outline" onClick={onClose}>
-              Скасувати
+              Закрити
             </Button>
           </div>
 
