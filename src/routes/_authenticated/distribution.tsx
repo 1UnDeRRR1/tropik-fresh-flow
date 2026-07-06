@@ -160,6 +160,8 @@ function BranchFreeList() {
   const { data: ships } = useQuery({
     queryKey: ["branch-free-ships", shipmentIds.join(",")],
     enabled: shipmentIds.length > 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipments_branch")
