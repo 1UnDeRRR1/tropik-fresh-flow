@@ -3726,6 +3726,10 @@ export type Database = {
         Args: { _user_id: string; _vehicle_id: string }
         Returns: boolean
       }
+      cancel_manager_offer_remaining: {
+        Args: { p_offer_id: string; p_reason?: string }
+        Returns: Json
+      }
       close_vehicle_reserves: {
         Args: { p_vehicle_id: string }
         Returns: number

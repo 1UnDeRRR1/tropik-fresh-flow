@@ -2,9 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Link2, Trash2, Bell } from "lucide-react";
+import { Plus, Pencil, Link2, Trash2, Bell, MinusCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { cancelManagerOffer } from "@/lib/manager-offers.functions";
+import { cancelManagerOffer, cancelManagerOfferRemaining } from "@/lib/manager-offers.functions";
+import { computeOfferRemaining } from "@/lib/manager-offer-remaining";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 import { EmptyState } from "@/components/cards";
@@ -421,6 +422,49 @@ function ManagerOffersPage() {
     },
   });
 
+  // Cancelled remainder ledger — one row per (offer_id, response_id) that has
+  // any status='cancelled' allocation parts. Used by the confirmed-tab formula
+  // `open = approved - ordered - cancelled` so that manager-cancelled remainder
+  // is not re-surfaced as pending pallets.
+  const { data: cancelledParts } = useQuery({
+    queryKey: ["manager-offer-allocation-parts-cancelled", offerIds],
+    enabled: offerIds.length > 0,
+    staleTime: 5_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manager_offer_allocation_parts")
+        .select("offer_id, response_id, pallets, status")
+        .in("offer_id", offerIds)
+        .eq("status", "cancelled");
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        offer_id: string;
+        response_id: string;
+        pallets: number;
+        status: string;
+      }>;
+    },
+  });
+
+  const cancelledByResponseId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of cancelledParts ?? []) {
+      m.set(p.response_id, (m.get(p.response_id) ?? 0) + Number(p.pallets ?? 0));
+    }
+    return m;
+  }, [cancelledParts]);
+
+  const cancelledByOfferId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of cancelledParts ?? []) {
+      m.set(p.offer_id, (m.get(p.offer_id) ?? 0) + Number(p.pallets ?? 0));
+    }
+    return m;
+  }, [cancelledParts]);
+
+
 
   const linkedShipmentIds = useMemo(
     () =>
@@ -581,8 +625,28 @@ function ManagerOffersPage() {
         0,
       );
   };
-  const getPendingLinked = (offer: OfferWithResponses) =>
-    Math.max(sumApproved(offer) - sumLinked(offer), 0);
+  // Cancelled remainder recorded per response as
+  // manager_offer_allocation_parts rows with status='cancelled'. MUST be
+  // subtracted from open remaining, otherwise cancelled quantity re-surfaces
+  // as pending. See src/lib/manager-offer-remaining.ts for the canonical
+  // formula: open = approved - ordered - cancelled.
+  const sumCancelled = (offer: OfferWithResponses) => {
+    const inScope = (branchId: string) =>
+      offer.target_mode === "all" || offer.targetBranchIds.includes(branchId);
+    return offer.responses
+      .filter((r) => inScope(r.branch_id))
+      .reduce(
+        (sum, r) => sum + Number(cancelledByResponseId.get(r.id) ?? 0),
+        0,
+      );
+  };
+  const getOfferOpenRemaining = (offer: OfferWithResponses) =>
+    computeOfferRemaining({
+      approved: sumApproved(offer),
+      ordered: sumLinked(offer),
+      cancelled: sumCancelled(offer),
+    }).open;
+  const getPendingLinked = (offer: OfferWithResponses) => getOfferOpenRemaining(offer);
 
   // Two-tab business filter (spec v2):
   //   Активні       = not yet taken-into-work / not linked / not shipped.
@@ -636,13 +700,19 @@ function ManagerOffersPage() {
         if (!eligibleStatus && !o.linked_shipment_id && sumLinked(o) === 0) return false;
         const confirmedTotal = confirmedTotalOf(o);
         const linkedTotal = sumLinked(o);
-        const confirmedRemaining = confirmedTotal - linkedTotal;
-        // Hide cards with no remaining confirmed quantity — they belong to "Поставки".
+        const cancelledTotal = sumCancelled(o);
+        const confirmedRemaining = computeOfferRemaining({
+          approved: confirmedTotal,
+          ordered: linkedTotal,
+          cancelled: cancelledTotal,
+        }).open;
+        // Hide cards with no remaining confirmed quantity — they belong to "Поставки"
+        // or were closed via "Скасувати залишок".
         return confirmedRemaining > 0;
       });
     }
     return merged;
-  }, [merged, tab, branchRequestsMode]);
+  }, [merged, tab, branchRequestsMode, cancelledByResponseId]);
 
 
   // Responses from branches while the offer is still open (not closed/linked/expired).
@@ -745,6 +815,34 @@ function ManagerOffersPage() {
       await invalidateOfferWorkflowQueries();
     },
   });
+
+  // Cancel remaining unlinked confirmed pallets (position lifecycle event).
+  // Writes status='cancelled' allocation parts + one position_events row via
+  // the SECURITY DEFINER RPC `cancel_manager_offer_remaining`. Does NOT touch
+  // shipment_items, position_id, offer.status, approved/requested pallets.
+  const cancelRemainingFn = useServerFn(cancelManagerOfferRemaining);
+  const [cancelRemainingOfferId, setCancelRemainingOfferId] = useState<string | null>(null);
+  const cancelRemaining = useMutation({
+    mutationFn: async (id: string) => cancelRemainingFn({ data: { offerId: id } }),
+    onSuccess: async (res) => {
+      if (res?.noOp) {
+        toast.info("Немає залишку для скасування");
+      } else {
+        const n = res?.totalCancelledPallets ?? 0;
+        toast.success(
+          n > 0 ? `Залишок скасовано: ${n} пал.` : "Залишок скасовано",
+        );
+      }
+      setCancelRemainingOfferId(null);
+      await invalidateOfferWorkflowQueries();
+      await qc.invalidateQueries({ queryKey: ["manager-offer-allocation-parts-cancelled"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Не вдалося скасувати залишок");
+    },
+  });
+
+
 
   const updateApproved = useMutation({
     mutationFn: async ({ id, approved }: { id: string; approved: number | null }) => {
@@ -1182,6 +1280,22 @@ function ManagerOffersPage() {
                 : allLinkedExhausted
                   ? "Усі підтверджені палети вже прив'язані до поставки."
                   : null;
+            // Canonical open remaining for the "Скасувати залишок" gate.
+            // Must use approved - ordered - cancelled (never approved - linked alone).
+            const totalCancelled = activeResponses.reduce(
+              (s, r) => s + Number(cancelledByResponseId.get(r.id) ?? 0),
+              0,
+            );
+            const openRemaining = computeOfferRemaining({
+              approved: totalApproved,
+              ordered: totalLinked,
+              cancelled: totalCancelled,
+            }).open;
+            const canCancelRemainder =
+              openRemaining > 0 &&
+              totalLinked > 0 &&
+              !["deleted", "expired"].includes(o.status) &&
+              ["confirmed", "in_work", "linked", "closed"].includes(o.status);
             const over = o.offered_pallets != null && totalApproved > o.offered_pallets;
             const canEditTargeting = !["closed", "expired", "linked"].includes(o.status);
             const ship = o.linked_shipment_id ? shipmentEtaById[o.linked_shipment_id] : null;
@@ -1424,6 +1538,55 @@ function ManagerOffersPage() {
 
                   {o.status !== "deleted" && (
                     <ShareLinkButtons offer={o} />
+                  )}
+                  {canCancelRemainder && (
+                    <AlertDialog
+                      open={cancelRemainingOfferId === o.id}
+                      onOpenChange={(v) => {
+                        if (!v && !cancelRemaining.isPending) setCancelRemainingOfferId(null);
+                      }}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 hover:text-warning"
+                          aria-label="Скасувати залишок"
+                          title={`Скасувати залишок (${openRemaining} пал.)`}
+                          disabled={cancelRemaining.isPending}
+                          onClick={() => setCancelRemainingOfferId(o.id)}
+                        >
+                          <MinusCircle className="mr-1 h-3.5 w-3.5" />
+                          Скасувати залишок
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Скасувати залишок?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Буде скасовано лише залишок, який ще не прив'язаний до поставки. Вже завантажені палети не зміняться.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                          Підтверджено: {totalApproved} • Завантажено: {totalLinked}
+                          {totalCancelled > 0 && ` • Уже скасовано: ${totalCancelled}`} • Залишок: {openRemaining} пал.
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={cancelRemaining.isPending}>
+                            Закрити
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            disabled={cancelRemaining.isPending}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              cancelRemaining.mutate(o.id);
+                            }}
+                          >
+                            {cancelRemaining.isPending ? "Скасовуємо…" : "Скасувати залишок"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                   <AlertDialog
                     open={cancelConfirmOfferId === o.id}
