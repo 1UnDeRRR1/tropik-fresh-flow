@@ -712,7 +712,7 @@ function ManagerOffersPage() {
       });
     }
     return merged;
-  }, [merged, tab, branchRequestsMode]);
+  }, [merged, tab, branchRequestsMode, cancelledByResponseId]);
 
 
   // Responses from branches while the offer is still open (not closed/linked/expired).
