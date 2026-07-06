@@ -109,9 +109,30 @@ function BranchFreeList() {
     window.setTimeout(() => setShake(false), 600);
   };
 
+  // Targeted realtime — keep the branch "Вільно" list fresh after upstream
+  // shipment/distribution/request activity without waiting for navigation.
+  useRealtimeInvalidate(
+    "branch-free-realtime",
+    [
+      "shipments",
+      "shipment_items",
+      "distributions",
+      "distribution_items",
+      "branch_requests",
+    ],
+    [
+      ["branch-free-items"],
+      ["branch-free-ships"],
+      ["branch-free-pending"],
+    ],
+    !!user?.id,
+  );
+
   // Read via branch-safe views — purchase prices are not exposed at all.
   const { data: items } = useQuery({
     queryKey: ["branch-free-items"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("shipment_items_branch")
