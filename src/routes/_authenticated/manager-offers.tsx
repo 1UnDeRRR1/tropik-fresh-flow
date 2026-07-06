@@ -13,6 +13,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -702,22 +712,65 @@ function ManagerOffersPage() {
 
   // Build F — controlled cancel via server fn. Replaces direct status='deleted'
   // for the trash/delete action so an Archive event is written.
+  //
+  // Post-cancel verification: after the mutation resolves, re-read
+  // manager_offers.status for the same id. Only claim success if the row is
+  // gone or its status is 'deleted' (or any terminal non-active status). If
+  // the row is still "active" / "in_work" / "confirmed" we do NOT show a
+  // success toast — we surface a persistent failure chip on the offer card.
   const cancelOfferFn = useServerFn(cancelManagerOffer);
+  const [cancelFailedIds, setCancelFailedIds] = useState<Set<string>>(new Set());
+  const [pendingCancelOfferId, setPendingCancelOfferId] = useState<string | null>(null);
+  const markCancelFailed = (id: string) => {
+    setCancelFailedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+  const clearCancelFailed = (id: string) => {
+    setCancelFailedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
   const cancelOffer = useMutation({
     mutationFn: async (id: string) => {
-      return await cancelOfferFn({ data: { offerId: id } });
+      clearCancelFailed(id);
+      const res = await cancelOfferFn({ data: { offerId: id } });
+      // Verify: re-read manager_offers.status. RLS may hide the row entirely
+      // (also treated as success — from this user's view the offer is gone).
+      const { data: after } = await supabase
+        .from("manager_offers")
+        .select("id,status")
+        .eq("id", id)
+        .maybeSingle();
+      const stillActive =
+        !!after &&
+        after.status !== "deleted" &&
+        after.status !== "expired" &&
+        after.status !== "closed";
+      return { res, stillActive, id };
     },
-    onSuccess: async (res) => {
+    onSuccess: async ({ res, stillActive, id }) => {
+      await invalidateOfferWorkflowQueries();
+      await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
+      if (stillActive) {
+        markCancelFailed(id);
+        toast.error("Скасування не підтверджено — статус пропозиції не змінено");
+        return;
+      }
       const archived = res?.archived ?? 0;
       toast.success(
         archived > 0
           ? `Пропозицію скасовано (в архів: ${archived})`
           : "Пропозицію скасовано",
       );
-      await invalidateOfferWorkflowQueries();
-      await qc.invalidateQueries({ queryKey: ["tropik-archive"] });
     },
-    onError: async (e: Error) => {
+    onError: async (e: Error, id) => {
+      markCancelFailed(id);
       toast.error(e.message || "Не вдалося скасувати пропозицію");
       await invalidateOfferWorkflowQueries();
     },
@@ -1408,14 +1461,19 @@ function ManagerOffersPage() {
                     aria-label="Відкликати"
                     title="Відкликати"
                     disabled={cancelOffer.isPending}
-                    onClick={() => {
-                      cancelOffer.mutate(o.id);
-                      setDetailOfferId(null);
-                    }}
+                    onClick={() => setPendingCancelOfferId(o.id)}
                   >
 
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
+                  {cancelFailedIds.has(o.id) ? (
+                    <span
+                      className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive"
+                      title="Останнє скасування не підтверджено — спробуйте ще раз"
+                    >
+                      Скасування не вдалося
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="mt-4">
@@ -1590,6 +1648,37 @@ function ManagerOffersPage() {
           qc.invalidateQueries({ queryKey: ["manager-offer-targets-edit"] });
         }}
       />
+
+      <AlertDialog
+        open={!!pendingCancelOfferId}
+        onOpenChange={(o) => !o && setPendingCancelOfferId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Скасувати пропозицію?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Пропозиція зникне з активних, підтверджені обіцянки філій підуть в архів.
+              Дію не можна відкликати з інтерфейсу.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelOffer.isPending}>Ні</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelOffer.isPending}
+              onClick={() => {
+                const id = pendingCancelOfferId;
+                setPendingCancelOfferId(null);
+                if (id) {
+                  cancelOffer.mutate(id);
+                  setDetailOfferId(null);
+                }
+              }}
+            >
+              Так, скасувати
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -2285,7 +2374,7 @@ function OfferEditor({
               Відправити вибірково
             </Button>
             <Button variant="outline" onClick={onClose}>
-              Скасувати
+              Закрити
             </Button>
           </div>
 
@@ -2317,7 +2406,7 @@ function OfferEditor({
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSelectiveOpen(false)}>
-                Скасувати
+                Закрити
               </Button>
               <Button
                 onClick={() => {
@@ -3435,7 +3524,7 @@ function PublishOfferDialog({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose}>
-              Скасувати
+              Закрити
             </Button>
             <Button
               onClick={() => publish.mutate()}

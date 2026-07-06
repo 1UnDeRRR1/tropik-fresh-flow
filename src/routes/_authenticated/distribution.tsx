@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CostPair } from "@/components/CostPair";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { StatusChip } from "@/components/StatusChip";
 import { CompactFilterSelect } from "@/components/CompactFilterSelect";
 import { ShinyFilterSelect } from "@/components/ShinyFilterSelect";
 
@@ -124,6 +126,7 @@ function BranchFreeList() {
       ["branch-free-items"],
       ["branch-free-ships"],
       ["branch-free-pending"],
+      ["branch-my-requests"],
     ],
     !!user?.id,
   );
@@ -181,17 +184,73 @@ function BranchFreeList() {
     },
   });
 
+  // Only subtract THIS branch's own pending requests from its local free view.
+  // Pending requests from other branches must NOT reduce the free stock other
+  // branches see — free stock only moves after the manager confirms.
   const { data: pendingReqs } = useQuery({
-    queryKey: ["branch-free-pending"],
+    queryKey: ["branch-free-pending", profile?.branch_id ?? ""],
+    enabled: !!profile?.branch_id,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("branch_requests")
-        .select("shipment_item_id,pallets,status")
-        .eq("status", "pending");
+        .select("shipment_item_id,pallets,status,branch_id")
+        .eq("status", "pending")
+        .eq("branch_id", profile!.branch_id!);
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  // "Мої запити" — this branch's own branch_requests across the last 30 days,
+  // for the visible lifecycle section under the free-stock list. sale_price /
+  // sale_currency are informational only and are NOT wired into cost formulas.
+  const { data: myRequests } = useQuery({
+    queryKey: ["branch-my-requests", profile?.branch_id ?? ""],
+    enabled: !!profile?.branch_id,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("branch_requests")
+        .select("id,status,pallets,approved_qty,sale_price,sale_currency,created_at,updated_at,shipment_id,shipment_item_id")
+        .eq("branch_id", profile!.branch_id!)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      const list = data ?? [];
+      const itemIds = Array.from(new Set(list.map((r) => r.shipment_item_id).filter(Boolean) as string[]));
+      const shipIds = Array.from(new Set(list.map((r) => r.shipment_id).filter(Boolean) as string[]));
+      const [itemsRes, shipsRes] = await Promise.all([
+        itemIds.length
+          ? (supabase as any)
+              .from("shipment_items_branch")
+              .select("id,product_name,caliber,variety,origin_country,pallet_weight")
+              .in("id", itemIds)
+          : Promise.resolve({ data: [] as any[] }),
+        shipIds.length
+          ? (supabase as any).from("shipments_branch").select("id,code,eta,country").in("id", shipIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const iMap = new Map<string, any>(((itemsRes.data ?? []) as any[]).map((i) => [i.id, i]));
+      const sMap = new Map<string, any>(((shipsRes.data ?? []) as any[]).map((s) => [s.id, s]));
+      return list.map((r) => {
+        const it = r.shipment_item_id ? iMap.get(r.shipment_item_id) : null;
+        const sh = r.shipment_id ? sMap.get(r.shipment_id) : null;
+        return {
+          ...r,
+          product: (it?.product_name as string | undefined) ?? "—",
+          country: (it?.origin_country as string | null | undefined) ?? sh?.country ?? null,
+          caliber: (it?.caliber as string | null | undefined) ?? null,
+          variety: (it?.variety as string | null | undefined) ?? null,
+          shipmentCode: (sh?.code as string | undefined) ?? "",
+          eta: (sh?.eta as string | null | undefined) ?? null,
+          palletWeight: Number((it?.pallet_weight as number | null | undefined) ?? 0),
+        };
+      });
     },
   });
 
@@ -343,6 +402,114 @@ function BranchFreeList() {
     qc.invalidateQueries({ queryKey: ["branch-free-items"] });
     qc.invalidateQueries({ queryKey: ["branch-free-ships"] });
     qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
+    qc.invalidateQueries({ queryKey: ["branch-my-requests"] });
+  };
+
+  // Edit / cancel actions on branch's own pending requests. Only allowed
+  // while status === 'pending'; once manager acted, the row is read-only.
+  const [busyReqId, setBusyReqId] = useState<string | null>(null);
+  const [editReq, setEditReq] = useState<null | {
+    id: string;
+    pallets: number;
+    salePrice: number | null;
+    saleCurrency: string | null;
+  }>(null);
+  const [editReqPallets, setEditReqPallets] = useState("");
+  const [editReqPrice, setEditReqPrice] = useState("");
+  const [editReqCurrency, setEditReqCurrency] = useState("UAH");
+
+  const cancelOwnRequest = async (id: string) => {
+    setBusyReqId(id);
+    // Verify current status still pending (avoid clobbering a manager decision).
+    const { data: fresh, error: readErr } = await supabase
+      .from("branch_requests")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr || !fresh) {
+      setBusyReqId(null);
+      toast.error(readErr?.message ?? "Заявку не знайдено");
+      return;
+    }
+    if (fresh.status !== "pending") {
+      setBusyReqId(null);
+      toast.error("Менеджер вже опрацював заявку — редагування недоступне");
+      qc.invalidateQueries({ queryKey: ["branch-my-requests"] });
+      return;
+    }
+    const { error } = await supabase
+      .from("branch_requests")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("status", "pending");
+    setBusyReqId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Запит скасовано");
+    qc.invalidateQueries({ queryKey: ["branch-my-requests"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-items"] });
+  };
+
+  const saveEditRequest = async () => {
+    if (!editReq) return;
+    const p = Math.floor(Number(editReqPallets) || 0);
+    const pr = Number(editReqPrice);
+    if (p <= 0) {
+      toast.error("Кількість має бути більше 0");
+      return;
+    }
+    if (!(pr > 0)) {
+      toast.error("Вкажіть ціну");
+      return;
+    }
+    setBusyReqId(editReq.id);
+    // Guard: only update while still pending.
+    const { data: fresh } = await supabase
+      .from("branch_requests")
+      .select("status,shipment_item_id")
+      .eq("id", editReq.id)
+      .maybeSingle();
+    if (!fresh || fresh.status !== "pending") {
+      setBusyReqId(null);
+      toast.error("Менеджер вже опрацював заявку — редагування недоступне");
+      setEditReq(null);
+      qc.invalidateQueries({ queryKey: ["branch-my-requests"] });
+      return;
+    }
+    // Recompute qty using the item's current pallet_weight, so kg stays consistent.
+    let palletWeight = 0;
+    if (fresh.shipment_item_id) {
+      const { data: it } = await supabase
+        .from("shipment_items_branch" as never)
+        .select("pallet_weight")
+        .eq("id", fresh.shipment_item_id)
+        .maybeSingle();
+      palletWeight = Number((it as { pallet_weight?: number | null } | null)?.pallet_weight ?? 0);
+    }
+    const { error } = await supabase
+      .from("branch_requests")
+      .update({
+        pallets: p,
+        qty: p * palletWeight,
+        sale_price: pr,
+        sale_currency: editReqCurrency,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editReq.id)
+      .eq("status", "pending");
+    setBusyReqId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Запит оновлено");
+    setEditReq(null);
+    qc.invalidateQueries({ queryKey: ["branch-my-requests"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-pending"] });
+    qc.invalidateQueries({ queryKey: ["branch-free-items"] });
   };
 
 
@@ -443,6 +610,150 @@ function BranchFreeList() {
         </section>
       )}
 
+      {/* "Мої запити" — this branch's own free-stock requests, last 30 days.
+          Pending rows are editable/cancellable; decided rows are read-only.
+          sale_price / sale_currency are shown as informational only. */}
+      {(myRequests?.length ?? 0) > 0 ? (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-bold">Мої запити з Вільно</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              останні 30 днів
+            </div>
+          </div>
+          <ul className="divide-y divide-border">
+            {myRequests!.map((r) => {
+              const pending = r.status === "pending";
+              const country = r.country ? toUaCountry(r.country) : "";
+              return (
+                <li key={r.id} className="py-2 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm">
+                        <span className="font-bold">{r.product}</span>
+                        {country ? <span className="text-muted-foreground"> · {country}</span> : null}
+                        {r.variety ? <span className="text-muted-foreground"> · {r.variety}</span> : null}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {r.shipmentCode ? (
+                          <>
+                            <span className="font-mono">{r.shipmentCode}</span>
+                            {" · "}
+                          </>
+                        ) : null}
+                        {"ETA "}
+                        {fmtEtaShort(r.eta)}
+                        {" · "}
+                        {new Date(r.created_at).toLocaleDateString("uk-UA")}
+                      </div>
+                    </div>
+                    <StatusChip status={r.status} kind="branch_request" />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <div className="text-foreground/90">
+                      {r.approved_qty != null && r.status !== "pending"
+                        ? `${r.approved_qty} / ${r.pallets} п`
+                        : `${r.pallets} п`}
+                      {r.sale_price ? (
+                        <span className="text-muted-foreground">
+                          {" · "}обіцяно {r.sale_price} {r.sale_currency ?? ""}/кг
+                        </span>
+                      ) : null}
+                    </div>
+                    {pending ? (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={busyReqId === r.id}
+                          onClick={() => {
+                            setEditReq({
+                              id: r.id,
+                              pallets: Number(r.pallets ?? 0),
+                              salePrice: r.sale_price == null ? null : Number(r.sale_price),
+                              saleCurrency: r.sale_currency,
+                            });
+                            setEditReqPallets(String(Number(r.pallets ?? 0)));
+                            setEditReqPrice(r.sale_price != null ? String(r.sale_price) : "");
+                            setEditReqCurrency(r.sale_currency ?? "UAH");
+                          }}
+                        >
+                          Редагувати
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px] text-destructive"
+                          disabled={busyReqId === r.id}
+                          onClick={() => cancelOwnRequest(r.id)}
+                        >
+                          Скасувати
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      <Sheet open={!!editReq} onOpenChange={(o) => !o && setEditReq(null)}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="text-left">
+            <SheetTitle>Редагувати запит</SheetTitle>
+          </SheetHeader>
+          {editReq ? (
+            <div className="mt-3 space-y-3 text-sm">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Палет</label>
+                <Input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={editReqPallets}
+                  onChange={(e) => setEditReqPallets(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Обіцяна ціна</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={editReqPrice}
+                    onChange={(e) => setEditReqPrice(e.target.value)}
+                    className="flex-1"
+                  />
+                  <select
+                    value={editReqCurrency}
+                    onChange={(e) => setEditReqCurrency(e.target.value)}
+                    className="h-10 rounded-md border border-input bg-transparent px-2 text-sm"
+                  >
+                    <option value="UAH">UAH</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Інформаційно. Не впливає на собівартість.
+                </div>
+              </div>
+              <Button
+                onClick={saveEditRequest}
+                disabled={busyReqId === editReq.id}
+                className="w-full"
+              >
+                {busyReqId === editReq.id ? "Збереження…" : "Зберегти"}
+              </Button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={!!pick} onOpenChange={(o) => !o && setPick(null)}>
         <DialogContent

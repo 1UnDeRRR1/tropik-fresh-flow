@@ -176,6 +176,46 @@ function BranchOffersPage() {
     !!branchId,
   );
 
+  // Event-driven refetch fallback. The generic useRealtimeInvalidate marks
+  // queries stale; when the branch is already sitting on this screen the
+  // marked-stale queries do NOT refetch until a user gesture (tab change /
+  // focus). This dedicated channel listens to the tables that gate a
+  // branch's visibility of a new/updated offer and forcibly REFETCHES the
+  // two critical queries — no polling, no refetchInterval.
+  useEffect(() => {
+    if (!branchId) return;
+    let scheduled: ReturnType<typeof setTimeout> | null = null;
+    const kick = () => {
+      if (scheduled) return;
+      scheduled = setTimeout(() => {
+        scheduled = null;
+        void qc.refetchQueries({ queryKey: ["branch-active-offers"] });
+        void qc.refetchQueries({ queryKey: ["my-branch-responses", branchId] });
+      }, 300);
+    };
+    const channel = supabase
+      .channel(`branch-offers-refetch-${branchId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manager_offer_targets", filter: `branch_id=eq.${branchId}` },
+        kick,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manager_offer_allocation_parts", filter: `branch_id=eq.${branchId}` },
+        kick,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manager_offer_responses", filter: `branch_id=eq.${branchId}` },
+        kick,
+      )
+      .subscribe();
+    return () => {
+      if (scheduled) clearTimeout(scheduled);
+      supabase.removeChannel(channel);
+    };
+  }, [qc, branchId]);
 
 
 
