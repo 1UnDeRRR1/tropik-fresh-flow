@@ -31,6 +31,7 @@ import { countPositionsFromGroups, formatPositions } from "@/lib/positions";
 
 import { toast } from "sonner";
 import { useStableQueryData } from "@/lib/query-stability";
+import { useRealtimeInvalidate } from "@/hooks/useRealtimeInvalidate";
 
 export const Route = createFileRoute("/_authenticated/distribution")({
   component: Distribution,
