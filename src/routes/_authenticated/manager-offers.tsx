@@ -2380,7 +2380,7 @@ function OfferEditor({
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSelectiveOpen(false)}>
-                Скасувати
+                Закрити
               </Button>
               <Button
                 onClick={() => {
