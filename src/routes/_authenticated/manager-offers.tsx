@@ -816,6 +816,34 @@ function ManagerOffersPage() {
     },
   });
 
+  // Cancel remaining unlinked confirmed pallets (position lifecycle event).
+  // Writes status='cancelled' allocation parts + one position_events row via
+  // the SECURITY DEFINER RPC `cancel_manager_offer_remaining`. Does NOT touch
+  // shipment_items, position_id, offer.status, approved/requested pallets.
+  const cancelRemainingFn = useServerFn(cancelManagerOfferRemaining);
+  const [cancelRemainingOfferId, setCancelRemainingOfferId] = useState<string | null>(null);
+  const cancelRemaining = useMutation({
+    mutationFn: async (id: string) => cancelRemainingFn({ data: { offerId: id } }),
+    onSuccess: async (res) => {
+      if (res?.noOp) {
+        toast.info("Немає залишку для скасування");
+      } else {
+        const n = res?.totalCancelledPallets ?? 0;
+        toast.success(
+          n > 0 ? `Залишок скасовано: ${n} пал.` : "Залишок скасовано",
+        );
+      }
+      setCancelRemainingOfferId(null);
+      await invalidateOfferWorkflowQueries();
+      await qc.invalidateQueries({ queryKey: ["manager-offer-allocation-parts-cancelled"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Не вдалося скасувати залишок");
+    },
+  });
+
+
+
   const updateApproved = useMutation({
     mutationFn: async ({ id, approved }: { id: string; approved: number | null }) => {
       const { error } = await supabase
