@@ -493,6 +493,10 @@ function BranchOffersPage() {
     onSuccess: async (_, vars) => {
       toast.success("Запит надіслано", { id: `req-${vars.offerId}`, duration: 1500 });
       await invalidateOfferWorkflowQueries();
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["branch-active-offers"] }),
+        qc.refetchQueries({ queryKey: ["my-branch-responses", branchId] }),
+      ]);
       // Block 2: auto-close the detail dialog after a successful request,
       // returning the user to the compact "Пропозиції" table.
       setSelectedOfferId(null);
